@@ -1,0 +1,32 @@
+useDynLib(qpgraph)
+
+import("methods")
+import("Biobase")
+import("AnnotationDbi")
+
+exportMethods("qpNrr",
+              "qpAvgNrr",
+              "qpPAC",
+              "qpPCC",
+              "qpCItest",
+              "qpEdgeNrr")
+
+export(qpHist,
+       qpGraphDensity,
+       qpCliqueNumber,
+       qpClique,
+       qpGraph,
+       qpAnyGraph,
+       qpGetCliques,
+       qpIPF,
+       qpPAC,
+       qpPCC,
+       qpRndGraph,
+       qpI2K,
+       qpK2R,
+       qpSampleMvnorm,
+       qpPrecisionRecall,
+       qpPRscoreThreshold,
+       qpImportNrr,
+       qpDscale,
+       qpFunctionalCoherence)

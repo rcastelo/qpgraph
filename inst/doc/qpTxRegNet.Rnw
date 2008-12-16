@@ -1,0 +1,620 @@
+%\VignetteIndexEntry{Reverse-engineer transcriptional regulatory networks using qpgraph}
+%\VignetteKeywords{qp-graph, microarray, network}
+%\VignettePackage{qpTxRegNet}
+\documentclass[11pt]{article}
+
+\usepackage{times}
+\usepackage{mathptm}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{natbib}
+\usepackage{fullpage}
+
+\title{Reverse engineering transcriptional regulatory networks \\ from
+       gene expression microarray data using {\tt qpgraph}}
+\author{Robert Castelo and Alberto Roverato}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+This vignette describes how to use the package \verb+qpgraph+ in order to reverse
+engineer a transcriptional regulatory network from a particular gene
+expression microarray data set of Escherichia coli (E. coli). Concretely, 
+the data corresponds to $n=43$ experiments of various mutants under oxygen
+deprivation \citep{Covert:2004fx}. The mutants were designed to monitor the
+response from E. coli during an oxygen shift in order to target the {\it a
+priori} most relevant part of the transcriptional netwok by using six strains
+with knockouts of the following key transcriptional regulators in the oxygen
+response: $\Delta${\it arcA}, $\Delta${\it appY}, $\Delta${\it fnr},
+$\Delta${\it oxyR}, $\Delta${\it soxS} and the double knockout
+$\Delta${\it arcA}$\Delta${\it fnr}. To get started, load the following packages:
+
+<<setup, echo=TRUE, results=hide>>=
+library(annotate)
+library(genefilter)
+library(org.EcK12.eg.db)
+library(graph)
+library(qpgraph)
+@
+Within the \verb+qpgraph+ package there is a data file called \verb+EcoliOxygen+
+in which we will find the following objects stored:
+
+<<setup, echo=TRUE, results=verbatim>>=
+data(EcoliOxygen)
+ls()
+@
+where \verb+filtered.regulon6.1+ contains a subset of the E. coli transcriptional
+network from RegulonDB 6.1 \citep{Gama-Castro:2008le} obtained through the
+filtering steps described in \citep{Castelo:2008uq} and \verb+gds680.eset+ is an
+\verb+ExpressionSet+ object with the $n=43$ microarray experiments of
+\cite{Covert:2004fx} described before. These experiments provide expression
+profiles for $p=4\,205$ genes derived from the original data set downloaded from
+the Gene Expression Omnibus \citep{Barrett:2007dq} with accession \verb+GDS680+
+by applying the filtering steps described also in \citep{Castelo:2008uq}. You can
+see a summary of the data contained in this object by simply typing its name on
+the R-shell:
+
+<<setup, echo=TRUE, results=verbatim>>=
+gds680.eset
+@
+where the usual probeset identifiers in the \verb+featureNames+ slot have been
+already replaced by the corresponding Entrez IDs according to the filtering steps
+taken in \citep{Castelo:2008uq}.
+
+\section{Preprocessing steps}
+
+In order to keep time and space requirements of the calculations at a manageable
+level for a vignette, we will use a subset of these data. Concretely, we will
+consider first those genes forming part in RegulonDB of the regulatory modules of
+the five knocked-out transcription factors and select the 100 genes with largest
+variability measured by the interquartile range (IQR). In the \verb+qpgraph+
+package the filtered RegulonDB data is stored in the form of a data frame where
+each row corresponds to a transcriptional regulatory relationship, the first two
+columns contain Blattner IDs of the transcription factor (TF) and target (TG)
+genes, respectively, and the following two correspond to the same genes but
+specified by Entrez IDs. The fifth column contains the direction of the
+regulation according to RegulonDB and this is how the first rows look like:
+
+<<preprocessing, echo=TRUE, results=verbatim>>=
+head(filtered.regulon6.1)
+@
+We select the rows of \verb+filtered.regulon6.1+ that correspond to the subnetwork
+of the 5 knocked-out TFs as follows. First, obtain the Entrez IDs of these genes
+from their symbols:
+
+<<preprocessing, echo=TRUE, results=verbatim>>=
+knockoutsyms <- c("arcA","appY","oxyR","soxS","fnr")
+rmap <- revmap(getAnnMap("SYMBOL", "org.EcK12.eg.db"))
+knockoutEgIDs <- unlist(mget(knockoutsyms, rmap))
+knockoutEgIDs
+@
+Next, get all transcriptional regulatory relationships from these TFs and obtain
+the subset of non-redundant genes involved in this subnetwork:
+
+<<preprocessing, echo=TRUE, results=verbatim>>=
+mt <- match(filtered.regulon6.1[,"EgID_TF"], knockoutEgIDs)
+cat("These 5 TFs are involved in",sum(!is.na(mt)),"TF-TG interactions\n")
+genesO2net <- as.character(unique(as.vector(
+              as.matrix(filtered.regulon6.1[!is.na(mt),c("EgID_TF","EgID_TG")]))))
+cat("There are",length(genesO2net),"different genes in this subnetwork\n")
+@
+and, finally, select the 100 most variable genes by using the IQR:
+
+<<preprocessing, echo=TRUE, results=verbatim>>=
+IQRs <- apply(exprs(gds680.eset[genesO2net,]),1,IQR)
+largestIQRgenesO2net <- names(sort(IQRs,decreasing=TRUE)[1:100])
+@
+Using these genes we create a new \verb+ExpressionSet+ object, which we shall call
+\verb+subset.gds680.eset+ by subsetting directly from \verb+gds680.eset+:
+
+<<preprocessing, echo=TRUE, results=verbatim>>=
+dim(gds680.eset)
+subset.gds680.eset <- gds680.eset[largestIQRgenesO2net,]
+dim(subset.gds680.eset)
+subset.gds680.eset
+@
+In order to compare later our results against the transcriptional network from
+RegulonDB we will extract the subnetwork that involves exclusively these selected
+100 genes as follows. First extract the corresponding rows:
+
+<<preprocessing, echo=TRUE, results=verbatim>>=
+mtTF <- match(filtered.regulon6.1[,"EgID_TF"],largestIQRgenesO2net)
+mtTG <- match(filtered.regulon6.1[,"EgID_TG"],largestIQRgenesO2net)
+
+cat(sprintf("The 100 genes are involved in %d RegulonDB interactions\n",
+    sum(!is.na(mtTF) & !is.na(mtTG))))
+
+subset.filtered.regulon6.1 <- filtered.regulon6.1[!is.na(mtTF) & !is.na(mtTG),]
+@
+Next, we need to build an incidence matrix of this subset of interactions, which
+we shall call \verb+subset.filtered.regulon6.1.I+, in order to ease posterior
+comparisons with reverse-engineered networks and for this purpose we should first
+map the Entrez IDs to the indexed position they have within the
+\verb+ExpressionSet+ object and then build the incidence matrix:
+
+<<preprocessing, echo=TRUE, results=verbatim>>=
+TFi <- match(subset.filtered.regulon6.1[,"EgID_TF"],
+             featureNames(subset.gds680.eset))
+TGi <- match(subset.filtered.regulon6.1[,"EgID_TG"],
+             featureNames(subset.gds680.eset))
+
+subset.filtered.regulon6.1 <- cbind(subset.filtered.regulon6.1,
+                                    idx_TF=TFi, idx_TG=TGi)
+
+p <- dim(subset.gds680.eset)["Features"]
+
+subset.filtered.regulon6.1.I <- matrix(FALSE, nrow=p, ncol=p)
+rownames(subset.filtered.regulon6.1.I) <- featureNames(subset.gds680.eset)
+colnames(subset.filtered.regulon6.1.I) <- featureNames(subset.gds680.eset)
+
+idxTFTG <- as.matrix(subset.filtered.regulon6.1[,c("idx_TF","idx_TG")])
+
+subset.filtered.regulon6.1.I[idxTFTG] <-
+   subset.filtered.regulon6.1.I[cbind(idxTFTG[,2],idxTFTG[,1])] <- TRUE
+@
+
+\section{Reverse engineer a transcriptional regulatory network}
+
+We are set to reverse engineer a transcriptional regulatory network from the
+subset of the oxygen deprivation microarray data formed by the selected 100 genes
+and we will use three methods: 1. the estimation of Pearson correlation
+coefficients (PCCs); 2. the estimation of average non-rejection rates (avgNRRs);
+and, as a baseline comparison, 3. the assignment of random correlations drawn from
+a uniform distribution between -1 and +1 to every pair of genes. We can estimate
+PCCs for all gene pairs with the function \verb+qpPCC+ from the \verb+qpgraph+
+package as follows:
+
+<<getthenet, echo=TRUE, results=verbatim>>=
+pcc.estimates <- qpPCC(subset.gds680.eset)
+@
+which returns a list with two members, one called \verb+R+ with the PCCs and
+another called \verb+P+ with the corresponding two-sided P-values for the null
+hypothesis of zero correlation. Let's take a look to the distribution of absolute
+PCCs between all possible TF-TG pairs in this subset of 100 genes:
+
+<<getthenet, echo=TRUE, results=verbatim>>=
+largestIQRgenesO2net_i <- match(largestIQRgenesO2net,
+                                featureNames(subset.gds680.eset))
+largestIQRgenesO2netTFs <- largestIQRgenesO2net[!is.na(
+                           match(largestIQRgenesO2net,filtered.regulon6.1[,"EgID_TF"]))]
+largestIQRgenesO2netTFs_i <- match(largestIQRgenesO2netTFs,
+                                   featureNames(subset.gds680.eset))
+TFsbyTGs <- as.matrix(expand.grid(largestIQRgenesO2netTFs_i,
+                                  setdiff(largestIQRgenesO2net_i,largestIQRgenesO2netTFs_i)))
+TFsbyTGs <- rbind(TFsbyTGs,t(combn(largestIQRgenesO2netTFs_i, 2)))
+summary(abs(pcc.estimates$R[TFsbyTGs]))
+@
+Note that they are distributed almost uniformly at random throughout the
+entire range [0,1] while if we look at the distribution of the PCC estimates for
+the entire genome wide data, i.e., for all possible TF-TG pairs among the initial
+$p=4\,205$ genes:
+
+<<getthenet, echo=TRUE, results=verbatim>>=
+pcc.gwide.estimates <- qpPCC(gds680.eset)
+allTFs_i <- match(unique(filtered.regulon6.1[,"EgID_TF"]),featureNames(gds680.eset))
+allTFsbyTGs <- as.matrix(expand.grid(allTFs_i,
+                                     setdiff(1:length(featureNames(gds680.eset)),allTFs_i)))
+allTFsbyTGs <- rbind(allTFsbyTGs,t(combn(allTFs_i, 2)))
+summary(abs(pcc.gwide.estimates$R[allTFsbyTGs]))
+@
+we see that, opposite to what happens in the subset of 100 genes, most of the
+absolute PCC values for all (i.e., present and absent from RegulonDB) TF-TG pairs
+are small. The high level of correlation among most of the 100 genes is probably
+due to the coordinated transcriptional program to which all these genes belong
+to, since they form part of some of the key regulatory modules in the response to
+oxygen deprivation. Recall that five TFs in these regulatory modules were
+knocked-out in the assayed experimental conditions and we selected the most
+variable 100 genes. Concretely, among the five TFs the following ones were
+finally included in these 100 most variable genes:
+
+<<getthenet, echo=TRUE, results=verbatim>>=
+mt <- match(knockoutEgIDs,largestIQRgenesO2net)
+unlist(mget(largestIQRgenesO2net[mt[!is.na(mt)]],org.EcK12.egSYMBOL))
+@
+If we look now to the distribution of absolute PCC values for only those TF-TG
+pairs that are present in the subset of RegulonDB involved in the 100 genes:
+
+<<getthenet, echo=TRUE, results=verbatim>>=
+maskRegulonTFTG <- subset.filtered.regulon6.1.I & upper.tri(subset.filtered.regulon6.1.I)
+summary(abs(pcc.estimates$R[maskRegulonTFTG]))
+@
+they show much lower values (50\% < 0.3) and thus we can expect that a
+substantial number of TF-TG pairs absent from RegulonDB but with strong PCC
+values will sneak in as false positives in our assessment below of the estimation
+of PCCs as a reverse engineering method. If we look at the distribution of the
+PCC values from the RegulonDB interactions separetely by each of the
+regulatory modules within these 100 genes (i.e., by each of the TFs) we can
+see that {\it fnr} is one of the responsibles for having low PCCs in a large
+fraction of this subset of RegulonDB. We have used the R code below to produce
+Figure~1 where this is shown.
+
+<<getthenet, eval=FALSE, echo=FALSE, results=hide>>=
+postscript(file="qpPCCdistbyTF.eps", onefile=FALSE, paper="a4",
+           pointsize=12, horizontal=FALSE, height=6, width=6)
+@
+
+<<getthenet, echo=TRUE, results=verbatim>>=
+par(mar=c(5,4,5,2))
+pccsbyTF <- list()
+for (TFi in subset.filtered.regulon6.1[,"idx_TF"])
+  pccsbyTF[[featureNames(subset.gds680.eset)[TFi]]] <- abs(pcc.estimates$R[TFi, subset.filtered.regulon6.1.I[TFi,]])
+bp <- boxplot(pccsbyTF,names=sprintf("%s",mget(names(pccsbyTF),org.EcK12.egSYMBOL)),
+              ylab="Pearson correlation coefficient (PCC)",
+              main=paste("Distribution of PCCs in each RegulonDB",
+                         "regulatory module within the 100 genes data set", sep="\n"))
+nint <- sprintf("(%d)",sapply(names(pccsbyTF), function(x)
+                       sum(subset.filtered.regulon6.1.I[x,])))
+mtext(nint, at=seq(bp$n), line=+2, side=1)
+mtext("Transcription factor (# RegulonDB interactions)", side=1, line=+4)
+@
+<<getthenet, eval=FALSE, echo=FALSE, results=hide>>=
+dev.off()
+@
+As observed by \cite{Covert:2004fx} when {\it fnr} becomes active under anaerobic
+conditions its mRNA level is significantly reduced and we hypothesize that this
+fact probably leads to weak correlations of the expression level with its target
+genes.
+
+\begin{figure}
+\centerline{\includegraphics[width=0.5\textwidth]{qpPCCdistbyTF}}
+\caption{Distribution of Pearson correlation coefficients (PCCs) calculated from
+the \cite{Covert:2004fx} oxygen deprivation data between genes forming RegulonDB
+interactions. Distributed values are shown separately by each regulatory module
+defined as a transcription factor (TF) and its set of target genes.}
+\label{fig:pcctf}
+\end{figure}
+
+Now we will show how can we use qp-graphs to tackle such a challenging
+situation. We should start by estimating avgNRRs with the function
+\verb+qpAvgNrr+ but before we do that, and for the sake of reproducibility of
+the results of this vignette, we should take into account that because the
+non-rejection rate is estimated by a random sampling procedure
+\citep[see][]{Castelo:2006yu}, its value may vary slightly from run to run and
+thus edges with very similar avgNRR values may alternate their positions when
+ranking them and thus show up differently in different qp-graphs obtained from
+different runs if, within the ranking, they lie at the boundary of the precision
+threshold we may be using later. For this reason, and in order to let the reader
+reproduce exactly the results contained in this vignette, we will specify a
+particular seed to the random number generator as follows:
+
+<<getthenet, echo=TRUE, results=verbatim>>=
+set.seed(12345)
+@
+Moreover, in this exercise, we are only interested in TF-TG relationships and
+thus we will speed-up the calculations by restricting the formation of gene pairs
+with the parameters \verb+pairup.i+ and \verb+pairup.j+ in the following way:
+
+<<getthenet, echo=TRUE, results=verbatim>>=
+avgnrr.estimates <- qpAvgNrr(subset.gds680.eset,
+                             pairup.i=largestIQRgenesO2netTFs,
+                             pairup.j=largestIQRgenesO2net)
+@
+The function \verb+qpAvgNrr+ uses by default four equidistant q-values along the
+available range and returns a matrix with the estimates for all gene pairs except
+when, as in this case, we restrict the genes allowed to pair with each other. In
+order to assess the accuracy of the PCC and qp-graph methods we will use the
+transcriptional regulatory relationships in the subset of RegulonDB that we
+selected before and calculate precision-recall curves \citep{Fawcett:2006fj}
+using the \verb+qpPrecisionRecall+ function from the \verb+qpgraph+ package.
+
+We have to be careful with the fact that while we calculated avgNRRs only for
+TF-TG pairs, the matrix \verb+pcc.estimates$R+ contains PCC values for all pairs
+of genes and thus in order to obtain comparable precision-recall curves we
+will have to inform \verb+qpPrecisionRecall+ of the pairs that should be
+considered when giving it the matrix of PCC values. This is not necessary with
+avgNRRs as the matrix has \verb+NA+ values on the cells corresponding to pairs
+where no calculation was performed (on the pairs of non-transcription factor
+genes).
+
+<<getthenet, echo=TRUE, results=verbatim>>=
+pcc.prerec <- qpPrecisionRecall(abs(pcc.estimates$R), subset.filtered.regulon6.1.I,
+                                decreasing=TRUE, pairup.i=largestIQRgenesO2netTFs,
+                                pairup.j=largestIQRgenesO2net,
+                                recallSteps=c(seq(0,0.1,0.01),seq(0.2,1,0.1)))
+@
+Note also that, opposite to PCCs, in avgNRR estimates the value indicating the
+smallest strength of the interaction is 1 instead of 0 and therefore we should
+set \verb+decreasing=FALSE+:
+
+<<getthenet, echo=TRUE, results=verbatim>>=
+avgnrr.prerec <- qpPrecisionRecall(avgnrr.estimates, subset.filtered.regulon6.1.I,
+                                   decreasing=FALSE,
+                                   recallSteps=c(seq(0,0.1,0.01),seq(0.2,1,0.1)))
+@
+Finally, in order to have the assignment of random correlations as a
+baseline comparison we should do the following:
+
+<<getthenet, echo=TRUE, results=verbatim>>=
+set.seed(12345)
+rndcor <- matrix(runif(10000,min=-1,max=1), nrow=100, ncol=100)
+rownames(rndcor) <- colnames(rndcor) <- rownames(avgnrr.estimates)
+random.prerec <- qpPrecisionRecall(abs(rndcor), subset.filtered.regulon6.1.I,
+                                   decreasing=TRUE, pairup.i=largestIQRgenesO2netTFs,
+                                   pairup.j=largestIQRgenesO2net,
+                                   recallSteps=c(seq(0,0.1,0.01),seq(0.2,1,0.1)))
+@
+where again we have specified a seed for the random number generator in order to
+enforce reproducing the same random correlations each time we run this vignette.
+
+A way to quantitatively compare these three precision-recall curves is to
+calculate the area under these curves where the larger it is, the more
+accurate the method is:
+
+<<getthenet, echo=TRUE, results=verbatim>>=
+f <- approxfun(pcc.prerec[,c("Recall","Precision")])
+area <- integrate(f,0,1)$value
+f <- approxfun(avgnrr.prerec[,c("Recall","Precision")])
+area <- cbind(area, integrate(f,0,1)$value)
+f <- approxfun(random.prerec[,c("Recall","Precision")])
+area <- cbind(area, integrate(f,0,1)$value)
+colnames(area) <- c("PCC", "avgNRR", "Random")
+rownames(area) <- "AreaPrecisionRecall"
+printCoefmat(area)
+@
+From these values we may conclude that, for these data ($n=43$ microarray
+experiments on $p=100$ genes among which 7 are TFs, and with 128 transcriptional
+regulatory relationships from RegulonDB for comparison), the random method
+outperforms the usage of PCCs but it performs worse than the qp-graph method
+with avgNRRs which, therefore, constitutes the best solution among these three
+approaches. While it may sound a bit counter-intuitive that the assignment of a
+random correlation provides better results than using PCCs, the reason for this
+lies in the fact that with these data we have $7\times 93 + {7\choose 2} = 672$
+possible TF-TG interactions out of which 128 from RegulonDB form our
+gold-standard. This yields a bottomline precision of
+$(128/672)\times 100\approx 19\%$ which is quickly attained by drawing random
+correlations. However, we saw before that absolute PCCs of the RegulonDB
+interactions forming our gold-standard are most of them distributed under 0.5
+and this yields, for this particular data set, a performance that is worse than
+random at regions of high-precision. We may see this situation depicted in
+Figure~2 whose left panel has been produced with the following R code:
+
+<<getthenet, eval=FALSE, echo=FALSE, results=hide>>=
+postscript(file="qpPreRecComparison.eps", onefile=FALSE, paper="a4",
+           pointsize=12, horizontal=FALSE, height=6, width=6)
+@
+<<getthenet, echo=TRUE, results=hide>>=
+par(mai=c(.5,.5,1,.5),mar=c(5,4,7,2)+0.1)
+plot(avgnrr.prerec[,c(1,2)], type="b", lty=1, pch=19, cex=0.65, lwd=4, col="red",
+     xlim=c(0,0.1), ylim=c(0,1), axes=FALSE,
+     xlab="Recall (% RegulonDB interactions)", ylab="Precision (%)")
+axis(1, at=seq(0,1,0.01), labels=seq(0,100,1))
+axis(2, at=seq(0,1,0.10), labels=seq(0,100,10))
+axis(3, at=avgnrr.prerec[,"Recall"],
+     labels=round(avgnrr.prerec[,"Recall"]*dim(subset.filtered.regulon6.1)[1],
+                  digits=0))
+title(main="Precision-recall comparison", line=+5)
+lines(pcc.prerec[,c(1,2)], type="b", lty=1, pch=22, cex=0.65, lwd=4, col="blue")
+lines(random.prerec[,c(1,2)], type="l", lty=2, lwd=4, col="black")
+mtext("Recall (# RegulonDB interactions)", 3, line=+3)
+legend(0.06, 1.0, c("qp-graph","PCC","Random"), col=c("red","blue","black"),
+       lty=c(1,1,2), pch=c(19,22,-1), lwd=3, bg="white",pt.cex=0.85)
+@
+<<getthenet, eval=FALSE, echo=FALSE, results=hide>>=
+dev.off()
+@
+<<getthenet, eval=FALSE, echo=FALSE, results=hide>>=
+postscript(file="qpPreRecComparisonFullRecall.eps", onefile=FALSE, paper="a4",
+           pointsize=12, horizontal=FALSE, height=6, width=6)
+@
+<<getthenet, eval=FALSE, echo=FALSE, results=hide>>=
+par(mai=c(.5,.5,1,.5),mar=c(5,4,7,2)+0.1)
+plot(avgnrr.prerec[,c(1,2)], type="b", lty=1, pch=19, cex=0.65, lwd=4, col="red",
+     xlim=c(0,1), ylim=c(0,1), axes=FALSE,
+     xlab="Recall (% RegulonDB interactions)", ylab="Precision (%)")
+axis(1, at=seq(0,1,0.10), labels=seq(0,100,10))
+axis(2, at=seq(0,1,0.10), labels=seq(0,100,10))
+axis(3, at=avgnrr.prerec[,"Recall"],
+     labels=round(avgnrr.prerec[,"Recall"]*dim(subset.filtered.regulon6.1)[1],
+                  digits=0))
+title(main="Precision-recall comparison", line=+5)
+lines(pcc.prerec[,c(1,2)], type="b", lty=1, pch=22, cex=0.65, lwd=4, col="blue")
+lines(random.prerec[,c(1,2)], type="l", lty=2, lwd=4, col="black")
+mtext("Recall (# RegulonDB interactions)", 3, line=+3)
+legend(0.6, 1.0, c("qp-graph","PCC","Random"), col=c("red","blue","black"),
+       lty=c(1,1,2), pch=c(19,22,-1), lwd=3, bg="white",pt.cex=0.85)
+@
+<<getthenet, eval=FALSE, echo=FALSE, results=hide>>=
+dev.off()
+@
+\begin{figure}
+\label{fig:prerec}
+\centerline{\begin{tabular}{cc}
+\includegraphics[width=0.45\textwidth]{qpPreRecComparison} &
+\includegraphics[width=0.45\textwidth]{qpPreRecComparisonFullRecall} \\
+(a) & (b)
+\end{tabular}}
+\caption{Comparison of precision-recall curves for various reverse-engineering
+methods with panel (a) showing a high-precision recall region of [0,0.1] and
+panel(b) showing the entire recall range.}
+\end{figure}
+
+The final step in this analysis is to get a transcriptional regulatory network
+from a qp-graph using avgNNRs and, if possible, obtain estimates of partial
+correlation coefficients (PAC) for the interactions. A qp-graph can be obtained
+by thresholding on the avgNRRs using the function \verb+qpGraph+. When, as in our
+case now, we have a gold-standard network like RegulonDB, a sensible strategy
+to decide on a particular threshold is to derive it from a nominal precision
+level with respect to the gold-standard network. We can do this with the
+function \verb+qpPRscoreThreshold+ which reads the output of
+\verb+qpPrecisionRecall+ and takes a desired precision or recall level. We will
+use it with a nominal precision level of 50\%:
+
+<<getthenet, echo=TRUE, results=verbatim>>=
+thr <- qpPRscoreThreshold(avgnrr.prerec, level=0.5, recall.level=FALSE, max.score=0)
+thr
+
+g <- qpGraph(avgnrr.estimates, threshold=thr, return.type="graphNEL")
+@
+In the previous call to \verb+qpGraph+ we have set \verb+return.type="graphNEL"+
+in order to get a \verb+graphNEL+ object which we can directly plot using the
+\verb+Rgraphviz+ library as we will show later, but before that we want to
+estimate the corresponding PACs for the interactions. First, we should see if
+this is at all possible by calculating the size of the largest clique in this
+undirected graph with the \verb+qpCliqueNumber+ function from the \verb+qpgraph+
+package:
+
+<<getthenet, echo=TRUE, results=verbatim>>=
+qpCliqueNumber(g, verbose=FALSE)
+@
+The maximum clique size (aka clique number) is smaller than the number of
+observations in the data ($n=43$) and therefore we can go on with the PAC
+estimation \citep[see][for further details on this]{Lauritzen:1996fj}:
+
+<<getthenet, echo=TRUE, results=verbatim>>=
+pac.estimates <- qpPAC(subset.gds680.eset, g, verbose=FALSE)
+@
+In order to build the final reverse engineered transcriptional regulatory network
+from this 50\%-precision qp-graph we need to transform the undirected graph
+\verb+g+ into a \verb+graphNEL+ directed graph with arrows pointing from TFs to
+their targets. This can be accomplished by first setting the \verb+graphNEL+
+object \verb+g+ that stores the qp-graph as a directed graph:
+
+<<getthenet, echo=TRUE, results=verbatim>>=
+edgemode(g) <- "directed"
+@
+This operation leaves \verb+g+ with directed edges between all genes that were
+adjacent in the former undirected graph. Therefore, we should next remove those
+directed edges that go from TG genes to TF genes:
+
+<<getthenet, echo=TRUE, results=verbatim>>=
+gTFvertices <- nodes(g)[!is.na(match(nodes(g), filtered.regulon6.1[,"EgID_TF"]))]
+
+wrongEdges <- boundary(setdiff(nodes(g),gTFvertices),g)
+wrongEdges <- wrongEdges[unlist(lapply(wrongEdges, length)) > 0]
+wrongEdges <- matrix(unlist(sapply(names(wrongEdges),
+                     function(x) t(cbind(x,wrongEdges[[x]])), USE.NAMES=FALSE)),
+                     ncol=2, byrow=TRUE)
+g <- removeEdge(from=wrongEdges[,1], to=wrongEdges[,2], g)
+@
+Before making a graphical representation of the transcriptional regulatory
+network we have in \verb+g+ we would like to make a text-based summary of the
+interactions, more amenable for an occasional automatic processing of them
+outside R, including their presence or absence of RegulonDB and corresponding
+avgNRRs, PACs and PCCs. We start by building a matrix of the directed edges,
+
+<<getthenet, echo=TRUE, results=verbatim>>=
+edL <- edges(g)[names(edges(g))[unlist(lapply(edges(g),length)) > 0]]
+edM <- matrix(unlist(sapply(names(edL),
+              function(x) t(cbind(x,edL[[x]])),USE.NAMES=FALSE)),
+              ncol=2,byrow=TRUE)
+@
+and continue by gathering all the necessary information on these edges,
+
+<<getthenet, echo=TRUE, results=verbatim>>=
+edSymbols <- cbind(unlist(mget(edM[,1], org.EcK12.egSYMBOL)),
+                   unlist(mget(edM[,2], org.EcK12.egSYMBOL)))
+idxTF <- match(edM[,1], featureNames(subset.gds680.eset))
+idxTG <- match(edM[,2], featureNames(subset.gds680.eset))
+nrrs <- avgnrr.estimates[cbind(idxTF, idxTG)]
+pacs.rho <- pac.estimates$R[cbind(idxTF, idxTG)]
+pacs.pva <- pac.estimates$P[cbind(idxTF, idxTG)]
+pccs.rho <- pcc.estimates$R[cbind(idxTF, idxTG)]
+pccs.pva <- pcc.estimates$P[cbind(idxTF, idxTG)]
+
+idxRegDB <- apply(edM,1,function(x) { 
+                          regdbmask <-
+                            apply(
+                            cbind(match(subset.filtered.regulon6.1[,"EgID_TF"],x[1]),
+                                  match(subset.filtered.regulon6.1[,"EgID_TG"],x[2])),
+                            1, function(y) sum(!is.na(y))) == 2 ;
+                          if (sum(regdbmask) > 0)
+                            (1:dim(subset.filtered.regulon6.1)[1])[regdbmask]
+                          else
+                             NA
+                        })
+
+isinRegDB <- matrix(c("present","absent"),
+                    nrow=2, ncol=length(idxRegDB))[t(cbind(!is.na(idxRegDB),
+                    is.na(idxRegDB)))]
+@
+to end up creating a data frame that includes all the information,
+
+<<getthenet, echo=TRUE, results=verbatim>>=
+txregnet <- data.frame(RegulonDB=isinRegDB,
+                       RegDBdir=subset.filtered.regulon6.1[idxRegDB,"Direction"],
+                       AvgNRR=round(nrrs,digits=2),
+                       PCC.rho=round(pccs.rho,digits=2),
+                       PCC.pva=format(pccs.pva,scientific=TRUE,digits=3),
+                       PAC.rho=round(pacs.rho,digits=2),
+                       PAC.pva=format(pacs.pva,scientific=TRUE,digits=3))
+rownames(txregnet) <- paste(edSymbols[,1],edSymbols[,2],sep=" -> ")
+@
+and which allows us to display the transcriptional regulatory network as a list
+of edges ordering them, for instance, by the avgNRR from the stronger (0.0) to
+the weaker (1.0) support for the presence of that interaction in the network:
+
+<<getthenet, echo=TRUE, results=verbatim>>=
+txregnet[sort(txregnet[["AvgNRR"]],index.return=TRUE)$ix,]
+@
+We can plot the network, which should look like the one in Figure~3, by loading
+first the \verb+Rgraphviz+ library:
+
+<<getthenet, echo=TRUE, results=verbatim>>=
+library(Rgraphviz)
+@
+Next, get the genes forming connected components with more than 1 vertex
+(i.e., those involved in edges) using the \verb+connComp+ function from the
+\verb+graph+ package:
+
+<<getthenet, echo=TRUE, results=verbatim>>=
+gCc <- connComp(g)
+gCc_gt1 <- gCc[(1:length(gCc))[unlist(lapply(gCc,length)) > 1]]
+genesCcGt1 <- unique(unlist(gCc_gt1))
+@
+We extract the subgraph involving those genes, label them with their symbol
+names and make TF genes look darker:
+
+<<getthenet, echo=TRUE, results=verbatim>>=
+gSub <- subGraph(genesCcGt1,g)
+
+nodattr <- makeNodeAttrs(gSub,label=unlist(mget(nodes(gSub),org.EcK12.egSYMBOL)),
+                         shape="ellipse",fixedsize=FALSE,fillcolor=grey(0.90))
+gSubTFnodes <- nodes(gSub)[!is.na(match(nodes(gSub),filtered.regulon6.1[,"EgID_TF"]))]
+nodattr$fillcolor[gSubTFnodes] <- grey(0.65)
+@
+Set different colors for edges representing RegulonDB interactions, novel
+interactions, positive PACs and negative PACs:
+
+<<getthenet, echo=TRUE, results=verbatim>>=
+edgecolors <- rep("darkred",length(isinRegDB))
+edgecolors[isinRegDB == "absent" & pacs.rho > 0] <- "orange"
+edgecolors[isinRegDB == "present" & pacs.rho < 0] <- "darkblue"
+edgecolors[isinRegDB == "absent" & pacs.rho < 0] <- "deepskyblue"
+names(edgecolors) <- paste(edM[,1],edM[,2],sep="~")
+edgattrs <- list(color=edgecolors)
+@
+We can finally do the plotting and put a legend as follows:
+
+\begin{figure}
+\label{fig:txregnet}
+\centerline{\includegraphics[width=0.6\textwidth]{qpTRnet50pctpre}}
+\caption{Reverse-engineered transcriptional network using a qp-graph at a nominal
+50\% precision.}
+\end{figure}
+
+<<getthenet, eval=FALSE, echo=FALSE, results=hide>>=
+postscript(file="qpTRnet50pctpre.eps", onefile=FALSE, paper="a4",
+           pointsize=12, horizontal=FALSE, height=7, width=7)
+@
+<<getthenet, echo=TRUE, results=hide>>=
+rag <- plot(gSub, "twopi", nodeAttrs=nodattr, edgeAttrs=edgattrs, lwd=2,
+            main="50%-precision qp-graph transcriptional regulatory network")
+bb <- c(boundBox(rag)@upRight@x, boundBox(rag)@upRight@y)
+legend(bb[1]*0.1,bb[2]*1.0,c("RegulonDB +","RegulonDB -","Novel +", "Novel -"),
+       lwd=4, col=c("darkred","darkblue","orange","deepskyblue"))
+@
+<<getthenet, eval=FALSE, echo=FALSE, results=hide>>=
+dev.off()
+@
+
+<<info, results=tex>>=
+toLatex(sessionInfo())
+@
+
+\bibliography{qpgraph}
+\bibliographystyle{apalike}
+
+\end{document}

@@ -1,0 +1,38 @@
+2008-11-19  Robert Castelo  <robert.castelo@upf.edu>
+
+  Version 0.99.1
+  * second version submitted to Bioconductor addressing the following
+  issues raised during the pre-review:
+    + name of the package changed from 'qp' to 'qpgraph'
+    + introduction of S4 generics for qpNrr, qpAvgNrr, qpPAC, qpPCC, qpCItest
+    + added the possibility of passing an ExpressionSet, a data frame or a
+    matrix of observations to the qpCItest function using S4 generics
+    + added the possibility of passing an ExpressionSet, a data frame or a
+    matrix of observations to the qpEdgeNrr function using S4 generics
+    and qpEdgeNrr
+    + the corresponding manual pages for these generic methods have been
+    modified to comply with the S4 methods documentation guidelines.
+    + qpDscale is now exported to the user and a manual page has been created
+    + malloc calls in C code have turned into R_malloc and the corresponding
+    free calls have been removed
+    + calloc and realloc calls in C code have turned into Calloc and Realloc
+    and the corresponding free calls have been turned into Free calls
+  * the following new features have been added:
+    + functions qpNrr, qpAvgNrr and qpGraph admit now parameters 'pairup.i' and
+    'pairup.j' that allow to restrict the pairs of variables on which we
+    estimate the non-rejection rate (qpNrr and qpAvgNrr) or from which we derive
+    a qp-graph given a threshold
+    + a new function qpAnyGraph has been added in order to obtain an undirected
+    graph by thresholding any matrix of pairwise measurements in an analogous
+    way to the functionality of the function qpGraph
+    + a new function qpFunctionalCoherence has been added to estimate
+    functional coherence of the qpgraphs with respect to available GO
+    annotations. This includes also a new private function .qpFilterbyGO
+  * seeds for random number generations have been specified in a couple of
+  places within the vignette qpTxRegNet in order to enfore reproducing exactly
+  the same numbers under the random sampling schemes used in the estimation of
+  non-rejection rates and when drawing random correlations for the random
+  method
+
+  Version 0.99.0
+    * first version submitted to Bioconductor

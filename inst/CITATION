@@ -1,0 +1,23 @@
+citHeader("To cite qp in publications use:")
+
+citEntry(entry="ARTICLE",
+  AUTHOR = "R Castelo and A Roverato",
+  TITLE = "A robust procedure for Gaussian graphical model search from microarray data with p larger than n",
+  JOURNAL = "J Mach Learn Res",
+  YEAR = "2006",
+  VOLUME = "7",
+  PAGES = "2621-50",
+  textVersion = paste("Castelo, R. and Roverato, A.",
+                      "A robust procedure for Gaussian graphical model search from microarray data with p larger than n.",
+                      "J Mach Learn Res, 7:2621-50, 2007.")
+)
+
+citEntry(entry="ARTICLE",
+  AUTHOR = "Castelo, R. and Roverato, A.",
+  TITLE = "Reverse engineering molecular regulatory networks from microarray data with qp-graphs",
+  JOURNAL = "J Comput Biol",
+  YEAR = "2008",
+  textVersion = paste("R Castelo and A Roverato.",
+                      "Reverse engineering molecular regulatory networks from microarray data with qp-graphs",
+                      "J Comput Biol, accepted, 2008.")
+)

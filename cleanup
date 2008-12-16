@@ -1,0 +1,7 @@
+rm -f config.*
+
+rm -f src/Makevars
+
+rm -f src/qp.o src/qp.so
+
+rm -rf autom4te.cache
