@@ -4,7 +4,7 @@
 \documentclass[11pt]{article}
 
 \usepackage{times}
-\usepackage{mathptm}
+\usepackage{mathptmx}
 \usepackage{graphicx}
 \usepackage{hyperref}
 \usepackage{natbib}

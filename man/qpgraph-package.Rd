@@ -1,9 +1,9 @@
-\name{qp-package}
-\alias{qp-package}
-\alias{qp}
+\name{qpgraph-package}
+\alias{qpgraph-package}
+\alias{qpgraph}
 \docType{package}
 \title{
-The q-order partial correlation -qp- graph learning software.
+The q-order partial correlation graph learning software, qpgraph.
 }
 \description{
 q-order partial correlation graphs, or qp-graphs for short, are
@@ -17,8 +17,8 @@ to reverse engineer a molecular regulatory network.
 \details{
   \tabular{ll}{
   Package: \tab qp\cr
-  Version: \tab 0.99.0\cr
-  Date: \tab 20-10-2008\cr
+  Version: \tab 0.99.2\cr
+  Date: \tab 26-01-2009\cr
   biocViews: \tab Microarray, Statistics, GraphsAndNetworks\cr
   Suggests: \tab mvtnorm, graph, Rgraphviz, annotate, genefilter, org.EcK12.eg.db\cr
   License: \tab GPL version 2 or newer\cr
