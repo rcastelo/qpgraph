@@ -1,4 +1,18 @@
-2008-11-19  Robert Castelo  <robert.castelo@upf.edu>
+2009-01-27  Robert Castelo  <robert.castelo@upf.edu>
+
+  Version 0.99.3
+  * add an import line to the DESCRIPTION file
+  * remove quotes from the import calls in the NAMESPACE file
+  * add a zzz.R file with a GOenv function to load variables GOTERM and
+  GOBPPARENTS
+  * modify qpFunctionalCoherence to properly load variables GOTERM and
+  GOBPPARENTS in order to sort out their notes of "no visible binding"
+  * remove braces from references in EcoliOxygen.Rd
+
+  Version 0.99.2
+  * changed LaTeX package mathptm to mathptmx in the qpTxRegNet vignette
+  * turn the first letter of the package title into a capital letter
+  * replace 'qp' by 'qpgraph' in the main package help file
 
   Version 0.99.1
   * second version submitted to Bioconductor addressing the following

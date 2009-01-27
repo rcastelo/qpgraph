@@ -56,8 +56,8 @@ Gama-Castro, S., Jimenez-Jacinto, V., Peralta-Gil, M., Santos-Zavaleta, A.,
 Penaloza-Spinola, M.I., Contreras-Moreira, B., Segura-Salazar, J., Muniz-Rascado,
 L., Martinez-Flores, I., Salgado, H., Bonavides-Martinez, C., Abreu-Goodger, C.,
 Rodriguez-Penagos, C., Miranda-Rios, J., Morett, E., Merino, E., Huerta, A.M.,
-Trevino-Quintanilla, L., and Collado-Vides, J. Regulon{DB} (version 6.0): gene
-regulation model of {E}scherichia coli {K}-12 beyond transcription, active
+Trevino-Quintanilla, L., and Collado-Vides, J. RegulonDB (version 6.0): gene
+regulation model of Escherichia coli K-12 beyond transcription, active
 (experimental) annotated promoters and Textpresso navigation.
 \emph{Nucleic Acids Res.}, 36(Database issue):D120-124, 2008.
 }

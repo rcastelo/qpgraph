@@ -1,8 +1,8 @@
 useDynLib(qpgraph)
 
-import("methods")
-import("Biobase")
-import("AnnotationDbi")
+import(methods)
+import(Biobase)
+import(AnnotationDbi)
 
 exportMethods("qpNrr",
               "qpAvgNrr",
