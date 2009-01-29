@@ -1914,8 +1914,10 @@ qpFunctionalCoherence <- function(I, TFgenes, chip, minRMsize=5, verbose=FALSE) 
                                           names(x[x=="BP" & !is.na(x)])
                                         } else { NULL })
 
-  goTerms <- unlist(AnnotationDbi::eapply(GOTERM, function(x) x@Term))
-  goTermOntologies <- unlist(AnnotationDbi::eapply(GOTERM, function(x) x@Ontology))
+  goTermsEnv <- GOenv("TERM")
+  goBPparentsEnv <- GOenv("BPPARENTS")
+  goTerms <- unlist(AnnotationDbi::eapply(goTermsEnv, function(x) x@Term))
+  goTermOntologies <- unlist(AnnotationDbi::eapply(goTermsEnv, function(x) x@Ontology))
   goTermBPOntology <- names(goTermOntologies[goTermOntologies == "BP"])
 
   # remove from the GO annotation of the transcription factor those GO terms
@@ -1951,9 +1953,9 @@ qpFunctionalCoherence <- function(I, TFgenes, chip, minRMsize=5, verbose=FALSE) 
         else { # otherwise the functional coherence is estimated as the similarity
                # between the GO graphs associated to the transcription factor GO
                # annotations and the GO over-represented terms in the target gene set
-          gTF <- GOGraph(TFgoAnnot, GOBPPARENTS)
+          gTF <- GOGraph(TFgoAnnot, goBPparentsEnv)
           gTF <- removeNode("all", gTF)
-          gTG <- GOGraph(txRegNetGO[[TFgene]]$goBPcondResultSigCat, GOBPPARENTS)
+          gTG <- GOGraph(txRegNetGO[[TFgene]]$goBPcondResultSigCat, goBPparentsEnv)
           gTG <- removeNode("all", gTG)
           sUI <- simUI(gTF, gTG)
         }

@@ -189,16 +189,22 @@ summary(abs(pcc.estimates$R[TFsbyTGs]))
 @
 Note that they are distributed almost uniformly at random throughout the
 entire range [0,1] while if we look at the distribution of the PCC estimates for
-the entire genome wide data, i.e., for all possible TF-TG pairs among the initial
+the entire RegulonDB data, i.e., for all possible TF-TG pairs among the initial
 $p=4\,205$ genes:
 
 <<getthenet, echo=TRUE, results=verbatim>>=
-pcc.gwide.estimates <- qpPCC(gds680.eset)
-allTFs_i <- match(unique(filtered.regulon6.1[,"EgID_TF"]),featureNames(gds680.eset))
+regulonDBgenes <- as.character(unique(c(filtered.regulon6.1[, "EgID_TF"],
+                                        filtered.regulon6.1[, "EgID_TG"])))
+cat(sprintf("The RegulonDB transcriptional network involves %d genes",
+            length(regulonDBgenes)))
+
+pcc.allRegulonDB.estimates <- qpPCC(gds680.eset[regulonDBgenes,])
+
+allTFs_i <- match(unique(filtered.regulon6.1[, "EgID_TF"]), regulonDBgenes)
 allTFsbyTGs <- as.matrix(expand.grid(allTFs_i,
-                                     setdiff(1:length(featureNames(gds680.eset)),allTFs_i)))
+                                     setdiff(1:length(regulonDBgenes), allTFs_i)))
 allTFsbyTGs <- rbind(allTFsbyTGs,t(combn(allTFs_i, 2)))
-summary(abs(pcc.gwide.estimates$R[allTFsbyTGs]))
+summary(abs(pcc.allRegulonDB.estimates$R[allTFsbyTGs]))
 @
 we see that, opposite to what happens in the subset of 100 genes, most of the
 absolute PCC values for all (i.e., present and absent from RegulonDB) TF-TG pairs
