@@ -1,4 +1,4 @@
-citHeader("To cite qp in publications use:")
+citHeader("To cite qpgraph in publications use:")
 
 citEntry(entry="ARTICLE",
   AUTHOR = "R Castelo and A Roverato",
@@ -9,15 +9,17 @@ citEntry(entry="ARTICLE",
   PAGES = "2621-50",
   textVersion = paste("Castelo, R. and Roverato, A.",
                       "A robust procedure for Gaussian graphical model search from microarray data with p larger than n.",
-                      "J Mach Learn Res, 7:2621-50, 2007.")
+                      "J Mach Learn Res, 7:2621-50, 2006.")
 )
 
 citEntry(entry="ARTICLE",
   AUTHOR = "Castelo, R. and Roverato, A.",
   TITLE = "Reverse engineering molecular regulatory networks from microarray data with qp-graphs",
   JOURNAL = "J Comput Biol",
-  YEAR = "2008",
+  YEAR = "2009",
+  VOLUME = "16",
+  NUMBER = "2",
   textVersion = paste("R Castelo and A Roverato.",
                       "Reverse engineering molecular regulatory networks from microarray data with qp-graphs",
-                      "J Comput Biol, accepted, 2008.")
+                      "J Comput Biol, in press, 2009.")
 )
