@@ -19,7 +19,8 @@ citEntry(entry="ARTICLE",
   YEAR = "2009",
   VOLUME = "16",
   NUMBER = "2",
+  PAGES = "213-27",
   textVersion = paste("R Castelo and A Roverato.",
                       "Reverse engineering molecular regulatory networks from microarray data with qp-graphs",
-                      "J Comput Biol, in press, 2009.")
+                      "J Comput Biol, 16(2):213-27, 2009.")
 )

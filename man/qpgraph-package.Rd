@@ -17,8 +17,8 @@ to reverse engineer a molecular regulatory network.
 \details{
   \tabular{ll}{
   Package: \tab qp\cr
-  Version: \tab 0.99.2\cr
-  Date: \tab 26-01-2009\cr
+  Version: \tab 0.99.6\cr
+  Date: \tab 05-02-2009\cr
   biocViews: \tab Microarray, Statistics, GraphsAndNetworks\cr
   Suggests: \tab mvtnorm, graph, Rgraphviz, annotate, genefilter, org.EcK12.eg.db\cr
   License: \tab GPL version 2 or newer\cr
