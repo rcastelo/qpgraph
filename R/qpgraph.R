@@ -42,17 +42,22 @@ setGeneric("qpNrr", function(data, ...) standardGeneric("qpNrr"))
 
 # data comes as an ExpressionSet object
 setMethod("qpNrr", signature(data="ExpressionSet"),
-          function(data, ...) {
+          function(data, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
+                   pairup.j=NULL, verbose=TRUE, identicalQs=FALSE,
+                   R.code.only=FALSE) {
             exp <- t(exprs(data))
             S <- cov(exp)
             N <- length(sampleNames(data))
             rownames(S) <- colnames(S) <- featureNames(data)
-            qpgraph:::.qpNrr(S, N, ...)
+            qpgraph:::.qpNrr(S, N, q, nTests, alpha, pairup.i, pairup.j,
+                             verbose, identicalQs, R.code.only)
           })
 
 # data comes as a data frame
 setMethod("qpNrr", signature(data="data.frame"),
-          function(data, long.dim.are.variables=TRUE, ...) {
+          function(data, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
+                   pairup.j=NULL, long.dim.are.variables=TRUE,
+                   verbose=TRUE, identicalQs=FALSE, R.code.only=FALSE) {
             m <- as.matrix(data)
             rownames(m) <- rownames(data)
             if (!is.double(m))
@@ -67,13 +72,16 @@ setMethod("qpNrr", signature(data="data.frame"),
               rownames(S) <- colnames(S) <- 1:nrow(S)
             else
               rownames(S) <- colnames(S) <- colnames(data)
-            qpgraph:::.qpNrr(S, N, ...)
+            qpgraph:::.qpNrr(S, N, q, nTests, alpha, pairup.i, pairup.j,
+                             verbose, identicalQs, R.code.only)
           })
 
           
 # data comes as a matrix
 setMethod("qpNrr", signature(data="matrix"),
-          function(data, long.dim.are.variables=TRUE, ...) {
+          function(data, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
+                   pairup.j=NULL, long.dim.are.variables=TRUE,
+                   verbose=TRUE, identicalQs=FALSE, R.code.only=FALSE) {
             if (long.dim.are.variables &&
               sort(dim(data),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
               data <- t(data)
@@ -84,14 +92,30 @@ setMethod("qpNrr", signature(data="matrix"),
               rownames(S) <- colnames(S) <- 1:nrow(S)
             else
               rownames(S) <- colnames(S) <- colnames(data)
-            qpgraph:::.qpNrr(S, N, ...)
+            qpgraph:::.qpNrr(S, N, q, nTests, alpha, pairup.i, pairup.j,
+                             verbose, identicalQs, R.code.only)
           })
 
 .qpNrr <- function(S, N, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
-                   pairup.j=NULL, verbose=TRUE, R.code.only=FALSE) {
+                   pairup.j=NULL, verbose=TRUE, identicalQs=FALSE, R.code.only=FALSE) {
 
   var.names <- rownames(S)
   n.var <- nrow(S)
+
+  # check that the parameters have proper values
+
+  if (q > n.var - 2)
+    stop(paste("q=",q," > n.var-2=",n.var-2))
+
+  if (q < 0)
+    stop(paste("q=",q," < 0"))
+
+  if (q > N - 3)
+    stop(paste("q=",q," > N-3=",N-3))
+
+  nTests <- as.integer(nTests)
+  if (nTests < 1)
+    stop(paste("nTests=",nTests," < 1"))
 
   if (alpha < 0.0 || alpha > 1.0) {
     stop(sprintf("significance level alpha is %.2f and it must lie in the interval [0,1]\n",alpha))
@@ -131,32 +155,35 @@ setMethod("qpNrr", signature(data="matrix"),
   pairup.j.noint <- setdiff(pairup.j, pairup.ij.int)
 
   if (!R.code.only) {
-    nrrMatrix <- qpgraph:::.qpFastNrr(S, N, q, nTests, alpha, pairup.i.noint,
-                                 pairup.j.noint, pairup.ij.int, verbose)
+    if (identicalQs)
+      nrrMatrix <- qpgraph:::.qpFastNrrIdenticalQs(S, N, q, nTests, alpha, pairup.i.noint,
+                                                   pairup.j.noint, pairup.ij.int, verbose)
+    else
+      nrrMatrix <- qpgraph:::.qpFastNrr(S, N, q, nTests, alpha, pairup.i.noint,
+                                        pairup.j.noint, pairup.ij.int, verbose)
+
     rownames(nrrMatrix) <- colnames(nrrMatrix) <- var.names
 
     return(nrrMatrix)
   }
-
-  if (q > n.var - 2)
-    stop(paste("q=",q," > n.var-2=",n.var-2))
-
-  if (q < 0)
-    stop(paste("q=",q," < 0"))
-
-  if (q > N - 3)
-    stop(paste("q=",q," > N-3=",N-3))
 
   nrrMatrix <- matrix(as.double(NA), n.var, n.var)
   rownames(nrrMatrix) <- colnames(nrrMatrix) <- var.names
   ppct <- -1
   k <- 0
 
+  if (identicalQs) {
+    nrrMatrix <- .qpNrrIdenticalQs(S, N, q, nTests, alpha, pairup.i.noint,
+                                   pairup.j.noint, pairup.ij.int, verbose)
+
+    return(nrrMatrix)
+  }
+
   # intersection variables against ij-exclusive variables
   for (i in pairup.ij.int) {
     for (j in c(pairup.i.noint,pairup.j.noint)) {
       nrrMatrix[j,i] <- nrrMatrix[i,j] <-
-        qpEdgeNrr(S, N, i, j, q, nTests, alpha, R.code.only=TRUE)
+        qpgraph:::.qpEdgeNrr(S, N, i, j, q, nTests, alpha, R.code.only=TRUE)
       k <- k + 1
       pct <- floor((k * 100) / n.adj)
       if (pct != ppct && verbose) {
@@ -174,7 +201,7 @@ setMethod("qpNrr", signature(data="matrix"),
   for (i in pairup.i.noint) {
     for (j in pairup.j.noint) {
       nrrMatrix[j,i] <- nrrMatrix[i,j] <-
-        qpEdgeNrr(S, N, i, j, q, nTests, alpha, R.code.only=TRUE)
+        qpgraph:::.qpEdgeNrr(S, N, i, j, q, nTests, alpha, R.code.only=TRUE)
       k <- k + 1
       pct <- floor((k * 100) / n.adj)
       if (pct != ppct && verbose) {
@@ -195,7 +222,7 @@ setMethod("qpNrr", signature(data="matrix"),
     for (j in (i+1):l.int) {
       j2 <- pairup.ij.int[j]
       nrrMatrix[j2,i2] <- nrrMatrix[i2,j2] <-
-        qpEdgeNrr(S, N, i2, j2, q, nTests, alpha, R.code.only=TRUE)
+        qpgraph:::.qpEdgeNrr(S, N, i2, j2, q, nTests, alpha, R.code.only=TRUE)
       k <- k + 1
       pct <- floor((k * 100) / n.adj)
       if (pct != ppct && verbose) {
@@ -216,6 +243,93 @@ setMethod("qpNrr", signature(data="matrix"),
   return(nrrMatrix)
 }
 
+.qpNrrIdenticalQs <- function(S, N, q, nTests, alpha, pairup.i.noint, pairup.j.noint, pairup.ij.int, verbose) {
+
+  # how many adjacencies do we have to calculate
+  l.int <- length(pairup.ij.int)
+  l.pairup.i.noint <- length(pairup.i.noint)
+  l.pairup.j.noint <- length(pairup.j.noint)
+  n.adj <- l.int * l.pairup.j.noint + l.int * l.pairup.i.noint +
+           l.pairup.i.noint * l.pairup.j.noint + l.int * (l.int - 1) / 2
+
+  var.names <- rownames(S)
+  n.var <- nrow(S)
+
+  nrrMatrix <- matrix(as.double(NA), n.var, n.var)
+  rownames(nrrMatrix) <- colnames(nrrMatrix) <- var.names
+  ppct <- -1
+  k <- 0
+
+  # sample the Q sets and pre-calculate the inverse matrices
+  Qs <- as.list(array(dim=nTests))
+  Qs <- lapply(Qs, function(x) sample(1:n.var, size=q, replace=FALSE))
+  S22invs <- lapply(Qs, function(x) solve(S[x, x]) )
+
+  # intersection variables against ij-exclusive variables
+  for (i in pairup.ij.int) {
+    for (j in c(pairup.i.noint,pairup.j.noint)) {
+      nrrMatrix[j,i] <- nrrMatrix[i,j] <-
+        qpgraph:::.qpEdgeNrrIdenticalQs(S, Qs, S22invs, N, i, j, q, nTests, alpha, R.code.only=TRUE)
+      k <- k + 1
+      pct <- floor((k * 100) / n.adj)
+      if (pct != ppct && verbose) {
+        if (pct %% 10 == 0) {
+          cat(pct)
+        } else {
+          cat(".")
+        }
+        ppct <- pct
+      }
+    }
+  }
+
+  # i-exclusive variables against j-exclusive variables
+  for (i in pairup.i.noint) {
+    for (j in pairup.j.noint) {
+      nrrMatrix[j,i] <- nrrMatrix[i,j] <-
+        qpgraph:::.qpEdgeNrrIdenticalQs(S, Qs, S22invs, N, i, j, q, nTests, alpha, R.code.only=TRUE)
+      k <- k + 1
+      pct <- floor((k * 100) / n.adj)
+      if (pct != ppct && verbose) {
+        if (pct %% 10 == 0) {
+          cat(pct)
+        } else {
+          cat(".")
+        }
+        ppct <- pct
+      }
+    }
+  }
+
+  l.int <- length(pairup.ij.int)
+
+  # intersection variables against themselves (avoiding pairing of the same)
+  for (i in 1:(l.int-1)) {
+    i2 <- pairup.ij.int[i]
+
+    for (j in (i+1):l.int) {
+      j2 <- pairup.ij.int[j]
+      nrrMatrix[j2,i2] <- nrrMatrix[i2,j2] <-
+        qpgraph:::.qpEdgeNrrIdenticalQs(S, Qs, S22invs, N, i2, j2, q, nTests, alpha, R.code.only=TRUE)
+      k <- k + 1
+      pct <- floor((k * 100) / n.adj)
+      if (pct != ppct && verbose) {
+        if (pct %% 10 == 0) {
+          cat(pct)
+        } else {
+          cat(".")
+        }
+        ppct <- pct
+      }
+    }
+  }
+
+  if (verbose) {
+    cat("\n")
+  }
+
+  return(nrrMatrix)
+}
 
 
 ## function: qpAvgNrr
@@ -244,17 +358,24 @@ setGeneric("qpAvgNrr", function(data, ...) standardGeneric("qpAvgNrr"))
 
 # data comes as an ExpressionSet object
 setMethod("qpAvgNrr", signature(data="ExpressionSet"),
-          function(data, ...) {
+            function(data, qOrders=4, nTests=100, alpha=0.05, pairup.i=NULL,
+                     pairup.j=NULL, type=c("arith.mean"), verbose=TRUE,
+                     identicalQs=FALSE, R.code.only=FALSE) {
             exp <- t(exprs(data))
             S <- cov(exp)
             N <- length(sampleNames(data))
             rownames(S) <- colnames(S) <- featureNames(data)
-            qpgraph:::.qpAvgNrr(S, N, ...)
+            qpgraph:::.qpAvgNrr(S, N, qOrders, nTests, alpha, pairup.i,
+                                pairup.j, type, verbose, identicalQs, R.code.only)
           })
 
 # data comes as a data frame
 setMethod("qpAvgNrr", signature(data="data.frame"),
-          function(data, long.dim.are.variables=TRUE, ...) {
+          function(data, qOrders=4, nTests=100, alpha=0.05,
+                   pairup.i=NULL, pairup.j=NULL,
+                   long.dim.are.variables=TRUE,
+                   type=c("arith.mean"), verbose=TRUE,
+                   identicalQs=FALSE, R.code.only=FALSE) {
             m <- as.matrix(data)
             rownames(m) <- rownames(data)
             if (!is.double(m))
@@ -269,13 +390,18 @@ setMethod("qpAvgNrr", signature(data="data.frame"),
               rownames(S) <- colnames(S) <- 1:nrow(S)
             else
               rownames(S) <- colnames(S) <- colnames(data)
-            qpgraph:::.qpAvgNrr(S, N, ...)
+            qpgraph:::.qpAvgNrr(S, N, qOrders, nTests, alpha, pairup.i,
+                                pairup.j, type, verbose, identicalQs, R.code.only)
           })
 
           
 # data comes as a matrix
 setMethod("qpAvgNrr", signature(data="matrix"),
-          function(data, long.dim.are.variables=TRUE, ...) {
+          function(data, qOrders=4, nTests=100, alpha=0.05,
+                   pairup.i=NULL, pairup.j=NULL,
+                   long.dim.are.variables=TRUE,
+                   type=c("arith.mean"), verbose=TRUE,
+                   identicalQs=FALSE, R.code.only=FALSE) {
             if (long.dim.are.variables &&
               sort(dim(data),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
               data <- t(data)
@@ -286,12 +412,13 @@ setMethod("qpAvgNrr", signature(data="matrix"),
               rownames(S) <- colnames(S) <- 1:nrow(S)
             else
               rownames(S) <- colnames(S) <- colnames(data)
-            qpgraph:::.qpAvgNrr(S, N, ...)
+            qpgraph:::.qpAvgNrr(S, N, qOrders, nTests, alpha, pairup.i,
+                                pairup.j, type, verbose, identicalQs, R.code.only)
           })
 
 .qpAvgNrr <- function(S, N, qOrders=4, nTests=100, alpha=0.05, pairup.i=NULL,
                       pairup.j=NULL, type=c("arith.mean"), verbose=TRUE,
-                      R.code.only=FALSE) {
+                      identicalQs=FALSE, R.code.only=FALSE) {
 
   type <- match.arg(type)
 
@@ -325,7 +452,7 @@ setMethod("qpAvgNrr", signature(data="matrix"),
 
     avgNrrMatrix <- avgNrrMatrix +
                     w * qpgraph:::.qpNrr(S, N, q, nTests, alpha, pairup.i,
-                                         pairup.j, verbose, R.code.only)
+                                         pairup.j, verbose, identicalQs, R.code.only)
   }
 
   return(avgNrrMatrix)
@@ -357,17 +484,20 @@ setGeneric("qpEdgeNrr", function(data, ...) standardGeneric("qpEdgeNrr"))
 
 # data comes as an ExpressionSet object
 setMethod("qpEdgeNrr", signature(data="ExpressionSet"),
-          function(data, ...) {
+          function(data, i=1, j=2, q=1, nTests=100,
+                   alpha=0.05, R.code.only=FALSE) {
             exp <- t(exprs(data))
             S <- cov(exp)
             N <- length(sampleNames(data))
             rownames(S) <- colnames(S) <- featureNames(data)
-            qpgraph:::.qpEdgeNrr(S, N, ...)
+            qpgraph:::.qpEdgeNrr(S, N, i, j, q, nTests, alpha, R.code.only)
           })
 
 # data comes as a data frame
 setMethod("qpEdgeNrr", signature(data="data.frame"),
-          function(data, long.dim.are.variables=TRUE, ...) {
+          function(data, i=1, j=2, q=1, nTests=100,
+                   alpha=0.05, long.dim.are.variables=TRUE,
+                   R.code.only=FALSE) {
             m <- as.matrix(data)
             rownames(m) <- rownames(data)
             if (!is.double(m))
@@ -382,13 +512,15 @@ setMethod("qpEdgeNrr", signature(data="data.frame"),
               rownames(S) <- colnames(S) <- 1:nrow(S)
             else
               rownames(S) <- colnames(S) <- colnames(data)
-            qpgraph:::.qpEdgeNrr(S, N, ...)
+            qpgraph:::.qpEdgeNrr(S, N, i, j, q, nTests, alpha, R.code.only)
           })
 
           
 # data comes as a matrix
 setMethod("qpEdgeNrr", signature(data="matrix"),
-          function(data, long.dim.are.variables=TRUE, ...) {
+          function(data, N=NULL, i=1, j=2, q=1, nTests=100,
+                   alpha=0.05, long.dim.are.variables=TRUE,
+                   R.code.only=FALSE) {
             if (long.dim.are.variables &&
               sort(dim(data),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
               data <- t(data)
@@ -396,16 +528,19 @@ setMethod("qpEdgeNrr", signature(data="matrix"),
             # if the matrix is squared let's assume then that it is the sample
             # covariance matrix and that the sample size is the next parameter
             if (nrow(data) != ncol(data)) {
+              if (!is.null(N))
+                stop("if data is not a sample covariance matrix then N should not be set\n")
+
               S <- cov(data)
               N <- length(data[,1])
               if (!is.null(colnames(data))) 
                 rownames(S) <- colnames(S) <- 1:nrow(S)
               else
                 rownames(S) <- colnames(S) <- colnames(data)
-              qpgraph:::.qpEdgeNrr(S, N, ...)
+              qpgraph:::.qpEdgeNrr(S, N, i, j, q, nTests, alpha, R.code.only)
             } else {
               S <- data
-              qpgraph:::.qpEdgeNrr(S, ...)
+              qpgraph:::.qpEdgeNrr(S, N, i, j, q, nTests, alpha, R.code.only)
             }
           })
 
@@ -453,6 +588,50 @@ setMethod("qpEdgeNrr", signature(data="matrix"),
   return(nAcceptedTests / nTests)
 }
 
+.qpEdgeNrrIdenticalQs <- function(S, Qs, S22invs, N, i=1, j=2, q=1, nTests=100, alpha=0.05,
+                                  R.code.only=FALSE) {
+  if (is.character(i)) {
+    if (is.na(match(i, colnames(S))))
+      stop(sprintf("i=%s does not form part of the variable names of the data\n",i))
+    i <- match(i,colnames(S))
+  }
+
+  if (is.character(j)) {
+    if (is.na(match(j, colnames(S))))
+      stop(sprintf("j=%s does not form part of the variable names of the data\n",j))
+    j <- match(j,colnames(S))
+  }
+
+  n.var  <- nrow(S)
+
+  if (q > n.var-2)
+    stop(paste("q=",q," > n.var-2=",n.var-2))
+
+  if (q < 0)
+    stop(paste("q=",q," < 0"))
+
+  if (q > N-3)
+    stop(paste("q=",q," > N-3=",N-3))
+
+  nActualTests <- 0
+  thr    <- qt(p=1-(alpha/2),df=N-q-2,lower.tail=TRUE,log.p=FALSE)
+  lambda <- c()
+  for (k in 1:nTests) {
+    if (sum(!is.na(match(c(i, j), Qs[[k]]))) == 0) { # those Q sets that include i or j are excluded
+      Mmar    <- S[c(i, j, Qs[[k]]), c(i, j, Qs[[k]])]
+      par.cov <- Mmar[1:2, 1:2] - Mmar[1:2, 3:(q+2)] %*% S22invs[[k]] %*% Mmar[3:(q+2), 1:2]
+      par.cor <- cov2cor(par.cov)[1,2]
+      t.value <- sqrt(N - q - 2) * par.cor / sqrt(1 - par.cor^2)
+      lambda <- c(lambda, abs(t.value))
+      nActualTests <- nActualTests + 1
+    }
+  }
+
+  nAcceptedTests <- sum(lambda < thr)
+
+  return(nAcceptedTests / nActualTests)
+}
+
 
 
 ## function: qpCItest
@@ -476,17 +655,18 @@ setGeneric("qpCItest", function(data, ...) standardGeneric("qpCItest"))
 
 # data comes as an ExpressionSet object
 setMethod("qpCItest", signature(data="ExpressionSet"),
-          function(data, ...) {
+          function(data, i=1, j=2, Q=c(), R.code.only=FALSE) {
             exp <- t(exprs(data))
             S <- cov(exp)
             N <- length(sampleNames(data))
             rownames(S) <- colnames(S) <- featureNames(data)
-            qpgraph:::.qpCItest(S, N, ...)
+            qpgraph:::.qpCItest(S, N, i, j, Q, R.code.only)
           })
 
 # data comes as a data frame
 setMethod("qpCItest", signature(data="data.frame"),
-          function(data, long.dim.are.variables=TRUE, ...) {
+          function(data, i=1, j=2, Q=c(), long.dim.are.variables=TRUE,
+                   R.code.only=FALSE) {
             m <- as.matrix(data)
             rownames(m) <- rownames(data)
             if (!is.double(m))
@@ -501,13 +681,14 @@ setMethod("qpCItest", signature(data="data.frame"),
               rownames(S) <- colnames(S) <- 1:nrow(S)
             else
               rownames(S) <- colnames(S) <- colnames(data)
-            qpgraph:::.qpCItest(S, N, ...)
+            qpgraph:::.qpCItest(S, N, i, j, Q, R.code.only)
           })
 
           
 # data comes as a matrix
 setMethod("qpCItest", signature(data="matrix"),
-          function(data, long.dim.are.variables=TRUE, ...) {
+          function(data, N=NULL, i=1, j=2, Q=c(),
+                   long.dim.are.variables=TRUE, R.code.only=FALSE) {
             if (long.dim.are.variables &&
               sort(dim(data),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
               data <- t(data)
@@ -515,16 +696,19 @@ setMethod("qpCItest", signature(data="matrix"),
             # if the matrix is squared let's assume then that it is the sample
             # covariance matrix and that the sample size is the next parameter
             if (nrow(data) != ncol(data)) {
+              if (!is.null(N))
+                stop("if data is not a sample covariance matrix then N should not be set\n")
+
               S <- cov(data)
               N <- length(data[,1])
               if (!is.null(colnames(data))) 
                 rownames(S) <- colnames(S) <- 1:nrow(S)
               else
                 rownames(S) <- colnames(S) <- colnames(data)
-              qpgraph:::.qpCItest(S, N, ...)
+              qpgraph:::.qpCItest(S, N, i, j, Q, R.code.only)
             } else {
               S <- data
-              qpgraph:::.qpCItest(S, ...)
+              qpgraph:::.qpCItest(S, N, i, j, Q, R.code.only)
             }
           })
 
@@ -550,7 +734,8 @@ setMethod("qpCItest", signature(data="matrix"),
   }
 
   if (!R.code.only) {
-    return(qpgraph:::.qpFastCItest(S, N, i, j, Q));
+    # return(qpgraph:::.qpFastCItest(S, N, i, j, Q)); ### this should be definitively replaced at some point
+    return(qpgraph:::.qpFastCItest2(S, N, i, j, Q));
   }
 
   q       <- length(Q)
@@ -1297,17 +1482,20 @@ setGeneric("qpPAC", function(data, ...) standardGeneric("qpPAC"))
 
 # data comes as an ExpressionSet object
 setMethod("qpPAC", signature(data="ExpressionSet"),
-          function(data, ...) {
+          function(data, g, return.K=FALSE, verbose=TRUE,
+                   R.code.only=FALSE) {
             exp <- t(exprs(data))
             S <- cov(exp)
             N <- length(sampleNames(data))
             rownames(S) <- colnames(S) <- featureNames(data)
-            qpgraph:::.qpPAC(S, N, ...)
+            qpgraph:::.qpPAC(S, N, g, return.K, verbose, R.code.only)
           })
 
 # data comes as a data frame
 setMethod("qpPAC", signature(data="data.frame"),
-          function(data, long.dim.are.variables=TRUE, ...) {
+          function(data, g, return.K=FALSE,
+                   long.dim.are.variables=TRUE, verbose=TRUE,
+                    R.code.only=FALSE) {
             m <- as.matrix(data)
             rownames(m) <- rownames(data)
             if (!is.double(m))
@@ -1322,13 +1510,15 @@ setMethod("qpPAC", signature(data="data.frame"),
               rownames(S) <- colnames(S) <- 1:nrow(S)
             else
               rownames(S) <- colnames(S) <- colnames(data)
-            qpgraph:::.qpPAC(S, N, ...)
+            qpgraph:::.qpPAC(S, N, g, return.K, verbose, R.code.only)
           })
 
           
 # data comes as a matrix
 setMethod("qpPAC", signature(data="matrix"),
-          function(data, long.dim.are.variables=TRUE, ...) {
+          function(data, g, return.K=FALSE,
+                   long.dim.are.variables=TRUE, verbose=TRUE,
+                   R.code.only=FALSE) {
             if (long.dim.are.variables &&
               sort(dim(data),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
               data <- t(data)
@@ -1339,7 +1529,7 @@ setMethod("qpPAC", signature(data="matrix"),
               rownames(S) <- colnames(S) <- 1:nrow(S)
             else
               rownames(S) <- colnames(S) <- colnames(data)
-            qpgraph:::.qpPAC(S, N, ...)
+            qpgraph:::.qpPAC(S, N, g, return.K, verbose, R.code.only)
           })
 
 .qpPAC <- function(S, N, g, return.K=FALSE, verbose=TRUE, R.code.only=FALSE) {
@@ -1412,17 +1602,17 @@ setGeneric("qpPCC", function(data, ...) standardGeneric("qpPCC"))
 
 # data comes as an ExpressionSet object
 setMethod("qpPCC", signature(data="ExpressionSet"),
-          function(data, ...) {
+          function(data) {
             exp <- t(exprs(data))
             S <- cov(exp)
             N <- length(sampleNames(data))
             rownames(S) <- colnames(S) <- featureNames(data)
-            qpgraph:::.qpPCC(S, N, ...)
+            qpgraph:::.qpPCC(S, N)
           })
 
 # data comes as a data frame
 setMethod("qpPCC", signature(data="data.frame"),
-          function(data, long.dim.are.variables=TRUE, ...) {
+          function(data, long.dim.are.variables=TRUE) {
             m <- as.matrix(data)
             rownames(m) <- rownames(data)
             if (!is.double(m))
@@ -1437,13 +1627,13 @@ setMethod("qpPCC", signature(data="data.frame"),
               rownames(S) <- colnames(S) <- 1:nrow(S)
             else
               rownames(S) <- colnames(S) <- colnames(data)
-            qpgraph:::.qpPCC(S, N, ...)
+            qpgraph:::.qpPCC(S, N)
           })
 
           
 # data comes as a matrix
 setMethod("qpPCC", signature(data="matrix"),
-          function(data, long.dim.are.variables=TRUE, ...) {
+          function(data, long.dim.are.variables=TRUE) {
             if (long.dim.are.variables &&
               sort(dim(data),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
               data <- t(data)
@@ -1454,7 +1644,7 @@ setMethod("qpPCC", signature(data="matrix"),
               rownames(S) <- colnames(S) <- 1:nrow(S)
             else
               rownames(S) <- colnames(S) <- colnames(data)
-            qpgraph:::.qpPCC(S, N, ...)
+            qpgraph:::.qpPCC(S, N)
           })
 
 .qpPCC <- function(S, N) {
@@ -2128,6 +2318,14 @@ qpFunctionalCoherence <- function(I, TFgenes, chip, minRMsize=5, verbose=FALSE) 
                              as.integer(verbose)))
 }
 
+.qpFastNrrIdenticalQs <- function(S, N, q, nTests, alpha, pairup.i.noint, pairup.j.noint,
+                                  pairup.ij.int, verbose) {
+  return(.Call("qp_fast_nrr_identicalQs",S,as.integer(N),as.integer(q),as.integer(nTests),
+                                         as.double(alpha),as.integer(pairup.i.noint),
+                                         as.integer(pairup.j.noint),as.integer(pairup.ij.int),
+                                         as.integer(verbose)))
+}
+
 .qpFastEdgeNrr <- function(S, N, i, j, q, nTests, alpha) {
   return(.Call("qp_fast_edge_nrr",S,as.integer(N),as.integer(i),as.integer(j),
                                   as.integer(q),as.integer(nTests),
@@ -2137,6 +2335,10 @@ qpFunctionalCoherence <- function(I, TFgenes, chip, minRMsize=5, verbose=FALSE) 
 .qpFastCItest <- function(S, N, i, j, C=c()) {
   return(.Call("qp_fast_ci_test",S,as.integer(N),as.integer(i),as.integer(j),C))
 }
+.qpFastCItest2 <- function(S, N, i, j, C=c()) {
+  return(.Call("qp_fast_ci_test2",S,as.integer(N),as.integer(i),as.integer(j),C))
+}
+
 
 .qpFastCliquerGetCliques <- function(I,clqspervtx,verbose) {
   return(.Call("qp_fast_cliquer_get_cliques",I,clqspervtx,verbose))

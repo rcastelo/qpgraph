@@ -29,14 +29,14 @@ data(EcoliOxygen)
          Expression Omnibus (\url{http://www.ncbi.nlm.nih.gov/geo}) under
          accession \code{GDS680} and then normalized using the \code{rma()}
          function from the \code{affy} package. Following the steps described in
-         (Castelo and Roverato, 2008) probesets were mapped to Entrez Gene
+         (Castelo and Roverato, 2009) probesets were mapped to Entrez Gene
          Identifiers and filtered such that the current \code{ExpressionSet}
          object contains a total of p=4205 genes. The slot \code{featureNames}
          has already the corresponding Entrez Gene IDs.\cr
     \code{filtered.regulon6.1}\tab Data frame object containing a subset of the
          E. coli transcriptional network from RegulonDB 6.1 (Gama-Castro et al,
          2008) obtained through the filtering steps described in (Castelo and
-         Roverato, 2008). In this data frame each row corresponds to a
+         Roverato, 2009). In this data frame each row corresponds to a
          transcriptional regulatory relationship and the first two columns
          contain Blattner IDs of the transcription factor and target genes,
          respectively, and the following two correspond to the same genes but
@@ -64,8 +64,8 @@ regulation model of Escherichia coli K-12 beyond transcription, active
 
 \references{
 Castelo, R. and Roverato, A. Reverse engineering molecular regulatory
-networks from microarray data with qp-graphs.
-\emph{J. Comp. Biol., accepted}, 2008.
+networks from microarray data with qp-graphs. \emph{J. Comp. Biol.},
+16(2):213-227, 2009.
 }
 
 \keyword{datasets}

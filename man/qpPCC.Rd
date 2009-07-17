@@ -12,7 +12,7 @@ Estimates Pearson correlation coefficients (PCCs) and their corresponding
 P-values between all pairs of variables from an input data set.
 }
 \usage{
-\S4method{qpPCC}{ExpressionSet}(data, long.dim.are.variables=TRUE)
+\S4method{qpPCC}{ExpressionSet}(data)
 \S4method{qpPCC}{data.frame}(data, long.dim.are.variables=TRUE)
 \S4method{qpPCC}{matrix}(data, long.dim.are.variables=TRUE)
 }

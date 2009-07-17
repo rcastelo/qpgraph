@@ -13,19 +13,18 @@ Estimates average non-rejection rates for every pair of variables.
 \usage{
 \S4method{qpAvgNrr}{ExpressionSet}(data, qOrders=4, nTests=100, alpha=0.05,
                                    pairup.i=NULL, pairup.j=NULL,
-                                   long.dim.are.variables=TRUE,
                                    type=c("arith.mean"), verbose=TRUE,
-                                   R.code.only=FALSE)
+                                   identicalQs=FALSE, R.code.only=FALSE)
 \S4method{qpAvgNrr}{data.frame}(data, qOrders=4, nTests=100, alpha=0.05,
                                 pairup.i=NULL, pairup.j=NULL,
                                 long.dim.are.variables=TRUE,
                                 type=c("arith.mean"), verbose=TRUE,
-                                R.code.only=FALSE)
+                                identicalQs=FALSE, R.code.only=FALSE)
 \S4method{qpAvgNrr}{matrix}(data, qOrders=4, nTests=100, alpha=0.05,
                             pairup.i=NULL, pairup.j=NULL,
                             long.dim.are.variables=TRUE,
                             type=c("arith.mean"), verbose=TRUE,
-                            R.code.only=FALSE)
+                            identicalQs=FALSE, R.code.only=FALSE)
 }
 \arguments{
   \item{data}{data set from where to estimate the average non-rejection rates.
@@ -42,6 +41,7 @@ Estimates average non-rejection rates for every pair of variables.
        variables are assumed to be at the columns of the data frame or matrix.}
   \item{type}{type of average. By now only the arithmetic mean is available.}
   \item{verbose}{show progress on the calculations.}
+  \item{identicalQs}{experimental feature.}
   \item{R.code.only}{logical; if FALSE then the faster C implementation is used
        (default); if TRUE then only R code is executed.}
 }
@@ -56,8 +56,8 @@ A symmetric matrix of estimated average non-rejection rates.
 }
 \references{
 Castelo, R. and Roverato, A. Reverse engineering molecular regulatory
-networks from microarray data with qp-graphs.
-\emph{J. Comp. Biol., accepted}, 2008.
+networks from microarray data with qp-graphs. \emph{J. Comp. Biol.},
+16(2):213-227, 2009.
 }
 \author{R. Castelo and A. Roverato}
 \seealso{

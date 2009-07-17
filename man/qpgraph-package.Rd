@@ -81,7 +81,7 @@ to reverse engineer a molecular regulatory network.
   }
 
 This package provides an implementation of the procedures described in (Castelo
-and Roverato, 2006, 2008). An example of its use for reverse-engineering of
+and Roverato, 2006, 2009). An example of its use for reverse-engineering of
 transcriptional regulatory networks from microarray data is available in the
 vignette \code{qpTxRegNet}. This package is a contribution to the Bioconductor
 (Gentleman et al., 2004) and gR (Lauritzen, 2002) projects.
@@ -99,8 +99,8 @@ model search from microarray data with p larger than n.
 \emph{J. Mach. Learn. Res.}, 7:2621-2650, 2006.
 
 Castelo, R. and Roverato, A. Reverse engineering molecular regulatory
-networks from microarray data with qp-graphs.
-\emph{J. Comput. Biol., accepted}, 2008.
+networks from microarray data with qp-graphs. \emph{J. Comput. Biol.},
+16(2):213-227, 2009.
 
 Gentleman, R.C., Carey, V.J., Bates, D.M., Bolstad, B., Dettling, M.,
 Dudoit, S., Ellis, B., Gautier, L., Ge, Y., Gentry, J., Hornik, K. Hothorn, T.,

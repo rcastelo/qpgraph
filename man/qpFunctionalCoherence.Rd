@@ -28,7 +28,7 @@ This function estimates the functional coherence of a transcriptional regulatory
 network represented by means of an undirected graph encoded by an incidence matrix
 and of a set of transcription factor genes. The functional coherence of a
 transcriptional regulatory network is calculated as specified by Castelo and
-Roverato (2008) and corresponds to the distribution of individual functional
+Roverato (2009) and corresponds to the distribution of individual functional
 coherence values of every of the regulatory modules of the network each of them
 defined as a transcription factor and its set of putatively regulated target
 genes. In the calculation of the functional coherence value of a regulatory
@@ -44,8 +44,8 @@ annotations and a third one consisting of a vector of functional coherence value
 }
 \references{
 Castelo, R. and Roverato, A. Reverse engineering molecular regulatory
-networks from microarray data with qp-graphs.
-\emph{J. Comp. Biol., accepted}, 2008.
+networks from microarray data with qp-graphs. \emph{J. Comp. Biol.},
+16(2):213-227, 2009.
 }
 \author{R. Castelo and A. Roverato}
 \seealso{

@@ -12,14 +12,14 @@ Estimates non-rejection rates for every pair of variables.
 }
 \usage{
 \S4method{qpNrr}{ExpressionSet}(data, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
-                                pairup.j=NULL, long.dim.are.variables=TRUE,
-                                verbose=TRUE, R.code.only=FALSE)
+                                pairup.j=NULL, verbose=TRUE, identicalQs=FALSE,
+                                R.code.only=FALSE)
 \S4method{qpNrr}{data.frame}(data, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
                              pairup.j=NULL, long.dim.are.variables=TRUE,
-                             verbose=TRUE, R.code.only=FALSE)
+                             verbose=TRUE, identicalQs=FALSE, R.code.only=FALSE)
 \S4method{qpNrr}{matrix}(data, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
                          pairup.j=NULL, long.dim.are.variables=TRUE,
-                         verbose=TRUE, R.code.only=FALSE)
+                         verbose=TRUE, identicalQs=FALSE, R.code.only=FALSE)
 }
 \arguments{
   \item{data}{data set from where to estimate the non-rejection rates.
@@ -34,6 +34,7 @@ Estimates non-rejection rates for every pair of variables.
        is the one defining the random variables (default); if FALSE, then random
        variables are assumed to be at the columns of the data frame or matrix.}
   \item{verbose}{show progress on the calculations.}
+  \item{identicalQs}{experimental feature.}
   \item{R.code.only}{logical; if FALSE then the faster C implementation is used
        (default); if TRUE then only R code is executed.}
 }

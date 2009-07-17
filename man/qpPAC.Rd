@@ -13,8 +13,7 @@ P-values in a given undirected graph, from an input data set.
 }
 \usage{
 \S4method{qpPAC}{ExpressionSet}(data, g, return.K=FALSE,
-                                long.dim.are.variables=TRUE, verbose=TRUE,
-                                R.code.only=FALSE)
+                                verbose=TRUE, R.code.only=FALSE)
 \S4method{qpPAC}{data.frame}(data, g, return.K=FALSE,
                              long.dim.are.variables=TRUE, verbose=TRUE,
                              R.code.only=FALSE)
@@ -72,8 +71,8 @@ Gaussian graphical model search from microarray data with p larger than n.
 \emph{J. Mach. Learn. Res.}, 7:2621-2650, 2006.
 
 Castelo, R. and Roverato, A. Reverse engineering molecular regulatory
-networks from microarray data with qp-graphs.
-\emph{J. Comp. Biol., accepted}, 2008.
+networks from microarray data with qp-graphs. \emph{J. Comp. Biol.},
+16(2):213-227, 2009.
 
 Roverato, A. and Whittaker, J. Standard errors for the parameters of graphical
 Gaussian models. \emph{Stat. Comput.}, 6:297-302, 1996.

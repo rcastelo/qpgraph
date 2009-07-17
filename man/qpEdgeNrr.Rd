@@ -11,13 +11,12 @@ Non-rejection rate estimation for a pair of variables
 Estimates non-rejection rate for one pair of variables.
 }
 \usage{
-\S4method{qpEdgeNrr}{ExpressionSet}(data, N, i=1, j=2, q=1, nTests=100,
-                                    alpha=0.05, long.dim.are.variables=TRUE,
-                                    R.code.only=FALSE)
-\S4method{qpEdgeNrr}{data.frame}(data, N, i=1, j=2, q=1, nTests=100,
+\S4method{qpEdgeNrr}{ExpressionSet}(data, i=1, j=2, q=1, nTests=100,
+                                    alpha=0.05, R.code.only=FALSE)
+\S4method{qpEdgeNrr}{data.frame}(data, i=1, j=2, q=1, nTests=100,
                                  alpha=0.05, long.dim.are.variables=TRUE,
                                  R.code.only=FALSE)
-\S4method{qpEdgeNrr}{matrix}(data, N, i=1, j=2, q=1, nTests=100,
+\S4method{qpEdgeNrr}{matrix}(data, N=NULL, i=1, j=2, q=1, nTests=100,
                              alpha=0.05, long.dim.are.variables=TRUE,
                              R.code.only=FALSE)
 }

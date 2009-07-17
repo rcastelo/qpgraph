@@ -12,11 +12,10 @@ Performs a conditional independence test between two variables given
 a conditioning set.
 }
 \usage{
-\S4method{qpCItest}{ExpressionSet}(data, N, i=1, j=2, Q=c(),
-                                   long.dim.are.variables=TRUE, R.code.only=FALSE)
-\S4method{qpCItest}{data.frame}(data, N, i=1, j=2, Q=c(),
+\S4method{qpCItest}{ExpressionSet}(data, i=1, j=2, Q=c(), R.code.only=FALSE)
+\S4method{qpCItest}{data.frame}(data, i=1, j=2, Q=c(),
                                 long.dim.are.variables=TRUE, R.code.only=FALSE)
-\S4method{qpCItest}{matrix}(data, N, i=1, j=2, Q=c(),
+\S4method{qpCItest}{matrix}(data, N=NULL, i=1, j=2, Q=c(),
                             long.dim.are.variables=TRUE, R.code.only=FALSE)
 }
 \arguments{
@@ -68,9 +67,9 @@ K <- qpI2K(I)
 
 X <- qpSampleMvnorm(K, N=100)
 
-qpCItest(X, N=100, i=3, j=4, Q=1, long.dim.are.variables=FALSE)
+qpCItest(X, i=3, j=4, Q=1, long.dim.are.variables=FALSE)
 
-qpCItest(X, N=100, i=3, j=4, Q=c(1,2), long.dim.are.variables=FALSE)
+qpCItest(X, i=3, j=4, Q=c(1,2), long.dim.are.variables=FALSE)
 }
 \keyword{models}
 \keyword{multivariate}

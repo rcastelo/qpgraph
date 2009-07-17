@@ -61,19 +61,32 @@ qp_fast_nrr(SEXP S, SEXP N, SEXP qR, SEXP nTests, SEXP alpha, SEXP pairup_i_noin
             SEXP pairup_j_noint, SEXP pairup_ij_int, SEXP verbose);
 
 static SEXP
+qp_fast_nrr_identicalQs(SEXP S, SEXP N, SEXP qR, SEXP nTests, SEXP alpha, SEXP pairup_i_noint,
+                        SEXP pairup_j_noint, SEXP pairup_ij_int, SEXP verbose);
+
+static SEXP
 qp_fast_edge_nrr(SEXP S, SEXP NR, SEXP iR, SEXP jR, SEXP qR, SEXP TR, SEXP sigR);
 
 static double
 qp_edge_nrr(double* S, int n_var, int N, int i, int j, int q, int nTests, double alpha);
 
+static double
+qp_edge_nrr_identicalQs(double* S, int n_var, int* Qs, double* Qinvs, int N, int i,
+                        int j, int q, int nTests, double alpha);
 static void
-sample_d_con_N_loop(int N_loop, int d_con, int v_i, int v_j, int n, int* y);
+sampleQs(int T, int q, int v_i, int v_j, int n, int* y);
 
 static SEXP
 qp_fast_ci_test(SEXP S, SEXP NR, SEXP iR, SEXP jR, SEXP C);
+static SEXP
+qp_fast_ci_test2(SEXP S, SEXP NR, SEXP iR, SEXP jR, SEXP C);
+
 
 static double
 qp_ci_test(double* S, int n_var, int N, int i, int j, int* C, int q);
+static double
+qp_ci_test2(double* S, int n_var, int N, int i, int j, int* C, int q, double*);
+
 
 boolean
 cliquer_cb_add_clique_to_list(set_t clique, graph_t* g, clique_options* opts);
@@ -115,6 +128,9 @@ static void
 fast_ipf_step(int n, double* Vf, double* Vn, int* a, int csze);
 
 static void
+cov2cor(double* R, double* V, int n);
+
+static void
 matprod(double *x, int nrx, int ncx, double *y, int nry, int ncy, double *z);
  
 static void
@@ -148,8 +164,10 @@ setdiff(int n, int m, int* a, int* b);
 static R_CallMethodDef
 callMethods[] = {
   {"qp_fast_nrr", (DL_FUNC) &qp_fast_nrr, 9},
+  {"qp_fast_nrr_identicalQs", (DL_FUNC) &qp_fast_nrr_identicalQs, 9},
   {"qp_fast_edge_nrr", (DL_FUNC) &qp_fast_edge_nrr, 7},
   {"qp_fast_ci_test", (DL_FUNC) &qp_fast_ci_test,5},
+  {"qp_fast_ci_test2", (DL_FUNC) &qp_fast_ci_test2,5},
   {"qp_fast_cliquer_get_cliques", (DL_FUNC) &qp_fast_cliquer_get_cliques, 3},
   {"qp_clique_number_os", (DL_FUNC) &qp_clique_number_os, 3},
   {"qp_fast_pac_se", (DL_FUNC) &qp_fast_pac_se, 2},
@@ -169,10 +187,11 @@ R_init_qpgraph(DllInfo* info) {
 
 
 /*
-  FUNCTION: qp_fast_search
+  FUNCTION: qp_fast_nrr
   PURPOSE: compute for each pair of vertices indexed by the rows (columns)
-           of the matrix S the non-rejection rate
-  RETURNS: matrix of non-rejection rate values in terms of number of not-rejected
+           of the matrix S the non-rejection rate. Vertex pairs may be restricted
+           by using the pairup_* arguments
+  RETURNS: matrix of non-rejection rate values in terms of number of non-rejected
            (accepted) tests for each pair of vertices
 */
 
@@ -326,6 +345,196 @@ qp_fast_nrr(SEXP S, SEXP N, SEXP qR, SEXP nTests, SEXP alpha, SEXP pairup_i_noin
 
 
 /*
+  FUNCTION: qp_fast_nrr_identicalQs
+  PURPOSE: compute for each pair of vertices indexed by the rows (columns)
+           of the matrix S the non-rejection rate using a common set of Q sets
+           for all vertex pairs considered. Vertex pairs may be restricted
+           by using the pairup_* arguments
+  RETURNS: matrix of non-rejection rate values in terms of number of non-rejected
+           (accepted) tests for each pair of vertices
+*/
+
+static SEXP
+qp_fast_nrr_identicalQs(SEXP S, SEXP N, SEXP qR, SEXP nTestsR, SEXP alpha, SEXP pairup_i_noint,
+                        SEXP pairup_j_noint, SEXP pairup_ij_int, SEXP verbose) {
+  int     n_var;
+  int     q;
+  int     nTests;
+  int     l_ini = length(pairup_i_noint);
+  int     l_jni = length(pairup_j_noint);
+  int     l_int = length(pairup_ij_int);
+  int*    pairup_ij_noint = NULL;
+  int     i,j,k,n_adj,pct,ppct;
+  int*    q_by_T_samples;
+  int*    Q;
+  double* Qmat;
+  double* Qinv;
+  SEXP nrrMatrix;
+
+  PROTECT_INDEX Spi;
+
+  PROTECT_WITH_INDEX(S,&Spi);
+
+  n_var  = INTEGER(getAttrib(S,R_DimSymbol))[0];
+  q      = INTEGER(qR)[0];
+  nTests = INTEGER(nTestsR)[0];
+
+  if (q > n_var-2)
+    error("q=%d > n.var-2=%d",q,n_var-2);
+
+  if (q < 0)
+    error("q=%d < 0",q);
+
+  if (q > INTEGER(N)[0]-3)
+    error("q=%d > N-3=%d",q,INTEGER(N)[0]-3);
+
+  REPROTECT(S = coerceVector(S,REALSXP),Spi);
+  PROTECT(nrrMatrix = allocMatrix(REALSXP,n_var,n_var));
+
+  for (i=0;i<n_var;i++)
+    for (j=0;j<n_var;j++)
+      REAL(nrrMatrix)[i+n_var*j] = NA_REAL;
+
+  n_adj = l_int * l_jni + l_int * l_ini + l_int * (l_int - 1) / 2;
+
+  ppct = -1;
+  k = 0;
+
+  /* sample the Q sets and pre-calculate the inverse matrices */
+
+  q_by_T_samples = Calloc(q * nTests, int);
+
+  sampleQs(nTests, q, -1, -1, n_var, q_by_T_samples);
+
+  Qmat = Calloc(q*q, double);
+  Qinv = Calloc(q*q*nTests, double);
+
+  for (i=0; i < nTests; i++) {
+    Q = (int*) (q_by_T_samples+i*q);
+    for (j=0; j < q; j++) {
+      for (k=0; k < j; k++)
+        Qmat[j + k*q] = Qmat[k + j*q] = REAL(S)[Q[j] + Q[k] * n_var];
+      Qmat[j + j*q] = REAL(S)[Q[j] + Q[j] * n_var];
+    }
+    matinv((double*) (Qinv+i*q*q), Qmat, q);
+  }
+  Free(Qmat);
+  
+  if (l_ini + l_jni > 0) {
+    pairup_ij_noint = Calloc(l_ini + l_jni, int);
+    Memcpy(pairup_ij_noint, INTEGER(pairup_i_noint), (size_t) l_ini);
+    Memcpy(pairup_ij_noint + l_ini, INTEGER(pairup_j_noint), (size_t) l_jni);
+  }
+
+  /* intersection variables against ij-exclusive variables */
+  for (i=0; i < l_int; i++) {
+    int i2 = INTEGER(pairup_ij_int)[i] - 1;
+
+    for (j=0; j < l_ini + l_jni; j++) {
+      int j2 = pairup_ij_noint[j] - 1;
+
+      REAL(nrrMatrix)[i2+j2*n_var] = qp_edge_nrr_identicalQs(REAL(S), n_var, q_by_T_samples, Qinv,
+                                                             INTEGER(N)[0], i2, j2, q,
+                                                             nTests, REAL(alpha)[0]);
+
+      REAL(nrrMatrix)[j2+i2*n_var] = REAL(nrrMatrix)[i2+j2*n_var]; /* symmetric! */
+      k++;
+      pct = (int) ((k * 100) / n_adj);
+      if (pct != ppct && INTEGER(verbose)[0]) {
+        if (pct % 10 == 0)
+          Rprintf("%d",pct);
+        else
+          Rprintf(".",pct);
+        R_FlushConsole();
+#ifdef Win32
+        R_ProcessEvents();
+#endif
+#ifdef HAVE_AQUA
+        R_ProcessEvents();
+#endif
+        ppct = pct;
+      }
+    }
+  }
+
+  if (l_ini + l_jni > 0)
+    Free(pairup_ij_noint);
+
+  /* i-exclusive variables against j-exclusive variables */
+  for (i=0; i < l_ini; i++) {
+    int i2 = INTEGER(pairup_i_noint)[i] - 1;
+
+    for (j=0; j < l_jni; j++) {
+      int j2 = INTEGER(pairup_j_noint)[j] - 1;
+
+      REAL(nrrMatrix)[i2+j2*n_var] = qp_edge_nrr_identicalQs(REAL(S), n_var, q_by_T_samples, Qinv,
+                                                             INTEGER(N)[0], i2, j2, q,
+                                                             nTests, REAL(alpha)[0]);
+
+      REAL(nrrMatrix)[j2+i2*n_var] = REAL(nrrMatrix)[i2+j2*n_var]; /* symmetric! */
+      k++;
+      pct = (int) ((k * 100) / n_adj);
+      if (pct != ppct && INTEGER(verbose)[0]) {
+        if (pct % 10 == 0)
+          Rprintf("%d",pct);
+        else
+          Rprintf(".",pct);
+        R_FlushConsole();
+#ifdef Win32
+        R_ProcessEvents();
+#endif
+#ifdef HAVE_AQUA
+        R_ProcessEvents();
+#endif
+        ppct = pct;
+      }
+    }
+  }
+
+  /* intersection variables against themselves (avoiding pairing the same) */
+  for (i = 0; i < l_int-1; i++) {
+    int i2 = INTEGER(pairup_ij_int)[i] - 1;
+
+    for (j = i+1; j < l_int; j++) {
+      int j2 = INTEGER(pairup_ij_int)[j] - 1;
+
+      REAL(nrrMatrix)[i2+j2*n_var] = qp_edge_nrr_identicalQs(REAL(S), n_var, q_by_T_samples, Qinv,
+                                                             INTEGER(N)[0], i2, j2, q,
+                                                             nTests, REAL(alpha)[0]);
+
+      REAL(nrrMatrix)[j2+i2*n_var] = REAL(nrrMatrix)[i2+j2*n_var]; /* symmetric! */
+      k++;
+      pct = (int) ((k * 100) / n_adj);
+      if (pct != ppct && INTEGER(verbose)[0]) {
+        if (pct % 10 == 0)
+          Rprintf("%d",pct);
+        else
+          Rprintf(".",pct);
+        R_FlushConsole();
+#ifdef Win32
+        R_ProcessEvents();
+#endif
+#ifdef HAVE_AQUA
+        R_ProcessEvents();
+#endif
+        ppct = pct;
+      }
+    }
+  }
+
+  Free(Qinv);
+
+  if (INTEGER(verbose)[0])
+    Rprintf("\n");
+
+  UNPROTECT(2);   /* S nrrMatrix */
+
+  return nrrMatrix;
+}
+
+
+
+/*
   FUNCTION: qp_fast_ci_test
   PURPOSE: wrapper of the R-C interface for calling the function that performs
            a test for conditional independence between variables i and j
@@ -365,6 +574,55 @@ qp_fast_ci_test(SEXP S, SEXP NR, SEXP iR, SEXP jR, SEXP C) {
     cond[k] = INTEGER(C)[k]-1;
 
   t_value = qp_ci_test(REAL(S),n_var,N,i,j,cond,q);
+  p_value = 2.0 * (1.0 - pt(fabs(t_value),N-q-2,1,0));
+
+  PROTECT(result = allocVector(VECSXP,2));
+  SET_VECTOR_ELT(result,0,result_t_val = allocVector(REALSXP,1));
+  SET_VECTOR_ELT(result,1,result_p_val = allocVector(REALSXP,1));
+  PROTECT(result_names = allocVector(STRSXP,2));
+  SET_STRING_ELT(result_names,0,mkChar("t.value"));
+  SET_STRING_ELT(result_names,1,mkChar("p.value"));
+  setAttrib(result,R_NamesSymbol,result_names);
+  REAL(VECTOR_ELT(result,0))[0] = t_value;
+  REAL(VECTOR_ELT(result,1))[0] = p_value;
+
+  UNPROTECT(4); /* S C result result_names */
+
+  Free(cond);
+
+  return result;
+}
+static SEXP
+qp_fast_ci_test2(SEXP S, SEXP NR, SEXP iR, SEXP jR, SEXP C) {
+  int    N = INTEGER(NR)[0];
+  int    n_var = INTEGER(getAttrib(S,R_DimSymbol))[0];
+  int    q;
+  int*   cond;
+  int    i,j,k;
+  double p_value;
+  double t_value;
+  SEXP   result;
+  SEXP   result_names;
+  SEXP   result_t_val;
+  SEXP   result_p_val;
+
+  PROTECT_INDEX Spi,Cpi;
+
+  PROTECT_WITH_INDEX(S,&Spi);
+  PROTECT_WITH_INDEX(C,&Cpi);
+
+  REPROTECT(S = coerceVector(S,REALSXP),Spi);
+  REPROTECT(C = coerceVector(C,INTSXP),Cpi);
+
+  i = INTEGER(iR)[0] - 1;
+  j = INTEGER(jR)[0] - 1;
+  q = length(C);
+
+  cond = Calloc(q, int);
+  for (k=0;k<q;k++)
+    cond[k] = INTEGER(C)[k]-1;
+
+  t_value = qp_ci_test2(REAL(S),n_var,N,i,j,cond,q,NULL);
   p_value = 2.0 * (1.0 - pt(fabs(t_value),N-q-2,1,0));
 
   PROTECT(result = allocVector(VECSXP,2));
@@ -475,6 +733,100 @@ qp_ci_test(double* S, int n_var, int N, int i, int j, int* Q, int q) {
 
 
 /*
+  FUNCTION: qp_ci_test2
+  PURPOSE: perform a test for conditional independence between variables
+           indexed by i and j given the conditioning set Q. this version
+           is more efficient than the original one.
+  RETURNS: a list with two members, the t-statistic value and the p-value
+           on rejecting the null hypothesis of independence
+*/
+
+static double
+qp_ci_test2(double* S, int n_var, int N, int i, int j, int* Q, int q, double* Qinv) {
+  int*    subvars;
+  int     subn = q + 2;
+  int     k,l;
+  double* Qmat;
+  double* Sij;
+  double* Sijbyq;
+  double* Sqbyij;
+  double* tmpmat1;
+  double* tmpmat2;
+  double* par_cov;
+  double* par_cor;
+  double  betahat;
+  double  se;
+  double  t_value;
+  int     flagNoQinv=0;
+
+  subvars     = Calloc(subn,int);
+  Sij         = Calloc(4,double);
+  Sijbyq      = Calloc(2*q, double);
+  Sqbyij      = Calloc(q*2, double);
+  par_cov     = Calloc(4,double);
+  par_cor     = Calloc(4,double);
+
+  subvars[0] = i; /* order here is important, first variable i */
+  subvars[1] = j; /* then variable j then the conditioning set */
+  for (k=2;k<subn;k++)
+    subvars[k] = Q[k-2];
+
+  for (k=0;k<subn;k++)
+    for (l=0;l<subn;l++) {
+      if (k < 2 && l < 2)
+        Sij[k+l*2] = S[subvars[k]+subvars[l]*n_var];
+      if (k < 2 && l > 1) {
+        Sijbyq[k+(l-2)*2] = S[subvars[k]+subvars[l]*n_var];
+        Sqbyij[l-2+k*q] = S[subvars[l]+subvars[k]*n_var];
+      }
+    }
+
+  if (Qinv == NULL) {
+    Qmat = Calloc(q*q, double);
+    Qinv = Calloc(q*q, double);
+    for (i=0; i < q; i++) {
+      for (j=0; j < i; j++)
+        Qmat[i + j*q] = Qmat[j + i*q] = S[Q[i] + Q[j] * n_var];
+      Qmat[i + i*q] = S[Q[i] + Q[i] * n_var];
+    }
+    if (q > 1)
+      matinv(Qinv,Qmat,q);
+    else
+      Qinv[0] = 1.0 / Qmat[0];
+    Free(Qmat);
+    flagNoQinv=1;
+  }
+
+  tmpmat1 = Calloc(q*2,double);
+  tmpmat2 = Calloc(4,double);
+  matprod(Qinv,q,q,Sqbyij,q,2,tmpmat1);
+  matprod(Sijbyq,2,q,tmpmat1,q,2,tmpmat2);
+  Free(tmpmat1);
+  matsumf(par_cov, 2, 2, Sij, tmpmat2, -1.0);
+  Free(tmpmat2);
+  Free(Sij);
+  Free(Sijbyq);
+  Free(Sqbyij);
+  cov2cor(par_cor, par_cov, 2);
+  Free(par_cov);
+  betahat = sqrt(N - q -2) * par_cor[2];
+  se = sqrt(1.0 - par_cor[2] * par_cor[2]);
+
+  /* t.value <- betahat / se */
+  t_value = betahat / se;
+
+  Free(par_cor);
+  Free(subvars);
+
+  if (flagNoQinv)
+    Free(Qinv);
+
+  return t_value;
+}
+
+
+
+/*
   FUNCTION: qp_edge_nrr
   PURPOSE: estimate the non-rejection rate of the edge as the number of tests
            that accept the null hypothesis of independence given the
@@ -490,16 +842,16 @@ qp_edge_nrr(double* S, int n_var, int N, int i, int j, int q, int nTests,
   int    k;
   int    nAcceptedTests = 0;
 
-  thr = qt(1.0-(alpha/2.0),N-q-2,1,0);
+  thr = qt(1.0-(alpha/2.0), N-q-2, 1, 0);
 
   q_by_T_samples = Calloc(q * nTests, int);
 
-  sample_d_con_N_loop(nTests,q,i,j,n_var,q_by_T_samples);
+  sampleQs(nTests, q, i, j, n_var, q_by_T_samples);
 
   for (k = 0; k < nTests; k++) {
     double t_value;
 
-    t_value = qp_ci_test(S,n_var,N,i,j,(int*) (q_by_T_samples+k*q),q);
+    t_value = qp_ci_test(S, n_var, N, i, j, (int*) (q_by_T_samples+k*q), q);
 
     if (fabs(t_value) < thr)
       nAcceptedTests++;
@@ -508,6 +860,46 @@ qp_edge_nrr(double* S, int n_var, int N, int i, int j, int q, int nTests,
   Free(q_by_T_samples);
 
   return (double) ( ((double) nAcceptedTests) / ((double) nTests) );
+}
+
+
+
+/*
+  FUNCTION: qp_edge_nrr_identicalQs
+  PURPOSE: estimate the non-rejection rate of the edge as the number of tests
+           that accept the null hypothesis of independence given the
+           q-order conditionals
+  RETURNS: the estimate of the non-rejection rate for the particular given edge
+*/
+
+static double
+qp_edge_nrr_identicalQs(double* S, int n_var, int* Qs, double* Qinvs, int N, int i,
+                        int j, int q, int nTests, double alpha) {
+  double thr;
+  int    k;
+  int    nAcceptedTests = 0;
+  int    nActualTests = 0;
+
+  thr = qt(1.0-(alpha/2.0), N-q-2, 1, 0);
+
+  for (k = 0; k < nTests; k++) {
+    double t_value;
+    int    l=0;
+
+    while (Qs[k*q+l] != i && Qs[k*q+l] !=j && l < q)
+      l++;
+
+    if (l >= q) {
+      t_value = qp_ci_test2(S, n_var, N, i, j, (int*) (Qs+k*q), q, (double*) (Qinvs+k*q*q));
+
+      if (fabs(t_value) < thr)
+        nAcceptedTests++;
+
+      nActualTests++;
+    }
+  }
+
+  return (double) ( ((double) nAcceptedTests) / ((double) nActualTests) );
 }
 
 
@@ -574,45 +966,46 @@ qp_fast_edge_nrr(SEXP S, SEXP NR, SEXP iR, SEXP jR, SEXP qR,
 
 
 /*
-  FUNCTION: sample_d_con_N_loop
-  PURPOSE: sample without replacement d_con elements from n, N_loop times. this
+  FUNCTION: sampleQs
+  PURPOSE: sample without replacement q elements from p, T times. this
            is a re-make of the SampleNoReplace function of random.c specifically
            tailored to sample in one shot everything we need
-  RETURN: a vector with of the N_loop samples of d_con elements one after each
-          other
+  RETURN: a vector with of the T samples of q elements one after each other
 */
 
 int
 int_cmp(const void* a, const void* b);
 
 static void
-sample_d_con_N_loop(int N_loop, int d_con, int v_i, int v_j, int n, int* y) {
+sampleQs(int T, int q, int v_i, int v_j, int p, int* y) {
   int  i;
   int  total_j = 0;
   int* x;
   int* z;
 
-  x = Calloc(n,int);
-  z = Calloc(n,int);
+  x = Calloc(p,int);
+  z = Calloc(p,int);
 
-  for (i = 0; i < n; i++) {             /* x is a working-only vector */
+  for (i = 0; i < p; i++) {             /* x is a working-only vector */
     x[i] = i;
     z[i] = i;                           /* maps each vertex into a proper place */
   }
 
-  if (v_i < v_j) {                      /* we should take care that the mapping z   */
-    z[v_i] = v_j != n-2 ? n-2 : n-1;    /* re-maps the v_i and v_j vertices to the  */
-    z[v_j] = z[v_i] != n-1 ? n-1 : n-2; /* n-1 and n-2 properly when any of the two */
-  } else {                              /* is smaller than n-2                      */
-    z[v_j] = v_i != n-2 ? n-2 : n-1;
-    z[v_i] = z[v_j] != n-1 ? n-1 : n-2;
+  if (v_i >=0 && v_j >=0) {               /* when sampling Qs outside v_i and v_j     */
+    if (v_i < v_j) {                      /* we should take care that the mapping z   */
+      z[v_i] = v_j != p-2 ? p-2 : p-1;    /* re-maps the v_i and v_j vertices to the  */
+      z[v_j] = z[v_i] != p-1 ? p-1 : p-2; /* p-1 and p-2 properly when any of the two */
+    } else {                              /* is smaller than p-2                      */
+      z[v_j] = v_i != p-2 ? p-2 : p-1;
+      z[v_i] = z[v_j] != p-1 ? p-1 : p-2;
+    }
   }
 
-  for (i = 0; i < N_loop; i++) {
+  for (i = 0; i < T; i++) {
     int j;
-    int m = n-2;                              /* we sample from n-2 elements */
+    int m = p-2;                              /* we sample from p-2 elements */
 
-    for (j = 0; j < d_con ; j++) {
+    for (j = 0; j < q ; j++) {
       int r;
 
       r = (int) (((double) m) * unif_rand()); /* sample using R-builtin RNG */
@@ -621,12 +1014,12 @@ sample_d_con_N_loop(int N_loop, int d_con, int v_i, int v_j, int n, int* y) {
 
     }
 
-    for (j = total_j; j < total_j+d_con; j++) { /* replace again the sampled elements */
-      x[y[j]] = y[j];                           /* for the next round of N_loop       */
-      y[j] = z[y[j]];                           /* use the mapping z to avoid choosing v_i or v_j */
+    for (j = total_j; j < total_j+q; j++) { /* replace again the sampled elements */
+      x[y[j]] = y[j];                       /* for the next round of T       */
+      y[j] = z[y[j]];                       /* use the mapping z to avoid choosing v_i or v_j */
     }
 
-    total_j += d_con;
+    total_j += q;
   }
 
   Free(x);
@@ -1428,6 +1821,32 @@ fast_ipf_step(int n, double* Vf, double* Vn, int* a, int csze) {
   Free(Bnba);
   Free(Vnbba);
   Free(b);
+}
+
+
+
+/*
+  FUNCTION: cov2cor
+  PURPOSE: this is a C implementation of the cov2cor function from the stats package
+  RETURNS: a scaled covariance matrix so that the diagonal equals unity
+*/
+
+static void
+cov2cor(double* R, double* V, int n) {
+  double* Is;
+  int     i,j;
+
+  Is = Calloc(n, double);
+  for (i=0; i < n; i++)
+    Is[i] = sqrt(1.0 / V[i + i*n]);
+
+  for (i=0; i < n; i++) {
+    for (j=0; j < i; j++)
+      R[i + j*n] = R[j + i*n] = Is[i] * V[i + j*n] * Is[j];      
+    R[i + i*n] = 1.0;
+  }
+
+  Free(Is);
 }
 
 
