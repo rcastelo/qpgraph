@@ -3,7 +3,7 @@
 ##                   to interact with microarray data in order to build network
 ##                   models of molecular regulation
 ##
-## Copyright (C) 2008 R. Castelo and A. Roverato
+## Copyright (C) 2009 R. Castelo and A. Roverato
 ## This program is free software; you can redistribute it and/or
 ## modify it under the terms of the GNU General Public License
 ## as published by the Free Software Foundation; either version 2
@@ -35,6 +35,8 @@
 ##                                      variables, if FALSE then random variables
 ##                                      are assumed to be at the columns
 ##             verbose - show progress on the calculations
+##             identicalQs - use identical conditioning subsets for all pairs
+##                           of variables
 ##             R.code.only - flag set to FALSE when using the C implementation
 ## return: a matrix with the estimates of the non-rejection rates
 
@@ -43,7 +45,7 @@ setGeneric("qpNrr", function(data, ...) standardGeneric("qpNrr"))
 # data comes as an ExpressionSet object
 setMethod("qpNrr", signature(data="ExpressionSet"),
           function(data, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
-                   pairup.j=NULL, verbose=TRUE, identicalQs=FALSE,
+                   pairup.j=NULL, verbose=TRUE, identicalQs=TRUE,
                    R.code.only=FALSE) {
             exp <- t(exprs(data))
             S <- cov(exp)
@@ -57,7 +59,7 @@ setMethod("qpNrr", signature(data="ExpressionSet"),
 setMethod("qpNrr", signature(data="data.frame"),
           function(data, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
                    pairup.j=NULL, long.dim.are.variables=TRUE,
-                   verbose=TRUE, identicalQs=FALSE, R.code.only=FALSE) {
+                   verbose=TRUE, identicalQs=TRUE, R.code.only=FALSE) {
             m <- as.matrix(data)
             rownames(m) <- rownames(data)
             if (!is.double(m))
@@ -68,7 +70,7 @@ setMethod("qpNrr", signature(data="data.frame"),
               m <- t(m)
             S <- cov(m)
             N <- length(m[,1])
-            if (!is.null(colnames(m)))
+            if (is.null(colnames(m)))
               rownames(S) <- colnames(S) <- 1:nrow(S)
             else
               rownames(S) <- colnames(S) <- colnames(data)
@@ -81,14 +83,14 @@ setMethod("qpNrr", signature(data="data.frame"),
 setMethod("qpNrr", signature(data="matrix"),
           function(data, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
                    pairup.j=NULL, long.dim.are.variables=TRUE,
-                   verbose=TRUE, identicalQs=FALSE, R.code.only=FALSE) {
+                   verbose=TRUE, identicalQs=TRUE, R.code.only=FALSE) {
             if (long.dim.are.variables &&
               sort(dim(data),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
               data <- t(data)
 
             S <- cov(data)
             N <- length(data[,1])
-            if (!is.null(colnames(data))) 
+            if (is.null(colnames(data))) 
               rownames(S) <- colnames(S) <- 1:nrow(S)
             else
               rownames(S) <- colnames(S) <- colnames(data)
@@ -97,7 +99,7 @@ setMethod("qpNrr", signature(data="matrix"),
           })
 
 .qpNrr <- function(S, N, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
-                   pairup.j=NULL, verbose=TRUE, identicalQs=FALSE, R.code.only=FALSE) {
+                   pairup.j=NULL, verbose=TRUE, identicalQs=TRUE, R.code.only=FALSE) {
 
   var.names <- rownames(S)
   n.var <- nrow(S)
@@ -351,6 +353,8 @@ setMethod("qpNrr", signature(data="matrix"),
 ##             type - type of average (by now only the arithmetic mean is
 ##                    available)
 ##             verbose - show progress of the calculations
+##             identicalQs - use identical conditioning subsets for all pairs
+##                           of variables
 ##             R.code.only - flag set to FALSE when using the C implementation
 ## return: a matrix with the estimates of the average non-rejection rates
 
@@ -360,7 +364,7 @@ setGeneric("qpAvgNrr", function(data, ...) standardGeneric("qpAvgNrr"))
 setMethod("qpAvgNrr", signature(data="ExpressionSet"),
             function(data, qOrders=4, nTests=100, alpha=0.05, pairup.i=NULL,
                      pairup.j=NULL, type=c("arith.mean"), verbose=TRUE,
-                     identicalQs=FALSE, R.code.only=FALSE) {
+                     identicalQs=TRUE, R.code.only=FALSE) {
             exp <- t(exprs(data))
             S <- cov(exp)
             N <- length(sampleNames(data))
@@ -375,7 +379,7 @@ setMethod("qpAvgNrr", signature(data="data.frame"),
                    pairup.i=NULL, pairup.j=NULL,
                    long.dim.are.variables=TRUE,
                    type=c("arith.mean"), verbose=TRUE,
-                   identicalQs=FALSE, R.code.only=FALSE) {
+                   identicalQs=TRUE, R.code.only=FALSE) {
             m <- as.matrix(data)
             rownames(m) <- rownames(data)
             if (!is.double(m))
@@ -386,7 +390,7 @@ setMethod("qpAvgNrr", signature(data="data.frame"),
               m <- t(m)
             S <- cov(m)
             N <- length(m[,1])
-            if (!is.null(colnames(m)))
+            if (is.null(colnames(m)))
               rownames(S) <- colnames(S) <- 1:nrow(S)
             else
               rownames(S) <- colnames(S) <- colnames(data)
@@ -401,14 +405,14 @@ setMethod("qpAvgNrr", signature(data="matrix"),
                    pairup.i=NULL, pairup.j=NULL,
                    long.dim.are.variables=TRUE,
                    type=c("arith.mean"), verbose=TRUE,
-                   identicalQs=FALSE, R.code.only=FALSE) {
+                   identicalQs=TRUE, R.code.only=FALSE) {
             if (long.dim.are.variables &&
               sort(dim(data),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
               data <- t(data)
 
             S <- cov(data)
             N <- length(data[,1])
-            if (!is.null(colnames(data))) 
+            if (is.null(colnames(data))) 
               rownames(S) <- colnames(S) <- 1:nrow(S)
             else
               rownames(S) <- colnames(S) <- colnames(data)
@@ -418,7 +422,7 @@ setMethod("qpAvgNrr", signature(data="matrix"),
 
 .qpAvgNrr <- function(S, N, qOrders=4, nTests=100, alpha=0.05, pairup.i=NULL,
                       pairup.j=NULL, type=c("arith.mean"), verbose=TRUE,
-                      identicalQs=FALSE, R.code.only=FALSE) {
+                      identicalQs=TRUE, R.code.only=FALSE) {
 
   type <- match.arg(type)
 
@@ -508,7 +512,7 @@ setMethod("qpEdgeNrr", signature(data="data.frame"),
               m <- t(m)
             S <- cov(m)
             N <- length(m[,1])
-            if (!is.null(colnames(m)))
+            if (is.null(colnames(m)))
               rownames(S) <- colnames(S) <- 1:nrow(S)
             else
               rownames(S) <- colnames(S) <- colnames(data)
@@ -533,7 +537,7 @@ setMethod("qpEdgeNrr", signature(data="matrix"),
 
               S <- cov(data)
               N <- length(data[,1])
-              if (!is.null(colnames(data))) 
+              if (is.null(colnames(data))) 
                 rownames(S) <- colnames(S) <- 1:nrow(S)
               else
                 rownames(S) <- colnames(S) <- colnames(data)
@@ -677,7 +681,7 @@ setMethod("qpCItest", signature(data="data.frame"),
               m <- t(m)
             S <- cov(m)
             N <- length(m[,1])
-            if (!is.null(colnames(m)))
+            if (is.null(colnames(m)))
               rownames(S) <- colnames(S) <- 1:nrow(S)
             else
               rownames(S) <- colnames(S) <- colnames(data)
@@ -701,7 +705,7 @@ setMethod("qpCItest", signature(data="matrix"),
 
               S <- cov(data)
               N <- length(data[,1])
-              if (!is.null(colnames(data))) 
+              if (is.null(colnames(data))) 
                 rownames(S) <- colnames(S) <- 1:nrow(S)
               else
                 rownames(S) <- colnames(S) <- colnames(data)
@@ -1506,7 +1510,7 @@ setMethod("qpPAC", signature(data="data.frame"),
               m <- t(m)
             S <- cov(m)
             N <- length(m[,1])
-            if (!is.null(colnames(m)))
+            if (is.null(colnames(m)))
               rownames(S) <- colnames(S) <- 1:nrow(S)
             else
               rownames(S) <- colnames(S) <- colnames(data)
@@ -1525,7 +1529,7 @@ setMethod("qpPAC", signature(data="matrix"),
 
             S <- cov(data)
             N <- length(data[,1])
-            if (!is.null(colnames(data))) 
+            if (is.null(colnames(data))) 
               rownames(S) <- colnames(S) <- 1:nrow(S)
             else
               rownames(S) <- colnames(S) <- colnames(data)
@@ -1623,7 +1627,7 @@ setMethod("qpPCC", signature(data="data.frame"),
               m <- t(m)
             S <- cov(m)
             N <- length(m[,1])
-            if (!is.null(colnames(m)))
+            if (is.null(colnames(m)))
               rownames(S) <- colnames(S) <- 1:nrow(S)
             else
               rownames(S) <- colnames(S) <- colnames(data)
@@ -1640,7 +1644,7 @@ setMethod("qpPCC", signature(data="matrix"),
 
             S <- cov(data)
             N <- length(data[,1])
-            if (!is.null(colnames(data))) 
+            if (is.null(colnames(data))) 
               rownames(S) <- colnames(S) <- 1:nrow(S)
             else
               rownames(S) <- colnames(S) <- colnames(data)

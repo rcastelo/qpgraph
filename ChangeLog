@@ -1,4 +1,11 @@
-2009-07-17  Robert Castelo  <robert.castelo@upf.edu>
+2009-10-21  Robert Castelo  <robert.castelo@upf.edu>
+
+  Version 1.1.4
+  * updated few details on the main package help page
+  * added R_CheckUserInterrupt() to the heavy computations in C
+  * changed default value of identicalQs parameters to TRUE
+  * fixed a minor bug on reporting progress of calculations
+  * fixed a minor bug on identifying variable names on matrices
 
   Version 1.1.1
   * documentation mismatches fixed on some function arguments

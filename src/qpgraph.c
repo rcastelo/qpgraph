@@ -230,7 +230,7 @@ qp_fast_nrr(SEXP S, SEXP N, SEXP qR, SEXP nTests, SEXP alpha, SEXP pairup_i_noin
     for (j=0;j<n_var;j++)
       REAL(nrrMatrix)[i+n_var*j] = NA_REAL;
 
-  n_adj = l_int * l_jni + l_int * l_ini + l_int * (l_int - 1) / 2;
+  n_adj = l_int * (l_jni + l_ini) + l_ini * l_jni + l_int * (l_int - 1) / 2;
 
   ppct = -1;
   k = 0;
@@ -260,6 +260,7 @@ qp_fast_nrr(SEXP S, SEXP N, SEXP qR, SEXP nTests, SEXP alpha, SEXP pairup_i_noin
         else
           Rprintf(".",pct);
         R_FlushConsole();
+        R_CheckUserInterrupt();
 #ifdef Win32
         R_ProcessEvents();
 #endif
@@ -293,6 +294,7 @@ qp_fast_nrr(SEXP S, SEXP N, SEXP qR, SEXP nTests, SEXP alpha, SEXP pairup_i_noin
         else
           Rprintf(".",pct);
         R_FlushConsole();
+        R_CheckUserInterrupt();
 #ifdef Win32
         R_ProcessEvents();
 #endif
@@ -323,6 +325,7 @@ qp_fast_nrr(SEXP S, SEXP N, SEXP qR, SEXP nTests, SEXP alpha, SEXP pairup_i_noin
         else
           Rprintf(".",pct);
         R_FlushConsole();
+        R_CheckUserInterrupt();
 #ifdef Win32
         R_ProcessEvents();
 #endif
@@ -395,7 +398,7 @@ qp_fast_nrr_identicalQs(SEXP S, SEXP N, SEXP qR, SEXP nTestsR, SEXP alpha, SEXP 
     for (j=0;j<n_var;j++)
       REAL(nrrMatrix)[i+n_var*j] = NA_REAL;
 
-  n_adj = l_int * l_jni + l_int * l_ini + l_int * (l_int - 1) / 2;
+  n_adj = l_int * (l_jni + l_ini) + l_ini * l_jni + l_int * (l_int - 1) / 2;
 
   ppct = -1;
   k = 0;
@@ -446,6 +449,7 @@ qp_fast_nrr_identicalQs(SEXP S, SEXP N, SEXP qR, SEXP nTestsR, SEXP alpha, SEXP 
         else
           Rprintf(".",pct);
         R_FlushConsole();
+        R_CheckUserInterrupt();
 #ifdef Win32
         R_ProcessEvents();
 #endif
@@ -480,6 +484,7 @@ qp_fast_nrr_identicalQs(SEXP S, SEXP N, SEXP qR, SEXP nTestsR, SEXP alpha, SEXP 
         else
           Rprintf(".",pct);
         R_FlushConsole();
+        R_CheckUserInterrupt();
 #ifdef Win32
         R_ProcessEvents();
 #endif
@@ -511,6 +516,7 @@ qp_fast_nrr_identicalQs(SEXP S, SEXP N, SEXP qR, SEXP nTestsR, SEXP alpha, SEXP 
         else
           Rprintf(".",pct);
         R_FlushConsole();
+        R_CheckUserInterrupt();
 #ifdef Win32
         R_ProcessEvents();
 #endif

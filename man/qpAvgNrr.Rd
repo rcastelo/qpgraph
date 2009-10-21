@@ -14,17 +14,17 @@ Estimates average non-rejection rates for every pair of variables.
 \S4method{qpAvgNrr}{ExpressionSet}(data, qOrders=4, nTests=100, alpha=0.05,
                                    pairup.i=NULL, pairup.j=NULL,
                                    type=c("arith.mean"), verbose=TRUE,
-                                   identicalQs=FALSE, R.code.only=FALSE)
+                                   identicalQs=TRUE, R.code.only=FALSE)
 \S4method{qpAvgNrr}{data.frame}(data, qOrders=4, nTests=100, alpha=0.05,
                                 pairup.i=NULL, pairup.j=NULL,
                                 long.dim.are.variables=TRUE,
                                 type=c("arith.mean"), verbose=TRUE,
-                                identicalQs=FALSE, R.code.only=FALSE)
+                                identicalQs=TRUE, R.code.only=FALSE)
 \S4method{qpAvgNrr}{matrix}(data, qOrders=4, nTests=100, alpha=0.05,
                             pairup.i=NULL, pairup.j=NULL,
                             long.dim.are.variables=TRUE,
                             type=c("arith.mean"), verbose=TRUE,
-                            identicalQs=FALSE, R.code.only=FALSE)
+                            identicalQs=TRUE, R.code.only=FALSE)
 }
 \arguments{
   \item{data}{data set from where to estimate the average non-rejection rates.
@@ -41,7 +41,9 @@ Estimates average non-rejection rates for every pair of variables.
        variables are assumed to be at the columns of the data frame or matrix.}
   \item{type}{type of average. By now only the arithmetic mean is available.}
   \item{verbose}{show progress on the calculations.}
-  \item{identicalQs}{experimental feature.}
+  \item{identicalQs}{use identical conditioning subsets for every pair of vertices
+       (default), otherwise sample a new collection of \code{nTests} subsets for
+       each pair of vertices.}
   \item{R.code.only}{logical; if FALSE then the faster C implementation is used
        (default); if TRUE then only R code is executed.}
 }
@@ -50,9 +52,15 @@ Note that when specifying a vector of particular orders \code{q}, these values
 should be in the range 1 to \code{min(p,n-3)}, where \code{p} is the number of
 variables and \code{n} the number of observations. The computational cost
 increases linearly within each \code{q} value and quadratically in \code{p}.
+When setting \code{identicalQs} to \code{FALSE} the computational cost may
+increase between 2 times and one order of magnitude (depending on \code{p} and
+\code{q}) while asymptotically the estimation of the non-rejection rate
+converges to the same value.
 }
 \value{
-A symmetric matrix of estimated average non-rejection rates.
+A symmetric matrix of estimated average non-rejection rates with the diagonal
+set to \code{NA}. When using the arguments \code{pairup.i} and \code{pairup.j},
+those cells outside the constraint pairs will get also a \code{NA} value.
 }
 \references{
 Castelo, R. and Roverato, A. Reverse engineering molecular regulatory
