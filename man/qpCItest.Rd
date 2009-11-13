@@ -57,15 +57,19 @@ Gaussian graphical model search from microarray data with p larger than n,
   \code{\link{qpEdgeNrr}}
 }
 \examples{
-# in this graph 3 is conditionally independent of 4 given 1 AND 2
+require(mvtnorm)
 
-I <- matrix(c(FALSE,  TRUE,  TRUE,  TRUE,
+nObs <- 100 ## number of observations to simulate
+
+## the following adjacency matrix describes an undirected graph
+## where vertex 3 is conditionally independent of 4 given 1 AND 2
+A <- matrix(c(FALSE,  TRUE,  TRUE,  TRUE,
               TRUE,  FALSE,  TRUE,  TRUE,
               TRUE,   TRUE, FALSE, FALSE,
               TRUE,   TRUE, FALSE, FALSE), nrow=4, ncol=4, byrow=TRUE)
-K <- qpI2K(I)
+Sigma <- qpG2Sigma(A, rho=0.5)
 
-X <- qpSampleMvnorm(K, N=100)
+X <- rmvnorm(nObs, sigma=Sigma)
 
 qpCItest(X, i=3, j=4, Q=1, long.dim.are.variables=FALSE)
 

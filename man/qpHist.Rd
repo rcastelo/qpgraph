@@ -8,13 +8,14 @@ Histograms of non-rejection rates
 Plots the distribution of non-rejection rates.
 }
 \usage{
-qpHist(nrrMatrix, K=NULL,
+qpHist(nrrMatrix, A=NULL,
        titlehist = "all estimated\nnon-rejection rates", freq=TRUE)
 }
 \arguments{
   \item{nrrMatrix}{matrix of non-rejection rates.}
-  \item{K}{concentration matrix of the generative distribution (whenever
-       available).}
+  \item{A}{adjacency matrix of an undirected graph whose present and missing
+       edges will be employed to show separately the distribution of
+       non-rejection rates.}
   \item{titlehist}{main title of the histogram(s).}
   \item{freq}{logical; if TRUE, the histograms show frequencies (counts) of
        occurrence of the different non-rejection rate values; if FALSE, then
@@ -41,18 +42,19 @@ Gaussian graphical model search from microarray data with p larger than n,
   \code{\link{qpClique}}
 }
 \examples{
-nVar <- 50 # number of variables
-maxCon <- 5  # maximum connectivity per variable
-nObs <- 30 # number of observations to simulate
+require(mvtnorm)
 
-I <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
-K <- qpI2K(I)
+nVar <- 50  ## number of variables
+maxCon <- 5 ## maximum connectivity per variable
+nObs <- 30  ## number of observations to simulate
 
-X <- qpSampleMvnorm(K, nObs)
+A <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
+Sigma <- qpG2Sigma(A, rho=0.5)
+X <- rmvnorm(nObs, sigma=Sigma)
 
 nrr.estimates <- qpNrr(X, q=5, verbose=FALSE)
 
-qpHist(nrr.estimates, K)
+qpHist(nrr.estimates, A)
 }
 \keyword{models}
 \keyword{multivariate}

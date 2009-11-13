@@ -17,8 +17,8 @@ to reverse engineer a molecular regulatory network.
 \details{
   \tabular{ll}{
   Package: \tab qp\cr
-  Version: \tab 1.1.4\cr
-  Date: \tab 15-10-2009\cr
+  Version: \tab 1.3.1\cr
+  Date: \tab 13-11-2009\cr
   biocViews: \tab Microarray, GeneExpression, Transcription, Pathways, Bioinformatics, GraphsAndNetworks\cr
   Suggests: \tab mvtnorm, graph, Rgraphviz, annotate, genefilter, Category (>= 2.9.7), org.EcK12.eg.db (>= 2.2.6), GOstats\cr
   License: \tab GPL (>= 2)\cr
@@ -51,6 +51,13 @@ to reverse engineer a molecular regulatory network.
           as function of the non-rejection rate.
     \item \code{\link{qpGetCliques}} finds the set of (maximal) cliques of
           a given undirected graph.
+    \item \code{\link{qpRndWishart}} random generation for the Wishart
+          distribution.
+    \item \code{\link{qpG2Sigma}} builds a random covariance matrix from an
+          undrected graph. The inverse of the resulting matrix contains zeroes
+          at the missing edges of the given undirected graph.
+    \item \code{\link{qpK2ParCor}} obtains the partial correlation coefficients
+          from a given concentration matrix.
     \item \code{\link{qpIPF}} performs maximum likelihood estimation of a
           sample covariance matrix given the independence constraints from
           an input list of (maximal) cliques.
@@ -62,14 +69,6 @@ to reverse engineer a molecular regulatory network.
           input data set.
     \item \code{\link{qpRndGraph}} builds a random undirected graph with a
           bounded maximum connectivity degree on every vertex.
-    \item \code{\link{qpSampleMvnorm}} samples independent observations from
-          a multivariate normal distribution with a given mean vector and
-          a given concentration matrix.
-    \item \code{\link{qpI2K}} builds a random concentration matrix containing
-          zeroes on those entries associated to pairs of variables that are
-          disconnected on a given undirected graph.
-    \item \code{\link{qpK2R}} obtains the partial correlation coefficients
-          from a given concentration matrix.
     \item \code{\link{qpPrecisionRecall}} calculates the precision-recall curve
           for a given measure of association between all pairs of variables in a
            matrix.
@@ -77,7 +76,8 @@ to reverse engineer a molecular regulatory network.
           given precision or recall level from a given precision-recall curve.
     \item \code{\link{qpImportNrr}} imports non-rejection rates.
     \item \code{\link{qpFunctionalCoherence}} estimates functional coherence of
-          using Gene Ontology annotations.
+          a given transcriptional regulatory network using Gene Ontology
+          annotations.
   }
 
 This package provides an implementation of the procedures described in (Castelo

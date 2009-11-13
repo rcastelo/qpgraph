@@ -23,12 +23,12 @@ independencies encoded in this graph. Note that the maximum order of
 correlation between two disconnected vertices is bounded by the minimum
 degree of connectivity of the two vertices.
 
-The algorithm employed is not designed to enforce a uniform probability
+The algorithm employed is not designed to ensure a uniform probability
 distribution on the set of graphs with the given maximum boundary that may be
 sampled with positive probability.
 }
 \value{
-The incidence matrix of the resulting graph.
+The adjacency matrix of the resulting graph.
 }
 \references{
 Castelo, R. and Roverato, A. A robust procedure for
@@ -37,15 +37,15 @@ Gaussian graphical model search from microarray data with p larger than n,
 }
 \author{R. Castelo and A. Roverato}
 \seealso{
-  \code{\link{qpSampleMvnorm}}
+  \code{\link{qpNrr}}
 }
 \examples{
-nVertices <- 50 # number of vertices
-maxCon <- 5  # maximum connectivity per vertex
+nVar <- 50  ## number of vertices
+maxCon <- 5 ## maximum connectivity per vertex
 
-I <- qpRndGraph(n.vtx=nVertices, n.bd=maxCon)
+A <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
 
-summary(rowSums(I))
+summary(rowSums(A))
 }
 \keyword{models}
 \keyword{multivariate}

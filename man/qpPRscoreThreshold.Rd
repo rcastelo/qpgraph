@@ -38,18 +38,22 @@ Fawcett, T. An introduction to ROC analysis.
   \code{\link{qpGraph}}
 }
 \examples{
-nVar <- 50 # number of variables
-maxCon <- 5  # maximum connectivity per variable
-nObs <- 30 # number of observations to simulate
+require(mvtnorm)
 
-I <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
-K <- qpI2K(I)
+nVar <- 50  ## number of variables
+maxCon <- 5 ## maximum connectivity per variable
+nObs <- 30  ## number of observations to simulate
 
-X <- qpSampleMvnorm(K, nObs)
+set.seed(123)
+
+A <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
+Sigma <- qpG2Sigma(A, rho=0.5)
+X <- rmvnorm(nObs, sigma=Sigma)
 
 nrr.estimates <- qpNrr(X, q=1, verbose=FALSE)
 
-nrr.prerec <- qpPrecisionRecall(nrr.estimates, K!=0, decreasing=FALSE, recallSteps=seq(0,1,0.1))
+nrr.prerec <- qpPrecisionRecall(nrr.estimates, A, decreasing=FALSE,
+                                recallSteps=seq(0, 1, by=0.1))
 
 qpPRscoreThreshold(nrr.prerec, level=0.5, recall.level=TRUE, max.score=0)
 

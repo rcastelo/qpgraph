@@ -8,13 +8,13 @@ Functional coherence estimation
 Estimates functional coherence for a given transcriptional regulatory network.
 }
 \usage{
-qpFunctionalCoherence(I, TFgenes, chip, minRMsize=5, verbose=FALSE)
+qpFunctionalCoherence(A, TFgenes, chip, minRMsize=5, verbose=FALSE)
 }
 \arguments{
-  \item{I}{incidence matrix of the undirected graph representing the
+  \item{A}{adjacency matrix of the undirected graph representing the
        transcriptional regulatory network.}
   \item{TFgenes}{vector of transcription factor gene (matching the genes at the
-       rows and column names of \code{I}.}
+       rows and column names of \code{A}.}
   \item{chip}{name of the \code{.db} package containing the Gene Ontology (GO)
        annotations.}
   \item{minRMsize}{minimum size of the target gene set in each regulatory module
@@ -25,7 +25,7 @@ qpFunctionalCoherence(I, TFgenes, chip, minRMsize=5, verbose=FALSE)
 }
 \details{
 This function estimates the functional coherence of a transcriptional regulatory
-network represented by means of an undirected graph encoded by an incidence matrix
+network represented by means of an undirected graph encoded by an adjacency matrix
 and of a set of transcription factor genes. The functional coherence of a
 transcriptional regulatory network is calculated as specified by Castelo and
 Roverato (2009) and corresponds to the distribution of individual functional
@@ -53,8 +53,8 @@ networks from microarray data with qp-graphs. \emph{J. Comp. Biol.},
   \code{\link{qpGraph}}
 }
 \examples{
-library(annotate)
-library(org.EcK12.eg.db)
+require(annotate)
+require(org.EcK12.eg.db)
 
 # load RegulonDB data from this package
 data(EcoliOxygen)
@@ -84,17 +84,17 @@ TGi <- match(subset.filtered.regulon6.1[,"EgID_TG"], allGenes)
 subset.filtered.regulon6.1 <- cbind(subset.filtered.regulon6.1,
                                     idx_TF=TFi, idx_TG=TGi)
 
-# build an incidence matrix representing the transcriptional regulatory
+# build an adjacency matrix representing the transcriptional regulatory
 # relationships from these regulatory modules
 p <- length(allGenes)
-incidenceMatrix <- matrix(FALSE, nrow=p, ncol=p)
-rownames(incidenceMatrix) <- colnames(incidenceMatrix) <- allGenes
+adjacencyMatrix <- matrix(FALSE, nrow=p, ncol=p)
+rownames(adjacencyMatrix) <- colnames(adjacencyMatrix) <- allGenes
 idxTFTG <- as.matrix(subset.filtered.regulon6.1[,c("idx_TF","idx_TG")])
-incidenceMatrix[idxTFTG] <-
-  incidenceMatrix[cbind(idxTFTG[,2],idxTFTG[,1])] <- TRUE
+adjacencyMatrix[idxTFTG] <-
+  adjacencyMatrix[cbind(idxTFTG[,2],idxTFTG[,1])] <- TRUE
 
 # calculate functional coherence on these regulatory modules
-fc <- qpFunctionalCoherence(incidenceMatrix, TFgenesEgIDs, "org.EcK12.eg.db")
+fc <- qpFunctionalCoherence(adjacencyMatrix, TFgenesEgIDs, "org.EcK12.eg.db")
 
 print(sprintf("the \%s module has a FC value of \%.2f",
               mget(names(fc$functionalCoherenceValues),org.EcK12.egSYMBOL),

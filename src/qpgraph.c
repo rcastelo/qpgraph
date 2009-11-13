@@ -49,6 +49,7 @@ typedef struct {
 /* function prototypes */
 
 extern void R_FlushConsole(void);
+extern void R_CheckUserInterrupt(void);
 #ifdef Win32
 extern void R_ProcessEvents(void);
 #endif
@@ -1686,6 +1687,7 @@ qp_fast_ipf(SEXP vvR, SEXP clqlstR, SEXP tolR, SEXP verbose) {
           else
             Rprintf(".",pct);
           R_FlushConsole();
+          R_CheckUserInterrupt();
 #ifdef Win32
           R_ProcessEvents();
 #endif

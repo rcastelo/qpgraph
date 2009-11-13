@@ -39,22 +39,29 @@ their P-values.
   \code{\link{qpPAC}}
 }
 \examples{
-nVar <- 50 # number of variables
-maxCon <- 5 # maximum connectivity per variable
-nObs <- 30 # number of observations to simulate
+require(graph)
+require(mvtnorm)
 
-I <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
-K <- qpI2K(I)
+nVar <- 50 ## number of variables
+nObs <- 10 ## number of observations to simulate
 
-X <- qpSampleMvnorm(K, nObs)
+set.seed(123)
+
+g <- randomEGraph(as.character(1:nVar), p=0.15)
+
+Sigma <- qpG2Sigma(g, rho=0.5)
+X <- rmvnorm(nObs, sigma=Sigma)
 
 pcc.estimates <- qpPCC(X)
 
-# Pearson correlation coefficients of the present edges
-summary(abs(pcc.estimates$R[upper.tri(pcc.estimates$R) & I]))
+## get the corresponding boolean adjacency matrix
+A <- as(g, "matrix") == 1
 
-# Pearson correlation coefficients of the missing edges
-summary(abs(pcc.estimates$R[upper.tri(pcc.estimates$R) & !I]))
+## Pearson correlation coefficients of the present edges
+summary(abs(pcc.estimates$R[upper.tri(pcc.estimates$R) & A]))
+
+## Pearson correlation coefficients of the missing edges
+summary(abs(pcc.estimates$R[upper.tri(pcc.estimates$R) & !A]))
 
 }
 \keyword{models}

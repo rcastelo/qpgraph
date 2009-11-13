@@ -1,5 +1,17 @@
 2009-10-21  Robert Castelo  <robert.castelo@upf.edu>
 
+  Version 1.3.1
+	* re-organization of the functions to sample synthetic data from
+	multivariate normal distributions
+  * fixes on the documentation
+  * added R_CheckUserInterrupt() to the C code of the IPF algorithm
+
+  Version 1.3.0
+  * bump version number to enter Bioconductor development version 2.6
+
+  Version 1.2.0
+	* bump version number to enter Bioconductor release version 2.5
+
   Version 1.1.4
   * updated few details on the main package help page
   * added R_CheckUserInterrupt() to the heavy computations in C

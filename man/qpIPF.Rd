@@ -51,30 +51,35 @@ Wiley, 1990.
   \code{\link{qpPAC}}
 }
 \examples{
-nVar <- 50 # number of variables
-maxCon <- 5  # maximum connectivity per variable
-nObs <- 10 # number of observations to simulate
+require(graph)
+require(mvtnorm)
 
-I <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
-K <- qpI2K(I)
-Sigma <- qpDscale(solve(K)) # true covariance matrix
+nVar <- 50  ## number of variables
+nObs <- 100 ## number of observations to simulate
 
-X <- qpSampleMvnorm(K, nObs)
+set.seed(123)
 
-# scaled sample covariance matrix
-S <- qpDscale(cov(X))
+g <- randomEGraph(as.character(1:nVar), p=0.15)
 
-# more efficient scaled sample covariance matrix
-clqs <- qpGetCliques(I, verbose=FALSE)
-S2 <- qpIPF(S, clqs)
-S2 <- qpDscale(S2)
+Sigma <- qpG2Sigma(g, rho=0.5)
+X <- rmvnorm(nObs, sigma=Sigma)
 
-# mean squared error of S
-mean((abs(Sigma-S)^2)[upper.tri(Sigma)])
+## MLE of the sample covariance matrix
+S <- cov(X)
 
-# mean squared error of S2
-mean((abs(Sigma-S2)^2)[upper.tri(Sigma)])
+## more efficient MLE of the sample covariance matrix using IPF
+clqs <- qpGetCliques(g, verbose=FALSE)
+S_ipf <- qpIPF(S, clqs)
 
+## get the adjacency matrix and put the diagonal to one
+A <- as(g, "matrix")
+diag(A) <- 1
+
+## entries in S and S_ipf for present edges in g should coincide
+max(abs(S_ipf[A==1] - S[A==1]))
+
+## entries in the inverse of S_ipf for missing edges in g should be zero
+max(solve(S_ipf)[A==0])
 }
 \keyword{models}
 \keyword{multivariate}

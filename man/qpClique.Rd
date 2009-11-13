@@ -73,16 +73,19 @@ Pardalos, P.M. and Xue, J. The maximum clique problem.
   \code{\link{qpGraphDensity}}
 }
 \examples{
-nVar <- 50 # number of variables
-maxCon <- 5  # maximum connectivity per variable
-nObs <- 30 # number of observations to simulate
+require(mvtnorm)
 
-I <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
-K <- qpI2K(I)
+nVar <- 50  ## number of variables
+maxCon <- 5 ## maximum connectivity per variable
+nObs <- 30  ## number of observations to simulate
 
-X <- qpSampleMvnorm(K, nObs)
+set.seed(123)
 
-# the higher the q the less complex the qp-graph
+A <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
+Sigma <- qpG2Sigma(A, rho=0.5)
+X <- rmvnorm(nObs, sigma=Sigma)
+
+## the higher the q the less complex the qp-graph
 
 nrr.estimates <- qpNrr(X, q=1, verbose=FALSE)
 
@@ -91,7 +94,6 @@ qpClique(nrr.estimates, plot=FALSE)$complexity
 nrr.estimates <- qpNrr(X, q=5, verbose=FALSE)
 
 qpClique(nrr.estimates, plot=FALSE)$complexity
-
 }
 \keyword{models}
 \keyword{multivariate}

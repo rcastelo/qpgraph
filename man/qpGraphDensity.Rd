@@ -48,16 +48,19 @@ Gaussian graphical model search from microarray data with p larger than n,
   \code{\link{qpClique}}
 }
 \examples{
-nVar <- 50 # number of variables
-maxCon <- 5  # maximum connectivity per variable
-nObs <- 30 # number of observations to simulate
+require(mvtnorm)
 
-I <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
-K <- qpI2K(I)
+nVar <- 50  ## number of variables
+maxCon <- 5 ## maximum connectivity per variable
+nObs <- 30  ## number of observations to simulate
 
-X <- qpSampleMvnorm(K, nObs)
+set.seed(123)
 
-# the higher the q the sparser the qp-graphs
+A <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
+Sigma <- qpG2Sigma(A, rho=0.5)
+X <- rmvnorm(nObs, sigma=Sigma)
+
+## the higher the q the sparser the qp-graph
 
 nrr.estimates <- qpNrr(X, q=1, verbose=FALSE)
 
@@ -66,7 +69,6 @@ qpGraphDensity(nrr.estimates, plot=FALSE)$sparseness
 nrr.estimates <- qpNrr(X, q=5, verbose=FALSE)
 
 qpGraphDensity(nrr.estimates, plot=FALSE)$sparseness
-
 }
 \keyword{models}
 \keyword{multivariate}

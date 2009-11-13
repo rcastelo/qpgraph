@@ -25,7 +25,7 @@ P-values in a given undirected graph, from an input data set.
   \item{data}{data set from where to estimate the partial correlation
        coefficients. It can be an ExpressionSet object, a data frame or a
        matrix.}
-  \item{g}{either a \code{graphNEL} object or an incidence matrix of the given
+  \item{g}{either a \code{graphNEL} object or an adjacency matrix of the given
        undirected graph.}
   \item{return.K}{logical; if TRUE this function also returns the concentration
        matrix \code{K}; if FALSE it does not return it (default).}
@@ -86,14 +86,17 @@ Gaussian models. \emph{Stat. Comput.}, 6:297-302, 1996.
   \code{\link{qpIPF}}
 }
 \examples{
-nVar <- 50 # number of variables
-maxCon <- 5  # maximum connectivity per variable
-nObs <- 30 # number of observations to simulate
+require(mvtnorm)
 
-I <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
-K <- qpI2K(I)
+nVar <- 50  ## number of variables
+maxCon <- 5 ## maximum connectivity per variable
+nObs <- 30  ## number of observations to simulate
 
-X <- qpSampleMvnorm(K, nObs)
+set.seed(123)
+
+A <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
+Sigma <- qpG2Sigma(A, rho=0.5)
+X <- rmvnorm(nObs, sigma=Sigma)
 
 nrr.estimates <- qpNrr(X, verbose=FALSE)
 
@@ -101,12 +104,13 @@ g <- qpGraph(nrr.estimates, 0.5)
 
 pac.estimates <- qpPAC(X, g=g, verbose=FALSE)
 
-# estimated partial correlation coefficients of the present edges
-summary(abs(pac.estimates$R[upper.tri(pac.estimates$R) & I]))
+## distribution absolute values of the estimated
+## partial correlation coefficients of the present edges
+summary(abs(pac.estimates$R[upper.tri(pac.estimates$R) & A]))
 
-# estimated partial correlation coefficients of the missing edges
-summary(abs(pac.estimates$R[upper.tri(pac.estimates$R) & !I]))
-
+## distribution absolute values of the estimated
+## partial correlation coefficients of the missing edges
+summary(abs(pac.estimates$R[upper.tri(pac.estimates$R) & !A]))
 }
 \keyword{models}
 \keyword{multivariate}

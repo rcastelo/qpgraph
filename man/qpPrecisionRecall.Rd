@@ -9,13 +9,13 @@ Calculates the precision-recall curve (see Fawcett, 2006) for a given measure of
 association between all pairs of variables in a matrix.
 }
 \usage{
-qpPrecisionRecall(measurementsMatrix, refI, decreasing=TRUE, pairup.i=NULL,
+qpPrecisionRecall(measurementsMatrix, refA, decreasing=TRUE, pairup.i=NULL,
                   pairup.j=NULL, recallSteps=c(seq(0,0.1,0.005),seq(0.2,1.0,0.1)))
 }
 \arguments{
   \item{measurementsMatrix}{matrix containing the measure of association between
        all pairs of variables.}
-  \item{refI}{incidence matrix of reference from which to calculate the
+  \item{refA}{adjacency matrix of reference from which to calculate the
        precision-recall curve.}
   \item{decreasing}{logical; if TRUE then the measurements are ordered in
        decreasing order; if FALSE then in increasing order.}
@@ -46,27 +46,32 @@ Fawcett, T. An introduction to ROC analysis.
   \code{\link{qpPCC}}
 }
 \examples{
-nVar <- 50 # number of variables
-maxCon <- 5  # maximum connectivity per variable
-nObs <- 30 # number of observations to simulate
+require(mvtnorm)
 
-I <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
-K <- qpI2K(I)
+nVar <- 50  ## number of variables
+maxCon <- 5 ## maximum connectivity per variable
+nObs <- 30  ## number of observations to simulate
 
-X <- qpSampleMvnorm(K, nObs)
+set.seed(123)
 
-nrr.estimates <- qpNrr(X, q=5, verbose=FALSE) # NRR !
+A <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
+Sigma <- qpG2Sigma(A, rho=0.5)
+X <- rmvnorm(nObs, sigma=Sigma)
 
-pcc.estimates <- qpPCC(X) # PCC !
+## estimate non-rejection rates
+nrr.estimates <- qpNrr(X, q=5, verbose=FALSE)
 
-# calculate area under the precision-recall curve
+## estimate Pearson correlation coefficients
+pcc.estimates <- qpPCC(X)
 
-nrr.prerec <- qpPrecisionRecall(nrr.estimates, refI=K!=0, decreasing=FALSE,
+## calculate area under the precision-recall curve
+## for both sets of estimated values of association
+nrr.prerec <- qpPrecisionRecall(nrr.estimates, refA=A, decreasing=FALSE,
                                 recallSteps=seq(0, 1, 0.1))
 f <- approxfun(nrr.prerec[, c("Recall", "Precision")])
 integrate(f, 0, 1)$value
 
-pcc.prerec <- qpPrecisionRecall(abs(pcc.estimates$R), refI=K!=0,
+pcc.prerec <- qpPrecisionRecall(abs(pcc.estimates$R), refA=A,
                                 recallSteps=seq(0, 1, 0.1))
 f <- approxfun(pcc.prerec[, c("Recall", "Precision")])
 integrate(f, 0, 1)$value

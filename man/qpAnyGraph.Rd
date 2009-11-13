@@ -10,7 +10,7 @@ Obtains an undirected graph from a matrix of pairwise measurements
 \usage{
 qpAnyGraph(measurementsMatrix, threshold=NULL, remove=c("below", "above"),
            topPairs=NULL, decreasing=TRUE, pairup.i=NULL, pairup.j=NULL,
-           return.type=c("incidence.matrix", "edge.list", "graphNEL", "graphAM"))
+           return.type=c("adjacency.matrix", "edge.list", "graphNEL", "graphAM"))
 }
 \arguments{
   \item{measurementsMatrix}{matrix of pairwise measurements.}
@@ -28,7 +28,7 @@ qpAnyGraph(measurementsMatrix, threshold=NULL, remove=c("below", "above"),
   \item{pairup.i}{subset of vertices to pair up with subset \code{pairup.j}}
   \item{pairup.j}{subset of vertices to pair up with subset \code{pairup.i}}
   \item{return.type}{type of data structure on which the resulting undirected
-       graph should be returned. Either a logical incidence matrix with cells
+       graph should be returned. Either a logical adjacency matrix with cells
        set to TRUE when the two indexing variables are connected in the graph
        (default), or a list of edges in a matrix where each row corresponds to
        one edge and the two columns contain the two vertices defining each edge,
@@ -39,7 +39,7 @@ This function requires the \code{graph} package when \code{return.type=graphNEL}
 or \code{return.type=graphAM}.
 }
 \value{
-The resulting undirected graph as either an incidence matrix, a \code{graphNEL}
+The resulting undirected graph as either an adjacency matrix, a \code{graphNEL}
 object or a \code{graphAM} object, depending on the value of the \code{return.type}
 parameter. Note that when some gold-standard graph is available for comparison,
 a value for the parameter \code{threshold} can be found by calculating a
@@ -66,31 +66,34 @@ Gaussian graphical model search from microarray data with p larger than n,
   \code{\link{qpPRscoreThreshold}}
 }
 \examples{
-nVar <- 50 # number of variables
-maxCon <- 5  # maximum connectivity per variable
-nObs <- 30 # number of observations to simulate
+require(mvtnorm)
 
-I <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
-K <- qpI2K(I)
+nVar <- 50  ## number of variables
+maxCon <- 5 ## maximum connectivity per variable
+nObs <- 30  ## number of observations to simulate
 
-X <- qpSampleMvnorm(K, nObs)
+set.seed(123)
 
+A <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
+Sigma <- qpG2Sigma(A, rho=0.5)
+X <- rmvnorm(nObs, sigma=Sigma)
+
+## estimate Pearson correlations
 pcc.estimates <- qpPCC(X)
 
-# the higher the threshold
+## the higher the threshold
 g <- qpAnyGraph(abs(pcc.estimates$R), threshold=0.9,
                 remove="below")
 
-# the sparser the qp-graph
+## the sparser the qp-graph
 (sum(g)/2) / (nVar*(nVar-1)/2)
 
-# the lower the threshold
+## the lower the threshold
 g <- qpAnyGraph(abs(pcc.estimates$R), threshold=0.5,
                 remove="below")
 
 # the denser the graph
 (sum(g)/2) / (nVar*(nVar-1)/2)
-
 }
 \keyword{models}
 \keyword{multivariate}

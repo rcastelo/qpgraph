@@ -68,21 +68,25 @@ Gaussian graphical model search from microarray data with p larger than n,
   \code{\link{qpClique}}
 }
 \examples{
-nVar <- 50 # number of variables
-maxCon <- 5  # maximum connectivity per variable
-nObs <- 30 # number of observations to simulate
+require(mvtnorm)
 
-I <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
-K <- qpI2K(I)
+nVar <- 50  ## number of variables
+maxCon <- 5 ## maximum connectivity per variable
+nObs <- 30  ## number of observations to simulate
 
-X <- qpSampleMvnorm(K, nObs)
+set.seed(123)
+
+A <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
+Sigma <- qpG2Sigma(A, rho=0.5)
+X <- rmvnorm(nObs, sigma=Sigma)
 
 nrr.estimates <- qpNrr(X, q=5, verbose=FALSE)
 
-summary(nrr.estimates[upper.tri(nrr.estimates) & I])
+## distribution of non-rejection rates for the present edges
+summary(nrr.estimates[upper.tri(nrr.estimates) & A])
 
-summary(nrr.estimates[upper.tri(nrr.estimates) & !I])
-
+## distribution of non-rejection rates for the missing edges
+summary(nrr.estimates[upper.tri(nrr.estimates) & !A])
 }
 \keyword{models}
 \keyword{multivariate}

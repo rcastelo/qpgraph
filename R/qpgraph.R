@@ -763,28 +763,29 @@ setMethod("qpCItest", signature(data="matrix"),
 ## function: qpHist
 ## purpose: plot the distribution of non-rejection rates
 ## parameters: nrrMatrix - matrix of non-rejection rates
-##             K - concentration matrix from the generative graph
+##             A - adjacency matrix whose present and missing edges will be employed
+##                 to show separately the distribution of non-rejection rates
 ##             freq - logical; if TRUE, the histograms show frequencies (counts)
 ##                    of occurrence of the different non-rejection rate values;
 ##                    if FALSE, then probability densities are plotted
 ## return: none
 
-qpHist <- function(nrrMatrix, K=NULL,
+qpHist <- function(nrrMatrix, A=NULL,
                    titlehist = "all estimated\nnon-rejection rates", freq=TRUE) {
   # all
   nrr <- nrrMatrix[upper.tri(nrrMatrix)]
   nrr_rg <- range(nrr)
-  if(is.null(K)){
+  if(is.null(A)){
     hist(nrr, col="yellow", main=titlehist, xlab="non-rejection rate", freq=freq)
   } else {
     # only beta
     T <- nrrMatrix
-    T[K == 0] <- -1
+    T[!A] <- -1
     xbeta <- T[upper.tri(T)]
     xbeta <- xbeta[xbeta != -1]
     # not beta
     T <- nrrMatrix
-    T[K != 0] <- -1
+    T[A] <- -1
     xnotbeta <- T[upper.tri(T)]
     xnotbeta <- xnotbeta[xnotbeta != -1]
     # plots
@@ -827,13 +828,13 @@ qpHist <- function(nrrMatrix, K=NULL,
 ##             pairup.i - subset of vertices to pair up with subset pairup.j
 ##             pairup.j - subset of vertices to pair up with subset pairup.i
 ##             return.type - type of data structure on which the graph
-##                           should be returned, either an incidence matrix,
+##                           should be returned, either an adjacency matrix,
 ##                           a matrix with the list of edges, a graphNEL structure
 ##                           or a graphAM structure
-## return: incidence matrix of the qp-graph
+## return: adjacency matrix of the qp-graph
 
 qpGraph <- function(nrrMatrix, threshold=NULL, topPairs=NULL, pairup.i=NULL,
-                    pairup.j=NULL, return.type=c("incidence.matrix", "edge.list",
+                    pairup.j=NULL, return.type=c("adjacency.matrix", "edge.list",
                     "graphNEL", "graphAM")) {
 
   return.type <- match.arg(return.type)
@@ -888,7 +889,7 @@ qpGraph <- function(nrrMatrix, threshold=NULL, topPairs=NULL, pairup.i=NULL,
   nrrMatrix[is.na(nrrMatrix)] <- 1.0
 
   if (!is.null(threshold)) {
-    I <- nrrMatrix <= threshold
+    A <- nrrMatrix <= threshold
   } else { # topPairs
     nrrUppTriMatrix <- nrrMatrix[upper.tri(nrrMatrix)]
     rowUppTri <- row(nrrMatrix)[upper.tri(nrrMatrix)]
@@ -897,18 +898,18 @@ qpGraph <- function(nrrMatrix, threshold=NULL, topPairs=NULL, pairup.i=NULL,
                                    decreasing=FALSE)$ix
     ranking <- cbind(rowUppTri[orderedMeasurementsIdx],
                      colUppTri[orderedMeasurementsIdx])
-    I <- matrix(FALSE, nrow=n.var, ncol=n.var)
-    I[ranking[1:topPairs,]] <- TRUE
-    I[cbind(ranking[1:topPairs,2], ranking[1:topPairs,1])] <- TRUE
+    A <- matrix(FALSE, nrow=n.var, ncol=n.var)
+    A[ranking[1:topPairs,]] <- TRUE
+    A[cbind(ranking[1:topPairs,2], ranking[1:topPairs,1])] <- TRUE
   }
 
-  rownames(I) <- colnames(I) <- vertex.labels
-  diag(I) <- FALSE # whatever the threshold is the graph should have no loops
+  rownames(A) <- colnames(A) <- vertex.labels
+  diag(A) <- FALSE # whatever the threshold is the graph should have no loops
 
-  if (return.type == "incidence.matrix") {
-    return(I)
+  if (return.type == "adjacency.matrix") {
+    return(A)
   } else if (return.type == "edge.list") {
-    m <- cbind(row(I)[upper.tri(I) & I],col(I)[upper.tri(I) & I])
+    m <- cbind(row(A)[upper.tri(A) & A],col(A)[upper.tri(A) & A])
     colnames(m) <- c("i","j")
     return(m)
   } else if (return.type == "graphNEL") {
@@ -916,12 +917,12 @@ qpGraph <- function(nrrMatrix, threshold=NULL, topPairs=NULL, pairup.i=NULL,
     edL <- vector("list",length=n.var)
     names(edL) <- vertex.labels
     for (i in 1:n.var)
-      edL[[i]] <- list(edges=(1:n.var)[I[i,]],weights=rep(1,sum(I[i,])))
+      edL[[i]] <- list(edges=(1:n.var)[A[i,]],weights=rep(1,sum(A[i,])))
     g <- new("graphNEL",nodes=vertex.labels,edgeL=edL,edgemode="undirected")
     return(g)
   } else if (return.type == "graphAM") {
     require(graph)
-    g <- new("graphAM",adjMat=I+0,edgemode="undirected",values=list(weight=1))
+    g <- new("graphAM",adjMat=A+0,edgemode="undirected",values=list(weight=1))
     return(g)
   }
 
@@ -945,14 +946,14 @@ qpGraph <- function(nrrMatrix, threshold=NULL, topPairs=NULL, pairup.i=NULL,
 ##             pairup.i - subset of vertices to pair up with subset pairup.j
 ##             pairup.j - subset of vertices to pair up with subset pairup.i
 ##             return.type - type of data structure on which the graph
-##                           should be returned, either an incidence matrix,
+##                           should be returned, either an adjacency matrix,
 ##                           a matrix with the list of edges, a graphNEL structure
 ##                           or a graphAM structure
-## return: incidence matrix of the qp-graph
+## return: adjacency matrix of the qp-graph
 
 qpAnyGraph <- function(measurementsMatrix, threshold=NULL, remove=c("below", "above"),
                        topPairs=NULL, decreasing=TRUE, pairup.i=NULL, pairup.j=NULL,
-                       return.type=c("incidence.matrix", "edge.list", "graphNEL",
+                       return.type=c("adjacency.matrix", "edge.list", "graphNEL",
                                      "graphAM")) {
 
   remove <- match.arg(remove)
@@ -1004,15 +1005,15 @@ qpAnyGraph <- function(measurementsMatrix, threshold=NULL, remove=c("below", "ab
     measurementsMatrix[nomeasurementsMask] <- NA
   }
 
-  # non-available measurements imply no edges
+  ## non-available measurements imply no edges
   measurementsMatrix[is.na(measurementsMatrix)] <- NA
 
   if (!is.null(threshold)) {
     if (remove == "below")
-      I <- measurementsMatrix >= threshold
+      A <- measurementsMatrix >= threshold
     else
-      I <- measurementsMatrix <= threshold
-  } else { # topPairs
+      A <- measurementsMatrix <= threshold
+  } else { ## topPairs
     if (decreasing)
       bottomValue <- min(measurementsMatrix,na.rm=TRUE) - 1
     else
@@ -1026,19 +1027,19 @@ qpAnyGraph <- function(measurementsMatrix, threshold=NULL, remove=c("below", "ab
                                    decreasing=decreasing)$ix
     ranking <- cbind(rowUppTri[orderedMeasurementsIdx],
                      colUppTri[orderedMeasurementsIdx])
-    I <- matrix(FALSE, nrow=n.var, ncol=n.var)
-    I[ranking[1:topPairs,]] <- TRUE
-    I[cbind(ranking[1:topPairs,2], ranking[1:topPairs,1])] <- TRUE
+    A <- matrix(FALSE, nrow=n.var, ncol=n.var)
+    A[ranking[1:topPairs,]] <- TRUE
+    A[cbind(ranking[1:topPairs,2], ranking[1:topPairs,1])] <- TRUE
   }
 
-  I[is.na(I)] <- FALSE
-  rownames(I) <- colnames(I) <- vertex.labels
-  diag(I) <- FALSE # whatever the threshold is the graph should have no loops
+  A[is.na(A)] <- FALSE
+  rownames(A) <- colnames(A) <- vertex.labels
+  diag(A) <- FALSE ## whatever the threshold is the graph should have no loops
 
-  if (return.type == "incidence.matrix") {
-    return(I)
+  if (return.type == "adjacency.matrix") {
+    return(A)
   } else if (return.type == "edge.list") {
-    m <- cbind(row(I)[upper.tri(I) & I],col(I)[upper.tri(I) & I])
+    m <- cbind(row(A)[upper.tri(A) & A],col(A)[upper.tri(A) & A])
     colnames(m) <- c("i","j")
     return(m)
   } else if (return.type == "graphNEL") {
@@ -1046,12 +1047,12 @@ qpAnyGraph <- function(measurementsMatrix, threshold=NULL, remove=c("below", "ab
     edL <- vector("list",length=n.var)
     names(edL) <- vertex.labels
     for (i in 1:n.var)
-      edL[[i]] <- list(edges=(1:n.var)[I[i,]],weights=rep(1,sum(I[i,])))
+      edL[[i]] <- list(edges=(1:n.var)[A[i,]],weights=rep(1,sum(A[i,])))
     g <- new("graphNEL",nodes=vertex.labels,edgeL=edL,edgemode="undirected")
     return(g)
   } else if (return.type == "graphAM") {
     require(graph)
-    g <- new("graphAM",adjMat=I+0,edgemode="undirected",values=list(weight=1))
+    g <- new("graphAM",adjMat=A+0,edgemode="undirected",values=list(weight=1))
     return(g)
   }
 
@@ -1101,11 +1102,11 @@ qpGraphDensity <- function(nrrMatrix, threshold.lim=c(0,1), breaks=5,
     for (i in 1:length(br)) {
       threshold <- br[i]
       nrrMatrix[is.na(nrrMatrix)] <- 1.0 # non-available NRRs imply no edges
-      I <- nrrMatrix <= threshold
-      diag(I) <- FALSE # if the threshold is 1.0 the resulting qp-graph
+      A <- nrrMatrix <= threshold
+      diag(A) <- FALSE # if the threshold is 1.0 the resulting qp-graph
                        # will be the complete undirected graph but
                        # still it should have no loops
-      n.edg <- sum(I) / 2
+      n.edg <- sum(A) / 2
       gd <- (n.edg / n.adj) * 100
       matgdthr[i,] <- c(gd,threshold)
     }
@@ -1139,7 +1140,7 @@ qpGraphDensity <- function(nrrMatrix, threshold.lim=c(0,1), breaks=5,
 
 ## function: qpCliqueNumber
 ## purpose: calculate the size of the largest maximal clique in a given undirected graph
-## parameters: g - either a graphNEL object or an incidence matrix of the graph
+## parameters: g - either a graphNEL object or an adjacency matrix of the graph
 ##             exact.calculation - flag that when set to TRUE the exact maximum clique
 ##                                 size is calculated and when set to FALSE a lower
 ##                                 bound is calculated instead
@@ -1160,25 +1161,25 @@ qpCliqueNumber <- function(g, exact.calculation=TRUE, return.vertices=FALSE,
     if (edgemode(g) != "undirected")
       stop("g must be an undirected graph\n")
 
-    I <- as(g, "matrix") == 1
+    A <- as(g, "matrix") == 1
   } else if (is.matrix(g)) {
-    I <- g
-    if (nrow(I) != ncol(I))
+    A <- g
+    if (nrow(A) != ncol(A))
       stop("g is not an squared matrix nor a graphNEL object\n")
 
-    if (!identical(I, t(I)))
+    if (!identical(A, t(A)))
       stop("g is not a symmetric matrix nor a graphNEL object\n")
   } else
-    stop("g must be either a graphNEL object or a boolean incidence matrix\n")
+    stop("g must be either a graphNEL object or a boolean adjacency matrix\n")
 
-  n.var <- nrow(I)
+  n.var <- nrow(A)
   n.possibleedges <- (n.var * (n.var-1)) / 2
 
-  if (sum(I)/2 == 0) {
+  if (sum(A)/2 == 0) {
     return(1)
   }
 
-  if (sum(I)/2 == n.possibleedges) {
+  if (sum(A)/2 == n.possibleedges) {
     return(n.var)
   }
 
@@ -1186,9 +1187,12 @@ qpCliqueNumber <- function(g, exact.calculation=TRUE, return.vertices=FALSE,
 
   if (exact.calculation == TRUE) {
 
-    I <- I == 1 # make sure we get a boolean matrix
+    A <- A == 1 ## make sure we get a boolean matrix
 
-    maximum_clique <- qpgraph:::.qpCliqueNumberOstergard(I,return.vertices=return.vertices,verbose=verbose)
+    maximum_clique <-
+      qpgraph:::.qpCliqueNumberOstergard(A,
+                                         return.vertices=return.vertices,
+                                         verbose=verbose)
   } else {
 
     if (verbose) {
@@ -1198,17 +1202,18 @@ qpCliqueNumber <- function(g, exact.calculation=TRUE, return.vertices=FALSE,
     clique.number <- 0
     clique.vertices <- c()
 
-    I <- I + 0 # make sure we get a 0-1 matrix
-    deg <- sort(rowsum(I,rep(1,n.var)),index.return=TRUE,decreasing=TRUE) # order by degree
+    A <- A + 0 ## make sure we get a 0-1 matrix
+    deg <- sort(rowsum(A, rep(1,n.var)), index.return=TRUE,
+                decreasing=TRUE) ## order by degree
 
     ppct <- -1
     for (i in 1:approx.iter) {
 
       pdeg <- deg$ix
       if (i %% n.var + 1 > 1) {
-        sset <- sample(1:n.var,i %% n.var + 1,replace=FALSE) # we alter the order of the ranking
-        ssetelem <- pdeg[sset]                               # by degree with increasing levels
-        ssetelem <- sample(ssetelem)                         # of randomness cyclically
+        sset <- sample(1:n.var, i %% n.var + 1, replace=FALSE) ## we alter the order of the ranking
+        ssetelem <- pdeg[sset]                                 ## by degree with increasing levels
+        ssetelem <- sample(ssetelem)                           ## of randomness cyclically
         pdeg[sset] <- ssetelem
       }
       clq <- c(pdeg[1])
@@ -1216,7 +1221,7 @@ qpCliqueNumber <- function(g, exact.calculation=TRUE, return.vertices=FALSE,
       for (j in 2:n.var) {
         v <- pdeg[j]
         clq2 <- c(clq,v)
-        if (sum(I[clq2,clq2]) == length(clq2)*length(clq2)-length(clq2)) {
+        if (sum(A[clq2,clq2]) == length(clq2)*length(clq2)-length(clq2)) {
           clq <- clq2
         }
       }
@@ -1317,13 +1322,13 @@ qpClique <- function(nrrMatrix, N=NA, threshold.lim=c(0,1), breaks=5, plot=TRUE,
       }
       threshold <- br[i]
       nrrMatrix[is.na(nrrMatrix)] <- 1.0 # non-available NRRs imply no edges
-      I <- nrrMatrix <= threshold
-      diag(I) <- FALSE # if the threshold is 1.0 the resulting qp-graph
+      A <- nrrMatrix <= threshold
+      diag(A) <- FALSE # if the threshold is 1.0 the resulting qp-graph
                        # will be the complete undirected graph but
                        # still it should have no loops
-      n.edg <- sum(I) / 2
-      dimnames(I) <- list(1:length(I[,1]), 1:length(I[1,]))
-      maxsize <- qpCliqueNumber(I, exact.calculation, approx.iter=approx.iter,
+      n.edg <- sum(A) / 2
+      dimnames(A) <- list(1:length(A[,1]), 1:length(A[1,]))
+      maxsize <- qpCliqueNumber(A, exact.calculation, approx.iter=approx.iter,
                                   verbose=verbose)
       mpctedclqsze[i,] <- c((n.edg / n.adj) * 100, maxsize, threshold)
       if (!is.na(N)) {
@@ -1388,7 +1393,7 @@ qpClique <- function(nrrMatrix, N=NA, threshold.lim=c(0,1), breaks=5, plot=TRUE,
 ##          Discrete Appl. Math., 120:195-205, 2002
 ##          http://users.tkk.fi/~pat/cliquer.html
 ##
-## parameters: g - either a graphNEL object or an incidence matrix of the graph
+## parameters: g - either a graphNEL object or an adjacency matrix of the graph
 ##             clqspervtx - store the indices of the cliques where each vertex
 ##                          belongs to in the first p entries (|V|=p) of the
 ##                          returned list
@@ -1402,18 +1407,18 @@ qpGetCliques <- function(g, clqspervtx=FALSE, verbose=TRUE) {
     if (edgemode(g) != "undirected")
       stop("g must be an undirected graph\n")
 
-    I <- as(g, "matrix") == 1
+    A <- as(g, "matrix") == 1
   } else if (is.matrix(g)) {
-    I <- g
-    if (nrow(I) != ncol(I))
+    A <- g
+    if (nrow(A) != ncol(A))
       stop("g is not an squared matrix nor a graphNEL object\n")
 
-    if (!identical(I, t(I)))
+    if (!identical(A, t(A)))
       stop("g is not a symmetric matrix nor a graphNEL object\n")
   } else
-    stop("g must be either a graphNEL object or a boolean incidence matrix\n")
+    stop("g must be either a graphNEL object or a boolean adjacency matrix\n")
 
-  return(qpgraph:::.qpFastCliquerGetCliques(I,clqspervtx=clqspervtx,verbose=verbose))
+  return(qpgraph:::.qpFastCliquerGetCliques(A, clqspervtx=clqspervtx, verbose=verbose))
 }
 
 
@@ -1463,11 +1468,11 @@ qpIPF <- function(vv, clqlst, tol = 0.001, verbose = FALSE,
 
 
 ## function: qpPAC
-## purpose: for a given undirected graph in an incidence matrix estimate the
+## purpose: for a given undirected graph in an adjacency matrix estimate the
 ##          partial correlation coefficient (PAC) and its corresponding p-value
 ##          for each edge in the graph
 ## parameters: data - data set from where to estimate the PACs
-##             g - either a graphNEL object or an incidence matrix of the graph
+##             g - either a graphNEL object or an adjacency matrix of the graph
 ##             long.dim.are.variables - if TRUE it assumes that when the data is
 ##                                      a data frame or a matrix, the longer
 ##                                      dimension is the one defining the random
@@ -1543,41 +1548,40 @@ setMethod("qpPAC", signature(data="matrix"),
     if (edgemode(g) != "undirected")
       stop("g must be an undirected graph\n")
 
-    I <- as(g, "matrix") == 1
+    A <- as(g, "matrix") == 1
   } else if (is.matrix(g)) {
-    I <- g
-    if (nrow(I) != ncol(I))
+    A <- g
+    if (nrow(A) != ncol(A))
       stop("g is not an squared matrix nor a graphNEL object\n")
 
-    if (!identical(I, t(I)))
+    if (!identical(A, t(A)))
       stop("g is not a symmetric matrix nor a graphNEL object\n")
   } else
-    stop("g must be either a graphNEL object or a boolean incidence matrix\n")
+    stop("g must be either a graphNEL object or a boolean adjacency matrix\n")
 
   var.names <- rownames(S)
   n.var <- nrow(S)
-  dimnames(I) <- dimnames(S)
+  dimnames(A) <- dimnames(S)
 
   # get the cliques
 
-  clqlst <- qpGetCliques(I,verbose=verbose)
+  clqlst <- qpGetCliques(A, verbose=verbose)
 
   # get a maximum likelihood estimate of the sample covariance matrix
   # using the clique list
 
-  Shat <- qpIPF(S,clqlst,verbose=verbose,R.code.only=R.code.only)
+  Shat <- qpIPF(S, clqlst, verbose=verbose, R.code.only=R.code.only)
 
   # estimate partial correlation coefficients and their standard errors
 
   K <- solve(Shat)
-  SE <- qpgraph:::.qpEdgePACSE(Shat, I, R.code.only=R.code.only)
+  SE <- qpgraph:::.qpEdgePACSE(Shat, A, R.code.only=R.code.only)
 
   # return matrices of partial correlations, standard errors
   # and p-values for every edge
 
   C <- N * (K^2 / SE)
-  offdiag_minsgn_mask <- -1 * (!diag(n.var)) + diag(n.var)
-  rho_coef <- offdiag_minsgn_mask * qpDscale(K)
+  rho_coef <- qpK2ParCor(K)
   p.values <- 1 - pchisq(C, df=1)
   dimnames(rho_coef) <- dimnames(p.values) <- list(var.names, var.names)
 
@@ -1656,7 +1660,7 @@ setMethod("qpPCC", signature(data="matrix"),
   var.names <- rownames(S)
 
   # estimate PCCs by scaling the covariance matrix
-  R <- qpDscale(S)
+  R <- cov2cor(S)
 
   # calculate t-statistics
   T <- (N - 2) / (1 - R*R)
@@ -1677,7 +1681,7 @@ setMethod("qpPCC", signature(data="matrix"),
 ##          and for every vertex its boundary <= n.bd
 ## parameters: n.vtx - number of vertices
 ##             n.bd - maximum boundary for every vertex
-## return: the incidence matrix of the resulting graph
+## return: the adjacency matrix of the resulting graph
 
 qpRndGraph <- function(n.vtx, n.bd){
   #
@@ -1731,95 +1735,107 @@ qpRndGraph <- function(n.vtx, n.bd){
   #
   G[G==0] <- n.vtx+1
 
-  # get the corresponding incidence matrix
-  I <- matrix(FALSE, nrow=n.vtx, ncol=n.vtx)
+  # get the corresponding adjacency matrix
+  A <- matrix(FALSE, nrow=n.vtx, ncol=n.vtx)
 
   for (i in 1:n.vtx){
       for(j in 1:n.bd){
           if(G[i, j]!=(n.vtx+1)){
-              I[i, G[i, j]] <- I[G[i, j], i]<- TRUE
+              A[i, G[i, j]] <- A[G[i, j], i]<- TRUE
           }             
       }
   }
 
-  return(I)
+  return(A)
 }
 
 
 
-## function: qpSampleMvnorm
-## purpose: sample N independent observations from a multivariate normal
-##          distribution with a given mean vector and concentration matrix
-## paramters: K - concentration matrix
-##            N - number of observations to sample
-##            mean - mean vector
-## return: a matrix where rows correspond to observations and columns
-##         to random variables
+## function: qpRndWishart
+## purpose: Random generation for the (n.var x n.var) Wishart distribution with
+##          matrix parameter A=diag(delta)%*%P%*%diag(delta) and degrees of
+##          freedom df
+## parameters: delta - a numeric vector of n.var positive values. If a scalar
+##                     is provided then this is extended to form a vector.
+##             P - a (n.var x n.var) positive definite matrix with unit
+##                 diagonal. If a scalar is provided then this number is used
+##                 as constant off-diagonal entry for P
+##             df - degrees of freedom
+##             n.var - dimension of the Wishart matrix. It is required only when
+##                     both delta and P are scalar
+## return: a list of two (n.var x n.var) matrices rW and meanW where rW is a
+##         random value from the Wishart and meanW is the expected value of the
+##         distribution
 
-qpSampleMvnorm <- function(K, N, mean = rep(0, nrow(K))) {
-  require(mvtnorm)
+qpRndWishart <- function(delta=1, P=0, df=NULL, n.var=NULL) {
 
-  n.var <- dim(K)[1]
-  sigma <- qpDscale(solve(K))
-  X <- rmvnorm(N, mean, sigma)
+  if (length(delta) == 1 && length(P) == 1 && is.null(n.var))
+    stop("The value of n.var is not specified and both delta and P are scalar")
 
-  return(X)
+  if (is.null(n.var)) n.var=max(length(delta), dim(P)[1])
+
+  if (length(P) == 1) {
+    P <- matrix(P, n.var, n.var)
+    diag(P) <- 1
+  } 
+
+  if (max(abs(P) > 1) || min(eigen(P)$values)<=0 || !identical(P, t(P))) {
+    stop("P must be either a (symmetric) positive definite matrix\n or a scalar larger than -(n.var-1)^(-1) and smaller than 1")
+  } 
+
+  if (length(delta) == 1) delta=rep(delta, length=n.var)
+  if (min(delta) <= 0) stop("All entries of delta must be positive")
+  if (is.null(df)) df <- n.var
+  if (df <= (n.var-1)) stop("The value of df must be larger than (n.var-1)")
+
+  Delta <- diag(delta)
+  V <- Delta %*% P %*% Delta
+  CV <- chol(V)
+  CWS <- matrix(0, n.var, n.var)
+  CWS[row(CWS) < col(CWS)] <- rnorm(n.var * (n.var - 1) / 2)
+  diag(CWS) <- sqrt(rchisq(n.var, (df + 1)-(1:n.var)))
+  CW <- CWS %*% CV
+  W <- t(CW) %*% CW
+
+  return(list(rW=W, meanW=df * V))
 }
 
 
 
-## function: qpI2K
-## purpose: builds a random concentration matrix from an incidence matrix
-## parameters: I - incidence matrix
+## function: qpG2Sigma
+## purpose: builds a random covariance matrix from an undirected graph
+## parameters: G - undirected graph (either adjacency matrix or graphNEL object)
+##             rho - real number between 1/(n.var-1) and 1
 ##             verbose - output progress
 ##             R.code.only - flag set to FALSE when using the C implementation
-## return: a random concentration matrix with zeroes at the empty adjacencies of
-##         the undirected graph defined by the input incidence matrix I
+## return: a random covariance matrix whose inverse contains zeroes at the
+##         missing edges in G
 
-qpI2K <- function(I, verbose=FALSE, R.code.only=FALSE) {
-  n.var <- nrow(I)
+qpG2Sigma <- function (g, rho=0, verbose = FALSE,
+                       R.code.only = FALSE) {
+  n.var <- NULL
+  if (is.matrix(g)) n.var <- nrow(g)
+  if (class(g) == "graphNEL") n.var <- length(nodes(g))
+  if (is.null(n.var)) stop("g is neither an adjacency matrix nor a graphNEL object")
 
-  right <- FALSE
-  while (!right) {
-    right <- TRUE
+  clqlst <- qpGetCliques(g, verbose = verbose)
+  W <- qpRndWishart(delta=sqrt(1 / n.var), P=rho, n.var=n.var)$rW
+  Sigma <- qpIPF(W, clqlst, verbose=verbose, R.code.only=R.code.only)
 
-    ## generate a random correlation matrix
-    ## the four lines below were adapted from the code
-    ## for the rcorr function from the ggm package by
-    ## G. Marchetti implementing the method from Marsaglia & Oltkin
-    K <- matrix(rnorm(n.var*n.var),nrow=n.var,ncol=n.var)
-    d <- apply(K,1,function(x) sqrt(sum(x*x)))
-    K <- sweep(K,1,d,"/")
-    K <- K %*% t(K)
-
-    S <- qpDscale(solve(K))
-
-    clqlst <- qpGetCliques(I,verbose=verbose)
-    Shat <- qpIPF(S,clqlst,verbose=verbose,R.code.only=R.code.only)
-    Khat <- qpDscale(solve(Shat))
-    Khat[abs(Khat) < 0.001] <- 0
-
-    if(sum(Khat[!I]!=0)!= n.var || sum(diag(solve(Khat)) < 0) > 0) {
-      warning("something wrong in the zero structure of K, trying again")
-      right <- FALSE
-    }
-  }
-
-  return(Khat)
+  return(Sigma)
 }
 
 
 
-## function: qpK2R
+## function: qpK2ParCor
 ## purpose: obtain the partial correlation coefficients from a given
 ##          concentration matrix
 ## parameters: K - concentration matrix
 ## return: a matrix with the partial correlation coefficients
 
-qpK2R <- function(K) {
-  n.var <- nrow(K)
-  offdiag_minsgn_mask <- -1 * (!diag(n.var)) + diag(n.var)
-  R <- offdiag_minsgn_mask * qpDscale(K)
+qpK2ParCor <- function(K) {
+  R <- -cov2cor(K)
+  diag(R) <- 1
   return(R)
 }
 
@@ -1830,7 +1846,7 @@ qpK2R <- function(K) {
 ##          association between all pairs of variables in a matrix
 ## parameters: measurementsMatrix - matrix containing the measure of association
 ##                                  between all pairs of variables
-##             refI - incidence matrix of reference from which to calculate
+##             refA - adjacency matrix of reference from which to calculate
 ##                    the precision-recall curve
 ##             decreasing - logical; if TRUE then the measurements are ordered
 ##                          in decreasing order; if FALSE then in increasing
@@ -1843,25 +1859,25 @@ qpK2R <- function(K) {
 ##         positives at that recall rate and the threshold score that yields that
 ##         recall rate
 
-qpPrecisionRecall <- function(measurementsMatrix, refI, decreasing=TRUE,
+qpPrecisionRecall <- function(measurementsMatrix, refA, decreasing=TRUE,
                               pairup.i=NULL, pairup.j=NULL,
                               recallSteps=c(seq(0,0.1,0.005),seq(0.2,1.0,0.1))) {
 
   if (!is.matrix(measurementsMatrix))
     stop("measurementsMatrix must be a matrix\n")
 
-  if (!is.matrix(refI))
-    stop("refI must be a matrix\n")
+  if (!is.matrix(refA))
+    stop("refA must be a matrix\n")
 
   if (nrow(measurementsMatrix) != ncol(measurementsMatrix))
     stop("measurementsMatrix must be a squared matrix\n")
 
-  if (nrow(refI) != ncol(refI))
-    stop("refI must be a squared matrix\n")
+  if (nrow(refA) != ncol(refA))
+    stop("refA must be a squared matrix\n")
 
-  if (nrow(measurementsMatrix) != nrow(refI) ||
-      ncol(measurementsMatrix) != ncol(refI))
-    stop("measurementsMatrix and refI must have the same dimensions\n")
+  if (nrow(measurementsMatrix) != nrow(refA) ||
+      ncol(measurementsMatrix) != ncol(refA))
+    stop("measurementsMatrix and refA must have the same dimensions\n")
 
   n.var <- nrow(measurementsMatrix)
 
@@ -1910,9 +1926,9 @@ qpPrecisionRecall <- function(measurementsMatrix, refI, decreasing=TRUE,
                    orderedMeasurements$x)
 
   lenRnk <- dim(edgeRnk)[1]
-  total_positives <- sum(refI[upper.tri(refI) & !is.na(measurementsMatrix)])
+  total_positives <- sum(refA[upper.tri(refA) & !is.na(measurementsMatrix)])
 
-  status <- refI[as.matrix(edgeRnk[,c(1,2)])]
+  status <- refA[as.matrix(edgeRnk[,c(1,2)])]
   status_tp <- rep(0, length(status))
   status_tp[status] <- 1:total_positives
   preRec <- matrix(0, nrow=length(recallSteps), ncol=4)
@@ -2004,30 +2020,17 @@ qpImportNrr <- function(filename, nTests) {
 
 
 
-## function: qpDscale
-## purpose: scale a matrix by its diagonal
-## parameters: V - the matrix
-## return: the scaled matrix
-
-qpDscale <- function(V){
-  d <- 1 / sqrt(diag(V))
-                                                                                                  
-  return(V * outer(d, d))
-}
-
-
-
 ## function: qpFunctionalCoherence
 ## purpose: estimate functional coherence of a transcripcional regulatory network
-##          represented by means of an undirected graph encoded by an incidence
+##          represented by means of an undirected graph encoded by an adjacency
 ##          matrix and of a set of transcription factor genes. In these
 ##          calculations Gene Ontology (GO) annotations are employed through a
 ##          given annotation .db package for the Entrez Gene IDs associated to
-##          the rows and columns of the incidence matrix.
-## parameters: I - incidence matrix of the undirected graph representing the
+##          the rows and columns of the adjacency matrix.
+## parameters: A - adjacency matrix of the undirected graph representing the
 ##                 transcriptional regulatory network
 ##             TFgenes - vector of transcription factor gene names (matching the
-##                       genes at the rows and column names of I)
+##                       genes at the rows and column names of A)
 ##             chip - name of the .db package containing the GO annotations
 ##             minRMsize - minimum size of the target gene set in each regulatory
 ##                         module where functional enrichment will be calculated
@@ -2040,28 +2043,28 @@ qpDscale <- function(V){
 ##         modules with GO BP annotations and a third one consisting of a vector
 ##         of functional coherence values
 
-qpFunctionalCoherence <- function(I, TFgenes, chip, minRMsize=5, verbose=FALSE) {
+qpFunctionalCoherence <- function(A, TFgenes, chip, minRMsize=5, verbose=FALSE) {
   require(GOstats)
 
-  if (is.null(colnames(I)) || is.null(rownames(I)))
-    stop("incidence matrix I must have row and column names corresponding to the gene IDs")
+  if (is.null(colnames(A)) || is.null(rownames(A)))
+    stop("adjacency matrix A must have row and column names corresponding to the gene IDs")
 
   if (length(TFgenes) < 1)
     stop("TFgenes must contain at least one transcription factor gene\n")
 
-  allGenes <- rownames(I)
+  allGenes <- rownames(A)
 
   if (!is.character(TFgenes))
     stop("gene identifiers in TFgenes must belong to the class character\n")
 
   if (sum(is.na(match(TFgenes, allGenes))) > 0)
-    stop("TFgenes is not a subset from the genes defining the incidence matrix I\n")
+    stop("TFgenes is not a subset from the genes defining the adjacency matrix A\n")
 
-  p <- dim(I)[1]
+  p <- dim(A)[1]
   geneBPuniverse <- qpgraph:::.qpFilterByGO(allGenes, chip, "BP")
 
   TFgenes_i <- match(TFgenes, allGenes)
-  txRegNet <- lapply(TFgenes_i, function(x) allGenes[I[as.integer(x), ]])
+  txRegNet <- lapply(TFgenes_i, function(x) allGenes[A[as.integer(x), ]])
   names(txRegNet) <- TFgenes
   regModuleSize <- unlist(lapply(txRegNet, length))
   names(regModuleSize) <- TFgenes
@@ -2097,7 +2100,7 @@ qpFunctionalCoherence <- function(I, TFgenes, chip, minRMsize=5, verbose=FALSE) 
         length(names(txRegNetGO))))
 
   TFgenesWithGO <- qpgraph:::.qpFilterByGO(TFgenes, chip, "BP")
-  TFgenesWithGO <- AnnotationDbi::mget(TFgenesWithGO,get(gsub(".db","GO",chip)))
+  TFgenesWithGO <- AnnotationDbi::mget(TFgenesWithGO, get(gsub(".db","GO",chip)))
   TFgenesWithGO <- lapply(TFgenesWithGO,
                           function(x) if (is.list(x)) {
                                         z <- sapply(x, function(x) x$Ontology);
@@ -2180,30 +2183,30 @@ qpFunctionalCoherence <- function(I, TFgenes, chip, minRMsize=5, verbose=FALSE) 
 ##          graphical Gaussian models, STATISTICS AND COMPUTING, 6:297-302, 1996)
 
 ## parameters: S - estimate of the sample covariance matrix
-##             I - incidence matrix of the graph and thus it is assumed that the diagonal
+##             A - adjacency matrix of the graph and thus it is assumed that the diagonal
 ##                 is set to either 0s or FALSE truth values since there should be no loops
 ##             R.code.only - flag set to FALSE when using the C implementation
 ## return: a list with two members: K - the concentration matrix; SE the matrix
 ##         with the standard errors of the edges
 
-.qpEdgePACSE <- function(S, I, R.code.only=FALSE) {
+.qpEdgePACSE <- function(S, A, R.code.only=FALSE) {
 
   if (!R.code.only) {
-    return(qpgraph:::.qpFastPACSE(S, I));
+    return(qpgraph:::.qpFastPACSE(S, A));
   }
 
-  n.var <- nrow(I)
+  n.var <- nrow(A)
 
-  I <- I + diag(n.var) # in the code below we need 1s in the main diagonal and
+  A <- A + diag(n.var) # in the code below we need 1s in the main diagonal and
                        # then at the same time we make sure we get a 0-1 matrix
                        # as a truth value + 0 or 1 equals a number
 
-  I[col(I) > row(I)] <- NA
+  A[col(A) > row(A)] <- NA
 
   # selection row and column indices corr. to the non-zero elem.
-  I[I == 0] <- NA
-  r.nz <- c(row(I))[!is.na(I)]
-  c.nz <- c(col(I))[!is.na(I)]
+  A[A == 0] <- NA
+  r.nz <- c(row(A))[!is.na(A)]
+  c.nz <- c(col(A))[!is.na(A)]
 
   # computation of the Fisher information matrix
   Iss <- S[c.nz,c.nz] * S[r.nz,r.nz] +
@@ -2217,7 +2220,7 @@ qpFunctionalCoherence <- function(I, TFgenes, chip, minRMsize=5, verbose=FALSE) 
 
   # standard errors are in the diagonal of the Fisher information matrix
   F <- diag(FISHER)
-  SE <- matrix(NA, nrow(I), nrow(I))
+  SE <- matrix(NA, nrow(A), nrow(A))
   SE[cbind(r.nz,c.nz)] <- SE[cbind(c.nz,r.nz)] <- F
   diag(SE) <- NA
 
@@ -2290,6 +2293,7 @@ qpFunctionalCoherence <- function(I, TFgenes, chip, minRMsize=5, verbose=FALSE) 
 ##         ontology branch are found
 
 .qpFilterByGO <- function(entrezGeneIds, chip, ontologyType=c("BP", "MF", "CC")) {
+  require(annotate)
   ontologyType <- match.arg(ontologyType)
 
   haveGo <- sapply(AnnotationDbi::mget(entrezGeneIds,
@@ -2348,8 +2352,8 @@ qpFunctionalCoherence <- function(I, TFgenes, chip, minRMsize=5, verbose=FALSE) 
   return(.Call("qp_fast_cliquer_get_cliques",I,clqspervtx,verbose))
 }
 
-.qpFastPACSE <- function(Shat, I) {
-  return(.Call("qp_fast_pac_se",Shat ,I))
+.qpFastPACSE <- function(Shat, A) {
+  return(.Call("qp_fast_pac_se", Shat, A))
 }
 
 .qpFastIPF <- function(vv, clqlst, tol = 0.001, verbose = FALSE) {

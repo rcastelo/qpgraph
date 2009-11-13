@@ -13,7 +13,7 @@ qpCliqueNumber(g, exact.calculation=TRUE, return.vertices=FALSE,
                approx.iter=100, verbose=TRUE)
 }
 \arguments{
-  \item{g}{either a \code{graphNEL} object or an incidence matrix of the given
+  \item{g}{either a \code{graphNEL} object or an adjacency matrix of the given
        undirected graph.}
   \item{exact.calculation}{logical; if TRUE then the exact clique number is
        calculated; if FALSE then a lower bound is given instead.}
@@ -25,11 +25,12 @@ qpCliqueNumber(g, exact.calculation=TRUE, return.vertices=FALSE,
   \item{verbose}{show progress on calculations.}
 }
 \details{
-The calculation of the clique number of an undirected graph is an NP-complete
-problem which means that its computational cost is bounded by an exponential
-running time (Pardalos and Xue, 1994). The current implementation uses C code
-from the GNU GPL Cliquer library by Niskanen and Ostergard (2003) based on the,
-probably the fastest to date, algorithm by Ostergard (2002).
+The calculation of the clique number of an undirected graph is one of the basic
+NP-complete problems (Karp, 1972) which means that its computational cost is
+bounded by an exponential running time (Pardalos and Xue, 1994). The current
+implementation uses C code from the GNU GPL Cliquer library by Niskanen and
+Ostergard (2003) based on the, probably the fastest to date, algorithm by
+Ostergard (2002).
 
 The lower bound on the maximum clique size is calculated by ranking the
 vertices by their connectivity degree, put the first vertex in a set and
@@ -51,6 +52,9 @@ Castelo, R. and Roverato, A. A robust procedure for
 Gaussian graphical model search from microarray data with p larger than n.
 \emph{J. Mach. Learn. Res.}, 7:2621-2650, 2006.
 
+Karp, R.M. Reducibility among combinatorial problems. \emph{Complexity of computer
+computations}, 43:85-103, 1972.
+
 Niskanen, S. Ostergard, P. Cliquer User's Guide, Version 1.0.
 Communications Laboratory, Helsinki University of Technology, Espoo, Finland,
 Tech. Rep. T48, 2003. (\url{http://users.tkk.fi/~pat/cliquer.html})
@@ -66,19 +70,17 @@ Pardalos, P.M. and Xue, J. The maximum clique problem.
   \code{\link{qpClique}}
 }
 \examples{
-nVertices <- 50 # number of vertices
-maxCon <- 5  # maximum connectivity per vertex
+require(graph)
 
-I <- qpRndGraph(n.vtx=nVertices, n.bd=maxCon)
+nVar <- 50
 
-qpCliqueNumber(I, verbose=FALSE)
+set.seed(123)
 
-maxCon <- 10  # maximum connectivity per vertex
+g1 <- randomEGraph(V=as.character(1:nVar), p=0.3)
+qpCliqueNumber(g1, verbose=FALSE)
 
-I <- qpRndGraph(n.vtx=nVertices, n.bd=maxCon)
-
-qpCliqueNumber(I, verbose=FALSE)
-
+g2 <- randomEGraph(V=as.character(1:nVar), p=0.7)
+qpCliqueNumber(g2, verbose=FALSE)
 }
 \keyword{models}
 \keyword{multivariate}
