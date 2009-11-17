@@ -8,8 +8,9 @@
 Estimation of partial correlation coefficients
 }
 \description{
-Estimates partial correlation coefficients (PACs) and their corresponding
-P-values in a given undirected graph, from an input data set.
+Estimates partial correlation coefficients (PACs) for a Gaussian graphical
+model with undirected graph G and their corresponding P-values for the
+hypothesis of zero partial correlations.
 }
 \usage{
 \S4method{qpPAC}{ExpressionSet}(data, g, return.K=FALSE,
@@ -38,28 +39,13 @@ P-values in a given undirected graph, from an input data set.
        (default); if TRUE then only R code is executed.}
 }
 \details{
-The estimation of PACs requires that the sample size \code{n} is strictly larger
-than the number of variables \code{p}. In the context of microarray data and
-regulatory networks, genes play the role of variables and thus normally
-\code{p >> n}. For this reason, we can estimate PACs from the edges of a
-regulatory network represented by an undirected graph \code{G} if and only if the
-maximum clique size of the graph, noted \code{w(G)}, is strictly smaller than the
-sample size \code{n} (number of experiments in the microarray data context).
+In the context of maximum likelihood estimation (MLE) of PACs it is a necessary
+condition for the existence of MLEs that the sample size \code{n} is larger
+than the clique number \code{w(G)} of the graph \code{G}.
 
-In the context of this package, the undirected graph should correspond to a
-qp-graph (see function \code{\link{qpGraph}}) we have selected by thresholding
-on the (average) non-rejection rate calculated from this same data set using
-the functions \code{\link{qpNrr}} or \code{\link{qpAvgNrr}}. If the resulting
-graph is sparse enough we may have a chance to meet the requirement of
-\code{w(G) < n} and the function \code{\link{qpClique}} can be useful to
-investigate this. In the context of transcriptional regulatory networks we may
-consider to remove edges between non-transcription factor genes which will
-substantially increase the sparseness of the network.
-
-The PAC estimation is done by first obtaining a maximum likelihood estimate of
-the sample covariance matrix of the input data set using the \code{\{link{qpIPF}}
-function and the P-values are calculated based on the estimation of the standard
-errors of the edges following the procedure by Roverato and Whittaker (1996).
+The PAC estimation is done by first obtaining a MLE of the covariance matrix
+using the \code{\{link{qpIPF}} function and the P-values are calculated based on
+the estimation of the standard errors (see Roverato and Whittaker, 1996).
 }
 \value{
 A list with two matrices, one with the estimates of the PACs and the other with

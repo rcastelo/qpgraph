@@ -5,9 +5,10 @@
 Random covariance matrix
 }
 \description{
-Builds a random covariance matrix from an undrected graph. The inverse
-of the resulting matrix contains zeroes at the missing edges of the
-given undirected graph.
+Builds a positive definite matrix from an undirected graph G that can
+be used as a covariance matrix for a Gaussian graphical model with
+graph G. The inverse of the resulting matrix contains zeroes at the missing
+edges of the given undirected graph G.
 }
 \usage{
 qpG2Sigma(g, rho=0, verbose=FALSE, R.code.only=FALSE)
@@ -31,7 +32,8 @@ A random positive definite matrix that can be used as a covariance matrix
 for a Gaussian graphical model with graph \code{G}.
 }
 \references{
-Castelo, R. and Roverato, A. XXXXXXXXXX, submitted.
+Castelo, R. and Roverato, A. Utilities for large Gaussian graphical model
+inference and simulation with the R package qpgraph, submitted.
 }
 \author{A. Roverato}
 \seealso{

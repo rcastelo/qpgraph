@@ -7,7 +7,7 @@ The q-order partial correlation graph learning software, qpgraph.
 }
 \description{
 q-order partial correlation graphs, or qp-graphs for short, are
-undirected Gaussian graphical Markov models that represent q-order
+undirected Gaussian graphical Markov models built from q-order
 partial correlations. They are useful for learning undirected
 graphical Gaussian Markov models from data sets where the number of
 random variables p exceeds the available sample size n as, for

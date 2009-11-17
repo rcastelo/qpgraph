@@ -5,7 +5,7 @@
 Iterative proportional fitting algorithm
 }
 \description{
-Performs maximum likelihood estimation of a sample covariance matrix
+Performs maximum likelihood estimation of a covariance matrix
 given the independence constraints from in input list of (maximal)
 cliques.
 }

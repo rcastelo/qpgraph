@@ -44,17 +44,20 @@ Methods of Inference}. New York: Holt, Rinehalt and Winston, 1972.
   \code{\link{qpG2Sigma}}
 }
 \examples{
-require(graph)
+## Construct an adjacency matrix for a graph on 6 vertices
 
-n.var <- 5 # number of variables
+nVar <- 6
+A <- matrix(0, nVar, nVar)
+A[1,2] <- A[2,3] <- A[3,4] <- A[3,5] <- A[4,6] <- A[5,6] <- 1
+A=A + t(A)
+A
 set.seed(123)
-g <- randomEGraph(as.character(1:n.var), p=0.15)
-
-Sigma <- qpG2Sigma(g, rho=0.5)
-
-round(solve(Sigma), digits=2)
-
-as(g, "matrix")
+M <- qpRndWishart(delta=sqrt(1/nVar), P=0.5, n.var=nVar)
+M
+set.seed(123)
+d=1:6
+M <- qpRndWishart(delta=d, P=0.7, df=20)
+M
 }
 \keyword{models}
 \keyword{multivariate}
