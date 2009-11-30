@@ -44,7 +44,7 @@ one of the largests ones. This process is repeated a number of times
 levels of randomness acyclically (altering 1 to $p$ vertices and again). Larger
 values of \code{approx.iter} should provide tighter lower bounds although it has
 been proven that no polynomial time algorithm can approximate the maximum
-clique size within a factor of $n^\epsilon$ ($\epsilon > 0$), unless $P=NP$
+clique size within a factor of \eqn{n^\epsilon} (\eqn{\epsilon > 0}), unless P=NP
 (Feige et al, 1991; Pardalos and Xue, 1994).
 }
 \value{
