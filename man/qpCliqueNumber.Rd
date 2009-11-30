@@ -10,7 +10,7 @@ or maximum clique size) in a given undirected graph.
 }
 \usage{
 qpCliqueNumber(g, exact.calculation=TRUE, return.vertices=FALSE,
-               approx.iter=100, verbose=TRUE)
+               approx.iter=100, verbose=TRUE, R.code.only)
 }
 \arguments{
   \item{g}{either a \code{graphNEL} object or an adjacency matrix of the given
@@ -23,6 +23,8 @@ qpCliqueNumber(g, exact.calculation=TRUE, return.vertices=FALSE,
   \item{approx.iter}{number of iterations to be employed in the calculation of
        the lower bound (i.e., only applies when \code{exact.calculation=FALSE}.}
   \item{verbose}{show progress on calculations.}
+  \item{R.code.only}{logical; if FALSE then the faster C implementation is used
+       (default); if TRUE then only R code is executed.}
 }
 \details{
 The calculation of the clique number of an undirected graph is one of the basic
@@ -38,19 +40,25 @@ go through the rest of the ranking adding those vertices to the set that
 form a clique with the vertices currently within the set. Once the entire
 ranking has been examined a large clique should have been built and eventually
 one of the largests ones. This process is repeated a number of times
-(\code{approximation.iterations}) each of which the ranking is altered with
-increasing levels of randomness acyclically (altering 1 to $p$ vertices and
-again). Larger values of \code{approximation.iterations} should provide
-tighter lower bounds and eventually the exact maximum clique size.
+(\code{approx.iter}) each of which the ranking is altered with increasing
+levels of randomness acyclically (altering 1 to $p$ vertices and again). Larger
+values of \code{approx.iter} should provide tighter lower bounds although it has
+been proven that no polynomial time algorithm can approximate the maximum
+clique size within a factor of $n^\epsilon$ ($\epsilon > 0$), unless $P=NP$
+(Feige et al, 1991; Pardalos and Xue, 1994).
 }
 \value{
-the size of the largest maximal clique in the given graph, also known as its
-clique number.
+a lower bound of the size of the largest maximal clique in the given graph, also
+known as its clique number.
 }
 \references{
 Castelo, R. and Roverato, A. A robust procedure for
 Gaussian graphical model search from microarray data with p larger than n.
 \emph{J. Mach. Learn. Res.}, 7:2621-2650, 2006.
+
+Feige, U., Goldwasser, S., Lov\'asz, L., Safra, S. and Szegedy, M.
+Approximating the maximum clique is almost NP-Complete. \emph{Proc. 32nd IEEE
+Symp. on Foundations of Computer Science}, 2-12, 1991.
 
 Karp, R.M. Reducibility among combinatorial problems. \emph{Complexity of computer
 computations}, 43:85-103, 1972.

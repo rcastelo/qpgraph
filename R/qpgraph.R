@@ -1150,11 +1150,12 @@ qpGraphDensity <- function(nrrMatrix, threshold.lim=c(0,1), breaks=5,
 ##                           the lower bound on the clique number of
 ##                           each graph (exact.calculation is FALSE)
 ##             verbose - show progress on the clique number calculation
+##             R.code.only - flag set to FALSE when using the C implementation
 ## return: the size of the largest maximal clique in the given graph, also known as
 ##         its clique number
 
 qpCliqueNumber <- function(g, exact.calculation=TRUE, return.vertices=FALSE,
-                           approx.iter=100, verbose=TRUE) {
+                           approx.iter=100, verbose=TRUE, R.code.only=FALSE) {
 
   if (class(g) == "graphNEL") {
     require(graph)
@@ -1172,15 +1173,26 @@ qpCliqueNumber <- function(g, exact.calculation=TRUE, return.vertices=FALSE,
   } else
     stop("g must be either a graphNEL object or a boolean adjacency matrix\n")
 
+  if (exact.calculation && R.code.only)
+    stop("R code is only available for the lower bound approximation and not for the exact calculation\n");
+
   n.var <- nrow(A)
   n.possibleedges <- (n.var * (n.var-1)) / 2
 
-  if (sum(A)/2 == 0) {
-    return(1)
+  if (!any(A)) {
+    maximum_clique <- 1
+    if (return.vertices) {
+        maximum_clique <- list(size=clique.number,vertices=1)
+    }
+    return(maximum_clique)
   }
 
-  if (sum(A)/2 == n.possibleedges) {
-    return(n.var)
+  if (sum(A[upper.tri(A)]) == n.possibleedges) {
+    maximum_clique <- n.var
+    if (return.vertices) {
+        maximum_clique <- list(size=clique.number,vertices=1:n.var)
+    }
+    return(maximum_clique)
   }
 
   maximum_clique <- 0
@@ -1194,64 +1206,72 @@ qpCliqueNumber <- function(g, exact.calculation=TRUE, return.vertices=FALSE,
                                          return.vertices=return.vertices,
                                          verbose=verbose)
   } else {
-
-    if (verbose) {
-      cat("calculating lower bound on the maximum clique size\n")
-    }
-
-    clique.number <- 0
-    clique.vertices <- c()
-
-    A <- A + 0 ## make sure we get a 0-1 matrix
-    deg <- sort(rowsum(A, rep(1,n.var)), index.return=TRUE,
-                decreasing=TRUE) ## order by degree
-
-    ppct <- -1
-    for (i in 1:approx.iter) {
-
-      pdeg <- deg$ix
-      if (i %% n.var + 1 > 1) {
-        sset <- sample(1:n.var, i %% n.var + 1, replace=FALSE) ## we alter the order of the ranking
-        ssetelem <- pdeg[sset]                                 ## by degree with increasing levels
-        ssetelem <- sample(ssetelem)                           ## of randomness cyclically
-        pdeg[sset] <- ssetelem
+    if (!R.code.only)
+      maximum_clique <-
+        qpgraph:::.qpCliqueNumberLowerBound(A,
+                                            return.vertices=return.vertices,
+                                            approx.iter=approx.iter,
+                                            verbose=verbose)
+    else {
+      if (verbose) {
+        cat("calculating lower bound on the maximum clique size\n")
       }
-      clq <- c(pdeg[1])
-      j <- 2
-      for (j in 2:n.var) {
-        v <- pdeg[j]
-        clq2 <- c(clq,v)
-        if (sum(A[clq2,clq2]) == length(clq2)*length(clq2)-length(clq2)) {
-          clq <- clq2
+
+      clique.number <- 0
+      clique.vertices <- c()
+
+      A <- A + 0 ## make sure we get a 0-1 matrix
+      deg <- sort(rowsum(A, rep(1,n.var)), index.return=TRUE,
+                  decreasing=TRUE) ## order by degree
+
+      ppct <- -1
+      for (i in 1:approx.iter) {
+
+        pdeg <- deg$ix
+        if (i %% n.var + 1 > 1) {
+          sset <- sample(1:n.var, i %% n.var + 1, replace=FALSE) ## we alter the order of the ranking
+          ssetelem <- pdeg[sset]                                 ## by degree with increasing levels
+          ssetelem <- sample(ssetelem)                           ## of randomness cyclically
+          pdeg[sset] <- ssetelem
         }
-      }
+        clq <- c(pdeg[1])
+        j <- 2
+        for (j in 2:n.var) {
+          v <- pdeg[j]
+          clq2 <- c(clq,v)
+          if (sum(A[clq2,clq2]) == length(clq2)*length(clq2)-length(clq2)) {
+            clq <- clq2
+          }
+        }
                                                                                             
-      if (length(clq) > clique.number) {
-        clique.number <- length(clq)
-        clique.vertices <- clq
+        if (length(clq) > clique.number) {
+          clique.number <- length(clq)
+          clique.vertices <- clq
+        }
+
+        if (verbose) {
+          pct <- floor((i*100)/approx.iter)
+          if (pct != ppct) {
+            if (pct %% 10 == 0) {
+              cat(pct)
+            } else {
+              cat(".")
+            }
+            ppct = pct
+          }
+        }
       }
 
       if (verbose) {
-        pct <- floor((i*100)/approx.iter)
-        if (pct != ppct) {
-          if (pct %% 10 == 0) {
-            cat(pct)
-          } else {
-            cat(".")
-          }
-          ppct = pct
-        }
+        cat("\n")
+      }
+
+      maximum_clique <- clique.number
+      if (return.vertices) {
+        maximum_clique <- list(size=clique.number,vertices=clique.vertices)
       }
     }
 
-    if (verbose) {
-      cat("\n")
-    }
-
-    maximum_clique <- clique.number
-    if (return.vertices) {
-      maximum_clique <- list(size=clique.number,vertices=clique.vertices)
-    }
   }
 
   return(maximum_clique)
@@ -2314,9 +2334,9 @@ qpFunctionalCoherence <- function(A, TFgenes, chip, minRMsize=5, verbose=FALSE) 
 
 
 
-########################################################################
-# PRIVATE FUNCTIONS THAT ARE ENTRY POINTS OF THE C CODE OF THE PACKAGE #
-########################################################################
+##########################################################################
+## PRIVATE FUNCTIONS THAT ARE ENTRY POINTS TO THE C CODE OF THE PACKAGE ##
+##########################################################################
 
 .qpFastNrr <- function(S, N, q, nTests, alpha, pairup.i.noint, pairup.j.noint,
                        pairup.ij.int, verbose) {
@@ -2360,6 +2380,10 @@ qpFunctionalCoherence <- function(A, TFgenes, chip, minRMsize=5, verbose=FALSE) 
   return(.Call("qp_fast_ipf",vv,clqlst,tol,verbose))
 }
 
-.qpCliqueNumberOstergard <- function(I,return.vertices,verbose) {
- return(.Call("qp_clique_number_os",I,return.vertices,verbose))
+.qpCliqueNumberLowerBound <- function(A, return.vertices, approx.iter, verbose) {
+ return(.Call("qp_clique_number_lb", A, return.vertices, as.integer(approx.iter), verbose))
+}
+
+.qpCliqueNumberOstergard <- function(A, return.vertices, verbose) {
+ return(.Call("qp_clique_number_os", A, return.vertices, verbose))
 }

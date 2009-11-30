@@ -1,7 +1,8 @@
 /*
-  qp package - this R code implements functions to learn qp-graphs from data
+  qpgraph package - this C code implements functions to learn qp-graphs from
+                    data and utilities to for GGM model inference and simulation
  
-  Copyright (C) 2008 R. Castelo and A. Roverato
+  Copyright (C) 2009 R. Castelo and A. Roverato
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License
   as published by the Free Software Foundation; either version 2
@@ -114,6 +115,9 @@ Rboolean
 is_maximal_clique(int* I, int n, int* clq, int cs, set_t noclq);
 
 static SEXP
+qp_clique_number_lb(SEXP I, SEXP return_vertices, SEXP approx_iter, SEXP verbose);
+
+static SEXP
 qp_clique_number_os(SEXP I, SEXP return_vertices, SEXP verbose);
 
 int
@@ -160,6 +164,9 @@ matrepm(double* M, int n, int* subrows, int nsubrows,
 static void
 setdiff(int n, int m, int* a, int* b);
 
+void
+i2e(int i, int* e_i, int* e_j);
+
 /* R-function register */
 
 static R_CallMethodDef
@@ -170,6 +177,7 @@ callMethods[] = {
   {"qp_fast_ci_test", (DL_FUNC) &qp_fast_ci_test,5},
   {"qp_fast_ci_test2", (DL_FUNC) &qp_fast_ci_test2,5},
   {"qp_fast_cliquer_get_cliques", (DL_FUNC) &qp_fast_cliquer_get_cliques, 3},
+  {"qp_clique_number_lb", (DL_FUNC) &qp_clique_number_lb, 4},
   {"qp_clique_number_os", (DL_FUNC) &qp_clique_number_os, 3},
   {"qp_fast_pac_se", (DL_FUNC) &qp_fast_pac_se, 2},
   {"qp_fast_ipf", (DL_FUNC) &qp_fast_ipf, 4},
@@ -255,12 +263,14 @@ qp_fast_nrr(SEXP S, SEXP N, SEXP qR, SEXP nTests, SEXP alpha, SEXP pairup_i_noin
       REAL(nrrMatrix)[j2+i2*n_var] = REAL(nrrMatrix)[i2+j2*n_var]; /* symmetric! */
       k++;
       pct = (int) ((k * 100) / n_adj);
-      if (pct != ppct && INTEGER(verbose)[0]) {
-        if (pct % 10 == 0)
-          Rprintf("%d",pct);
-        else
-          Rprintf(".",pct);
-        R_FlushConsole();
+      if (pct != ppct) {
+        if (INTEGER(verbose)[0]) {
+          if (pct % 10 == 0)
+            Rprintf("%d",pct);
+          else
+            Rprintf(".",pct);
+          R_FlushConsole();
+        }
         R_CheckUserInterrupt();
 #ifdef Win32
         R_ProcessEvents();
@@ -289,12 +299,14 @@ qp_fast_nrr(SEXP S, SEXP N, SEXP qR, SEXP nTests, SEXP alpha, SEXP pairup_i_noin
       REAL(nrrMatrix)[j2+i2*n_var] = REAL(nrrMatrix)[i2+j2*n_var]; /* symmetric! */
       k++;
       pct = (int) ((k * 100) / n_adj);
-      if (pct != ppct && INTEGER(verbose)[0]) {
-        if (pct % 10 == 0)
-          Rprintf("%d",pct);
-        else
-          Rprintf(".",pct);
-        R_FlushConsole();
+      if (pct != ppct) {
+        if (INTEGER(verbose)[0]) {
+          if (pct % 10 == 0)
+            Rprintf("%d",pct);
+          else
+            Rprintf(".",pct);
+          R_FlushConsole();
+        }
         R_CheckUserInterrupt();
 #ifdef Win32
         R_ProcessEvents();
@@ -320,12 +332,14 @@ qp_fast_nrr(SEXP S, SEXP N, SEXP qR, SEXP nTests, SEXP alpha, SEXP pairup_i_noin
       REAL(nrrMatrix)[j2+i2*n_var] = REAL(nrrMatrix)[i2+j2*n_var]; /* symmetric! */
       k++;
       pct = (int) ((k * 100) / n_adj);
-      if (pct != ppct && INTEGER(verbose)[0]) {
-        if (pct % 10 == 0)
-          Rprintf("%d",pct);
-        else
-          Rprintf(".",pct);
-        R_FlushConsole();
+      if (pct != ppct) {
+        if (INTEGER(verbose)[0]) {
+          if (pct % 10 == 0)
+            Rprintf("%d",pct);
+          else
+            Rprintf(".",pct);
+          R_FlushConsole();
+        }
         R_CheckUserInterrupt();
 #ifdef Win32
         R_ProcessEvents();
@@ -444,12 +458,14 @@ qp_fast_nrr_identicalQs(SEXP S, SEXP N, SEXP qR, SEXP nTestsR, SEXP alpha, SEXP 
       REAL(nrrMatrix)[j2+i2*n_var] = REAL(nrrMatrix)[i2+j2*n_var]; /* symmetric! */
       k++;
       pct = (int) ((k * 100) / n_adj);
-      if (pct != ppct && INTEGER(verbose)[0]) {
-        if (pct % 10 == 0)
-          Rprintf("%d",pct);
-        else
-          Rprintf(".",pct);
-        R_FlushConsole();
+      if (pct != ppct) {
+        if (INTEGER(verbose)[0]) {
+          if (pct % 10 == 0)
+            Rprintf("%d",pct);
+          else
+            Rprintf(".",pct);
+          R_FlushConsole();
+        }
         R_CheckUserInterrupt();
 #ifdef Win32
         R_ProcessEvents();
@@ -479,12 +495,14 @@ qp_fast_nrr_identicalQs(SEXP S, SEXP N, SEXP qR, SEXP nTestsR, SEXP alpha, SEXP 
       REAL(nrrMatrix)[j2+i2*n_var] = REAL(nrrMatrix)[i2+j2*n_var]; /* symmetric! */
       k++;
       pct = (int) ((k * 100) / n_adj);
-      if (pct != ppct && INTEGER(verbose)[0]) {
-        if (pct % 10 == 0)
-          Rprintf("%d",pct);
-        else
-          Rprintf(".",pct);
-        R_FlushConsole();
+      if (pct != ppct) {
+        if (INTEGER(verbose)[0]) {
+          if (pct % 10 == 0)
+            Rprintf("%d",pct);
+          else
+            Rprintf(".",pct);
+          R_FlushConsole();
+        }
         R_CheckUserInterrupt();
 #ifdef Win32
         R_ProcessEvents();
@@ -511,12 +529,14 @@ qp_fast_nrr_identicalQs(SEXP S, SEXP N, SEXP qR, SEXP nTestsR, SEXP alpha, SEXP 
       REAL(nrrMatrix)[j2+i2*n_var] = REAL(nrrMatrix)[i2+j2*n_var]; /* symmetric! */
       k++;
       pct = (int) ((k * 100) / n_adj);
-      if (pct != ppct && INTEGER(verbose)[0]) {
-        if (pct % 10 == 0)
-          Rprintf("%d",pct);
-        else
-          Rprintf(".",pct);
-        R_FlushConsole();
+      if (pct != ppct) {
+        if (INTEGER(verbose)[0]) {
+          if (pct % 10 == 0)
+            Rprintf("%d",pct);
+          else
+            Rprintf(".",pct);
+          R_FlushConsole();
+        }
         R_CheckUserInterrupt();
 #ifdef Win32
         R_ProcessEvents();
@@ -1031,6 +1051,213 @@ sampleQs(int T, int q, int v_i, int v_j, int p, int* y) {
 
   Free(x);
   Free(z);
+}
+
+
+
+  typedef struct {
+    int x;
+    int ix;
+  } IntWithIdx;
+
+  int
+  int_cmp_desc_idx(const void *a, const void *b) {
+    const IntWithIdx* ia = (const IntWithIdx *) a;
+    const IntWithIdx* ib = (const IntWithIdx *) b;
+
+    return ib->x - ia->x;
+  }
+
+/*
+  FUNCTION: qp_clique_number_lb
+  PURPOSE: calculate a lower bound on the clique number from the input graph
+  RETURNS: a lower bound of the clique number from the input graph
+*/
+
+static SEXP
+qp_clique_number_lb(SEXP A, SEXP return_vertices, SEXP approx_iter, SEXP verbose) {
+  int         n = INTEGER(getAttrib(A,R_DimSymbol))[0];
+  IntWithIdx* deg;
+  int*        pdeg;
+  int*        ivec;
+  int*        sset;
+  int*        ssetelem;
+  int         cliqueNumber=0;
+  int*        cliqueVertices;
+  int*        clq;
+  int         i;
+  int         ppct=-1;
+  SEXP        return_value;
+
+  PROTECT_INDEX Api;
+
+  PROTECT_WITH_INDEX(A,&Api);
+
+  REPROTECT(A = coerceVector(A,INTSXP),Api);
+
+  deg = Calloc(n, IntWithIdx);
+  pdeg = Calloc(n, int);
+  ivec = Calloc(n, int);
+  sset = Calloc(n, int);
+  ssetelem = Calloc(n, int);
+  cliqueVertices = Calloc(n, int);
+  clq = Calloc(n, int);
+
+  for (i=0; i < n; i++) {
+    int j;
+
+    deg[i].x = 0;
+    for (j=0; j < n; j++)
+      if (INTEGER(A)[j*n+i]) {
+        deg[i].x++;
+      }
+    ivec[i] = i;
+    deg[i].ix = i;
+  } 
+  qsort(deg, n, sizeof(IntWithIdx), int_cmp_desc_idx);
+
+  if (INTEGER(verbose)[0])
+    Rprintf("calculating lower bound on the maximum clique size\n");
+
+  for (i=0; i < INTEGER(approx_iter)[0]; i++) {
+    int pct;
+    int clqsze;
+    int j;
+
+    for (j=0; j < n; j++)
+      pdeg[j] = deg[j].ix;
+
+    if (i % n + 1 > 1) {
+      int m;
+
+      m = n;
+      /* sample (i % n + 1) elements from n without replacement */
+      for (j=0; j < i % n + 1; j++) {
+        int r;
+
+        r = (int) (((double) m) * unif_rand()); /* sample using R-builtin RNG */
+        sset[j] = ivec[r];
+        ivec[r] = ivec[--m];                    /* sample without replacement */
+      }
+
+      /* store the indices to the degree ranking using the sampled elements */
+      for (j = 0; j < i % n + 1; j++) {  /* replace again the sampled elements */
+        ssetelem[j] = pdeg[sset[j]];
+        ivec[sset[j]] = sset[j];         /* so that ivec remains intact */
+      }
+
+      /* shuffle the stored indices using the Fisher-Yates algorithm */
+      j = i % n;
+      while (j >= 0) {
+        int k;
+
+        k = (int) (((double) j) * unif_rand());
+        if (j != k) {
+          int tmp;
+
+          tmp = ssetelem[j];
+          ssetelem[j] = ssetelem[k];
+          ssetelem[k] = tmp;
+        }
+        j = j - 1;
+      }
+
+      /* shuffle the corresponding elements in the degree ranking */
+      for (j=0; j < i % n + 1;j++)
+        pdeg[sset[j]] = ssetelem[j];
+    }
+
+    /* go through the degree ranking building a clique */
+    clq[0] = pdeg[0];
+    clqsze = 1;
+    for (j=1;j < n;j++) {
+      int k;
+      int isClique;
+
+      clq[clqsze] = pdeg[j];
+
+      isClique = 1;
+      k = 0;
+      while (k < (int) (((double) ((clqsze+1)*(clqsze)))/2.0) && isClique) {
+        int u, v;
+
+        i2e(k, &u, &v);
+        if (!INTEGER(A)[clq[u] * n + clq[v]])
+          isClique = 0;
+
+        k++;
+      }
+
+      if (isClique)
+        clqsze++; 
+    }
+
+    if (clqsze > cliqueNumber) {
+      cliqueNumber = clqsze;
+      Memcpy(cliqueVertices, clq, (size_t) clqsze);
+    }
+
+    pct = (int) ((i * 100) / INTEGER(approx_iter)[0]);
+    if (pct != ppct) {
+      if (INTEGER(verbose)[0]) {
+        if (pct % 10 == 0)
+          Rprintf("%d",pct);
+        else
+          Rprintf(".",pct);
+        R_FlushConsole();
+      }
+
+      R_CheckUserInterrupt();
+#ifdef Win32
+      R_ProcessEvents();
+#endif
+#ifdef HAVE_AQUA
+      R_ProcessEvents();
+#endif
+      ppct = pct;
+    }
+  }
+
+  UNPROTECT(1); /* A */
+
+  if (INTEGER(verbose)[0])
+    Rprintf("\n");
+
+  if (INTEGER(return_vertices)[0]) {
+    SEXP names;
+
+    PROTECT(return_value = allocVector(VECSXP,2));
+
+    SET_VECTOR_ELT(return_value,0,allocVector(INTSXP, 1));
+    SET_VECTOR_ELT(return_value,1,allocVector(INTSXP, cliqueNumber));
+
+    INTEGER(VECTOR_ELT(return_value,0))[0] = cliqueNumber;
+
+    for (i=0;i < cliqueNumber;i++)
+      INTEGER(VECTOR_ELT(return_value,1))[i] = cliqueVertices[i] + 1; /* in R vertices are 1-based */
+
+    PROTECT(names = allocVector(VECSXP,2));
+    SET_VECTOR_ELT(names, 0, mkChar("size"));
+    SET_VECTOR_ELT(names, 1, mkChar("vertices"));
+    setAttrib(return_value, R_NamesSymbol, names);
+    UNPROTECT(1); /* names */
+
+  } else {
+    PROTECT(return_value = allocVector(INTSXP,1));
+
+    INTEGER(return_value)[0] = cliqueNumber;
+  }
+  Free(deg);
+  Free(pdeg);
+  Free(ivec);
+  Free(sset);
+  Free(ssetelem);
+  Free(cliqueVertices);
+  Free(clq);
+
+  UNPROTECT(1);  /* return_value */
+
+  return return_value;
 }
 
 
@@ -1679,23 +1906,24 @@ qp_fast_ipf(SEXP vvR, SEXP clqlstR, SEXP tolR, SEXP verbose) {
       fast_ipf_step(n,vv,V,a,csze);
       Free(a);
 
-      if (INTEGER(verbose)[0]) {
-        pct = (int) (((i-fstclq)*100)/(nclqlst-fstclq));
-        if (pct != ppct) {
+      pct = (int) (((i-fstclq)*100)/(nclqlst-fstclq));
+      if (pct != ppct) {
+        if (INTEGER(verbose)[0]) {
           if (pct % 10 == 0)
             Rprintf("%d",pct);
           else
             Rprintf(".",pct);
           R_FlushConsole();
-          R_CheckUserInterrupt();
+        }
+
+        R_CheckUserInterrupt();
 #ifdef Win32
-          R_ProcessEvents();
+        R_ProcessEvents();
 #endif
 #ifdef HAVE_AQUA
-          R_ProcessEvents();
+        R_ProcessEvents();
 #endif
-          ppct = pct;
-        }
+        ppct = pct;
       }
     }
     if (INTEGER(verbose)[0])
@@ -2101,4 +2329,3 @@ i2e(int i, int* e_i, int* e_j) {
   *e_i = 1 + (unsigned int) (-0.5 + sqrt(0.25 + 2.0 * ((double) i)));
   *e_j = i - (unsigned int) ((double) ((*e_i)*((*e_i)-1)) / 2.0);
 }
-
