@@ -2131,10 +2131,9 @@ qpFunctionalCoherence <- function(A, TFgenes, chip, minRMsize=5, verbose=FALSE) 
                                           names(x[x=="BP" & !is.na(x)])
                                         } else { NULL })
 
-  goTermsEnv <- GOenv("TERM")
-  goBPparentsEnv <- GOenv("BPPARENTS")
-  goTerms <- unlist(AnnotationDbi::eapply(goTermsEnv, function(x) x@Term))
-  goTermOntologies <- unlist(AnnotationDbi::eapply(goTermsEnv, function(x) x@Ontology))
+  goBPparentsEnv <- GOBPPARENTS
+  goTerms <- unlist(AnnotationDbi::eapply(GOTERM, function(x) x@Term))
+  goTermOntologies <- unlist(AnnotationDbi::eapply(GOTERM, function(x) x@Ontology))
   goTermBPOntology <- names(goTermOntologies[goTermOntologies == "BP"])
 
   # remove from the GO annotation of the transcription factor those GO terms
@@ -2317,7 +2316,8 @@ qpFunctionalCoherence <- function(A, TFgenes, chip, minRMsize=5, verbose=FALSE) 
   ontologyType <- match.arg(ontologyType)
 
   haveGo <- sapply(AnnotationDbi::mget(entrezGeneIds,
-                                       getAnnMap(map="GO", chip=chip, type="db")),
+                                       getAnnMap(map="GO", chip=chip, type="db"),
+                                       ifnotfound=NA),
                    function(x) {
                      if (length(x) == 1 && is.na(x))
                        FALSE
