@@ -1,0 +1,122 @@
+CHANGES IN VERSION 1.3
+----------------------
+
+USER VISIBLE CHANGES
+
+    o added a NEWS file
+
+	  o fixed help page of qpCliqueNumber
+
+	  o implemented the C code of the clique number lower bound.
+
+	  o fixed the handling of user interruption during long calculations
+
+	  o updated some help pages
+
+	  o re-organization of the functions to sample synthetic data from
+	  multivariate normal distributions
+
+BUG FIXES
+
+    o fixes on the documentation
+
+    o added R_CheckUserInterrupt() to the C code of the IPF algorithm
+
+
+CHANGES IN VERSION 1.1
+----------------------
+
+USER VISIBLE CHANGES
+
+    o updated few details on the main package help page
+
+    o added R_CheckUserInterrupt() to the heavy computations in C
+
+    o changed default value of identicalQs parameters to TRUE
+
+    o documentation mismatches fixed on some function arguments
+
+NEW FEATURES
+
+    o added the new calculation of NRR with identical Q subsets
+
+BUG FIXES
+    o fixed a minor bug on reporting progress of calculations
+
+    o fixed a minor bug on identifying variable names on matrices
+
+
+CHANGES IN VERSION 0.99
+-----------------------
+
+USER VISIBLE CHANGES
+
+    o fixed package name in the CITATION file
+
+    o the qpTxRegNet vignette has been modified in order to reduce memory
+    requirements
+
+    o add an import line to the DESCRIPTION file
+
+    o remove quotes from the import calls in the NAMESPACE file
+
+    o add a zzz.R file with a GOenv function to load variables GOTERM and
+    GOBPPARENTS
+
+    o modify qpFunctionalCoherence to properly load variables GOTERM and
+    GOBPPARENTS in order to sort out their notes of "no visible binding"
+
+    o remove braces from references in EcoliOxygen.Rd
+
+    o changed LaTeX package mathptm to mathptmx in the qpTxRegNet vignette
+
+    o turn the first letter of the package title into a capital letter
+
+    o replace 'qp' by 'qpgraph' in the main package help file
+
+    o name of the package changed from 'qp' to 'qpgraph'
+
+    o the corresponding manual pages for these generic methods have been
+    modified to comply with the S4 methods documentation guidelines.
+
+    o added the possibility of passing an ExpressionSet, a data frame or a
+    matrix of observations to the qpEdgeNrr function using S4 generics
+    and qpEdgeNrr
+
+    o added the possibility of passing an ExpressionSet, a data frame or a
+    matrix of observations to the qpCItest function using S4 generics
+
+    o introduction of S4 generics for qpNrr, qpAvgNrr, qpPAC, qpPCC, qpCItest
+
+    o qpDscale is now exported to the user and a manual page has been created
+
+    o malloc calls in C code have turned into R_malloc and the corresponding
+    free calls have been removed
+
+NEW FEATURES
+
+    o functions qpNrr, qpAvgNrr and qpGraph admit now parameters 'pairup.i' and
+    'pairup.j' that allow to restrict the pairs of variables on which we
+    estimate the non-rejection rate (qpNrr and qpAvgNrr) or from which we derive
+    a qp-graph given a threshold
+
+    o a new function qpAnyGraph has been added in order to obtain an undirected
+    graph by thresholding any matrix of pairwise measurements in an analogous
+    way to the functionality of the function qpGraph
+
+    o a new function qpFunctionalCoherence has been added to estimate
+    functional coherence of the qpgraphs with respect to available GO
+    annotations. This includes also a new private function .qpFilterbyGO
+
+    o seeds for random number generations have been specified in a couple of
+    places within the vignette qpTxRegNet in order to enforce reproducing exactly
+    the same numbers under the random sampling schemes used in the estimation of
+    non-rejection rates and when drawing random correlations for the random
+    method
+
+BUG FIXES
+
+    o calloc and realloc calls in C code have turned into Calloc and Realloc
+    and the corresponding free calls have been turned into Free calls
+
+(start date: 20 October, 2008)
