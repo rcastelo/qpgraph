@@ -21,8 +21,6 @@ BUG FIXES
     o added ifnotfound=NA in mget call within .qpFilterByGO to avoid
     errors when Entrez Gene IDs are given that do not exist as keys
 
-    o fixed handling of GO environment in qpFunctionalCoherence
-
     o fixes on the documentation
 
     o added R_CheckUserInterrupt() to the C code of the IPF algorithm
