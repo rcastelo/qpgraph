@@ -2051,6 +2051,7 @@ qpImportNrr <- function(filename, nTests) {
 ##                 transcriptional regulatory network
 ##             TFgenes - vector of transcription factor gene names (matching the
 ##                       genes at the rows and column names of A)
+##             geneUniverse - vector of all genes relevant to the analysis
 ##             chip - name of the .db package containing the GO annotations
 ##             minRMsize - minimum size of the target gene set in each regulatory
 ##                         module where functional enrichment will be calculated
@@ -2063,31 +2064,62 @@ qpImportNrr <- function(filename, nTests) {
 ##         modules with GO BP annotations and a third one consisting of a vector
 ##         of functional coherence values
 
-qpFunctionalCoherence <- function(A, TFgenes, chip, minRMsize=5, verbose=FALSE) {
+setGeneric("qpFunctionalCoherence", function(object, ...) standardGeneric("qpFunctionalCoherence"))
+
+## the input object is an adjacency matrix
+setMethod("qpFunctionalCoherence",
+          signature(object="matrix"),
+          function(object, TFgenes, geneUniverse=rownames(object), chip, minRMsize=5, verbose=FALSE) {
   require(GOstats)
 
-  if (is.null(colnames(A)) || is.null(rownames(A)))
-    stop("adjacency matrix A must have row and column names corresponding to the gene IDs")
+  if (is.null(colnames(object)) || is.null(rownames(object)))
+    stop("the adjacency matrix contained in the 'object' argument must have row and column names corresponding to the gene IDs")
+
+  if (class(object[1,1]) != "logical" && class(object[1,1]) != "numeric" && class(object[1,1]) != "integer")
+    stop("the adjacency matrix should be either logical or binary")
+
+  if (class(object[1,1]) == "numeric" || class(object[1,1]) == "integer")
+    object <- object == 1
 
   if (length(TFgenes) < 1)
     stop("TFgenes must contain at least one transcription factor gene\n")
 
-  allGenes <- rownames(A)
-
   if (!is.character(TFgenes))
     stop("gene identifiers in TFgenes must belong to the class character\n")
 
-  if (sum(is.na(match(TFgenes, allGenes))) > 0)
-    stop("TFgenes is not a subset from the genes defining the adjacency matrix A\n")
+  if (sum(is.na(match(TFgenes, geneUniverse))) > 0)
+    stop("TFgenes is not a subset from the genes comprising the gene universe\n")
 
-  p <- dim(A)[1]
-  geneBPuniverse <- qpgraph:::.qpFilterByGO(allGenes, chip, "BP")
-
-  TFgenes_i <- match(TFgenes, allGenes)
-  txRegNet <- lapply(TFgenes_i, function(x) allGenes[A[as.integer(x), ]])
+  TFgenes_i <- match(TFgenes, geneUniverse)
+  txRegNet <- lapply(TFgenes_i, function(x) geneUniverse[object[as.integer(x), ]])
   names(txRegNet) <- TFgenes
+
+  return(qpgraph:::.qpFunctionalCoherence(txRegNet, geneUniverse, chip, minRMsize, verbose))
+})
+
+## the input object is a list of regulatory modules
+setMethod("qpFunctionalCoherence",
+          signature(object="list"),
+          function(object, geneUniverse=unique(c(names(object), unlist(object, use.names=FALSE))),
+                   chip, minRMsize=5, verbose=FALSE) {
+  require(GOstats)
+
+  TFgenes <- names(object)
+
+  if (length(TFgenes) < 1)
+    stop("names of the entries in the input list should correspond to the transcription factor gene identifiers\n")
+
+  if (sum(is.na(match(TFgenes, geneUniverse))) > 0)
+    stop("TFgenes is not a subset from the genes comprising the gene universe\n")
+
+  return(qpgraph:::.qpFunctionalCoherence(object, geneUniverse, chip, minRMsize, verbose))
+})
+
+.qpFunctionalCoherence <- function(txRegNet, geneUniverse, chip, minRMsize, verbose) {
+  TFgenes <- names(txRegNet)
   regModuleSize <- unlist(lapply(txRegNet, length))
-  names(regModuleSize) <- TFgenes
+
+  geneBPuniverse <- qpgraph:::.qpFilterByGO(geneUniverse, chip, "BP")
 
   if (verbose)
     cat(sprintf("qpFunctionalCoherence: calculating GO enrichment in %d target gene sets\n",

@@ -8,13 +8,23 @@ Functional coherence estimation
 Estimates functional coherence for a given transcriptional regulatory network.
 }
 \usage{
-qpFunctionalCoherence(A, TFgenes, chip, minRMsize=5, verbose=FALSE)
+\S4method{qpFunctionalCoherence}{matrix}(object, TFgenes, geneUniverse=rownames(object),
+                                         chip, minRMsize=5, verbose=FALSE)
+\S4method{qpFunctionalCoherence}{list}(object, geneUniverse=unique(c(names(object), unlist(object, use.names=FALSE))),
+                                       minRMsize=5, verbose=FALSE)
 }
 \arguments{
-  \item{A}{adjacency matrix of the undirected graph representing the
-       transcriptional regulatory network.}
-  \item{TFgenes}{vector of transcription factor gene (matching the genes at the
-       rows and column names of \code{A}.}
+  \item{object}{object containing the transcriptional regulatory modules for which
+       we want to estimate their functional coherence. It can be an adjacency matrix
+       of the undirected graph representing the transcriptional regulatory network or
+       a list of gene target sets where the name of the entry should be the transcription
+       factor identifier.}
+  \item{TFgenes}{when the input object is a matrix, it is required to provide a vector of
+       transcription factor gene identifiers (which should match somewhere in the row and
+       column names of the matrix.}
+  \item{geneUniverse}{vector of all genes considered in the analysis. By default
+       it equals the rows and column names of \code{object} when it is a matrix, or the
+       set of all different gene identifiers occuring in \code{object} when it is a list.}
   \item{chip}{name of the \code{.db} package containing the Gene Ontology (GO)
        annotations.}
   \item{minRMsize}{minimum size of the target gene set in each regulatory module
@@ -94,7 +104,8 @@ adjacencyMatrix[idxTFTG] <-
   adjacencyMatrix[cbind(idxTFTG[,2],idxTFTG[,1])] <- TRUE
 
 # calculate functional coherence on these regulatory modules
-fc <- qpFunctionalCoherence(adjacencyMatrix, TFgenesEgIDs, "org.EcK12.eg.db")
+fc <- qpFunctionalCoherence(adjacencyMatrix, TFgenes=TFgenesEgIDs,
+                            chip="org.EcK12.eg.db")
 
 print(sprintf("the \%s module has a FC value of \%.2f",
               mget(names(fc$functionalCoherenceValues),org.EcK12.egSYMBOL),
