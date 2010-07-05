@@ -7,6 +7,8 @@ USER VISIBLE CHANGES
 
 BUG FIXES
 
+    o removed unnecessary calls to INTEGER() and REAL() within long loops in the C code in order to speed it up
+
     o binary adjacency matrices (and not only logical ones) are now also handled by qpFunctionalCoherence()
 
 CHANGES IN VERSION 1.3
