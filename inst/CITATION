@@ -1,25 +1,27 @@
-citHeader("To cite qpgraph in publications use:")
+citHeader("To cite package 'qpgraph' in publications use:")
 
-citEntry(entry="ARTICLE",
-  AUTHOR = "R Castelo and A Roverato",
-  TITLE = "A robust procedure for Gaussian graphical model search from microarray data with p larger than n",
-  JOURNAL = "J Mach Learn Res",
-  YEAR = "2006",
-  VOLUME = "7",
-  PAGES = "2621-50",
+citEntry(entry="Article",
+  author = personList(as.person("Robert Castelo"),
+                      as.person("Alberto Roverato")),
+  title = "A robust procedure for Gaussian graphical model search from microarray data with p larger than n",
+  journal = "J Mach Learn Res",
+  year = "2006",
+  volume = "7",
+  pages = "2621-50",
   textVersion = paste("Castelo, R. and Roverato, A.",
                       "A robust procedure for Gaussian graphical model search from microarray data with p larger than n.",
                       "J Mach Learn Res, 7:2621-50, 2006.")
 )
 
-citEntry(entry="ARTICLE",
-  AUTHOR = "Castelo, R. and Roverato, A.",
-  TITLE = "Reverse engineering molecular regulatory networks from microarray data with qp-graphs",
-  JOURNAL = "J Comput Biol",
-  YEAR = "2009",
-  VOLUME = "16",
-  NUMBER = "2",
-  PAGES = "213-27",
+citEntry(entry="Article",
+  author = personList(as.person("Robert Castelo"),
+                      as.person("Alberto Roverato")),
+  title = "Reverse engineering molecular regulatory networks from microarray data with qp-graphs",
+  journal = "J Comput Biol",
+  year = "2009",
+  volume = "16",
+  number = "2",
+  pages = "213-27",
   textVersion = paste("R Castelo and A Roverato.",
                       "Reverse engineering molecular regulatory networks from microarray data with qp-graphs",
                       "J Comput Biol, 16(2):213-27, 2009.")

@@ -6,23 +6,19 @@
 The q-order partial correlation graph learning software, qpgraph.
 }
 \description{
-q-order partial correlation graphs, or qp-graphs for short, are
-undirected Gaussian graphical Markov models built from q-order
-partial correlations. They are useful for learning undirected
-graphical Gaussian Markov models from data sets where the number of
-random variables p exceeds the available sample size n as, for
-instance, in the case of microarray data where they can be employed
-to reverse engineer a molecular regulatory network.
+\Sexpr{packageDescription("qpgraph")$Description}
 }
 \details{
   \tabular{ll}{
-  Package: \tab qp\cr
-  Version: \tab 1.5.1\cr
-  Date: \tab 02-07-2010\cr
-  biocViews: \tab Microarray, GeneExpression, Transcription, Pathways, Bioinformatics, GraphsAndNetworks\cr
-  Suggests: \tab mvtnorm, graph, Rgraphviz, annotate, genefilter, Category (>= 2.9.7), org.EcK12.eg.db (>= 2.2.6), GOstats\cr
-  License: \tab GPL (>= 2)\cr
-  URL: \tab \url{http://functionalgenomics.upf.edu/qpgraph}\cr
+  Package: \tab qpgraph\cr
+  Version: \tab \Sexpr{packageDescription("qpgraph")$Version}\cr
+  Built: \tab \Sexpr{packageDescription("qpgraph")$Built}\cr
+  Depends: \tab \Sexpr{packageDescription("qpgraph")$Depends}\cr
+  Imports: \tab \Sexpr{packageDescription("qpgraph")$Imports}\cr
+  Suggests: \tab \Sexpr{packageDescription("qpgraph")$Suggests}\cr
+  biocViews: \tab \Sexpr{packageDescription("qpgraph")$biocViews}\cr
+  License: \tab \Sexpr{packageDescription("qpgraph")$License}\cr
+  URL: \tab \Sexpr{packageDescription("qpgraph")$URL}\cr
   }
 }
 
@@ -88,9 +84,9 @@ vignette \code{qpTxRegNet}. This package is a contribution to the Bioconductor
 }
 
 \author{
-R. Castelo and A. Roverato
+\Sexpr{packageDescription("qpgraph")$Author}
 
-Maintainer: R. Castelo <robert.castelo@upf.edu>
+\Sexpr{packageDescription("qpgraph")$Maintainer}
 }
 
 \references{

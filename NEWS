@@ -1,3 +1,14 @@
+CHANGES IN VERSION 1.5
+----------------------
+
+USER VISIBLE CHANGES
+
+    o qpFunctionalCoherence() now takes an input list of transcriptional regulator modules
+
+BUG FIXES
+
+    o binary adjacency matrices (and not only logical ones) are now also handled by qpFunctionalCoherence()
+
 CHANGES IN VERSION 1.3
 ----------------------
 
