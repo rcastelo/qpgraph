@@ -46,20 +46,35 @@ setGeneric("qpNrr", function(data, ...) standardGeneric("qpNrr"))
 setMethod("qpNrr", signature(data="ExpressionSet"),
           function(data, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
                    pairup.j=NULL, verbose=TRUE, identicalQs=TRUE,
-                   R.code.only=FALSE) {
+                   R.code.only=FALSE, clusterSize=1) {
+
+            if (clusterSize > 1 && R.code.only)
+              stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
+
+            if (clusterSize > 1 && (!isPackageLoaded("Rmpi") || !isPackageLoaded("snow")))
+              stop("Using a cluster (clusterSize > 1) requires first loading packages 'Rmpi' and 'snow'\n")
+
             exp <- t(exprs(data))
             S <- cov(exp)
             N <- length(sampleNames(data))
             rownames(S) <- colnames(S) <- featureNames(data)
             qpgraph:::.qpNrr(S, N, q, nTests, alpha, pairup.i, pairup.j,
-                             verbose, identicalQs, R.code.only)
+                             verbose, identicalQs, R.code.only, clusterSize)
           })
 
 # data comes as a data frame
 setMethod("qpNrr", signature(data="data.frame"),
           function(data, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
                    pairup.j=NULL, long.dim.are.variables=TRUE,
-                   verbose=TRUE, identicalQs=TRUE, R.code.only=FALSE) {
+                   verbose=TRUE, identicalQs=TRUE, R.code.only=FALSE,
+                   clusterSize=1) {
+
+            if (clusterSize > 1 && R.code.only)
+              stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
+
+            if (clusterSize > 1 && (!isPackageLoaded("Rmpi") || !isPackageLoaded("snow")))
+              stop("Using a cluster (clusterSize > 1) requires first loading packages 'Rmpi' and 'snow'\n")
+
             m <- as.matrix(data)
             rownames(m) <- rownames(data)
             if (!is.double(m))
@@ -75,7 +90,7 @@ setMethod("qpNrr", signature(data="data.frame"),
             else
               rownames(S) <- colnames(S) <- colnames(data)
             qpgraph:::.qpNrr(S, N, q, nTests, alpha, pairup.i, pairup.j,
-                             verbose, identicalQs, R.code.only)
+                             verbose, identicalQs, R.code.only, clusterSize)
           })
 
           
@@ -83,7 +98,15 @@ setMethod("qpNrr", signature(data="data.frame"),
 setMethod("qpNrr", signature(data="matrix"),
           function(data, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
                    pairup.j=NULL, long.dim.are.variables=TRUE,
-                   verbose=TRUE, identicalQs=TRUE, R.code.only=FALSE) {
+                   verbose=TRUE, identicalQs=TRUE, R.code.only=FALSE,
+                   clusterSize=1) {
+
+            if (clusterSize > 1 && R.code.only)
+              stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
+
+            if (clusterSize > 1 && (!isPackageLoaded("Rmpi") || !isPackageLoaded("snow")))
+              stop("Using a cluster (clusterSize > 1) requires first loading packages 'Rmpi' and 'snow'\n")
+
             if (long.dim.are.variables &&
               sort(dim(data),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
               data <- t(data)
@@ -95,11 +118,31 @@ setMethod("qpNrr", signature(data="matrix"),
             else
               rownames(S) <- colnames(S) <- colnames(data)
             qpgraph:::.qpNrr(S, N, q, nTests, alpha, pairup.i, pairup.j,
-                             verbose, identicalQs, R.code.only)
+                             verbose, identicalQs, R.code.only, clusterSize)
           })
 
-.qpNrr <- function(S, N, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
-                   pairup.j=NULL, verbose=TRUE, identicalQs=TRUE, R.code.only=FALSE) {
+.qpNrr <- function(S, N, q=1, nTests=100, alpha=0.05, pairup.i=NULL, pairup.j=NULL,
+                   verbose=TRUE, identicalQs=TRUE, R.code.only=FALSE, clusterSize=1) {
+
+  cl <- NULL
+ 
+  if (clusterSize > 1) {
+    message("Estimating non-rejection rates using a cluster of ", clusterSize, " nodes\n")
+    ## copying ShortRead's strategy, 'get()' are to quieten R CMD check, and for no other reason
+    makeCl <- get("makeCluster", mode="function")
+    clSetupRNG <- get("clusterSetupRNG", mode="function")
+    clEvalQ <- get("clusterEvalQ", mode="function")
+    stopCl <- get("stopCluster", mode="function")
+    clCall <- get("clusterCall", mode="function")
+
+    cl <- makeCl(clusterSize, type="MPI")
+    clSetupRNG(cl)
+    res <- clEvalQ(cl, require(qpgraph, quietly=TRUE))
+    if (!all(unlist(res))) {
+      stopCl(cl)
+      stop("The package 'qpgraph' could not be loaded in some of the nodes of the cluster")
+    }
+  }
 
   var.names <- rownames(S)
   n.var <- nrow(S)
@@ -156,13 +199,36 @@ setMethod("qpNrr", signature(data="matrix"),
   pairup.i.noint <- setdiff(pairup.i, pairup.ij.int)
   pairup.j.noint <- setdiff(pairup.j, pairup.ij.int)
 
+  nrrMatrix <- NULL
+
   if (!R.code.only) {
-    if (identicalQs)
-      nrrMatrix <- qpgraph:::.qpFastNrrIdenticalQs(S, N, q, nTests, alpha, pairup.i.noint,
-                                                   pairup.j.noint, pairup.ij.int, verbose)
-    else
-      nrrMatrix <- qpgraph:::.qpFastNrr(S, N, q, nTests, alpha, pairup.i.noint,
-                                        pairup.j.noint, pairup.ij.int, verbose)
+    if (is.null(cl)) { ## single-processor execution
+      if (identicalQs)
+        nrrMatrix <- qpgraph:::.qpFastNrrIdenticalQs(S, N, q, nTests, alpha, pairup.i.noint,
+                                                     pairup.j.noint, pairup.ij.int, verbose)
+      else
+        nrrMatrix <- qpgraph:::.qpFastNrr(S, N, q, nTests, alpha, pairup.i.noint,
+                                          pairup.j.noint, pairup.ij.int, verbose)
+    } else {           ## use a cluster !
+      if (identicalQs)
+        nrrIdx <- clCall(cl, qpgraph:::.qpFastNrrIdenticalQsPar, S, N, q, nTests, alpha,
+                         pairup.i.noint, pairup.j.noint, pairup.ij.int, verbose)
+      else
+        nrrIdx <- clCall(cl, qpgraph:::.qpFastNrrPar, S, N, q, nTests, alpha,
+                         pairup.i.noint, pairup.j.noint, pairup.ij.int, verbose)
+
+      if (verbose)
+        cat("Cluster execution finished, assembling results into a matrix\n")
+
+      stopCl(cl)
+
+      nrrIdx <- list(nrr=do.call("c", lapply(nrrIdx, function(x) x$nrr)),
+                     idx=do.call("c", lapply(nrrIdx, function(x) x$idx)))
+      nrrIdx$idx <- sort(nrrIdx$idx, index.return=TRUE)
+      nrrIdx$nrr <- nrrIdx$nrr[nrrIdx$idx$ix]
+      nrrIdx$idx <- nrrIdx$idx$x
+      nrrMatrix <- qpgraph:::.qpAssembleNrrMatrix(n.var, nrrIdx)
+    }
 
     rownames(nrrMatrix) <- colnames(nrrMatrix) <- var.names
 
@@ -2366,6 +2432,15 @@ setMethod("qpFunctionalCoherence",
 }
 
 
+## from https://stat.ethz.ch/pipermail/r-help/2005-September/078974.html
+
+isPackageLoaded <- function(name) {
+  ## Purpose: is package 'name' loaded?
+  ## --------------------------------------------------
+ (paste("package:", name, sep="") %in% search()) ||
+ (name %in% loadedNamespaces())
+}    
+
 
 ##########################################################################
 ## PRIVATE FUNCTIONS THAT ARE ENTRY POINTS TO THE C CODE OF THE PACKAGE ##
@@ -2385,6 +2460,35 @@ setMethod("qpFunctionalCoherence",
                                          as.double(alpha),as.integer(pairup.i.noint),
                                          as.integer(pairup.j.noint),as.integer(pairup.ij.int),
                                          as.integer(verbose)))
+}
+
+.qpFastNrrPar <- function(S, N, q, nTests, alpha, pairup.i.noint, pairup.j.noint,
+                          pairup.ij.int, verbose) {
+  ## copying ShortRead's strategy, 'get()' are to quieten R CMD check, and for no other reason
+  mpiCommRank <- get("mpi.comm.rank", mode="function")
+  mpiCommSize <- get("mpi.comm.size", mode="function")
+  return(.Call("qp_fast_nrr_par",S,as.integer(N),as.integer(q),as.integer(nTests),
+                                 as.double(alpha),as.integer(pairup.i.noint),
+                                 as.integer(pairup.j.noint),as.integer(pairup.ij.int),
+                                 as.integer(verbose), as.integer(mpiCommRank()),
+                                 as.integer(mpiCommSize()-1)))
+}
+
+.qpFastNrrIdenticalQsPar <- function(S, N, q, nTests, alpha, pairup.i.noint, pairup.j.noint,
+                                     pairup.ij.int, verbose) {
+  ## copying ShortRead's strategy, 'get()' are to quieten R CMD check, and for no other reason
+  mpiCommRank <- get("mpi.comm.rank", mode="function")
+  mpiCommSize <- get("mpi.comm.size", mode="function")
+  return(.Call("qp_fast_nrr_identicalQs_par",S,as.integer(N),as.integer(q),as.integer(nTests),
+                                             as.double(alpha),as.integer(pairup.i.noint),
+                                             as.integer(pairup.j.noint),as.integer(pairup.ij.int),
+                                             as.integer(verbose), as.integer(mpiCommRank()),
+                                             as.integer(mpiCommSize()-1)))
+}
+
+.qpAssembleNrrMatrix <- function(n.var, nrrIdx) {
+  return(.Call("qp_assemble_nrr_matrix", as.integer(n.var),
+               as.double(nrrIdx$nrr), as.integer(nrrIdx$idx)))
 }
 
 .qpFastEdgeNrr <- function(S, N, i, j, q, nTests, alpha) {

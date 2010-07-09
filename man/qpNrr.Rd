@@ -13,13 +13,13 @@ Estimates non-rejection rates for every pair of variables.
 \usage{
 \S4method{qpNrr}{ExpressionSet}(data, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
                                 pairup.j=NULL, verbose=TRUE, identicalQs=TRUE,
-                                R.code.only=FALSE)
+                                R.code.only=FALSE, clusterSize=1)
 \S4method{qpNrr}{data.frame}(data, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
-                             pairup.j=NULL, long.dim.are.variables=TRUE,
-                             verbose=TRUE, identicalQs=TRUE, R.code.only=FALSE)
+                             pairup.j=NULL, long.dim.are.variables=TRUE, verbose=TRUE,
+                             identicalQs=TRUE, R.code.only=FALSE, clusterSize=1)
 \S4method{qpNrr}{matrix}(data, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
-                         pairup.j=NULL, long.dim.are.variables=TRUE,
-                         verbose=TRUE, identicalQs=TRUE, R.code.only=FALSE)
+                         pairup.j=NULL, long.dim.are.variables=TRUE, verbose=TRUE,
+                         identicalQs=TRUE, R.code.only=FALSE, clusterSize=1)
 }
 \arguments{
   \item{data}{data set from where to estimate the non-rejection rates.
@@ -39,6 +39,11 @@ Estimates non-rejection rates for every pair of variables.
        each pair of vertices.}
   \item{R.code.only}{logical; if FALSE then the faster C implementation is used
        (default); if TRUE then only R code is executed.}
+  \item{clusterSize}{size of the cluster of processors to employ if we wish to
+       speed-up the calculations by performing them in parallel. A value of 1
+       (default) implies a single-processor execution. The use of a cluster of
+       processors requires having previously loaded the packages \code{Rmpi}
+       and \code{snow}.}
 }
 \details{
 Note that the possible values of \code{q} should be in the range 1 to
@@ -87,6 +92,22 @@ summary(nrr.estimates[upper.tri(nrr.estimates) & A])
 
 ## distribution of non-rejection rates for the missing edges
 summary(nrr.estimates[upper.tri(nrr.estimates) & !A])
+
+\dontrun{
+library(Rmpi)
+library(snow)
+
+## only for moderate and large numbers of variables the
+## use of a cluster of processors speeds up the calculations
+
+nVar <- 500
+A <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
+Sigma <- qpG2Sigma(A, rho=0.5)
+X <- rmvnorm(nObs, sigma=Sigma)
+
+system.time(nrr.estimates <- qpNrr(X, q=5, verbose=FALSE))
+system.time(nrr.estimates <- qpNrr(X, q=5, verbose=FALSE, clusterSize=8))
+}
 }
 \keyword{models}
 \keyword{multivariate}

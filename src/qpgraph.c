@@ -29,6 +29,10 @@
 #include <R_ext/RS.h>
 #include "cliquer.h"
 
+/* constants */
+
+#define E2I(v,w) (v > w ? ((int) (((double) ( v * (v - 1))) / 2.0)) + w : ((int) (((double) (w * (w - 1))) / 2.0)) + v) 
+
 /* datatype definitions */
 
 typedef struct tag_clique_t {
@@ -67,6 +71,13 @@ qp_fast_nrr_identicalQs(SEXP S, SEXP N, SEXP qR, SEXP nTests, SEXP alpha, SEXP p
                         SEXP pairup_j_noint, SEXP pairup_ij_int, SEXP verbose);
 
 static SEXP
+qp_fast_nrr_par(SEXP S, SEXP N, SEXP qR, SEXP nTests, SEXP alpha, SEXP pairup_i_noint,
+                SEXP pairup_j_noint, SEXP pairup_ij_int, SEXP verbose, SEXP rankR, SEXP clSzeR);
+
+static SEXP
+qp_fast_nrr_identicalQs_par(SEXP SR, SEXP NR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
+                            SEXP pairup_j_nointR, SEXP pairup_ij_intR, SEXP verboseR, SEXP myRankR, SEXP clqSzeR);
+static SEXP
 qp_fast_edge_nrr(SEXP S, SEXP NR, SEXP iR, SEXP jR, SEXP qR, SEXP TR, SEXP sigR);
 
 static double
@@ -83,6 +94,8 @@ qp_fast_ci_test(SEXP S, SEXP NR, SEXP iR, SEXP jR, SEXP C);
 static SEXP
 qp_fast_ci_test2(SEXP S, SEXP NR, SEXP iR, SEXP jR, SEXP C);
 
+static SEXP
+qp_assemble_nrr_matrix(SEXP nVarR, SEXP nrrR, SEXP idxR);
 
 static double
 qp_ci_test(double* S, int n_var, int N, int i, int j, int* C, int q);
@@ -167,12 +180,18 @@ setdiff(int n, int m, int* a, int* b);
 void
 i2e(int i, int* e_i, int* e_j);
 
+int
+e2i(int e_i, int e_j, int* i);
+
 /* R-function register */
 
 static R_CallMethodDef
 callMethods[] = {
   {"qp_fast_nrr", (DL_FUNC) &qp_fast_nrr, 9},
   {"qp_fast_nrr_identicalQs", (DL_FUNC) &qp_fast_nrr_identicalQs, 9},
+  {"qp_fast_nrr_par", (DL_FUNC) &qp_fast_nrr_par, 11},
+  {"qp_fast_nrr_identicalQs_par", (DL_FUNC) &qp_fast_nrr_identicalQs_par, 11},
+  {"qp_assemble_nrr_matrix", (DL_FUNC) &qp_assemble_nrr_matrix, 3},
   {"qp_fast_edge_nrr", (DL_FUNC) &qp_fast_edge_nrr, 7},
   {"qp_fast_ci_test", (DL_FUNC) &qp_fast_ci_test,5},
   {"qp_fast_ci_test2", (DL_FUNC) &qp_fast_ci_test2,5},
@@ -251,8 +270,8 @@ qp_fast_nrr(SEXP SR, SEXP NR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_
   nrrMatrix = REAL(nrrMatrixR);
 
   for (i=0;i<n_var;i++)
-    for (j=0;j<n_var;j++)
-      nrrMatrix[i+n_var*j] = NA_REAL;
+    for (j=i;j<n_var;j++)
+      nrrMatrix[i+n_var*j] = nrrMatrix[j+n_var*i] = NA_REAL;
 
   n_adj = l_int * (l_jni + l_ini) + l_ini * l_jni + l_int * (l_int - 1) / 2;
 
@@ -435,8 +454,8 @@ qp_fast_nrr_identicalQs(SEXP SR, SEXP NR, SEXP qR, SEXP nTestsR, SEXP alphaR, SE
   nrrMatrix = REAL(nrrMatrixR);
 
   for (i=0;i<n_var;i++)
-    for (j=0;j<n_var;j++)
-      nrrMatrix[i+n_var*j] = NA_REAL;
+    for (j=i;j<n_var;j++)
+      nrrMatrix[i+n_var*j] = nrrMatrix[j+n_var*i] = NA_REAL;
 
   n_adj = l_int * (l_jni + l_ini) + l_ini * l_jni + l_int * (l_int - 1) / 2;
 
@@ -577,6 +596,386 @@ qp_fast_nrr_identicalQs(SEXP SR, SEXP NR, SEXP qR, SEXP nTestsR, SEXP alphaR, SE
     Rprintf("\n");
 
   UNPROTECT(2);   /* SR nrrMatrixR */
+
+  return nrrMatrixR;
+}
+
+
+
+/*
+  FUNCTION: qp_fast_nrr_par
+  PURPOSE: compute for each pair of vertices indexed by the rows (columns)
+           of the matrix S the non-rejection rate. Vertex pairs may be restricted
+           by using the pairup_* arguments. This function should be called only
+           within a parallel environment running in a cluster where arguments
+           myRankR and clSzeR tell how many nodes form the cluster (clSzeR) and
+           which is the node running the function (myRankR)
+  RETURNS: matrix of non-rejection rate values in terms of number of non-rejected
+           (accepted) tests for each pair of vertices
+*/
+
+static SEXP
+qp_fast_nrr_par(SEXP SR, SEXP NR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
+                SEXP pairup_j_nointR, SEXP pairup_ij_intR, SEXP verboseR, SEXP myRankR, SEXP clSzeR) {
+  int     N;
+  int     n_var;
+  int     q;
+  int     nTests;
+  double  alpha;
+  int     l_ini = length(pairup_i_nointR);
+  int     l_jni = length(pairup_j_nointR);
+  int     l_int = length(pairup_ij_intR);
+  int*    pairup_i_noint = INTEGER(pairup_i_nointR);
+  int*    pairup_j_noint = INTEGER(pairup_j_nointR);
+  int*    pairup_ij_int = INTEGER(pairup_ij_intR);
+  int*    pairup_ij_noint = NULL;
+  int     i,j,k,n_adj;
+  SEXP    nrrR, idxR;
+  SEXP    result, result_names;
+  double* nrr;
+  int*    idx;
+  double* S;
+  int     verbose;
+  int     myrank;
+  int     clsze;
+  int     firstAdj, lastAdj;
+
+  PROTECT_INDEX Spi;
+
+  PROTECT_WITH_INDEX(SR, &Spi);
+
+  N       = INTEGER(NR)[0];
+  n_var   = INTEGER(getAttrib(SR, R_DimSymbol))[0];
+  q       = INTEGER(qR)[0];
+  nTests  = INTEGER(nTestsR)[0];
+  alpha   = REAL(alphaR)[0];
+  verbose = INTEGER(verboseR)[0];
+  myrank  = INTEGER(myRankR)[0];
+  clsze   = INTEGER(clSzeR)[0];
+
+  if (q > n_var-2)
+    error("q=%d > n.var-2=%d",q,n_var-2);
+
+  if (q < 0)
+    error("q=%d < 0",q);
+
+  if (q > N-3)
+    error("q=%d > N-3=%d", q, N-3);
+
+  REPROTECT(SR = coerceVector(SR, REALSXP), Spi);
+  S = REAL(SR);
+
+  n_adj = l_int * (l_jni + l_ini) + l_ini * l_jni + l_int * (l_int - 1) / 2;
+
+  if (l_ini + l_jni > 0) {
+    pairup_ij_noint = Calloc(l_ini + l_jni, int);
+    Memcpy(pairup_ij_noint, pairup_i_noint, (size_t) l_ini);
+    Memcpy(pairup_ij_noint + l_ini, pairup_j_noint, (size_t) l_jni);
+  }
+
+  firstAdj = (myrank-1) * (n_adj / clsze);
+  lastAdj  = myrank * (n_adj / clsze);
+
+  if (myrank == clsze)
+    lastAdj += n_adj - lastAdj;
+
+  lastAdj--;
+
+  PROTECT(result = allocVector(VECSXP,2));
+  SET_VECTOR_ELT(result, 0, nrrR = allocVector(REALSXP, lastAdj-firstAdj+1));
+  SET_VECTOR_ELT(result, 1, idxR = allocVector(INTSXP, lastAdj-firstAdj+1));
+  PROTECT(result_names = allocVector(STRSXP, 2));
+  SET_STRING_ELT(result_names, 0, mkChar("nrr"));
+  SET_STRING_ELT(result_names, 1, mkChar("idx"));
+  setAttrib(result, R_NamesSymbol, result_names);
+  nrr = REAL(VECTOR_ELT(result, 0));
+  idx = INTEGER(VECTOR_ELT(result, 1));
+
+  k = firstAdj;
+
+  if (k < l_int * (l_ini + l_jni)) {
+    int j_first = k % (l_ini + l_jni);
+
+    /* intersection variables against ij-exclusive variables */
+    for (i=((int) (k/(l_ini + l_jni))); i < l_int && k <= lastAdj; i++) {
+      int i2 = pairup_ij_int[i] - 1;
+
+      for (j=j_first; j < l_ini + l_jni && k <= lastAdj; j++) {
+        int j2 = pairup_ij_noint[j] - 1;
+
+        nrr[k-firstAdj] = qp_edge_nrr(S, n_var, N, i2, j2, q, nTests, alpha);
+        idx[k-firstAdj] = E2I(i2, j2);
+        k++;
+      }
+      j_first = 0;
+    }
+  }
+
+  if (l_ini + l_jni > 0)
+    Free(pairup_ij_noint);
+
+  if (k <= lastAdj && k < l_int * (l_ini + l_jni) + l_ini * l_jni) {
+    int i_first = ((int) ((k - l_int * (l_ini + l_jni)) / l_jni));
+    int j_first = (k - l_int * (l_ini + l_jni)) % l_jni;
+
+    /* i-exclusive variables against j-exclusive variables */
+    for (i=i_first; i < l_ini && k <= lastAdj; i++) {
+      int i2 = pairup_i_noint[i] - 1;
+
+      for (j=j_first; j < l_jni && k <= lastAdj; j++) {
+        int j2 = pairup_j_noint[j] - 1;
+
+        nrr[k-firstAdj] = qp_edge_nrr(S, n_var, N, i2, j2, q, nTests, alpha);
+        idx[k-firstAdj] = E2I(i2, j2);
+        k++;
+      }
+      j_first = 0;
+    }
+  }
+
+  if (k <= lastAdj) {
+    int i_first = k - l_int * (l_ini + l_jni) - l_ini * l_jni;
+    int l;
+
+    /* intersection variables against themselves (avoiding pairing the same) */
+    for (l = i_first; l < (l_int * (l_int - 1)) / 2 && k <= lastAdj; l++) {
+      int i,j,i2,j2;
+      i2e(l, &i, &j);
+
+      i2 = pairup_ij_int[i] - 1;
+      j2 = pairup_ij_int[j] - 1;
+
+      nrr[k-firstAdj] = qp_edge_nrr(S, n_var, N, i2, j2, q, nTests, alpha);
+      idx[k-firstAdj] = E2I(i2, j2);
+      k++;
+    }
+  }
+
+  UNPROTECT(3);   /* SR result result_names */
+
+  return result;
+}
+
+
+
+/*
+  FUNCTION: qp_fast_nrr_identicalQs_par
+  PURPOSE: compute for each pair of vertices indexed by the rows (columns)
+           of the matrix S the non-rejection rate using a common set of Q sets
+           for all vertex pairs considered. Vertex pairs may be restricted
+           by using the pairup_* arguments
+  RETURNS: matrix of non-rejection rate values in terms of number of non-rejected
+           (accepted) tests for each pair of vertices
+*/
+
+static SEXP
+qp_fast_nrr_identicalQs_par(SEXP SR, SEXP NR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
+                            SEXP pairup_j_nointR, SEXP pairup_ij_intR, SEXP verboseR, SEXP myRankR, SEXP clSzeR) {
+  int     N;
+  int     n_var;
+  int     q;
+  int     nTests;
+  double  alpha;
+  int     l_ini = length(pairup_i_nointR);
+  int     l_jni = length(pairup_j_nointR);
+  int     l_int = length(pairup_ij_intR);
+  int*    pairup_i_noint = INTEGER(pairup_i_nointR);
+  int*    pairup_j_noint = INTEGER(pairup_j_nointR);
+  int*    pairup_ij_int = INTEGER(pairup_ij_intR);
+  int*    pairup_ij_noint = NULL;
+  int     i,j,k,n_adj;
+  int*    q_by_T_samples;
+  int*    Q;
+  double* Qmat;
+  double* Qinv;
+  SEXP    nrrR, idxR;
+  SEXP    result, result_names;
+  double* nrr;
+  int*    idx;
+  double* S;
+  int     verbose;
+  int     myrank;
+  int     clsze;
+  int     firstAdj, lastAdj;
+
+  PROTECT_INDEX Spi;
+
+  PROTECT_WITH_INDEX(SR, &Spi);
+
+  N       = INTEGER(NR)[0];
+  n_var   = INTEGER(getAttrib(SR, R_DimSymbol))[0];
+  q       = INTEGER(qR)[0];
+  nTests  = INTEGER(nTestsR)[0];
+  alpha   = REAL(alphaR)[0];
+  verbose = INTEGER(verboseR)[0];
+  myrank  = INTEGER(myRankR)[0];
+  clsze   = INTEGER(clSzeR)[0];
+
+  if (q > n_var-2)
+    error("q=%d > n.var-2=%d",q,n_var-2);
+
+  if (q < 0)
+    error("q=%d < 0",q);
+
+  if (q > N-3)
+    error("q=%d > N-3=%d", q, N-3);
+
+  REPROTECT(SR = coerceVector(SR, REALSXP),Spi);
+  S = REAL(SR);
+
+  n_adj = l_int * (l_jni + l_ini) + l_ini * l_jni + l_int * (l_int - 1) / 2;
+
+  /* sample the Q sets and pre-calculate the inverse matrices */
+
+  q_by_T_samples = Calloc(q * nTests, int);
+
+  sampleQs(nTests, q, -1, -1, n_var, q_by_T_samples);
+
+  Qmat = Calloc(q*q, double);
+  Qinv = Calloc(q*q*nTests, double);
+
+  for (i=0; i < nTests; i++) {
+    Q = (int*) (q_by_T_samples+i*q);
+    for (j=0; j < q; j++) {
+      for (k=0; k < j; k++)
+        Qmat[j + k*q] = Qmat[k + j*q] = S[Q[j] + Q[k] * n_var];
+      Qmat[j + j*q] = S[Q[j] + Q[j] * n_var];
+    }
+    matinv((double*) (Qinv+i*q*q), Qmat, q);
+  }
+  Free(Qmat);
+  
+  if (l_ini + l_jni > 0) {
+    pairup_ij_noint = Calloc(l_ini + l_jni, int);
+    Memcpy(pairup_ij_noint, pairup_i_noint, (size_t) l_ini);
+    Memcpy(pairup_ij_noint + l_ini, pairup_j_noint, (size_t) l_jni);
+  }
+
+  firstAdj = (myrank-1) * (n_adj / clsze);
+  lastAdj  = myrank * (n_adj / clsze);
+
+  if (myrank == clsze)
+    lastAdj += n_adj - lastAdj;
+
+  lastAdj--;
+
+  PROTECT(result = allocVector(VECSXP,2));
+  SET_VECTOR_ELT(result, 0, nrrR = allocVector(REALSXP, lastAdj-firstAdj+1));
+  SET_VECTOR_ELT(result, 1, idxR = allocVector(INTSXP, lastAdj-firstAdj+1));
+  PROTECT(result_names = allocVector(STRSXP, 2));
+  SET_STRING_ELT(result_names, 0, mkChar("nrr"));
+  SET_STRING_ELT(result_names, 1, mkChar("idx"));
+  setAttrib(result, R_NamesSymbol, result_names);
+  nrr = REAL(VECTOR_ELT(result, 0));
+  idx = INTEGER(VECTOR_ELT(result, 1));
+
+  k = firstAdj;
+
+  if (k < l_int * (l_ini + l_jni)) {
+    int j_first = k % (l_ini + l_jni);
+
+    /* intersection variables against ij-exclusive variables */
+    for (i=((int) (k/(l_ini + l_jni))); i < l_int && k <= lastAdj; i++) {
+      int i2 = pairup_ij_int[i] - 1;
+
+      for (j=j_first; j < l_ini + l_jni && k <= lastAdj; j++) {
+        int j2 = pairup_ij_noint[j] - 1;
+
+        nrr[k-firstAdj] = qp_edge_nrr_identicalQs(S, n_var, q_by_T_samples, Qinv,
+                                                  N, i2, j2, q, nTests, alpha);
+        idx[k-firstAdj] = E2I(i2, j2);
+        k++;
+      }
+      j_first = 0;
+    }
+  }
+
+  if (l_ini + l_jni > 0)
+    Free(pairup_ij_noint);
+
+  if (k <= lastAdj && k < l_int * (l_ini + l_jni) + l_ini * l_jni) {
+    int i_first = ((int) ((k - l_int * (l_ini + l_jni)) / l_jni));
+    int j_first = (k - l_int * (l_ini + l_jni)) % l_jni;
+
+    /* i-exclusive variables against j-exclusive variables */
+    for (i=i_first; i < l_ini && k <= lastAdj; i++) {
+      int i2 = pairup_i_noint[i] - 1;
+
+      for (j=j_first; j < l_jni && k <= lastAdj; j++) {
+        int j2 = pairup_j_noint[j] - 1;
+
+        nrr[k-firstAdj] = qp_edge_nrr_identicalQs(S, n_var, q_by_T_samples, Qinv,
+                                                  N, i2, j2, q, nTests, alpha);
+        idx[k-firstAdj] = E2I(i2, j2);
+        k++;
+      }
+      j_first = 0;
+    }
+  }
+
+  if (k <= lastAdj) {
+    int i_first = k - l_int * (l_ini + l_jni) - l_ini * l_jni;
+    int l;
+
+    /* intersection variables against themselves (avoiding pairing the same) */
+    for (l = i_first; l < (l_int * (l_int - 1)) / 2 && k <= lastAdj; l++) {
+      int i,j,i2,j2;
+      i2e(l, &i, &j);
+
+      i2 = pairup_ij_int[i] - 1;
+      j2 = pairup_ij_int[j] - 1;
+
+      nrr[k-firstAdj] = qp_edge_nrr_identicalQs(S, n_var, q_by_T_samples, Qinv,
+                                                N, i2, j2, q, nTests, alpha);
+      idx[k-firstAdj] = E2I(i2, j2);
+      k++;
+    }
+  }
+
+  Free(Qinv);
+
+  UNPROTECT(3);   /* SR result result_names */
+
+  return result;
+}
+
+
+
+/*
+  FUNCTION: qp_assemble_nrr_matrix
+  PURPOSE: assemble a matrix of non-rejection rate values from the two
+           input arguments corresponding to the values and the indexes
+           of the cells they should occupy within the corresponding
+           symmetric matrix. cells withouth non-rejection rate values
+           are set to NA
+  RETURNS: a matrix of non-rejection rate values
+*/
+
+static SEXP
+qp_assemble_nrr_matrix(SEXP nVarR, SEXP nrrR, SEXP idxR) {
+  int     n_var = INTEGER(nVarR)[0];
+  double* nrr = REAL(nrrR);
+  int*    idx = INTEGER(idxR);
+  int     n_adj = length(nrrR);
+  SEXP    nrrMatrixR;
+  double* nrrMatrix;
+  int     i,j;
+
+  PROTECT(nrrMatrixR = allocMatrix(REALSXP, n_var, n_var));
+  nrrMatrix = REAL(nrrMatrixR);
+
+  for (i=0;i<n_var;i++)
+    for (j=i;j<n_var;j++)
+      nrrMatrix[i+n_var*j] = nrrMatrix[j+n_var*i] = NA_REAL;
+
+  for (i=0; i < n_adj; i++) {
+    int u,v;
+
+    i2e(idx[i], &u, &v);
+    nrrMatrix[u+n_var*v] = nrrMatrix[v+n_var*u] = nrr[i];
+  }
+
+  UNPROTECT(1);   /* nrrMatrixR */
 
   return nrrMatrixR;
 }
@@ -2350,4 +2749,27 @@ void
 i2e(int i, int* e_i, int* e_j) {
   *e_i = 1 + (unsigned int) (-0.5 + sqrt(0.25 + 2.0 * ((double) i)));
   *e_j = i - (unsigned int) ((double) ((*e_i)*((*e_i)-1)) / 2.0);
+}
+
+
+
+/*
+  FUNCTION: e2i
+  PURPOSE: transform two non-negative integers representing the vertices of an edge
+           into a non-negative integer representing this same edge
+  PARAMETERS: e_i - vertex joined by the edge
+              e_j - vertex joined by the edge, always strictly smaller than e_i
+              i - non-negative integer representing an edge
+  RETURN: none
+*/
+
+int
+e2i(int e_i, int e_j, int* i) {
+  if (e_i < e_j) { /* e_j should always be smaller than e_i */
+    e_i = e_i ^ e_j;
+    e_j = e_i ^ e_j;
+    e_i = e_i ^ e_j;
+  }
+
+  return(((int) (((double) (e_i * (e_i - 1))) / 2.0)) + e_j);
 }
