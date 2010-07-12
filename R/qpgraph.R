@@ -38,6 +38,8 @@
 ##             identicalQs - use identical conditioning subsets for all pairs
 ##                           of variables
 ##             R.code.only - flag set to FALSE when using the C implementation
+##             clusterSize - size of the cluster of processors to do calculations
+##                           in parallel via 'Rmpi' and 'snow'
 ## return: a matrix with the estimates of the non-rejection rates
 
 setGeneric("qpNrr", function(data, ...) standardGeneric("qpNrr"))
@@ -51,7 +53,8 @@ setMethod("qpNrr", signature(data="ExpressionSet"),
             if (clusterSize > 1 && R.code.only)
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
 
-            if (clusterSize > 1 && (!isPackageLoaded("Rmpi") || !isPackageLoaded("snow")))
+            if (clusterSize > 1 &&
+                (!qpgraph:::.qpIsPackageLoaded("Rmpi") || !qpgraph:::.qpIsPackageLoaded("snow")))
               stop("Using a cluster (clusterSize > 1) requires first loading packages 'Rmpi' and 'snow'\n")
 
             exp <- t(exprs(data))
@@ -72,7 +75,8 @@ setMethod("qpNrr", signature(data="data.frame"),
             if (clusterSize > 1 && R.code.only)
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
 
-            if (clusterSize > 1 && (!isPackageLoaded("Rmpi") || !isPackageLoaded("snow")))
+            if (clusterSize > 1 &&
+                (!qpgraph:::.qpIsPackageLoaded("Rmpi") || !qpgraph:::.qpIsPackageLoaded("snow")))
               stop("Using a cluster (clusterSize > 1) requires first loading packages 'Rmpi' and 'snow'\n")
 
             m <- as.matrix(data)
@@ -104,7 +108,8 @@ setMethod("qpNrr", signature(data="matrix"),
             if (clusterSize > 1 && R.code.only)
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
 
-            if (clusterSize > 1 && (!isPackageLoaded("Rmpi") || !isPackageLoaded("snow")))
+            if (clusterSize > 1 &&
+                (!qpgraph:::.qpIsPackageLoaded("Rmpi") || !qpgraph:::.qpIsPackageLoaded("snow")))
               stop("Using a cluster (clusterSize > 1) requires first loading packages 'Rmpi' and 'snow'\n")
 
             if (long.dim.are.variables &&
@@ -126,22 +131,29 @@ setMethod("qpNrr", signature(data="matrix"),
 
   cl <- NULL
  
-  if (clusterSize > 1) {
-    message("Estimating non-rejection rates using a cluster of ", clusterSize, " nodes\n")
-    ## copying ShortRead's strategy, 'get()' are to quieten R CMD check, and for no other reason
-    makeCl <- get("makeCluster", mode="function")
-    clSetupRNG <- get("clusterSetupRNG", mode="function")
-    clEvalQ <- get("clusterEvalQ", mode="function")
-    stopCl <- get("stopCluster", mode="function")
-    clCall <- get("clusterCall", mode="function")
+  if (class(clusterSize)[1] == "numeric" || class(clusterSize)[1] == "integer") {
+    if (clusterSize > 1) {
+      message("Estimating non-rejection rates using a cluster of ", clusterSize, " nodes\n")
+      ## copying ShortRead's strategy, 'get()' are to quieten R CMD check, and for no other reason
+      makeCl <- get("makeCluster", mode="function")
+      clSetupRNG <- get("clusterSetupRNG", mode="function")
+      clEvalQ <- get("clusterEvalQ", mode="function")
+      stopCl <- get("stopCluster", mode="function")
+      clCall <- get("clusterCall", mode="function")
 
-    cl <- makeCl(clusterSize, type="MPI")
-    clSetupRNG(cl)
-    res <- clEvalQ(cl, require(qpgraph, quietly=TRUE))
-    if (!all(unlist(res))) {
-      stopCl(cl)
-      stop("The package 'qpgraph' could not be loaded in some of the nodes of the cluster")
+      cl <- makeCl(clusterSize, type="MPI")
+      clSetupRNG(cl)
+      res <- clEvalQ(cl, require(qpgraph, quietly=TRUE))
+      if (!all(unlist(res))) {
+        stopCl(cl)
+        stop("The package 'qpgraph' could not be loaded in some of the nodes of the cluster")
+      }
     }
+  } else {
+    if (!is.na(match("MPIcluster", class(clusterSize))))
+      cl <- clusterSize
+    else
+      stop("Unknown class for argument clusterSize:", class(clusterSize))
   }
 
   var.names <- rownames(S)
@@ -220,7 +232,8 @@ setMethod("qpNrr", signature(data="matrix"),
       if (verbose)
         cat("Cluster execution finished, assembling results into a matrix\n")
 
-      stopCl(cl)
+      if (class(clusterSize)[1] == "numeric" || class(clusterSize)[1] == "integer")
+        stopCl(cl)
 
       nrrIdx <- list(nrr=do.call("c", lapply(nrrIdx, function(x) x$nrr)),
                      idx=do.call("c", lapply(nrrIdx, function(x) x$idx)))
@@ -400,6 +413,7 @@ setMethod("qpNrr", signature(data="matrix"),
 }
 
 
+
 ## function: qpAvgNrr
 ## purpose: estimate average non-rejection rates for every pair of variables
 ## parameters: data - data set from where to estimate the average non-rejection
@@ -422,6 +436,8 @@ setMethod("qpNrr", signature(data="matrix"),
 ##             identicalQs - use identical conditioning subsets for all pairs
 ##                           of variables
 ##             R.code.only - flag set to FALSE when using the C implementation
+##             clusterSize - size of the cluster of processors to do calculations
+##                           in parallel via 'Rmpi' and 'snow'
 ## return: a matrix with the estimates of the average non-rejection rates
 
 setGeneric("qpAvgNrr", function(data, ...) standardGeneric("qpAvgNrr"))
@@ -430,22 +446,37 @@ setGeneric("qpAvgNrr", function(data, ...) standardGeneric("qpAvgNrr"))
 setMethod("qpAvgNrr", signature(data="ExpressionSet"),
             function(data, qOrders=4, nTests=100, alpha=0.05, pairup.i=NULL,
                      pairup.j=NULL, type=c("arith.mean"), verbose=TRUE,
-                     identicalQs=TRUE, R.code.only=FALSE) {
+                     identicalQs=TRUE, R.code.only=FALSE, clusterSize=1) {
+
+            if (clusterSize > 1 && R.code.only)
+              stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
+
+            if (clusterSize > 1 &&
+                (!qpgraph:::.qpIsPackageLoaded("Rmpi") || !qpgraph:::.qpIsPackageLoaded("snow")))
+              stop("Using a cluster (clusterSize > 1) requires first loading packages 'Rmpi' and 'snow'\n")
+
             exp <- t(exprs(data))
             S <- cov(exp)
             N <- length(sampleNames(data))
             rownames(S) <- colnames(S) <- featureNames(data)
-            qpgraph:::.qpAvgNrr(S, N, qOrders, nTests, alpha, pairup.i,
-                                pairup.j, type, verbose, identicalQs, R.code.only)
+            qpgraph:::.qpAvgNrr(S, N, qOrders, nTests, alpha, pairup.i, pairup.j,
+                                type, verbose, identicalQs, R.code.only, clusterSize)
           })
 
 # data comes as a data frame
 setMethod("qpAvgNrr", signature(data="data.frame"),
-          function(data, qOrders=4, nTests=100, alpha=0.05,
-                   pairup.i=NULL, pairup.j=NULL,
-                   long.dim.are.variables=TRUE,
-                   type=c("arith.mean"), verbose=TRUE,
-                   identicalQs=TRUE, R.code.only=FALSE) {
+          function(data, qOrders=4, nTests=100, alpha=0.05, pairup.i=NULL,
+                   pairup.j=NULL, long.dim.are.variables=TRUE,
+                   type=c("arith.mean"), verbose=TRUE, identicalQs=TRUE,
+                   R.code.only=FALSE, clusterSize=1) {
+
+            if (clusterSize > 1 && R.code.only)
+              stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
+
+            if (clusterSize > 1 &&
+                (!qpgraph:::.qpIsPackageLoaded("Rmpi") || !qpgraph:::.qpIsPackageLoaded("snow")))
+              stop("Using a cluster (clusterSize > 1) requires first loading packages 'Rmpi' and 'snow'\n")
+
             m <- as.matrix(data)
             rownames(m) <- rownames(data)
             if (!is.double(m))
@@ -460,18 +491,25 @@ setMethod("qpAvgNrr", signature(data="data.frame"),
               rownames(S) <- colnames(S) <- 1:nrow(S)
             else
               rownames(S) <- colnames(S) <- colnames(data)
-            qpgraph:::.qpAvgNrr(S, N, qOrders, nTests, alpha, pairup.i,
-                                pairup.j, type, verbose, identicalQs, R.code.only)
+            qpgraph:::.qpAvgNrr(S, N, qOrders, nTests, alpha, pairup.i, pairup.j,
+                                type, verbose, identicalQs, R.code.only, clusterSize)
           })
 
           
 # data comes as a matrix
 setMethod("qpAvgNrr", signature(data="matrix"),
-          function(data, qOrders=4, nTests=100, alpha=0.05,
-                   pairup.i=NULL, pairup.j=NULL,
-                   long.dim.are.variables=TRUE,
-                   type=c("arith.mean"), verbose=TRUE,
-                   identicalQs=TRUE, R.code.only=FALSE) {
+          function(data, qOrders=4, nTests=100, alpha=0.05, pairup.i=NULL,
+                   pairup.j=NULL, long.dim.are.variables=TRUE,
+                   type=c("arith.mean"), verbose=TRUE, identicalQs=TRUE,
+                   R.code.only=FALSE, clusterSize=1) {
+
+            if (clusterSize > 1 && R.code.only)
+              stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
+
+            if (clusterSize > 1 &&
+                (!qpgraph:::.qpIsPackageLoaded("Rmpi") || !qpgraph:::.qpIsPackageLoaded("snow")))
+              stop("Using a cluster (clusterSize > 1) requires first loading packages 'Rmpi' and 'snow'\n")
+
             if (long.dim.are.variables &&
               sort(dim(data),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
               data <- t(data)
@@ -482,15 +520,35 @@ setMethod("qpAvgNrr", signature(data="matrix"),
               rownames(S) <- colnames(S) <- 1:nrow(S)
             else
               rownames(S) <- colnames(S) <- colnames(data)
-            qpgraph:::.qpAvgNrr(S, N, qOrders, nTests, alpha, pairup.i,
-                                pairup.j, type, verbose, identicalQs, R.code.only)
+            qpgraph:::.qpAvgNrr(S, N, qOrders, nTests, alpha, pairup.i, pairup.j,
+                                type, verbose, identicalQs, R.code.only, clusterSize)
           })
 
 .qpAvgNrr <- function(S, N, qOrders=4, nTests=100, alpha=0.05, pairup.i=NULL,
                       pairup.j=NULL, type=c("arith.mean"), verbose=TRUE,
-                      identicalQs=TRUE, R.code.only=FALSE) {
+                      identicalQs=TRUE, R.code.only=FALSE, clusterSize=1) {
 
   type <- match.arg(type)
+
+  cl <- 1
+ 
+  if (clusterSize > 1) {
+    message("Estimating average non-rejection rates using a cluster of ", clusterSize, " nodes\n")
+    ## copying ShortRead's strategy, 'get()' are to quieten R CMD check, and for no other reason
+    makeCl <- get("makeCluster", mode="function")
+    clSetupRNG <- get("clusterSetupRNG", mode="function")
+    clEvalQ <- get("clusterEvalQ", mode="function")
+    stopCl <- get("stopCluster", mode="function")
+    clCall <- get("clusterCall", mode="function")
+
+    cl <- makeCl(clusterSize, type="MPI")
+    clSetupRNG(cl)
+    res <- clEvalQ(cl, require(qpgraph, quietly=TRUE))
+    if (!all(unlist(res))) {
+      stopCl(cl)
+      stop("The package 'qpgraph' could not be loaded in some of the nodes of the cluster")
+    }
+  }
 
   var.names <- rownames(S)
   n.var <- nrow(S)
@@ -521,9 +579,12 @@ setMethod("qpAvgNrr", signature(data="matrix"),
       cat(sprintf("q=%d\n",q))
 
     avgNrrMatrix <- avgNrrMatrix +
-                    w * qpgraph:::.qpNrr(S, N, q, nTests, alpha, pairup.i,
-                                         pairup.j, verbose, identicalQs, R.code.only)
+                    w * qpgraph:::.qpNrr(S, N, q, nTests, alpha, pairup.i, pairup.j,
+                                         verbose, identicalQs, R.code.only, cl)
   }
+
+  if (clusterSize > 1 && !is.null(cl))
+    stopCluster(cl)
 
   return(avgNrrMatrix)
 }
@@ -2433,8 +2494,15 @@ setMethod("qpFunctionalCoherence",
 
 
 ## from https://stat.ethz.ch/pipermail/r-help/2005-September/078974.html
+## function: qpIsPackageLoaded
+## purpose: to check whether the package specified by the name given in
+##          the input argument is loaded. this function is borrowed from
+##          the discussion on the R-help list found in this url:
+##          https://stat.ethz.ch/pipermail/r-help/2005-September/078974.html
+## parameters: name - package name
+## return: TRUE if the package is loaded, FALSE otherwise
 
-isPackageLoaded <- function(name) {
+.qpIsPackageLoaded <- function(name) {
   ## Purpose: is package 'name' loaded?
   ## --------------------------------------------------
  (paste("package:", name, sep="") %in% search()) ||

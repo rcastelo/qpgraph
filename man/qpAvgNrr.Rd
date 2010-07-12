@@ -14,17 +14,20 @@ Estimates average non-rejection rates for every pair of variables.
 \S4method{qpAvgNrr}{ExpressionSet}(data, qOrders=4, nTests=100, alpha=0.05,
                                    pairup.i=NULL, pairup.j=NULL,
                                    type=c("arith.mean"), verbose=TRUE,
-                                   identicalQs=TRUE, R.code.only=FALSE)
+                                   identicalQs=TRUE, R.code.only=FALSE,
+                                   clusterSize=1)
 \S4method{qpAvgNrr}{data.frame}(data, qOrders=4, nTests=100, alpha=0.05,
                                 pairup.i=NULL, pairup.j=NULL,
                                 long.dim.are.variables=TRUE,
                                 type=c("arith.mean"), verbose=TRUE,
-                                identicalQs=TRUE, R.code.only=FALSE)
+                                identicalQs=TRUE, R.code.only=FALSE,
+                                clusterSize=1)
 \S4method{qpAvgNrr}{matrix}(data, qOrders=4, nTests=100, alpha=0.05,
                             pairup.i=NULL, pairup.j=NULL,
                             long.dim.are.variables=TRUE,
                             type=c("arith.mean"), verbose=TRUE,
-                            identicalQs=TRUE, R.code.only=FALSE)
+                            identicalQs=TRUE, R.code.only=FALSE,
+                            clusterSize=1)
 }
 \arguments{
   \item{data}{data set from where to estimate the average non-rejection rates.
@@ -46,6 +49,11 @@ Estimates average non-rejection rates for every pair of variables.
        each pair of vertices.}
   \item{R.code.only}{logical; if FALSE then the faster C implementation is used
        (default); if TRUE then only R code is executed.}
+  \item{clusterSize}{size of the cluster of processors to employ if we wish to
+       speed-up the calculations by performing them in parallel. A value of 1
+       (default) implies a single-processor execution. The use of a cluster of
+       processors requires having previously loaded the packages \code{Rmpi}
+       and \code{snow}.}
 }
 \details{
 Note that when specifying a vector of particular orders \code{q}, these values
@@ -95,6 +103,22 @@ summary(avgnrr.estimates[upper.tri(avgnrr.estimates) & A])
 
 ## distribution of average non-rejection rates for the missing edges
 summary(avgnrr.estimates[upper.tri(avgnrr.estimates) & !A])
+
+\dontrun{
+library(Rmpi)
+library(snow)
+
+## only for moderate and large numbers of variables the
+## use of a cluster of processors speeds up the calculations
+
+nVar <- 500
+A <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
+Sigma <- qpG2Sigma(A, rho=0.5)
+X <- rmvnorm(nObs, sigma=Sigma)
+
+system.time(nrr.estimates <- qpAvgNrr(X, q=5, verbose=FALSE))
+system.time(nrr.estimates <- qpAvgNrr(X, q=5, verbose=FALSE, clusterSize=8))
+}
 }
 \keyword{models}
 \keyword{multivariate}

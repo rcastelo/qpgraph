@@ -3,6 +3,8 @@ CHANGES IN VERSION 1.5
 
 USER VISIBLE CHANGES
 
+    o added parallel computation of average non-rejection rates in qpAvgNrr() via Rmpi and snow
+
     o added parallel computation of non-rejection rates in qpNrr() via Rmpi and snow
 
     o qpFunctionalCoherence() now takes an input list of transcriptional regulator modules
