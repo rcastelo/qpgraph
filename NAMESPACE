@@ -1,6 +1,7 @@
 useDynLib(qpgraph)
 
 import(methods)
+import(Matrix)
 import(Biobase)
 import(AnnotationDbi)
 
@@ -28,4 +29,5 @@ export(qpHist,
        qpPrecisionRecall,
        qpPRscoreThreshold,
        qpImportNrr,
-       qpFunctionalCoherence)
+       qpFunctionalCoherence,
+       qpCov)

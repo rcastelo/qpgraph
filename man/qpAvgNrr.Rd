@@ -11,18 +11,18 @@ Average non-rejection rate estimation
 Estimates average non-rejection rates for every pair of variables.
 }
 \usage{
-\S4method{qpAvgNrr}{ExpressionSet}(data, qOrders=4, nTests=100, alpha=0.05,
+\S4method{qpAvgNrr}{ExpressionSet}(X, qOrders=4, nTests=100, alpha=0.05,
                                    pairup.i=NULL, pairup.j=NULL,
                                    type=c("arith.mean"), verbose=TRUE,
                                    identicalQs=TRUE, R.code.only=FALSE,
                                    clusterSize=1)
-\S4method{qpAvgNrr}{data.frame}(data, qOrders=4, nTests=100, alpha=0.05,
+\S4method{qpAvgNrr}{data.frame}(X, qOrders=4, nTests=100, alpha=0.05,
                                 pairup.i=NULL, pairup.j=NULL,
                                 long.dim.are.variables=TRUE,
                                 type=c("arith.mean"), verbose=TRUE,
                                 identicalQs=TRUE, R.code.only=FALSE,
                                 clusterSize=1)
-\S4method{qpAvgNrr}{matrix}(data, qOrders=4, nTests=100, alpha=0.05,
+\S4method{qpAvgNrr}{matrix}(X, qOrders=4, nTests=100, alpha=0.05,
                             pairup.i=NULL, pairup.j=NULL,
                             long.dim.are.variables=TRUE,
                             type=c("arith.mean"), verbose=TRUE,
@@ -30,7 +30,7 @@ Estimates average non-rejection rates for every pair of variables.
                             clusterSize=1)
 }
 \arguments{
-  \item{data}{data set from where to estimate the average non-rejection rates.
+  \item{X}{data set from where to estimate the average non-rejection rates.
        It can be an ExpressionSet object, a data frame or a matrix.}
   \item{qOrders}{either a number of partial-correlation orders or a vector of
        vector of particular orders to be employed in the calculation.}

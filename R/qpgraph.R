@@ -23,7 +23,7 @@
 
 ## function: qpNrr
 ## purpose: estimate non-rejection rates for every pair of variables
-## parameters: data - data set from where to estimate the non-rejection rates
+## parameters: X - data set from where to estimate the non-rejection rates
 ##             q - partial-correlation order to be employed
 ##             nTests - number of tests for each pair of variables
 ##             alpha - significance level of each test (Type-I error probability)
@@ -42,11 +42,11 @@
 ##                           in parallel via 'Rmpi' and 'snow'
 ## return: a matrix with the estimates of the non-rejection rates
 
-setGeneric("qpNrr", function(data, ...) standardGeneric("qpNrr"))
+setGeneric("qpNrr", function(X, ...) standardGeneric("qpNrr"))
 
-# data comes as an ExpressionSet object
-setMethod("qpNrr", signature(data="ExpressionSet"),
-          function(data, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
+# X comes as an ExpressionSet object
+setMethod("qpNrr", signature(X="ExpressionSet"),
+          function(X, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
                    pairup.j=NULL, verbose=TRUE, identicalQs=TRUE,
                    R.code.only=FALSE, clusterSize=1) {
 
@@ -57,17 +57,14 @@ setMethod("qpNrr", signature(data="ExpressionSet"),
                 (!qpgraph:::.qpIsPackageLoaded("Rmpi") || !qpgraph:::.qpIsPackageLoaded("snow")))
               stop("Using a cluster (clusterSize > 1) requires first loading packages 'Rmpi' and 'snow'\n")
 
-            exp <- t(exprs(data))
-            S <- cov(exp)
-            N <- length(sampleNames(data))
-            rownames(S) <- colnames(S) <- featureNames(data)
-            qpgraph:::.qpNrr(S, N, q, nTests, alpha, pairup.i, pairup.j,
-                             verbose, identicalQs, R.code.only, clusterSize)
+            exp <- t(exprs(X))
+            qpgraph:::.qpNrr(X, q, nTests, alpha, pairup.i, pairup.j, verbose,
+                             identicalQs, R.code.only, clusterSize)
           })
 
-# data comes as a data frame
-setMethod("qpNrr", signature(data="data.frame"),
-          function(data, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
+# X comes as a data frame
+setMethod("qpNrr", signature(X="data.frame"),
+          function(X, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
                    pairup.j=NULL, long.dim.are.variables=TRUE,
                    verbose=TRUE, identicalQs=TRUE, R.code.only=FALSE,
                    clusterSize=1) {
@@ -79,28 +76,25 @@ setMethod("qpNrr", signature(data="data.frame"),
                 (!qpgraph:::.qpIsPackageLoaded("Rmpi") || !qpgraph:::.qpIsPackageLoaded("snow")))
               stop("Using a cluster (clusterSize > 1) requires first loading packages 'Rmpi' and 'snow'\n")
 
-            m <- as.matrix(data)
-            rownames(m) <- rownames(data)
-            if (!is.double(m))
-              stop("data should be double-precision real numbers\n")
+            X <- as.matrix(X)
+            if (!is.double(X))
+              stop("X should be double-precision real numbers\n")
 
             if (long.dim.are.variables &&
-                sort(dim(m),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
-              m <- t(m)
-            S <- cov(m)
-            N <- length(m[,1])
+                sort(dim(X),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
+              X <- t(X)
+
             if (is.null(colnames(m)))
-              rownames(S) <- colnames(S) <- 1:nrow(S)
-            else
-              rownames(S) <- colnames(S) <- colnames(data)
-            qpgraph:::.qpNrr(S, N, q, nTests, alpha, pairup.i, pairup.j,
-                             verbose, identicalQs, R.code.only, clusterSize)
+              colnames(X) <- 1:ncol(X)
+
+            qpgraph:::.qpNrr(X, q, nTests, alpha, pairup.i, pairup.j, verbose,
+                             identicalQs, R.code.only, clusterSize)
           })
 
           
-# data comes as a matrix
-setMethod("qpNrr", signature(data="matrix"),
-          function(data, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
+# X comes as a matrix
+setMethod("qpNrr", signature(X="matrix"),
+          function(X, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
                    pairup.j=NULL, long.dim.are.variables=TRUE,
                    verbose=TRUE, identicalQs=TRUE, R.code.only=FALSE,
                    clusterSize=1) {
@@ -113,20 +107,17 @@ setMethod("qpNrr", signature(data="matrix"),
               stop("Using a cluster (clusterSize > 1) requires first loading packages 'Rmpi' and 'snow'\n")
 
             if (long.dim.are.variables &&
-              sort(dim(data),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
-              data <- t(data)
+                sort(dim(X),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
+              X <- t(X)
 
-            S <- cov(data)
-            N <- length(data[,1])
-            if (is.null(colnames(data))) 
-              rownames(S) <- colnames(S) <- 1:nrow(S)
-            else
-              rownames(S) <- colnames(S) <- colnames(data)
-            qpgraph:::.qpNrr(S, N, q, nTests, alpha, pairup.i, pairup.j,
-                             verbose, identicalQs, R.code.only, clusterSize)
+            if (is.null(colnames(X))) 
+              colnames(X) <- 1:ncol(X)
+
+            qpgraph:::.qpNrr(X, q, nTests, alpha, pairup.i, pairup.j, verbose,
+                             identicalQs, R.code.only, clusterSize)
           })
 
-.qpNrr <- function(S, N, q=1, nTests=100, alpha=0.05, pairup.i=NULL, pairup.j=NULL,
+.qpNrr <- function(X, q=1, nTests=100, alpha=0.05, pairup.i=NULL, pairup.j=NULL,
                    verbose=TRUE, identicalQs=TRUE, R.code.only=FALSE, clusterSize=1) {
 
   cl <- NULL
@@ -156,8 +147,10 @@ setMethod("qpNrr", signature(data="matrix"),
       stop("Unknown class for argument clusterSize:", class(clusterSize))
   }
 
-  var.names <- rownames(S)
-  n.var <- nrow(S)
+  # X the matrix of data with columns as r.v. and rows as multivariate observations
+  var.names <- colnames(X)
+  n.var <- ncol(X)
+  N <- nrow(X)
 
   # check that the parameters have proper values
 
@@ -216,17 +209,17 @@ setMethod("qpNrr", signature(data="matrix"),
   if (!R.code.only) {
     if (is.null(cl)) { ## single-processor execution
       if (identicalQs)
-        nrrMatrix <- qpgraph:::.qpFastNrrIdenticalQs(S, N, q, nTests, alpha, pairup.i.noint,
+        nrrMatrix <- qpgraph:::.qpFastNrrIdenticalQs(X, q, nTests, alpha, pairup.i.noint,
                                                      pairup.j.noint, pairup.ij.int, verbose)
       else
-        nrrMatrix <- qpgraph:::.qpFastNrr(S, N, q, nTests, alpha, pairup.i.noint,
+        nrrMatrix <- qpgraph:::.qpFastNrr(X, q, nTests, alpha, pairup.i.noint,
                                           pairup.j.noint, pairup.ij.int, verbose)
     } else {           ## use a cluster !
       if (identicalQs)
-        nrrIdx <- clCall(cl, qpgraph:::.qpFastNrrIdenticalQsPar, S, N, q, nTests, alpha,
+        nrrIdx <- clCall(cl, qpgraph:::.qpFastNrrIdenticalQsPar, X, q, nTests, alpha,
                          pairup.i.noint, pairup.j.noint, pairup.ij.int, verbose)
       else
-        nrrIdx <- clCall(cl, qpgraph:::.qpFastNrrPar, S, N, q, nTests, alpha,
+        nrrIdx <- clCall(cl, qpgraph:::.qpFastNrrPar, X, q, nTests, alpha,
                          pairup.i.noint, pairup.j.noint, pairup.ij.int, verbose)
 
       if (verbose)
@@ -254,13 +247,16 @@ setMethod("qpNrr", signature(data="matrix"),
   k <- 0
 
   if (identicalQs) {
-    nrrMatrix <- .qpNrrIdenticalQs(S, N, q, nTests, alpha, pairup.i.noint,
+    nrrMatrix <- .qpNrrIdenticalQs(X, q, nTests, alpha, pairup.i.noint,
                                    pairup.j.noint, pairup.ij.int, verbose)
 
     return(nrrMatrix)
   }
 
-  # intersection variables against ij-exclusive variables
+  ## calculate sample covariance matrix
+  S <- qpCov(X)
+
+  ## intersection variables against ij-exclusive variables
   for (i in pairup.ij.int) {
     for (j in c(pairup.i.noint,pairup.j.noint)) {
       nrrMatrix[j,i] <- nrrMatrix[i,j] <-
@@ -278,7 +274,7 @@ setMethod("qpNrr", signature(data="matrix"),
     }
   }
 
-  # i-exclusive variables against j-exclusive variables
+  ## i-exclusive variables against j-exclusive variables
   for (i in pairup.i.noint) {
     for (j in pairup.j.noint) {
       nrrMatrix[j,i] <- nrrMatrix[i,j] <-
@@ -296,7 +292,7 @@ setMethod("qpNrr", signature(data="matrix"),
     }
   }
 
-  # intersection variables against themselves (avoiding pairing of the same)
+  ## intersection variables against themselves (avoiding pairing of the same)
   for (i in 1:(l.int-1)) {
     i2 <- pairup.ij.int[i]
 
@@ -324,7 +320,13 @@ setMethod("qpNrr", signature(data="matrix"),
   return(nrrMatrix)
 }
 
-.qpNrrIdenticalQs <- function(S, N, q, nTests, alpha, pairup.i.noint, pairup.j.noint, pairup.ij.int, verbose) {
+.qpNrrIdenticalQs <- function(X, q, nTests, alpha, pairup.i.noint,
+                              pairup.j.noint, pairup.ij.int, verbose) {
+
+  # X the matrix of data with columns as r.v. and rows as multivariate observations
+  var.names <- colnames(X)
+  n.var <- ncol(X)
+  N <- nrow(X)
 
   # how many adjacencies do we have to calculate
   l.int <- length(pairup.ij.int)
@@ -333,13 +335,13 @@ setMethod("qpNrr", signature(data="matrix"),
   n.adj <- l.int * l.pairup.j.noint + l.int * l.pairup.i.noint +
            l.pairup.i.noint * l.pairup.j.noint + l.int * (l.int - 1) / 2
 
-  var.names <- rownames(S)
-  n.var <- nrow(S)
-
   nrrMatrix <- matrix(as.double(NA), n.var, n.var)
   rownames(nrrMatrix) <- colnames(nrrMatrix) <- var.names
   ppct <- -1
   k <- 0
+
+  # calculate sample covariance matrix
+  S <- qpCov(X)
 
   # sample the Q sets and pre-calculate the inverse matrices
   Qs <- as.list(array(dim=nTests))
@@ -416,6 +418,172 @@ setMethod("qpNrr", signature(data="matrix"),
 
 ## function: qpAvgNrr
 ## purpose: estimate average non-rejection rates for every pair of variables
+## parameters: X - data set from where to estimate the average non-rejection
+##                 rates
+##             qOrders - either a number of partial-correlation orders or a
+##                       vector of particular orders to be employed in the
+##                       calculation
+##             nTests - number of tests to perform for each pair of variables
+##             alpha - significance level of each test (Type-I error probability)
+##             pairup.i - subset of vertices to pair up with subset pairup.j
+##             pairup.j - subset of vertices to pair up with subset pairup.i
+##             long.dim.are.variables - if TRUE it assumes that when the data is
+##                                      a data frame or a matrix, the longer
+##                                      dimension is the one defining the random
+##                                      variables, if FALSE then random variables
+##                                      are assumed to be at the columns
+##             type - type of average (by now only the arithmetic mean is
+##                    available)
+##             verbose - show progress of the calculations
+##             identicalQs - use identical conditioning subsets for all pairs
+##                           of variables
+##             R.code.only - flag set to FALSE when using the C implementation
+##             clusterSize - size of the cluster of processors to do calculations
+##                           in parallel via 'Rmpi' and 'snow'
+## return: a matrix with the estimates of the average non-rejection rates
+
+setGeneric("qpAvgNrr", function(X, ...) standardGeneric("qpAvgNrr"))
+
+# X comes as an ExpressionSet object
+setMethod("qpAvgNrr", signature(X="ExpressionSet"),
+            function(X, qOrders=4, nTests=100, alpha=0.05, pairup.i=NULL,
+                     pairup.j=NULL, type=c("arith.mean"), verbose=TRUE,
+                     identicalQs=TRUE, R.code.only=FALSE, clusterSize=1) {
+
+            if (clusterSize > 1 && R.code.only)
+              stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
+
+            if (clusterSize > 1 &&
+                (!qpgraph:::.qpIsPackageLoaded("Rmpi") || !qpgraph:::.qpIsPackageLoaded("snow")))
+              stop("Using a cluster (clusterSize > 1) requires first loading packages 'Rmpi' and 'snow'\n")
+
+            X <- t(exprs(X))
+            qpgraph:::.qpAvgNrr(X, qOrders, nTests, alpha, pairup.i, pairup.j,
+                                type, verbose, identicalQs, R.code.only, clusterSize)
+          })
+
+# X comes as a data frame
+setMethod("qpAvgNrr", signature(X="data.frame"),
+          function(X, qOrders=4, nTests=100, alpha=0.05, pairup.i=NULL,
+                   pairup.j=NULL, long.dim.are.variables=TRUE,
+                   type=c("arith.mean"), verbose=TRUE, identicalQs=TRUE,
+                   R.code.only=FALSE, clusterSize=1) {
+
+            if (clusterSize > 1 && R.code.only)
+              stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
+
+            if (clusterSize > 1 &&
+                (!qpgraph:::.qpIsPackageLoaded("Rmpi") || !qpgraph:::.qpIsPackageLoaded("snow")))
+              stop("Using a cluster (clusterSize > 1) requires first loading packages 'Rmpi' and 'snow'\n")
+
+            X <- as.matrix(X)
+            if (!is.double(X))
+              stop("X should be double-precision real numbers\n")
+
+            if (long.dim.are.variables &&
+                sort(dim(m),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
+              X <- t(X)
+            if (is.null(colnames(X)))
+              colnames(X) <- 1:ncol(X)
+            qpgraph:::.qpAvgNrr(X, qOrders, nTests, alpha, pairup.i, pairup.j,
+                                type, verbose, identicalQs, R.code.only, clusterSize)
+          })
+
+          
+# X comes as a matrix
+setMethod("qpAvgNrr", signature(X="matrix"),
+          function(X, qOrders=4, nTests=100, alpha=0.05, pairup.i=NULL,
+                   pairup.j=NULL, long.dim.are.variables=TRUE,
+                   type=c("arith.mean"), verbose=TRUE, identicalQs=TRUE,
+                   R.code.only=FALSE, clusterSize=1) {
+
+            if (clusterSize > 1 && R.code.only)
+              stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
+
+            if (clusterSize > 1 &&
+                (!qpgraph:::.qpIsPackageLoaded("Rmpi") || !qpgraph:::.qpIsPackageLoaded("snow")))
+              stop("Using a cluster (clusterSize > 1) requires first loading packages 'Rmpi' and 'snow'\n")
+
+            if (long.dim.are.variables &&
+              sort(dim(X),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
+              X <- t(X)
+
+            if (is.null(colnames(X))) 
+              colnames(X) <- 1:ncol(X)
+            qpgraph:::.qpAvgNrr(X, qOrders, nTests, alpha, pairup.i, pairup.j,
+                                type, verbose, identicalQs, R.code.only, clusterSize)
+          })
+
+.qpAvgNrr <- function(X, qOrders=4, nTests=100, alpha=0.05, pairup.i=NULL,
+                      pairup.j=NULL, type=c("arith.mean"), verbose=TRUE,
+                      identicalQs=TRUE, R.code.only=FALSE, clusterSize=1) {
+
+  type <- match.arg(type)
+
+  cl <- 1
+ 
+  if (clusterSize > 1) {
+    message("Estimating average non-rejection rates using a cluster of ", clusterSize, " nodes\n")
+    ## copying ShortRead's strategy, 'get()' are to quieten R CMD check, and for no other reason
+    makeCl <- get("makeCluster", mode="function")
+    clSetupRNG <- get("clusterSetupRNG", mode="function")
+    clEvalQ <- get("clusterEvalQ", mode="function")
+    stopCl <- get("stopCluster", mode="function")
+    clCall <- get("clusterCall", mode="function")
+
+    cl <- makeCl(clusterSize, type="MPI")
+    clSetupRNG(cl)
+    res <- clEvalQ(cl, require(qpgraph, quietly=TRUE))
+    if (!all(unlist(res))) {
+      stopCl(cl)
+      stop("The package 'qpgraph' could not be loaded in some of the nodes of the cluster")
+    }
+  }
+
+  var.names <- colnames(X)
+  n.var <- ncol(X)
+  N <- nrow(X)
+
+  if ((!is.null(pairup.i) && is.null(pairup.j)) ||
+      (is.null(pairup.i) && !is.null(pairup.j)))
+    stop("pairup.i and pairup.j must both either be set to NULL or contain subsets of variables\n")
+
+  if (length(qOrders) == 1) {
+    if (qOrders > min(n.var, N) - 3)
+      stop(sprintf("qOrders=%d is larger than the number of available q-orders for the given data set (%d)\n",
+                   qOrders, min(n.var, N) - 3))
+
+    qOrders <- as.integer(round(seq(1, min(n.var, N) - 3,
+                                    by=(min(n.var, N) - 3) / qOrders), digits=0))
+  } else {
+    qOrders <- as.integer(qOrders)
+    if (min(qOrders) < 1 || max(qOrders) > min(n.var,N))
+      stop(sprintf("for the given data set q-orders must lie in the range [1,%d]\n",
+                   min(n.var,N)))
+  }
+
+  w <- 1 / length(qOrders)
+  avgNrrMatrix <- matrix(0,nrow=n.var,ncol=n.var)
+  rownames(avgNrrMatrix) <- colnames(avgNrrMatrix) <- var.names
+  for (q in qOrders) {
+    if (verbose)
+      cat(sprintf("q=%d\n",q))
+
+    avgNrrMatrix <- avgNrrMatrix +
+                    w * qpgraph:::.qpNrr(X, q, nTests, alpha, pairup.i, pairup.j,
+                                         verbose, identicalQs, R.code.only, cl)
+  }
+
+  if (clusterSize > 1 && !is.null(cl))
+    stopCluster(cl)
+
+  return(avgNrrMatrix)
+}
+
+
+
+## function: qpGNrr
+## purpose: estimate generalized non-rejection rates for every pair of variables
 ## parameters: data - data set from where to estimate the average non-rejection
 ##                    rates
 ##             qOrders - either a number of partial-correlation orders or a
@@ -440,13 +608,13 @@ setMethod("qpNrr", signature(data="matrix"),
 ##                           in parallel via 'Rmpi' and 'snow'
 ## return: a matrix with the estimates of the average non-rejection rates
 
-setGeneric("qpAvgNrr", function(data, ...) standardGeneric("qpAvgNrr"))
+setGeneric("qpGNrr", function(data, ...) standardGeneric("qpGNrr"))
 
 # data comes as an ExpressionSet object
-setMethod("qpAvgNrr", signature(data="ExpressionSet"),
-            function(data, qOrders=4, nTests=100, alpha=0.05, pairup.i=NULL,
-                     pairup.j=NULL, type=c("arith.mean"), verbose=TRUE,
-                     identicalQs=TRUE, R.code.only=FALSE, clusterSize=1) {
+setMethod("qpGNrr", signature(data="ExpressionSet"),
+            function(data, experiment, qOrders=1, nTests=100, alpha=0.05, pairup.i=NULL,
+                     pairup.j=NULL, verbose=TRUE, identicalQs=TRUE, R.code.only=FALSE,
+                     clusterSize=1) {
 
             if (clusterSize > 1 && R.code.only)
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
@@ -459,16 +627,15 @@ setMethod("qpAvgNrr", signature(data="ExpressionSet"),
             S <- cov(exp)
             N <- length(sampleNames(data))
             rownames(S) <- colnames(S) <- featureNames(data)
-            qpgraph:::.qpAvgNrr(S, N, qOrders, nTests, alpha, pairup.i, pairup.j,
-                                type, verbose, identicalQs, R.code.only, clusterSize)
+            qpgraph:::.qpGNrr(S, N, qOrders, nTests, alpha, pairup.i, pairup.j,
+                              verbose, identicalQs, R.code.only, clusterSize)
           })
 
 # data comes as a data frame
-setMethod("qpAvgNrr", signature(data="data.frame"),
-          function(data, qOrders=4, nTests=100, alpha=0.05, pairup.i=NULL,
-                   pairup.j=NULL, long.dim.are.variables=TRUE,
-                   type=c("arith.mean"), verbose=TRUE, identicalQs=TRUE,
-                   R.code.only=FALSE, clusterSize=1) {
+setMethod("qpGNrr", signature(data="data.frame"),
+          function(data, experiment, qOrders=1, nTests=100, alpha=0.05, pairup.i=NULL,
+                   pairup.j=NULL, long.dim.are.variables=TRUE, verbose=TRUE,
+                   identicalQs=TRUE, R.code.only=FALSE, clusterSize=1) {
 
             if (clusterSize > 1 && R.code.only)
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
@@ -491,17 +658,16 @@ setMethod("qpAvgNrr", signature(data="data.frame"),
               rownames(S) <- colnames(S) <- 1:nrow(S)
             else
               rownames(S) <- colnames(S) <- colnames(data)
-            qpgraph:::.qpAvgNrr(S, N, qOrders, nTests, alpha, pairup.i, pairup.j,
-                                type, verbose, identicalQs, R.code.only, clusterSize)
+            qpgraph:::.qpGNrr(S, N, qOrders, nTests, alpha, pairup.i, pairup.j,
+                              verbose, identicalQs, R.code.only, clusterSize)
           })
 
           
 # data comes as a matrix
-setMethod("qpAvgNrr", signature(data="matrix"),
-          function(data, qOrders=4, nTests=100, alpha=0.05, pairup.i=NULL,
-                   pairup.j=NULL, long.dim.are.variables=TRUE,
-                   type=c("arith.mean"), verbose=TRUE, identicalQs=TRUE,
-                   R.code.only=FALSE, clusterSize=1) {
+setMethod("qpGNrr", signature(data="matrix"),
+          function(data, experiment, qOrders=1, nTests=100, alpha=0.05, pairup.i=NULL,
+                   pairup.j=NULL, long.dim.are.variables=TRUE, verbose=TRUE,
+                   identicalQs=TRUE, R.code.only=FALSE, clusterSize=1) {
 
             if (clusterSize > 1 && R.code.only)
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
@@ -520,15 +686,13 @@ setMethod("qpAvgNrr", signature(data="matrix"),
               rownames(S) <- colnames(S) <- 1:nrow(S)
             else
               rownames(S) <- colnames(S) <- colnames(data)
-            qpgraph:::.qpAvgNrr(S, N, qOrders, nTests, alpha, pairup.i, pairup.j,
-                                type, verbose, identicalQs, R.code.only, clusterSize)
+            qpgraph:::.qpGNrr(S, N, qOrders, nTests, alpha, pairup.i, pairup.j,
+                              verbose, identicalQs, R.code.only, clusterSize)
           })
 
-.qpAvgNrr <- function(S, N, qOrders=4, nTests=100, alpha=0.05, pairup.i=NULL,
-                      pairup.j=NULL, type=c("arith.mean"), verbose=TRUE,
-                      identicalQs=TRUE, R.code.only=FALSE, clusterSize=1) {
-
-  type <- match.arg(type)
+.qpGNrr <- function(S, N, qOrders=1, nTests=100, alpha=0.05, pairup.i=NULL,
+                    pairup.j=NULL, verbose=TRUE, identicalQs=TRUE,
+                    R.code.only=FALSE, clusterSize=1) {
 
   cl <- 1
  
@@ -595,8 +759,7 @@ setMethod("qpAvgNrr", signature(data="matrix"),
 ## purpose: estimate the non-rejection rate for one pair of variables as the
 ##          fraction of tests that accept the null hypothesis of independence given
 ##          a set of randomly sampled q-order conditionals
-## parameters: S - sample covariance matrix of the data
-##             N - sample size
+## parameters: X - data set from where to estimate the non-rejection rate
 ##             i - index in S (row or column) matching one of the two variables
 ##             j - index in S (row or column) matching the other variable
 ##             q - partial-correlation order
@@ -611,66 +774,60 @@ setMethod("qpAvgNrr", signature(data="matrix"),
 ## return: an estimate of the non-rejection rate for the particular given pair of
 ##         variables
 
-setGeneric("qpEdgeNrr", function(data, ...) standardGeneric("qpEdgeNrr"))
+setGeneric("qpEdgeNrr", function(X, ...) standardGeneric("qpEdgeNrr"))
 
-# data comes as an ExpressionSet object
-setMethod("qpEdgeNrr", signature(data="ExpressionSet"),
-          function(data, i=1, j=2, q=1, nTests=100,
+# X comes as an ExpressionSet object
+setMethod("qpEdgeNrr", signature(X="ExpressionSet"),
+          function(X, i=1, j=2, q=1, nTests=100,
                    alpha=0.05, R.code.only=FALSE) {
-            exp <- t(exprs(data))
-            S <- cov(exp)
-            N <- length(sampleNames(data))
-            rownames(S) <- colnames(S) <- featureNames(data)
+            X <- t(exprs(X))
+            S <- qpCov(X)
+            N <- nrow(X)
             qpgraph:::.qpEdgeNrr(S, N, i, j, q, nTests, alpha, R.code.only)
           })
 
-# data comes as a data frame
-setMethod("qpEdgeNrr", signature(data="data.frame"),
-          function(data, i=1, j=2, q=1, nTests=100,
+# X comes as a data frame
+setMethod("qpEdgeNrr", signature(X="data.frame"),
+          function(X, i=1, j=2, q=1, nTests=100,
                    alpha=0.05, long.dim.are.variables=TRUE,
                    R.code.only=FALSE) {
-            m <- as.matrix(data)
-            rownames(m) <- rownames(data)
-            if (!is.double(m))
-              stop("data should be double-precision real numbers\n")
+            X <- as.matrix(X)
+            if (!is.double(X))
+              stop("X should be double-precision real numbers\n")
 
             if (long.dim.are.variables &&
                 sort(dim(m),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
-              m <- t(m)
-            S <- cov(m)
-            N <- length(m[,1])
-            if (is.null(colnames(m)))
+              X <- t(X)
+            S <- qpCov(X)
+            N <- nrow(X)
+            if (is.null(colnames(X)))
               rownames(S) <- colnames(S) <- 1:nrow(S)
-            else
-              rownames(S) <- colnames(S) <- colnames(data)
             qpgraph:::.qpEdgeNrr(S, N, i, j, q, nTests, alpha, R.code.only)
           })
 
           
-# data comes as a matrix
-setMethod("qpEdgeNrr", signature(data="matrix"),
-          function(data, N=NULL, i=1, j=2, q=1, nTests=100,
+# X comes as a matrix
+setMethod("qpEdgeNrr", signature(X="matrix"),
+          function(X, N=NULL, i=1, j=2, q=1, nTests=100,
                    alpha=0.05, long.dim.are.variables=TRUE,
                    R.code.only=FALSE) {
             if (long.dim.are.variables &&
-              sort(dim(data),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
-              data <- t(data)
+              sort(dim(X),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
+              X <- t(X)
 
             # if the matrix is squared let's assume then that it is the sample
             # covariance matrix and that the sample size is the next parameter
-            if (nrow(data) != ncol(data)) {
+            if (nrow(X) != ncol(X)) {
               if (!is.null(N))
-                stop("if data is not a sample covariance matrix then N should not be set\n")
+                stop("if X is not a sample covariance matrix then N should not be set\n")
 
-              S <- cov(data)
-              N <- length(data[,1])
-              if (is.null(colnames(data))) 
+              S <- cov(X)
+              N <- nrow(X)
+              if (is.null(colnames(X))) 
                 rownames(S) <- colnames(S) <- 1:nrow(S)
-              else
-                rownames(S) <- colnames(S) <- colnames(data)
               qpgraph:::.qpEdgeNrr(S, N, i, j, q, nTests, alpha, R.code.only)
             } else {
-              S <- data
+              S <- X
               qpgraph:::.qpEdgeNrr(S, N, i, j, q, nTests, alpha, R.code.only)
             }
           })
@@ -768,7 +925,7 @@ setMethod("qpEdgeNrr", signature(data="matrix"),
 ## function: qpCItest
 ## purpose: perform a conditional independence test between two variables given
 ##          a conditioning set
-## parameters: data - data where to perform the test
+## parameters: X - data where to perform the test
 ##             N - sample size (when data is directly the sample covariance matrix)
 ##             i - index in S (row or column) matching one of the two variables
 ##             j - index in S (row or column) matching the other variable
@@ -782,68 +939,64 @@ setMethod("qpEdgeNrr", signature(data="matrix"),
 ## return: a list with two members, the t-statistic value and the p-value
 ##         on rejecting the null hypothesis of independence
 
-setGeneric("qpCItest", function(data, ...) standardGeneric("qpCItest"))
+setGeneric("qpCItest", function(X, ...) standardGeneric("qpCItest"))
 
-# data comes as an ExpressionSet object
-setMethod("qpCItest", signature(data="ExpressionSet"),
-          function(data, i=1, j=2, Q=c(), R.code.only=FALSE) {
-            exp <- t(exprs(data))
-            S <- cov(exp)
+# X comes as an ExpressionSet object
+setMethod("qpCItest", signature(X="ExpressionSet"),
+          function(X, i=1, j=2, Q=c(), R.code.only=FALSE) {
+            X <- t(exprs(X))
+            S <- qpCov(X)
             N <- length(sampleNames(data))
-            rownames(S) <- colnames(S) <- featureNames(data)
             qpgraph:::.qpCItest(S, N, i, j, Q, R.code.only)
           })
 
-# data comes as a data frame
-setMethod("qpCItest", signature(data="data.frame"),
-          function(data, i=1, j=2, Q=c(), long.dim.are.variables=TRUE,
+# X comes as a data frame
+setMethod("qpCItest", signature(X="data.frame"),
+          function(X, i=1, j=2, Q=c(), long.dim.are.variables=TRUE,
                    R.code.only=FALSE) {
-            m <- as.matrix(data)
-            rownames(m) <- rownames(data)
-            if (!is.double(m))
-              stop("data should be double-precision real numbers\n")
+            X <- as.matrix(X)
+            if (!is.double(X))
+              stop("X should be double-precision real numbers\n")
 
             if (long.dim.are.variables &&
-                sort(dim(m),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
-              m <- t(m)
-            S <- cov(m)
-            N <- length(m[,1])
-            if (is.null(colnames(m)))
+                sort(dim(X),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
+              X <- t(X)
+            S <- qpCov(X)
+            N <- nrow(X)
+            if (is.null(colnames(X)))
               rownames(S) <- colnames(S) <- 1:nrow(S)
-            else
-              rownames(S) <- colnames(S) <- colnames(data)
             qpgraph:::.qpCItest(S, N, i, j, Q, R.code.only)
           })
 
           
-# data comes as a matrix
-setMethod("qpCItest", signature(data="matrix"),
-          function(data, N=NULL, i=1, j=2, Q=c(),
+# X comes as a matrix
+setMethod("qpCItest", signature(X="matrix"),
+          function(X, N=NULL, i=1, j=2, Q=c(),
                    long.dim.are.variables=TRUE, R.code.only=FALSE) {
             if (long.dim.are.variables &&
-              sort(dim(data),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
-              data <- t(data)
+                sort(dim(X),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
+              X <- t(X)
 
             # if the matrix is squared let's assume then that it is the sample
             # covariance matrix and that the sample size is the next parameter
-            if (nrow(data) != ncol(data)) {
+            if (nrow(X) != ncol(X)) {
               if (!is.null(N))
-                stop("if data is not a sample covariance matrix then N should not be set\n")
+                stop("if X is not a sample covariance matrix then N should not be set\n")
 
-              S <- cov(data)
-              N <- length(data[,1])
-              if (is.null(colnames(data))) 
+              S <- qpCov(X)
+              N <- nrow(X)
+              if (is.null(colnames(X))) 
                 rownames(S) <- colnames(S) <- 1:nrow(S)
-              else
-                rownames(S) <- colnames(S) <- colnames(data)
               qpgraph:::.qpCItest(S, N, i, j, Q, R.code.only)
             } else {
-              S <- data
+              S <- X
               qpgraph:::.qpCItest(S, N, i, j, Q, R.code.only)
             }
           })
 
 .qpCItest <- function(S, N, i=1, j=2, Q=c(), R.code.only=FALSE) {
+
+  stopifnot(class(S) == "dspMatrix")
 
   if (is.character(i)) {
     if (is.na(match(i, colnames(S))))
@@ -2514,40 +2667,40 @@ setMethod("qpFunctionalCoherence",
 ## PRIVATE FUNCTIONS THAT ARE ENTRY POINTS TO THE C CODE OF THE PACKAGE ##
 ##########################################################################
 
-.qpFastNrr <- function(S, N, q, nTests, alpha, pairup.i.noint, pairup.j.noint,
+.qpFastNrr <- function(X, q, nTests, alpha, pairup.i.noint, pairup.j.noint,
                        pairup.ij.int, verbose) {
-  return(.Call("qp_fast_nrr",S,as.integer(N),as.integer(q),as.integer(nTests),
+  return(.Call("qp_fast_nrr",X,as.integer(q),as.integer(nTests),
                              as.double(alpha),as.integer(pairup.i.noint),
                              as.integer(pairup.j.noint),as.integer(pairup.ij.int),
                              as.integer(verbose)))
 }
 
-.qpFastNrrIdenticalQs <- function(S, N, q, nTests, alpha, pairup.i.noint, pairup.j.noint,
+.qpFastNrrIdenticalQs <- function(X, q, nTests, alpha, pairup.i.noint, pairup.j.noint,
                                   pairup.ij.int, verbose) {
-  return(.Call("qp_fast_nrr_identicalQs",S,as.integer(N),as.integer(q),as.integer(nTests),
+  return(.Call("qp_fast_nrr_identicalQs",X,as.integer(q),as.integer(nTests),
                                          as.double(alpha),as.integer(pairup.i.noint),
                                          as.integer(pairup.j.noint),as.integer(pairup.ij.int),
                                          as.integer(verbose)))
 }
 
-.qpFastNrrPar <- function(S, N, q, nTests, alpha, pairup.i.noint, pairup.j.noint,
+.qpFastNrrPar <- function(X, q, nTests, alpha, pairup.i.noint, pairup.j.noint,
                           pairup.ij.int, verbose) {
   ## copying ShortRead's strategy, 'get()' are to quieten R CMD check, and for no other reason
   mpiCommRank <- get("mpi.comm.rank", mode="function")
   mpiCommSize <- get("mpi.comm.size", mode="function")
-  return(.Call("qp_fast_nrr_par",S,as.integer(N),as.integer(q),as.integer(nTests),
+  return(.Call("qp_fast_nrr_par",X,as.integer(q),as.integer(nTests),
                                  as.double(alpha),as.integer(pairup.i.noint),
                                  as.integer(pairup.j.noint),as.integer(pairup.ij.int),
                                  as.integer(verbose), as.integer(mpiCommRank()),
                                  as.integer(mpiCommSize()-1)))
 }
 
-.qpFastNrrIdenticalQsPar <- function(S, N, q, nTests, alpha, pairup.i.noint, pairup.j.noint,
+.qpFastNrrIdenticalQsPar <- function(X, q, nTests, alpha, pairup.i.noint, pairup.j.noint,
                                      pairup.ij.int, verbose) {
   ## copying ShortRead's strategy, 'get()' are to quieten R CMD check, and for no other reason
   mpiCommRank <- get("mpi.comm.rank", mode="function")
   mpiCommSize <- get("mpi.comm.size", mode="function")
-  return(.Call("qp_fast_nrr_identicalQs_par",S,as.integer(N),as.integer(q),as.integer(nTests),
+  return(.Call("qp_fast_nrr_identicalQs_par",X,as.integer(q),as.integer(nTests),
                                              as.double(alpha),as.integer(pairup.i.noint),
                                              as.integer(pairup.j.noint),as.integer(pairup.ij.int),
                                              as.integer(verbose), as.integer(mpiCommRank()),
@@ -2566,10 +2719,10 @@ setMethod("qpFunctionalCoherence",
 }
 
 .qpFastCItest <- function(S, N, i, j, C=c()) {
-  return(.Call("qp_fast_ci_test",S,as.integer(N),as.integer(i),as.integer(j),C))
+  return(.Call("qp_fast_ci_test",S@x,nrow(S),as.integer(N),as.integer(i),as.integer(j),C))
 }
 .qpFastCItest2 <- function(S, N, i, j, C=c()) {
-  return(.Call("qp_fast_ci_test2",S,as.integer(N),as.integer(i),as.integer(j),C))
+  return(.Call("qp_fast_ci_test2",S@x,nrow(S),as.integer(N),as.integer(i),as.integer(j),C))
 }
 
 
@@ -2591,4 +2744,10 @@ setMethod("qpFunctionalCoherence",
 
 .qpCliqueNumberOstergard <- function(A, return.vertices, verbose) {
  return(.Call("qp_clique_number_os", A, return.vertices, verbose))
+}
+
+qpCov <- function(X) {
+  return(new("dspMatrix", Dim=c(ncol(X), ncol(X)),
+             Dimnames=list(colnames(X), colnames(X)),
+             x = .Call("qp_cov_upper_triangular",X)))
 }

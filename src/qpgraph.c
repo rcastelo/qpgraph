@@ -32,6 +32,7 @@
 /* constants */
 
 #define E2I(v,w) (v > w ? ((int) (((double) ( v * (v - 1))) / 2.0)) + w : ((int) (((double) (w * (w - 1))) / 2.0)) + v) 
+#define UTE2I(v,w) (v > w ? ((int) (((double) ( v * (v - 1))) / 2.0)) + w + v : ((int) (((double) (w * (w - 1))) / 2.0)) + v + w) 
 
 /* datatype definitions */
 
@@ -63,19 +64,19 @@ extern void R_ProcessEvents(void);
 #endif
 
 static SEXP
-qp_fast_nrr(SEXP S, SEXP N, SEXP qR, SEXP nTests, SEXP alpha, SEXP pairup_i_noint,
+qp_fast_nrr(SEXP XR, SEXP qR, SEXP nTests, SEXP alpha, SEXP pairup_i_noint,
             SEXP pairup_j_noint, SEXP pairup_ij_int, SEXP verbose);
 
 static SEXP
-qp_fast_nrr_identicalQs(SEXP S, SEXP N, SEXP qR, SEXP nTests, SEXP alpha, SEXP pairup_i_noint,
+qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP nTests, SEXP alpha, SEXP pairup_i_noint,
                         SEXP pairup_j_noint, SEXP pairup_ij_int, SEXP verbose);
 
 static SEXP
-qp_fast_nrr_par(SEXP S, SEXP N, SEXP qR, SEXP nTests, SEXP alpha, SEXP pairup_i_noint,
+qp_fast_nrr_par(SEXP XR, SEXP qR, SEXP nTests, SEXP alpha, SEXP pairup_i_noint,
                 SEXP pairup_j_noint, SEXP pairup_ij_int, SEXP verbose, SEXP rankR, SEXP clSzeR);
 
 static SEXP
-qp_fast_nrr_identicalQs_par(SEXP SR, SEXP NR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
+qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
                             SEXP pairup_j_nointR, SEXP pairup_ij_intR, SEXP verboseR, SEXP myRankR, SEXP clqSzeR);
 static SEXP
 qp_fast_edge_nrr(SEXP S, SEXP NR, SEXP iR, SEXP jR, SEXP qR, SEXP TR, SEXP sigR);
@@ -90,9 +91,9 @@ static void
 sampleQs(int T, int q, int v_i, int v_j, int n, int* y);
 
 static SEXP
-qp_fast_ci_test(SEXP S, SEXP NR, SEXP iR, SEXP jR, SEXP C);
+qp_fast_ci_test(SEXP SR, SEXP n_varR, SEXP NR, SEXP iR, SEXP jR, SEXP C);
 static SEXP
-qp_fast_ci_test2(SEXP S, SEXP NR, SEXP iR, SEXP jR, SEXP C);
+qp_fast_ci_test2(SEXP SR, SEXP n_varR, SEXP NR, SEXP iR, SEXP jR, SEXP C);
 
 static SEXP
 qp_assemble_nrr_matrix(SEXP nVarR, SEXP nrrR, SEXP idxR);
@@ -183,23 +184,30 @@ i2e(int i, int* e_i, int* e_j);
 int
 e2i(int e_i, int e_j, int* i);
 
+void
+calculate_means(double* X, int n_var, int N, double* meanv);
+
+static SEXP
+qp_cov_upper_triangular(SEXP XR);
+
 /* R-function register */
 
 static R_CallMethodDef
 callMethods[] = {
-  {"qp_fast_nrr", (DL_FUNC) &qp_fast_nrr, 9},
-  {"qp_fast_nrr_identicalQs", (DL_FUNC) &qp_fast_nrr_identicalQs, 9},
-  {"qp_fast_nrr_par", (DL_FUNC) &qp_fast_nrr_par, 11},
-  {"qp_fast_nrr_identicalQs_par", (DL_FUNC) &qp_fast_nrr_identicalQs_par, 11},
+  {"qp_fast_nrr", (DL_FUNC) &qp_fast_nrr, 8},
+  {"qp_fast_nrr_identicalQs", (DL_FUNC) &qp_fast_nrr_identicalQs, 8},
+  {"qp_fast_nrr_par", (DL_FUNC) &qp_fast_nrr_par, 10},
+  {"qp_fast_nrr_identicalQs_par", (DL_FUNC) &qp_fast_nrr_identicalQs_par, 10},
   {"qp_assemble_nrr_matrix", (DL_FUNC) &qp_assemble_nrr_matrix, 3},
   {"qp_fast_edge_nrr", (DL_FUNC) &qp_fast_edge_nrr, 7},
-  {"qp_fast_ci_test", (DL_FUNC) &qp_fast_ci_test,5},
-  {"qp_fast_ci_test2", (DL_FUNC) &qp_fast_ci_test2,5},
+  {"qp_fast_ci_test", (DL_FUNC) &qp_fast_ci_test,6},
+  {"qp_fast_ci_test2", (DL_FUNC) &qp_fast_ci_test2,6},
   {"qp_fast_cliquer_get_cliques", (DL_FUNC) &qp_fast_cliquer_get_cliques, 3},
   {"qp_clique_number_lb", (DL_FUNC) &qp_clique_number_lb, 4},
   {"qp_clique_number_os", (DL_FUNC) &qp_clique_number_os, 3},
   {"qp_fast_pac_se", (DL_FUNC) &qp_fast_pac_se, 2},
   {"qp_fast_ipf", (DL_FUNC) &qp_fast_ipf, 4},
+  {"qp_cov_upper_triangular", (DL_FUNC) &qp_cov_upper_triangular, 1},
   {NULL}
 };
 
@@ -216,21 +224,23 @@ R_init_qpgraph(DllInfo* info) {
 
 /*
   FUNCTION: qp_fast_nrr
-  PURPOSE: compute for each pair of vertices indexed by the rows (columns)
-           of the matrix S the non-rejection rate. Vertex pairs may be restricted
+  PURPOSE: compute for each pair of vertices indexed by the columns of the
+           matrix X the non-rejection rate. Vertex pairs may be restricted
            by using the pairup_* arguments
   RETURNS: matrix of non-rejection rate values in terms of number of non-rejected
            (accepted) tests for each pair of vertices
 */
 
 static SEXP
-qp_fast_nrr(SEXP SR, SEXP NR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
+qp_fast_nrr(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
             SEXP pairup_j_nointR, SEXP pairup_ij_intR, SEXP verboseR) {
   int     N;
   int     n_var;
   int     q;
   int     nTests;
   double  alpha;
+  SEXP    SR;
+  double* S;
   int     l_ini = length(pairup_i_nointR);
   int     l_jni = length(pairup_j_nointR);
   int     l_int = length(pairup_ij_intR);
@@ -241,15 +251,12 @@ qp_fast_nrr(SEXP SR, SEXP NR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_
   int     i,j,k,n_adj,pct,ppct;
   SEXP    nrrMatrixR;
   double* nrrMatrix;
-  double* S;
   int     verbose;
 
   PROTECT_INDEX Spi;
 
-  PROTECT_WITH_INDEX(SR, &Spi);
-
-  N       = INTEGER(NR)[0];
-  n_var   = INTEGER(getAttrib(SR, R_DimSymbol))[0];
+  N       = INTEGER(getAttrib(XR, R_DimSymbol))[0];
+  n_var   = INTEGER(getAttrib(XR, R_DimSymbol))[1];
   q       = INTEGER(qR)[0];
   nTests  = INTEGER(nTestsR)[0];
   alpha   = REAL(alphaR)[0];
@@ -264,8 +271,16 @@ qp_fast_nrr(SEXP SR, SEXP NR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_
   if (q > N-3)
     error("q=%d > N-3=%d", q, N-3);
 
-  REPROTECT(SR = coerceVector(SR, REALSXP), Spi);
+  SR = qp_cov_upper_triangular(XR);
+  PROTECT_WITH_INDEX(SR, &Spi);
   S = REAL(SR);
+
+  if (l_ini + l_jni > 0) {
+    pairup_ij_noint = Calloc(l_ini + l_jni, int);
+    Memcpy(pairup_ij_noint, pairup_i_noint, (size_t) l_ini);
+    Memcpy(pairup_ij_noint + l_ini, pairup_j_noint, (size_t) l_jni);
+  }
+
   PROTECT(nrrMatrixR = allocMatrix(REALSXP, n_var, n_var));
   nrrMatrix = REAL(nrrMatrixR);
 
@@ -277,12 +292,6 @@ qp_fast_nrr(SEXP SR, SEXP NR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_
 
   ppct = -1;
   k = 0;
-
-  if (l_ini + l_jni > 0) {
-    pairup_ij_noint = Calloc(l_ini + l_jni, int);
-    Memcpy(pairup_ij_noint, pairup_i_noint, (size_t) l_ini);
-    Memcpy(pairup_ij_noint + l_ini, pairup_j_noint, (size_t) l_jni);
-  }
 
   /* intersection variables against ij-exclusive variables */
   for (i=0; i < l_int; i++) {
@@ -404,13 +413,15 @@ qp_fast_nrr(SEXP SR, SEXP NR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_
 */
 
 static SEXP
-qp_fast_nrr_identicalQs(SEXP SR, SEXP NR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
+qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
                         SEXP pairup_j_nointR, SEXP pairup_ij_intR, SEXP verboseR) {
   int     N;
   int     n_var;
   int     q;
   int     nTests;
   double  alpha;
+  SEXP    SR;
+  double* S;
   int     l_ini = length(pairup_i_nointR);
   int     l_jni = length(pairup_j_nointR);
   int     l_int = length(pairup_ij_intR);
@@ -425,15 +436,12 @@ qp_fast_nrr_identicalQs(SEXP SR, SEXP NR, SEXP qR, SEXP nTestsR, SEXP alphaR, SE
   double* Qinv;
   SEXP nrrMatrixR;
   double* nrrMatrix;
-  double* S;
   int     verbose;
 
   PROTECT_INDEX Spi;
 
-  PROTECT_WITH_INDEX(SR, &Spi);
-
-  N       = INTEGER(NR)[0];
-  n_var   = INTEGER(getAttrib(SR, R_DimSymbol))[0];
+  N       = INTEGER(getAttrib(XR, R_DimSymbol))[0];
+  n_var   = INTEGER(getAttrib(XR, R_DimSymbol))[1];
   q       = INTEGER(qR)[0];
   nTests  = INTEGER(nTestsR)[0];
   alpha   = REAL(alphaR)[0];
@@ -448,8 +456,47 @@ qp_fast_nrr_identicalQs(SEXP SR, SEXP NR, SEXP qR, SEXP nTestsR, SEXP alphaR, SE
   if (q > N-3)
     error("q=%d > N-3=%d", q, N-3);
 
-  REPROTECT(SR = coerceVector(SR, REALSXP),Spi);
+  SR = qp_cov_upper_triangular(XR);
+  PROTECT_WITH_INDEX(SR, &Spi);
   S = REAL(SR);
+
+  /* sample the Q sets and pre-calculate the inverse matrices */
+
+  q_by_T_samples = Calloc(q * nTests, int);
+
+  sampleQs(nTests, q, -1, -1, n_var, q_by_T_samples);
+
+  Qmat = Calloc(q*q, double);
+  Qinv = Calloc(q*q*nTests, double);
+
+  /*
+  for (i=0; i < nTests; i++) {
+    Q = (int*) (q_by_T_samples+i*q);
+    for (j=0; j < q; j++) {
+      for (k=0; k < j; k++)
+        Qmat[j + k*q] = Qmat[k + j*q] = S[Q[j] + Q[k] * n_var];
+      Qmat[j + j*q] = S[Q[j] + Q[j] * n_var];
+    }
+    matinv((double*) (Qinv+i*q*q), Qmat, q);
+  }
+  */
+  for (i=0; i < nTests; i++) {
+    Q = (int*) (q_by_T_samples+i*q);
+    for (j=0; j < q; j++) {
+      for (k=0; k < j; k++)
+        Qmat[j + k*q] = Qmat[k + j*q] = S[UTE2I(Q[j], Q[k])];
+      Qmat[j + j*q] = S[UTE2I(Q[j], Q[j])];
+    }
+    matinv((double*) (Qinv+i*q*q), Qmat, q);
+  }
+  Free(Qmat);
+  
+  if (l_ini + l_jni > 0) {
+    pairup_ij_noint = Calloc(l_ini + l_jni, int);
+    Memcpy(pairup_ij_noint, pairup_i_noint, (size_t) l_ini);
+    Memcpy(pairup_ij_noint + l_ini, pairup_j_noint, (size_t) l_jni);
+  }
+
   PROTECT(nrrMatrixR = allocMatrix(REALSXP,n_var,n_var));
   nrrMatrix = REAL(nrrMatrixR);
 
@@ -461,32 +508,6 @@ qp_fast_nrr_identicalQs(SEXP SR, SEXP NR, SEXP qR, SEXP nTestsR, SEXP alphaR, SE
 
   ppct = -1;
   k = 0;
-
-  /* sample the Q sets and pre-calculate the inverse matrices */
-
-  q_by_T_samples = Calloc(q * nTests, int);
-
-  sampleQs(nTests, q, -1, -1, n_var, q_by_T_samples);
-
-  Qmat = Calloc(q*q, double);
-  Qinv = Calloc(q*q*nTests, double);
-
-  for (i=0; i < nTests; i++) {
-    Q = (int*) (q_by_T_samples+i*q);
-    for (j=0; j < q; j++) {
-      for (k=0; k < j; k++)
-        Qmat[j + k*q] = Qmat[k + j*q] = S[Q[j] + Q[k] * n_var];
-      Qmat[j + j*q] = S[Q[j] + Q[j] * n_var];
-    }
-    matinv((double*) (Qinv+i*q*q), Qmat, q);
-  }
-  Free(Qmat);
-  
-  if (l_ini + l_jni > 0) {
-    pairup_ij_noint = Calloc(l_ini + l_jni, int);
-    Memcpy(pairup_ij_noint, pairup_i_noint, (size_t) l_ini);
-    Memcpy(pairup_ij_noint + l_ini, pairup_j_noint, (size_t) l_jni);
-  }
 
   /* intersection variables against ij-exclusive variables */
   for (i=0; i < l_int; i++) {
@@ -615,13 +636,16 @@ qp_fast_nrr_identicalQs(SEXP SR, SEXP NR, SEXP qR, SEXP nTestsR, SEXP alphaR, SE
 */
 
 static SEXP
-qp_fast_nrr_par(SEXP SR, SEXP NR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
-                SEXP pairup_j_nointR, SEXP pairup_ij_intR, SEXP verboseR, SEXP myRankR, SEXP clSzeR) {
+qp_fast_nrr_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
+                SEXP pairup_j_nointR, SEXP pairup_ij_intR, SEXP verboseR, SEXP myRankR,
+                SEXP clSzeR) {
   int     N;
   int     n_var;
   int     q;
   int     nTests;
   double  alpha;
+  SEXP    SR;
+  double* S;
   int     l_ini = length(pairup_i_nointR);
   int     l_jni = length(pairup_j_nointR);
   int     l_int = length(pairup_ij_intR);
@@ -634,7 +658,6 @@ qp_fast_nrr_par(SEXP SR, SEXP NR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairu
   SEXP    result, result_names;
   double* nrr;
   int*    idx;
-  double* S;
   int     verbose;
   int     myrank;
   int     clsze;
@@ -642,10 +665,8 @@ qp_fast_nrr_par(SEXP SR, SEXP NR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairu
 
   PROTECT_INDEX Spi;
 
-  PROTECT_WITH_INDEX(SR, &Spi);
-
-  N       = INTEGER(NR)[0];
-  n_var   = INTEGER(getAttrib(SR, R_DimSymbol))[0];
+  N       = INTEGER(getAttrib(XR, R_DimSymbol))[0];
+  n_var   = INTEGER(getAttrib(XR, R_DimSymbol))[1];
   q       = INTEGER(qR)[0];
   nTests  = INTEGER(nTestsR)[0];
   alpha   = REAL(alphaR)[0];
@@ -662,7 +683,8 @@ qp_fast_nrr_par(SEXP SR, SEXP NR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairu
   if (q > N-3)
     error("q=%d > N-3=%d", q, N-3);
 
-  REPROTECT(SR = coerceVector(SR, REALSXP), Spi);
+  SR = qp_cov_upper_triangular(XR);
+  PROTECT_WITH_INDEX(SR, &Spi);
   S = REAL(SR);
 
   n_adj = l_int * (l_jni + l_ini) + l_ini * l_jni + l_int * (l_int - 1) / 2;
@@ -769,13 +791,16 @@ qp_fast_nrr_par(SEXP SR, SEXP NR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairu
 */
 
 static SEXP
-qp_fast_nrr_identicalQs_par(SEXP SR, SEXP NR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
-                            SEXP pairup_j_nointR, SEXP pairup_ij_intR, SEXP verboseR, SEXP myRankR, SEXP clSzeR) {
+qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
+                            SEXP pairup_j_nointR, SEXP pairup_ij_intR, SEXP verboseR, SEXP myRankR,
+                            SEXP clSzeR) {
   int     N;
   int     n_var;
   int     q;
   int     nTests;
   double  alpha;
+  SEXP    SR;
+  double* S;
   int     l_ini = length(pairup_i_nointR);
   int     l_jni = length(pairup_j_nointR);
   int     l_int = length(pairup_ij_intR);
@@ -792,7 +817,6 @@ qp_fast_nrr_identicalQs_par(SEXP SR, SEXP NR, SEXP qR, SEXP nTestsR, SEXP alphaR
   SEXP    result, result_names;
   double* nrr;
   int*    idx;
-  double* S;
   int     verbose;
   int     myrank;
   int     clsze;
@@ -800,10 +824,8 @@ qp_fast_nrr_identicalQs_par(SEXP SR, SEXP NR, SEXP qR, SEXP nTestsR, SEXP alphaR
 
   PROTECT_INDEX Spi;
 
-  PROTECT_WITH_INDEX(SR, &Spi);
-
-  N       = INTEGER(NR)[0];
-  n_var   = INTEGER(getAttrib(SR, R_DimSymbol))[0];
+  N       = INTEGER(getAttrib(XR, R_DimSymbol))[0];
+  n_var   = INTEGER(getAttrib(XR, R_DimSymbol))[1];
   q       = INTEGER(qR)[0];
   nTests  = INTEGER(nTestsR)[0];
   alpha   = REAL(alphaR)[0];
@@ -820,7 +842,8 @@ qp_fast_nrr_identicalQs_par(SEXP SR, SEXP NR, SEXP qR, SEXP nTestsR, SEXP alphaR
   if (q > N-3)
     error("q=%d > N-3=%d", q, N-3);
 
-  REPROTECT(SR = coerceVector(SR, REALSXP),Spi);
+  SR = qp_cov_upper_triangular(XR);
+  PROTECT_WITH_INDEX(SR, &Spi);
   S = REAL(SR);
 
   n_adj = l_int * (l_jni + l_ini) + l_ini * l_jni + l_int * (l_int - 1) / 2;
@@ -834,12 +857,23 @@ qp_fast_nrr_identicalQs_par(SEXP SR, SEXP NR, SEXP qR, SEXP nTestsR, SEXP alphaR
   Qmat = Calloc(q*q, double);
   Qinv = Calloc(q*q*nTests, double);
 
+  /*
   for (i=0; i < nTests; i++) {
     Q = (int*) (q_by_T_samples+i*q);
     for (j=0; j < q; j++) {
       for (k=0; k < j; k++)
         Qmat[j + k*q] = Qmat[k + j*q] = S[Q[j] + Q[k] * n_var];
       Qmat[j + j*q] = S[Q[j] + Q[j] * n_var];
+    }
+    matinv((double*) (Qinv+i*q*q), Qmat, q);
+  }
+  */
+  for (i=0; i < nTests; i++) {
+    Q = (int*) (q_by_T_samples+i*q);
+    for (j=0; j < q; j++) {
+      for (k=0; k < j; k++)
+        Qmat[j + k*q] = Qmat[k + j*q] = S[UTE2I(Q[j], Q[k])];
+      Qmat[j + j*q] = S[UTE2I(Q[j], Q[j])];
     }
     matinv((double*) (Qinv+i*q*q), Qmat, q);
   }
@@ -992,9 +1026,9 @@ qp_assemble_nrr_matrix(SEXP nVarR, SEXP nrrR, SEXP idxR) {
 */
 
 static SEXP
-qp_fast_ci_test(SEXP S, SEXP NR, SEXP iR, SEXP jR, SEXP C) {
+qp_fast_ci_test(SEXP SR, SEXP n_varR, SEXP NR, SEXP iR, SEXP jR, SEXP C) {
   int    N = INTEGER(NR)[0];
-  int    n_var = INTEGER(getAttrib(S,R_DimSymbol))[0];
+  int    n_var = INTEGER(n_varR)[0];
   int    q;
   int*   cond;
   int    i,j,k;
@@ -1007,10 +1041,10 @@ qp_fast_ci_test(SEXP S, SEXP NR, SEXP iR, SEXP jR, SEXP C) {
 
   PROTECT_INDEX Spi,Cpi;
 
-  PROTECT_WITH_INDEX(S,&Spi);
+  PROTECT_WITH_INDEX(SR,&Spi);
   PROTECT_WITH_INDEX(C,&Cpi);
 
-  REPROTECT(S = coerceVector(S,REALSXP),Spi);
+  REPROTECT(SR = coerceVector(SR,REALSXP),Spi);
   REPROTECT(C = coerceVector(C,INTSXP),Cpi);
 
   i = INTEGER(iR)[0] - 1;
@@ -1021,7 +1055,7 @@ qp_fast_ci_test(SEXP S, SEXP NR, SEXP iR, SEXP jR, SEXP C) {
   for (k=0;k<q;k++)
     cond[k] = INTEGER(C)[k]-1;
 
-  t_value = qp_ci_test(REAL(S),n_var,N,i,j,cond,q);
+  t_value = qp_ci_test(REAL(SR),n_var,N,i,j,cond,q);
   p_value = 2.0 * (1.0 - pt(fabs(t_value),N-q-2,1,0));
 
   PROTECT(result = allocVector(VECSXP,2));
@@ -1041,9 +1075,9 @@ qp_fast_ci_test(SEXP S, SEXP NR, SEXP iR, SEXP jR, SEXP C) {
   return result;
 }
 static SEXP
-qp_fast_ci_test2(SEXP S, SEXP NR, SEXP iR, SEXP jR, SEXP C) {
+qp_fast_ci_test2(SEXP SR, SEXP n_varR, SEXP NR, SEXP iR, SEXP jR, SEXP C) {
   int    N = INTEGER(NR)[0];
-  int    n_var = INTEGER(getAttrib(S,R_DimSymbol))[0];
+  int    n_var = INTEGER(n_varR)[0];
   int    q;
   int*   cond;
   int    i,j,k;
@@ -1056,10 +1090,10 @@ qp_fast_ci_test2(SEXP S, SEXP NR, SEXP iR, SEXP jR, SEXP C) {
 
   PROTECT_INDEX Spi,Cpi;
 
-  PROTECT_WITH_INDEX(S,&Spi);
+  PROTECT_WITH_INDEX(SR,&Spi);
   PROTECT_WITH_INDEX(C,&Cpi);
 
-  REPROTECT(S = coerceVector(S,REALSXP),Spi);
+  REPROTECT(SR = coerceVector(SR,REALSXP),Spi);
   REPROTECT(C = coerceVector(C,INTSXP),Cpi);
 
   i = INTEGER(iR)[0] - 1;
@@ -1070,7 +1104,7 @@ qp_fast_ci_test2(SEXP S, SEXP NR, SEXP iR, SEXP jR, SEXP C) {
   for (k=0;k<q;k++)
     cond[k] = INTEGER(C)[k]-1;
 
-  t_value = qp_ci_test2(REAL(S),n_var,N,i,j,cond,q,NULL);
+  t_value = qp_ci_test2(REAL(SR),n_var,N,i,j,cond,q,NULL);
   p_value = 2.0 * (1.0 - pt(fabs(t_value),N-q-2,1,0));
 
   PROTECT(result = allocVector(VECSXP,2));
@@ -1137,11 +1171,24 @@ qp_ci_test(double* S, int n_var, int N, int i, int j, int* Q, int q) {
      S12     <- Mmar[1,-1]
      S21     <- Mmar[-1,1]
      S22     <- Mmar[-1,-1] */
+/*
   for (k=0;k<subn;k++)
     for (l=0;l<subn;l++) {
       Mmar[k+l*subn] = S[subvars[k]+subvars[l]*n_var];
       if (k == 0 && l > 0)
         S12[l-1] = Mmar[k+l*subn];
+      if (k > 0 && l == 0)
+        S21[k-1] = Mmar[k+l*subn];
+      if (k > 0 && l > 0)
+        S22[k-1+(l-1)*(subn-1)] = Mmar[k+l*subn];
+    }
+  S11 = Mmar[0];
+*/
+  for (k=0;k<subn;k++)
+    for (l=0;l<subn;l++) {
+      Mmar[k+l*subn] = S[UTE2I(subvars[k],subvars[l])]; /* S is a vector storing the upper */
+      if (k == 0 && l > 0)                              /* triangle of the sample covariance */
+        S12[l-1] = Mmar[k+l*subn];                      /* matrix in column-major order */
       if (k > 0 && l == 0)
         S21[k-1] = Mmar[k+l*subn];
       if (k > 0 && l > 0)
@@ -1218,7 +1265,7 @@ qp_ci_test2(double* S, int n_var, int N, int i, int j, int* Q, int q, double* Qi
   subvars[1] = j; /* then variable j then the conditioning set */
   for (k=2;k<subn;k++)
     subvars[k] = Q[k-2];
-
+/*
   for (k=0;k<subn;k++)
     for (l=0;l<subn;l++) {
       if (k < 2 && l < 2)
@@ -1228,14 +1275,33 @@ qp_ci_test2(double* S, int n_var, int N, int i, int j, int* Q, int q, double* Qi
         Sqbyij[l-2+k*q] = S[subvars[l]+subvars[k]*n_var];
       }
     }
+*/
+  for (k=0;k<subn;k++)
+    for (l=0;l<subn;l++) {
+      double x = S[UTE2I(subvars[k], subvars[l])];
+
+      if (k < 2 && l < 2)
+        Sij[k+l*2] = x;
+      if (k < 2 && l > 1) {
+        Sijbyq[k+(l-2)*2] = x;
+        Sqbyij[l-2+k*q] = x;
+      }
+    }
 
   if (Qinv == NULL) {
     Qmat = Calloc(q*q, double);
     Qinv = Calloc(q*q, double);
+    /*
     for (i=0; i < q; i++) {
       for (j=0; j < i; j++)
         Qmat[i + j*q] = Qmat[j + i*q] = S[Q[i] + Q[j] * n_var];
       Qmat[i + i*q] = S[Q[i] + Q[i] * n_var];
+    }
+    */
+    for (i=0; i < q; i++) {
+      for (j=0; j < i; j++)
+        Qmat[i + j*q] = Qmat[j + i*q] = S[UTE2I(Q[i], Q[j])];
+      Qmat[i + i*q] = S[UTE2I(Q[i], Q[i])];
     }
     if (q > 1)
       matinv(Qinv,Qmat,q);
@@ -2083,7 +2149,7 @@ qp_fast_cliquer_get_cliques(SEXP I, SEXP clqspervtx, SEXP verbose) {
       iclq++;
 
       /* free the elements of the linked list at the same time that the new R list
-         structure is created to store the cliques in order to use a little memory as possible */
+         structure is created to store the cliques in order to use as little memory as possible */
 
       tmpp = p->next;
       set_free(p->u.vts);
@@ -2146,7 +2212,8 @@ qp_fast_pac_se(SEXP Shat, SEXP I) {
   double* Iss2;
   double* Iss;
   double* Issinv;
-  SEXP    SE;
+  SEXP    SER;
+  double* SE;
   PROTECT_INDEX Spi,Ipi;
 
   if (!isMatrix(Shat) || !isMatrix(I)) {
@@ -2208,28 +2275,29 @@ qp_fast_pac_se(SEXP Shat, SEXP I) {
   matinv(Issinv,Iss,rnz);
   Free(Iss);
 
-  PROTECT(SE = allocMatrix(REALSXP,n_var,n_var));
+  PROTECT(SER = allocMatrix(REALSXP,n_var,n_var));
+  SE = REAL(SER);
 
   for (i=0;i<n_var;i++) {
-    for (j=0;j<n_var;j++) {
-      REAL(SE)[i+n_var*j] = NA_REAL;
+    for (j=i;j<n_var;j++) {
+      SE[i+n_var*j] = SE[j+n_var*i] = NA_REAL;
     }
   }
 
   for (i=0;i<rnz;i++)
     if (r_nz[i] != c_nz[i])
-      REAL(SE)[r_nz[i]+n_var*c_nz[i]] = REAL(SE)[c_nz[i]+n_var*r_nz[i]] = Issinv[i*rnz+i];
+      SE[r_nz[i]+n_var*c_nz[i]] = SE[c_nz[i]+n_var*r_nz[i]] = Issinv[i*rnz+i];
 
   Free(Issinv);
 
   for (i=0;i<n_var;i++)
-    REAL(SE)[i+n_var*i] = NA_REAL;
+    SE[i+n_var*i] = NA_REAL;
 
   Free(r_nz); Free(c_nz);
 
-  UNPROTECT(1); /* SE */
+  UNPROTECT(1); /* SER */
 
-  return SE;
+  return SER;
 }
 
 
@@ -2358,7 +2426,7 @@ qp_fast_ipf(SEXP vvR, SEXP clqlstR, SEXP tolR, SEXP verbose) {
 
   PROTECT(VR = allocMatrix(REALSXP,n,n));
   Memcpy(REAL(VR),V,(size_t) (n * n));
-  UNPROTECT(1);
+  UNPROTECT(1); /* VR */
 
   Free(V);
   Free(Vold);
@@ -2772,4 +2840,103 @@ e2i(int e_i, int e_j, int* i) {
   }
 
   return(((int) (((double) (e_i * (e_i - 1))) / 2.0)) + e_j);
+}
+
+
+
+/*
+  FUNCTION: calculate_means
+  PURPOSE: calculate the means of the values at the columns of the input matrix
+           provided as a column-major vector
+  PARAMETERS: X - vector containing the column-major stored matrix of values
+              n_var - number of variables
+              N - number of values per variable
+              meanv - output vector of mean values
+  RETURN: none
+*/
+
+void
+calculate_means(double* X, int n_var, int N, double* meanv) {
+  long double sum, tmp;
+  double*     xx;
+  int         i, j;
+
+  for (i=0;i < n_var;i++) {
+    xx = &X[i * N];
+    sum = 0.0;
+    for (j=0;j < N;j++)
+      sum += xx[j];
+    tmp = sum / N;
+    if (R_FINITE((double) tmp)) {
+      sum = 0.0;
+      for (j=0;j < N;j++)
+        sum += (xx[j] - tmp);
+      tmp = tmp + sum / N;
+    }
+      meanv[i] = tmp;
+  }
+}
+
+/*
+  FUNCTION: qp_cov_upper_triangular
+  PURPOSE: calculate a covariance matrix returning only the upper triangle
+           of the matrix in column-major order (for creating later a dspMatrix object)
+  PARAMETERS: X - vector containing the column-major stored matrix of values
+              n_var - number of variables
+              N - number of values per variable
+  RETURN: cov_val covariance values
+*/
+
+static SEXP
+qp_cov_upper_triangular(SEXP XR) {
+  SEXP          cov_valR;
+  double*       X;
+  double*       cov_val;
+  double*       meanv;
+  int           n_var,N,N1;
+  int           i,j,k,l;
+  PROTECT_INDEX Xpi;
+
+  PROTECT_WITH_INDEX(XR,&Xpi);
+
+  REPROTECT(XR  = coerceVector(XR,REALSXP),Xpi);
+  X = REAL(XR);
+
+  /* number of observations equals number of rows */
+  N = INTEGER(getAttrib(XR,R_DimSymbol))[0];
+  /* number of variables equals number of columns */
+  n_var = INTEGER(getAttrib(XR,R_DimSymbol))[1];
+
+  PROTECT(cov_valR = allocVector(REALSXP, n_var * (n_var+1) / 2));
+  cov_val = REAL(cov_valR);
+
+  meanv = Calloc(n_var, double);
+
+  calculate_means(X, n_var, N, meanv);
+
+  N1 = N - 1;
+
+  l = 0;
+  for (i=0; i < n_var; i++)
+    for (j=0; j <= i; j++) {
+      double*     xx;
+      double*     yy;
+      long double xxm, yym, sum;
+
+      xx  = &X[i * N];
+      xxm = meanv[i];
+      yy  = &X[j * N];
+      yym = meanv[j];
+      sum = 0.0;
+      for (k=0; k < N; k++)
+        sum += (xx[k] - xxm) * (yy[k] - yym);
+
+      cov_val[l++] = (double) (sum / ((long double) N1));
+    }
+
+  Free(meanv);
+
+  UNPROTECT(2); /* XR cov_valR */
+
+  return(cov_valR);
 }

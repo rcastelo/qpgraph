@@ -12,20 +12,20 @@ Performs a conditional independence test between two variables given
 a conditioning set.
 }
 \usage{
-\S4method{qpCItest}{ExpressionSet}(data, i=1, j=2, Q=c(), R.code.only=FALSE)
-\S4method{qpCItest}{data.frame}(data, i=1, j=2, Q=c(),
+\S4method{qpCItest}{ExpressionSet}(X, i=1, j=2, Q=c(), R.code.only=FALSE)
+\S4method{qpCItest}{data.frame}(X, i=1, j=2, Q=c(),
                                 long.dim.are.variables=TRUE, R.code.only=FALSE)
-\S4method{qpCItest}{matrix}(data, N=NULL, i=1, j=2, Q=c(),
+\S4method{qpCItest}{matrix}(X, N=NULL, i=1, j=2, Q=c(),
                             long.dim.are.variables=TRUE, R.code.only=FALSE)
 }
 \arguments{
-  \item{data}{data set where the test should be performed. It can be either an
+  \item{X}{data set where the test should be performed. It can be either an
        \code{ExpressionSet} object, a data frame, or a matrix. If it is a matrix
        and the matrix is squared then this function assumes the matrix is the
        sample covariance matrix of the data and the sample size parameter
        \code{N} should be provided.}
   \item{N}{number of observations in the data set. Only necessary when the
-       sample covariance matrix is provided through the \code{data} parameter.}
+       sample covariance matrix is provided through the \code{X} parameter.}
   \item{i}{index or name of one of the two variables.}
   \item{j}{index or name of the other variable.}
   \item{Q}{indexes or names of the variables forming the conditioning set.}

@@ -11,18 +11,18 @@ Non-rejection rate estimation
 Estimates non-rejection rates for every pair of variables.
 }
 \usage{
-\S4method{qpNrr}{ExpressionSet}(data, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
+\S4method{qpNrr}{ExpressionSet}(X, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
                                 pairup.j=NULL, verbose=TRUE, identicalQs=TRUE,
                                 R.code.only=FALSE, clusterSize=1)
-\S4method{qpNrr}{data.frame}(data, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
+\S4method{qpNrr}{data.frame}(X, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
                              pairup.j=NULL, long.dim.are.variables=TRUE, verbose=TRUE,
                              identicalQs=TRUE, R.code.only=FALSE, clusterSize=1)
-\S4method{qpNrr}{matrix}(data, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
+\S4method{qpNrr}{matrix}(X, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
                          pairup.j=NULL, long.dim.are.variables=TRUE, verbose=TRUE,
                          identicalQs=TRUE, R.code.only=FALSE, clusterSize=1)
 }
 \arguments{
-  \item{data}{data set from where to estimate the non-rejection rates.
+  \item{X}{data set from where to estimate the non-rejection rates.
        It can be an ExpressionSet object, a data frame or a matrix.}
   \item{q}{partial-correlation order to be employed.}
   \item{nTests}{number of tests to perform for each pair for variables.}

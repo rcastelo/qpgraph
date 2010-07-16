@@ -11,23 +11,23 @@ Non-rejection rate estimation for a pair of variables
 Estimates non-rejection rate for one pair of variables.
 }
 \usage{
-\S4method{qpEdgeNrr}{ExpressionSet}(data, i=1, j=2, q=1, nTests=100,
+\S4method{qpEdgeNrr}{ExpressionSet}(X, i=1, j=2, q=1, nTests=100,
                                     alpha=0.05, R.code.only=FALSE)
-\S4method{qpEdgeNrr}{data.frame}(data, i=1, j=2, q=1, nTests=100,
+\S4method{qpEdgeNrr}{data.frame}(X, i=1, j=2, q=1, nTests=100,
                                  alpha=0.05, long.dim.are.variables=TRUE,
                                  R.code.only=FALSE)
-\S4method{qpEdgeNrr}{matrix}(data, N=NULL, i=1, j=2, q=1, nTests=100,
+\S4method{qpEdgeNrr}{matrix}(X, N=NULL, i=1, j=2, q=1, nTests=100,
                              alpha=0.05, long.dim.are.variables=TRUE,
                              R.code.only=FALSE)
 }
 \arguments{
-  \item{data}{data set from where the non-rejection rate should be estimated. It
+  \item{X}{data set from where the non-rejection rate should be estimated. It
        can be either an \code{ExpressionSet} object, a data frame, or a matrix.
        If it is a matrix and the matrix is squared then this function assumes the
        matrix is the sample covariance matrix of the data and the sample size
        parameter \code{N} should be provided.}
   \item{N}{number of observations in the data set. Only necessary when the
-       sample covariance matrix is provided through the \code{data} parameter.}
+       sample covariance matrix is provided through the \code{X} parameter.}
   \item{i}{index or name of one of the two variables.}
   \item{j}{index or name of the other variable.}
   \item{q}{partial-correlation order.}
