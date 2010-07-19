@@ -3,6 +3,8 @@ CHANGES IN VERSION 1.5
 
 USER VISIBLE CHANGES
 
+    o added a new function qpCov() and its man page to calculate sample covariance matrices returning them as 'dspMatrix' objects. Fixed some NAMESPACE and dependence issues
+
     o handling of covariance matrices as 'dspMatrix' objects via the recommended 'Matrix' package
 
     o added parallel computation of average non-rejection rates in qpAvgNrr() via Rmpi and snow

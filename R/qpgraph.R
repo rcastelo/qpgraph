@@ -215,6 +215,7 @@ setMethod("qpNrr", signature(X="matrix"),
         nrrMatrix <- qpgraph:::.qpFastNrr(X, q, nTests, alpha, pairup.i.noint,
                                           pairup.j.noint, pairup.ij.int, verbose)
     } else {           ## use a cluster !
+      clCall <- get("clusterCall", mode="function")
       if (identicalQs)
         nrrIdx <- clCall(cl, qpgraph:::.qpFastNrrIdenticalQsPar, X, q, nTests, alpha,
                          pairup.i.noint, pairup.j.noint, pairup.ij.int, verbose)
@@ -575,7 +576,7 @@ setMethod("qpAvgNrr", signature(X="matrix"),
   }
 
   if (clusterSize > 1 && !is.null(cl))
-    stopCluster(cl)
+    stopCl(cl)
 
   return(avgNrrMatrix)
 }
@@ -748,7 +749,7 @@ setMethod("qpGNrr", signature(data="matrix"),
   }
 
   if (clusterSize > 1 && !is.null(cl))
-    stopCluster(cl)
+    stopCl(cl)
 
   return(avgNrrMatrix)
 }

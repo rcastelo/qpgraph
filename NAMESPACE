@@ -3,7 +3,7 @@ useDynLib(qpgraph)
 import(methods)
 import(Matrix)
 import(Biobase)
-import(AnnotationDbi)
+importFrom(AnnotationDbi, mget)
 
 exportMethods("qpNrr",
               "qpAvgNrr",
