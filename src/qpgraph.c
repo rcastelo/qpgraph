@@ -95,9 +95,6 @@ qp_fast_ci_test(SEXP SR, SEXP n_varR, SEXP NR, SEXP iR, SEXP jR, SEXP C);
 static SEXP
 qp_fast_ci_test2(SEXP SR, SEXP n_varR, SEXP NR, SEXP iR, SEXP jR, SEXP C);
 
-static SEXP
-qp_assemble_nrr_matrix(SEXP nVarR, SEXP nrrR, SEXP idxR);
-
 static double
 qp_ci_test(double* S, int n_var, int N, int i, int j, int* C, int q);
 static double
@@ -198,7 +195,6 @@ callMethods[] = {
   {"qp_fast_nrr_identicalQs", (DL_FUNC) &qp_fast_nrr_identicalQs, 8},
   {"qp_fast_nrr_par", (DL_FUNC) &qp_fast_nrr_par, 10},
   {"qp_fast_nrr_identicalQs_par", (DL_FUNC) &qp_fast_nrr_identicalQs_par, 10},
-  {"qp_assemble_nrr_matrix", (DL_FUNC) &qp_assemble_nrr_matrix, 3},
   {"qp_fast_edge_nrr", (DL_FUNC) &qp_fast_edge_nrr, 7},
   {"qp_fast_ci_test", (DL_FUNC) &qp_fast_ci_test,6},
   {"qp_fast_ci_test2", (DL_FUNC) &qp_fast_ci_test2,6},
@@ -249,8 +245,8 @@ qp_fast_nrr(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
   int*    pairup_ij_int = INTEGER(pairup_ij_intR);
   int*    pairup_ij_noint = NULL;
   int     i,j,k,n_adj,pct,ppct;
-  SEXP    nrrMatrixR;
-  double* nrrMatrix;
+  SEXP    nrrR;
+  double* nrr;
   int     verbose;
 
   PROTECT_INDEX Spi;
@@ -281,12 +277,11 @@ qp_fast_nrr(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
     Memcpy(pairup_ij_noint + l_ini, pairup_j_noint, (size_t) l_jni);
   }
 
-  PROTECT(nrrMatrixR = allocMatrix(REALSXP, n_var, n_var));
-  nrrMatrix = REAL(nrrMatrixR);
+  PROTECT(nrrR = allocVector(REALSXP, (n_var*(n_var-1))/2+n_var));
+  nrr = REAL(nrrR);
 
-  for (i=0;i<n_var;i++)
-    for (j=i;j<n_var;j++)
-      nrrMatrix[i+n_var*j] = nrrMatrix[j+n_var*i] = NA_REAL;
+  for (i=0;i < (n_var*(n_var-1))/2+n_var;i++)
+    nrr[i] = NA_REAL;
 
   n_adj = l_int * (l_jni + l_ini) + l_ini * l_jni + l_int * (l_int - 1) / 2;
 
@@ -300,9 +295,7 @@ qp_fast_nrr(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
     for (j=0; j < l_ini + l_jni; j++) {
       int j2 = pairup_ij_noint[j] - 1;
 
-      nrrMatrix[i2+j2*n_var] = qp_edge_nrr(S, n_var, N, i2, j2, q, nTests, alpha);
-
-      nrrMatrix[j2+i2*n_var] = nrrMatrix[i2+j2*n_var]; /* symmetric! */
+      nrr[UTE2I(i2, j2)] = qp_edge_nrr(S, n_var, N, i2, j2, q, nTests, alpha);
       k++;
       pct = (int) ((k * 100) / n_adj);
       if (pct != ppct) {
@@ -335,9 +328,7 @@ qp_fast_nrr(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
     for (j=0; j < l_jni; j++) {
       int j2 = pairup_j_noint[j] - 1;
 
-      nrrMatrix[i2+j2*n_var] = qp_edge_nrr(S, n_var, N, i2, j2, q, nTests, alpha);
-
-      nrrMatrix[j2+i2*n_var] = nrrMatrix[i2+j2*n_var]; /* symmetric! */
+      nrr[UTE2I(i2, j2)] = qp_edge_nrr(S, n_var, N, i2, j2, q, nTests, alpha);
       k++;
       pct = (int) ((k * 100) / n_adj);
       if (pct != ppct) {
@@ -367,9 +358,7 @@ qp_fast_nrr(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
     for (j = i+1; j < l_int; j++) {
       int j2 = pairup_ij_int[j] - 1;
 
-      nrrMatrix[i2+j2*n_var] = qp_edge_nrr(S, n_var, N, i2, j2, q, nTests, alpha);
-
-      nrrMatrix[j2+i2*n_var] = nrrMatrix[i2+j2*n_var]; /* symmetric! */
+      nrr[UTE2I(i2, j2)] = qp_edge_nrr(S, n_var, N, i2, j2, q, nTests, alpha);
       k++;
       pct = (int) ((k * 100) / n_adj);
       if (pct != ppct) {
@@ -395,9 +384,9 @@ qp_fast_nrr(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
   if (verbose)
     Rprintf("\n");
 
-  UNPROTECT(2);   /* SR nrrMatrixR */
+  UNPROTECT(2);   /* SR nrrR */
 
-  return nrrMatrixR;
+  return nrrR;
 }
 
 
@@ -434,8 +423,8 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup
   int*    Q;
   double* Qmat;
   double* Qinv;
-  SEXP nrrMatrixR;
-  double* nrrMatrix;
+  SEXP    nrrR;
+  double* nrr;
   int     verbose;
 
   PROTECT_INDEX Spi;
@@ -497,12 +486,11 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup
     Memcpy(pairup_ij_noint + l_ini, pairup_j_noint, (size_t) l_jni);
   }
 
-  PROTECT(nrrMatrixR = allocMatrix(REALSXP,n_var,n_var));
-  nrrMatrix = REAL(nrrMatrixR);
+  PROTECT(nrrR = allocVector(REALSXP, (n_var*(n_var-1))/2+n_var));
+  nrr = REAL(nrrR);
 
-  for (i=0;i<n_var;i++)
-    for (j=i;j<n_var;j++)
-      nrrMatrix[i+n_var*j] = nrrMatrix[j+n_var*i] = NA_REAL;
+  for (i=0;i < (n_var*(n_var-1))/2+n_var;i++)
+    nrr[i] = NA_REAL;
 
   n_adj = l_int * (l_jni + l_ini) + l_ini * l_jni + l_int * (l_int - 1) / 2;
 
@@ -516,10 +504,8 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup
     for (j=0; j < l_ini + l_jni; j++) {
       int j2 = pairup_ij_noint[j] - 1;
 
-      nrrMatrix[i2+j2*n_var] = qp_edge_nrr_identicalQs(S, n_var, q_by_T_samples, Qinv,
-                                                       N, i2, j2, q, nTests, alpha);
-
-      nrrMatrix[j2+i2*n_var] = nrrMatrix[i2+j2*n_var]; /* symmetric! */
+      nrr[UTE2I(i2, j2)] = qp_edge_nrr_identicalQs(S, n_var, q_by_T_samples, Qinv,
+                                                   N, i2, j2, q, nTests, alpha);
       k++;
       pct = (int) ((k * 100) / n_adj);
       if (pct != ppct) {
@@ -552,10 +538,8 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup
     for (j=0; j < l_jni; j++) {
       int j2 = pairup_j_noint[j] - 1;
 
-      nrrMatrix[i2+j2*n_var] = qp_edge_nrr_identicalQs(S, n_var, q_by_T_samples, Qinv,
-                                                       N, i2, j2, q, nTests, alpha);
-
-      nrrMatrix[j2+i2*n_var] = nrrMatrix[i2+j2*n_var]; /* symmetric! */
+      nrr[UTE2I(i2, j2)] = qp_edge_nrr_identicalQs(S, n_var, q_by_T_samples, Qinv,
+                                                   N, i2, j2, q, nTests, alpha);
       k++;
       pct = (int) ((k * 100) / n_adj);
       if (pct != ppct) {
@@ -585,10 +569,8 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup
     for (j = i+1; j < l_int; j++) {
       int j2 = pairup_ij_int[j] - 1;
 
-      nrrMatrix[i2+j2*n_var] = qp_edge_nrr_identicalQs(S, n_var, q_by_T_samples, Qinv,
-                                                       N, i2, j2, q, nTests, alpha);
-
-      nrrMatrix[j2+i2*n_var] = nrrMatrix[i2+j2*n_var]; /* symmetric! */
+      nrr[UTE2I(i2, j2)] = qp_edge_nrr_identicalQs(S, n_var, q_by_T_samples, Qinv,
+                                                   N, i2, j2, q, nTests, alpha);
       k++;
       pct = (int) ((k * 100) / n_adj);
       if (pct != ppct) {
@@ -616,9 +598,9 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup
   if (verbose)
     Rprintf("\n");
 
-  UNPROTECT(2);   /* SR nrrMatrixR */
+  UNPROTECT(2);   /* SR nrrR */
 
-  return nrrMatrixR;
+  return nrrR;
 }
 
 
@@ -726,7 +708,7 @@ qp_fast_nrr_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_noint
         int j2 = pairup_ij_noint[j] - 1;
 
         nrr[k-firstAdj] = qp_edge_nrr(S, n_var, N, i2, j2, q, nTests, alpha);
-        idx[k-firstAdj] = E2I(i2, j2);
+        idx[k-firstAdj] = UTE2I(i2, j2) + 1;
         k++;
       }
       j_first = 0;
@@ -748,7 +730,7 @@ qp_fast_nrr_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_noint
         int j2 = pairup_j_noint[j] - 1;
 
         nrr[k-firstAdj] = qp_edge_nrr(S, n_var, N, i2, j2, q, nTests, alpha);
-        idx[k-firstAdj] = E2I(i2, j2);
+        idx[k-firstAdj] = UTE2I(i2, j2) + 1;
         k++;
       }
       j_first = 0;
@@ -768,7 +750,7 @@ qp_fast_nrr_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_noint
       j2 = pairup_ij_int[j] - 1;
 
       nrr[k-firstAdj] = qp_edge_nrr(S, n_var, N, i2, j2, q, nTests, alpha);
-      idx[k-firstAdj] = E2I(i2, j2);
+      idx[k-firstAdj] = UTE2I(i2, j2) + 1;
       k++;
     }
   }
@@ -917,7 +899,7 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pa
 
         nrr[k-firstAdj] = qp_edge_nrr_identicalQs(S, n_var, q_by_T_samples, Qinv,
                                                   N, i2, j2, q, nTests, alpha);
-        idx[k-firstAdj] = E2I(i2, j2);
+        idx[k-firstAdj] = UTE2I(i2, j2) + 1;
         k++;
       }
       j_first = 0;
@@ -940,7 +922,7 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pa
 
         nrr[k-firstAdj] = qp_edge_nrr_identicalQs(S, n_var, q_by_T_samples, Qinv,
                                                   N, i2, j2, q, nTests, alpha);
-        idx[k-firstAdj] = E2I(i2, j2);
+        idx[k-firstAdj] = UTE2I(i2, j2) + 1;
         k++;
       }
       j_first = 0;
@@ -961,7 +943,7 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pa
 
       nrr[k-firstAdj] = qp_edge_nrr_identicalQs(S, n_var, q_by_T_samples, Qinv,
                                                 N, i2, j2, q, nTests, alpha);
-      idx[k-firstAdj] = E2I(i2, j2);
+      idx[k-firstAdj] = UTE2I(i2, j2) + 1;
       k++;
     }
   }
@@ -971,47 +953,6 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pa
   UNPROTECT(3);   /* SR result result_names */
 
   return result;
-}
-
-
-
-/*
-  FUNCTION: qp_assemble_nrr_matrix
-  PURPOSE: assemble a matrix of non-rejection rate values from the two
-           input arguments corresponding to the values and the indexes
-           of the cells they should occupy within the corresponding
-           symmetric matrix. cells withouth non-rejection rate values
-           are set to NA
-  RETURNS: a matrix of non-rejection rate values
-*/
-
-static SEXP
-qp_assemble_nrr_matrix(SEXP nVarR, SEXP nrrR, SEXP idxR) {
-  int     n_var = INTEGER(nVarR)[0];
-  double* nrr = REAL(nrrR);
-  int*    idx = INTEGER(idxR);
-  int     n_adj = length(nrrR);
-  SEXP    nrrMatrixR;
-  double* nrrMatrix;
-  int     i,j;
-
-  PROTECT(nrrMatrixR = allocMatrix(REALSXP, n_var, n_var));
-  nrrMatrix = REAL(nrrMatrixR);
-
-  for (i=0;i<n_var;i++)
-    for (j=i;j<n_var;j++)
-      nrrMatrix[i+n_var*j] = nrrMatrix[j+n_var*i] = NA_REAL;
-
-  for (i=0; i < n_adj; i++) {
-    int u,v;
-
-    i2e(idx[i], &u, &v);
-    nrrMatrix[u+n_var*v] = nrrMatrix[v+n_var*u] = nrr[i];
-  }
-
-  UNPROTECT(1);   /* nrrMatrixR */
-
-  return nrrMatrixR;
 }
 
 

@@ -55,9 +55,10 @@ order of magnitude (depending on \code{p} and \code{q}) while asymptotically
 the estimation of the non-rejection rate converges to the same value.
 }
 \value{
-A symmetric matrix of estimated non-rejection rates with the diagonal set to
-\code{NA}. When using the arguments \code{pairup.i} and \code{pairup.j}, those
-cells outside the constraint pairs will get also a \code{NA} value.
+A \code{\link{dspMatrix-class}} symmetric matrix of estimated non-rejection
+rates with the diagonal set to \code{NA} values. When using the arguments
+\code{pairup.i} and \code{pairup.j}, those cells outside the constraint pairs
+will get also a \code{NA} value.
 }
 \references{
 Castelo, R. and Roverato, A. A robust procedure for
@@ -83,7 +84,7 @@ set.seed(123)
 
 A <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
 Sigma <- qpG2Sigma(A, rho=0.5)
-X <- rmvnorm(nObs, sigma=Sigma)
+X <- rmvnorm(nObs, sigma=as.matrix(Sigma))
 
 nrr.estimates <- qpNrr(X, q=5, verbose=FALSE)
 
@@ -103,7 +104,7 @@ library(snow)
 nVar <- 500
 A <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
 Sigma <- qpG2Sigma(A, rho=0.5)
-X <- rmvnorm(nObs, sigma=Sigma)
+X <- rmvnorm(nObs, sigma=as.matrix(Sigma))
 
 system.time(nrr.estimates <- qpNrr(X, q=5, verbose=FALSE))
 system.time(nrr.estimates <- qpNrr(X, q=5, verbose=FALSE, clusterSize=8))

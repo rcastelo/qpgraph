@@ -1,6 +1,7 @@
 \name{qpFunctionalCoherence}
 \alias{qpFunctionalCoherence}
 \alias{qpFunctionalCoherence,matrix-method}
+\alias{qpFunctionalCoherence,lsCMatrix-method}
 \alias{qpFunctionalCoherence,list-method}
 
 \title{
@@ -12,6 +13,8 @@ specified either as an adjacency matrix with a list of transcription factor gene
 identifiers or as a list of transcriptional regulatory modules.
 }
 \usage{
+\S4method{qpFunctionalCoherence}{lsCMatrix}(object, TFgenes, geneUniverse=rownames(object),
+                                            chip, minRMsize=5, verbose=FALSE)
 \S4method{qpFunctionalCoherence}{matrix}(object, TFgenes, geneUniverse=rownames(object),
                                          chip, minRMsize=5, verbose=FALSE)
 \S4method{qpFunctionalCoherence}{list}(object, geneUniverse=unique(c(names(object), unlist(object, use.names=FALSE))),

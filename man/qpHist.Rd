@@ -50,7 +50,7 @@ nObs <- 30  ## number of observations to simulate
 
 A <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
 Sigma <- qpG2Sigma(A, rho=0.5)
-X <- rmvnorm(nObs, sigma=Sigma)
+X <- rmvnorm(nObs, sigma=as.matrix(Sigma))
 
 nrr.estimates <- qpNrr(X, q=5, verbose=FALSE)
 

@@ -3,6 +3,8 @@ CHANGES IN VERSION 1.5
 
 USER VISIBLE CHANGES
 
+    o updated the functions that work with covariance, correlations, adjacency and non-rejection rate matrices to employ more efficient matrix classes from the Matrix package
+
     o added a new function qpCov() and its man page to calculate sample covariance matrices returning them as 'dspMatrix' objects. Fixed some NAMESPACE and dependence issues
 
     o handling of covariance matrices as 'dspMatrix' objects via the recommended 'Matrix' package

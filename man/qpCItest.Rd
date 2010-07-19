@@ -69,7 +69,7 @@ A <- matrix(c(FALSE,  TRUE,  TRUE,  TRUE,
               TRUE,   TRUE, FALSE, FALSE), nrow=4, ncol=4, byrow=TRUE)
 Sigma <- qpG2Sigma(A, rho=0.5)
 
-X <- rmvnorm(nObs, sigma=Sigma)
+X <- rmvnorm(nObs, sigma=as.matrix(Sigma))
 
 qpCItest(X, i=3, j=4, Q=1, long.dim.are.variables=FALSE)
 

@@ -70,7 +70,7 @@ set.seed(123)
 
 A <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
 Sigma <- qpG2Sigma(A, rho=0.5)
-X <- rmvnorm(nObs, sigma=Sigma)
+X <- rmvnorm(nObs, sigma=as.matrix(Sigma))
 
 ## estimate non-rejection rates
 nrr.estimates <- qpNrr(X, q=5, verbose=FALSE)

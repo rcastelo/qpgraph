@@ -12,16 +12,16 @@ Estimates Pearson correlation coefficients (PCCs) and their corresponding
 P-values between all pairs of variables from an input data set.
 }
 \usage{
-\S4method{qpPCC}{ExpressionSet}(data)
-\S4method{qpPCC}{data.frame}(data, long.dim.are.variables=TRUE)
-\S4method{qpPCC}{matrix}(data, long.dim.are.variables=TRUE)
+\S4method{qpPCC}{ExpressionSet}(X)
+\S4method{qpPCC}{data.frame}(X, long.dim.are.variables=TRUE)
+\S4method{qpPCC}{matrix}(X, long.dim.are.variables=TRUE)
 }
 \arguments{
-  \item{data}{data set from where to estimate the Pearson correlation
+  \item{X}{data set from where to estimate the Pearson correlation
        coefficients. It can be an ExpressionSet object, a data frame or a
        matrix.}
   \item{long.dim.are.variables}{logical; if TRUE it is assumed
-       that when data are in a data frame or in a matrix, the longer dimension
+       that when \code{X} is a data frame or a matrix, the longer dimension
        is the one defining the random variables (default); if FALSE, then random
        variables are assumed to be at the columns of the data frame or matrix.}
 }
@@ -50,7 +50,7 @@ set.seed(123)
 g <- randomEGraph(as.character(1:nVar), p=0.15)
 
 Sigma <- qpG2Sigma(g, rho=0.5)
-X <- rmvnorm(nObs, sigma=Sigma)
+X <- rmvnorm(nObs, sigma=as.matrix(Sigma))
 
 pcc.estimates <- qpPCC(X)
 

@@ -62,7 +62,7 @@ set.seed(123)
 g <- randomEGraph(as.character(1:nVar), p=0.15)
 
 Sigma <- qpG2Sigma(g, rho=0.5)
-X <- rmvnorm(nObs, sigma=Sigma)
+X <- rmvnorm(nObs, sigma=as.matrix(Sigma))
 
 ## MLE of the sample covariance matrix
 S <- cov(X)

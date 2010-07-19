@@ -147,12 +147,12 @@ setMethod("qpNrr", signature(X="matrix"),
       stop("Unknown class for argument clusterSize:", class(clusterSize))
   }
 
-  # X the matrix of data with columns as r.v. and rows as multivariate observations
+  ## X the matrix of data with columns as r.v. and rows as multivariate observations
   var.names <- colnames(X)
   n.var <- ncol(X)
   N <- nrow(X)
 
-  # check that the parameters have proper values
+  ## check that the parameters have proper values
 
   if (q > n.var - 2)
     stop(paste("q=",q," > n.var-2=",n.var-2))
@@ -168,12 +168,12 @@ setMethod("qpNrr", signature(X="matrix"),
     stop(paste("nTests=",nTests," < 1"))
 
   if (alpha < 0.0 || alpha > 1.0) {
-    stop(sprintf("significance level alpha is %.2f and it must lie in the interval [0,1]\n",alpha))
+    stop(sprintf("significance level alpha is %.2f and it should lie in the interval [0,1]\n",alpha))
   }
 
   if ((!is.null(pairup.i) && is.null(pairup.j)) ||
       (is.null(pairup.i) && !is.null(pairup.j)))
-    stop("pairup.i and pairup.j must both either be set to NULL or contain subsets of variables\n")
+    stop("pairup.i and pairup.j should both either be set to NULL or contain subsets of variables\n")
 
   if (is.null(pairup.i))
     pairup.i <- 1:n.var
@@ -191,7 +191,7 @@ setMethod("qpNrr", signature(X="matrix"),
       stop("pairup.j is not a subset of the variables forming the data\n")
   }
 
-  # pair the two sets pairup.i and pairup.j without pairing the same variable
+  ## pair the two sets pairup.i and pairup.j without pairing the same variable
   l.pairup.i <- length(pairup.i)
   l.pairup.j <- length(pairup.j)
   l.int <- length(intersect(pairup.i, pairup.j))
@@ -209,13 +209,18 @@ setMethod("qpNrr", signature(X="matrix"),
   if (!R.code.only) {
     if (is.null(cl)) { ## single-processor execution
       if (identicalQs)
-        nrrMatrix <- qpgraph:::.qpFastNrrIdenticalQs(X, q, nTests, alpha, pairup.i.noint,
-                                                     pairup.j.noint, pairup.ij.int, verbose)
+        nrrMatrix <- new("dspMatrix", Dim=as.integer(c(n.var, n.var)),
+                         Dimnames=list(var.names, var.names),
+                         x=qpgraph:::.qpFastNrrIdenticalQs(X, q, nTests, alpha, pairup.i.noint,
+                                                           pairup.j.noint, pairup.ij.int, verbose))
       else
-        nrrMatrix <- qpgraph:::.qpFastNrr(X, q, nTests, alpha, pairup.i.noint,
-                                          pairup.j.noint, pairup.ij.int, verbose)
+        nrrMatrix <- new("dspMatrix", Dim=as.integer(c(n.var, n.var)),
+                         Dimnames=list(var.names, var.names),
+                         x=qpgraph:::.qpFastNrr(X, q, nTests, alpha, pairup.i.noint,
+                                                pairup.j.noint, pairup.ij.int, verbose))
     } else {           ## use a cluster !
       clCall <- get("clusterCall", mode="function")
+      nrrIdx <- list()
       if (identicalQs)
         nrrIdx <- clCall(cl, qpgraph:::.qpFastNrrIdenticalQsPar, X, q, nTests, alpha,
                          pairup.i.noint, pairup.j.noint, pairup.ij.int, verbose)
@@ -223,29 +228,18 @@ setMethod("qpNrr", signature(X="matrix"),
         nrrIdx <- clCall(cl, qpgraph:::.qpFastNrrPar, X, q, nTests, alpha,
                          pairup.i.noint, pairup.j.noint, pairup.ij.int, verbose)
 
-      if (verbose)
-        cat("Cluster execution finished, assembling results into a matrix\n")
-
       if (class(clusterSize)[1] == "numeric" || class(clusterSize)[1] == "integer")
         stopCl(cl)
 
-      nrrIdx <- list(nrr=do.call("c", lapply(nrrIdx, function(x) x$nrr)),
-                     idx=do.call("c", lapply(nrrIdx, function(x) x$idx)))
-      nrrIdx$idx <- sort(nrrIdx$idx, index.return=TRUE)
-      nrrIdx$nrr <- nrrIdx$nrr[nrrIdx$idx$ix]
-      nrrIdx$idx <- nrrIdx$idx$x
-      nrrMatrix <- qpgraph:::.qpAssembleNrrMatrix(n.var, nrrIdx)
+      nrrMatrix <- new("dspMatrix", Dim=as.integer(c(n.var, n.var)),
+                       Dimnames=list(var.names, var.names),
+                       x=rep(as.double(NA), n.var*(n.var-1)/2+n.var)) 
+      nrrMatrix@x[do.call("c", lapply(nrrIdx, function(x) x$idx))] <-
+        do.call("c", lapply(nrrIdx, function(x) x$nrr))
     }
-
-    rownames(nrrMatrix) <- colnames(nrrMatrix) <- var.names
 
     return(nrrMatrix)
   }
-
-  nrrMatrix <- matrix(as.double(NA), n.var, n.var)
-  rownames(nrrMatrix) <- colnames(nrrMatrix) <- var.names
-  ppct <- -1
-  k <- 0
 
   if (identicalQs) {
     nrrMatrix <- .qpNrrIdenticalQs(X, q, nTests, alpha, pairup.i.noint,
@@ -256,6 +250,13 @@ setMethod("qpNrr", signature(X="matrix"),
 
   ## calculate sample covariance matrix
   S <- qpCov(X)
+
+  ## the idea is to return an efficiently stored symmetric matrix
+  nrrMatrix <- new("dspMatrix", Dim=as.integer(c(n.var, n.var)),
+                   Dimnames=list(var.names, var.names),
+                   x=rep(as.double(NA), n.var*(n.var-1)/2+n.var))
+  ppct <- -1
+  k <- 0
 
   ## intersection variables against ij-exclusive variables
   for (i in pairup.ij.int) {
@@ -318,38 +319,42 @@ setMethod("qpNrr", signature(X="matrix"),
     cat("\n")
   }
 
-  return(nrrMatrix)
+  ## this is necessary till we find out how to properly assign values in a dspMatrix
+  return(as(nrrMatrix, "dspMatrix"))
 }
 
 .qpNrrIdenticalQs <- function(X, q, nTests, alpha, pairup.i.noint,
                               pairup.j.noint, pairup.ij.int, verbose) {
 
-  # X the matrix of data with columns as r.v. and rows as multivariate observations
+  ## X the matrix of data with columns as r.v. and rows as multivariate observations
   var.names <- colnames(X)
   n.var <- ncol(X)
   N <- nrow(X)
 
-  # how many adjacencies do we have to calculate
+  ## how many adjacencies do we have to calculate
   l.int <- length(pairup.ij.int)
   l.pairup.i.noint <- length(pairup.i.noint)
   l.pairup.j.noint <- length(pairup.j.noint)
   n.adj <- l.int * l.pairup.j.noint + l.int * l.pairup.i.noint +
            l.pairup.i.noint * l.pairup.j.noint + l.int * (l.int - 1) / 2
 
-  nrrMatrix <- matrix(as.double(NA), n.var, n.var)
-  rownames(nrrMatrix) <- colnames(nrrMatrix) <- var.names
-  ppct <- -1
-  k <- 0
-
-  # calculate sample covariance matrix
+  ## calculate sample covariance matrix
   S <- qpCov(X)
 
-  # sample the Q sets and pre-calculate the inverse matrices
+  ## sample the Q sets and pre-calculate the inverse matrices
   Qs <- as.list(array(dim=nTests))
   Qs <- lapply(Qs, function(x) sample(1:n.var, size=q, replace=FALSE))
   S22invs <- lapply(Qs, function(x) solve(S[x, x]) )
 
-  # intersection variables against ij-exclusive variables
+  ## the idea is to return an efficiently stored symmetric matrix
+  nrrMatrix <- new("dspMatrix", Dim=as.integer(c(n.var, n.var)),
+                   Dimnames=list(var.names, var.names),
+                   x=rep(as.double(NA), n.var*(n.var-1)/2+n.var))
+
+  ppct <- -1
+  k <- 0
+
+  ## intersection variables against ij-exclusive variables
   for (i in pairup.ij.int) {
     for (j in c(pairup.i.noint,pairup.j.noint)) {
       nrrMatrix[j,i] <- nrrMatrix[i,j] <-
@@ -367,7 +372,7 @@ setMethod("qpNrr", signature(X="matrix"),
     }
   }
 
-  # i-exclusive variables against j-exclusive variables
+  ## i-exclusive variables against j-exclusive variables
   for (i in pairup.i.noint) {
     for (j in pairup.j.noint) {
       nrrMatrix[j,i] <- nrrMatrix[i,j] <-
@@ -387,7 +392,7 @@ setMethod("qpNrr", signature(X="matrix"),
 
   l.int <- length(pairup.ij.int)
 
-  # intersection variables against themselves (avoiding pairing of the same)
+  ## intersection variables against themselves (avoiding pairing of the same)
   for (i in 1:(l.int-1)) {
     i2 <- pairup.ij.int[i]
 
@@ -412,7 +417,8 @@ setMethod("qpNrr", signature(X="matrix"),
     cat("\n")
   }
 
-  return(nrrMatrix)
+  ## this is necessary till we find out how to properly assign values in a dspMatrix
+  return(as(nrrMatrix, "dspMatrix"))
 }
 
 
@@ -547,7 +553,7 @@ setMethod("qpAvgNrr", signature(X="matrix"),
 
   if ((!is.null(pairup.i) && is.null(pairup.j)) ||
       (is.null(pairup.i) && !is.null(pairup.j)))
-    stop("pairup.i and pairup.j must both either be set to NULL or contain subsets of variables\n")
+    stop("pairup.i and pairup.j should both either be set to NULL or contain subsets of variables\n")
 
   if (length(qOrders) == 1) {
     if (qOrders > min(n.var, N) - 3)
@@ -559,20 +565,23 @@ setMethod("qpAvgNrr", signature(X="matrix"),
   } else {
     qOrders <- as.integer(qOrders)
     if (min(qOrders) < 1 || max(qOrders) > min(n.var,N))
-      stop(sprintf("for the given data set q-orders must lie in the range [1,%d]\n",
+      stop(sprintf("for the given data set q-orders should lie in the range [1,%d]\n",
                    min(n.var,N)))
   }
 
   w <- 1 / length(qOrders)
-  avgNrrMatrix <- matrix(0,nrow=n.var,ncol=n.var)
-  rownames(avgNrrMatrix) <- colnames(avgNrrMatrix) <- var.names
+  ## the idea is to return an efficiently stored symmetric matrix
+  avgNrrMatrix <- new("dspMatrix", Dim=as.integer(c(n.var, n.var)),
+                      Dimnames=list(var.names, var.names),
+                      x=rep(as.double(0), n.var*(n.var-1)/2+n.var))
   for (q in qOrders) {
     if (verbose)
       cat(sprintf("q=%d\n",q))
 
-    avgNrrMatrix <- avgNrrMatrix +
-                    w * qpgraph:::.qpNrr(X, q, nTests, alpha, pairup.i, pairup.j,
-                                         verbose, identicalQs, R.code.only, cl)
+    ## this is necessary till we find out how to sum two dspMatrices getting a dspMatrix
+    avgNrrMatrix <- as(avgNrrMatrix +
+                       w * qpgraph:::.qpNrr(X, q, nTests, alpha, pairup.i, pairup.j,
+                                            verbose, identicalQs, R.code.only, cl), "dspMatrix")
   }
 
   if (clusterSize > 1 && !is.null(cl))
@@ -720,7 +729,7 @@ setMethod("qpGNrr", signature(data="matrix"),
 
   if ((!is.null(pairup.i) && is.null(pairup.j)) ||
       (is.null(pairup.i) && !is.null(pairup.j)))
-    stop("pairup.i and pairup.j must both either be set to NULL or contain subsets of variables\n")
+    stop("pairup.i and pairup.j should both either be set to NULL or contain subsets of variables\n")
 
   if (length(qOrders) == 1) {
     if (qOrders > min(n.var, N) - 3)
@@ -732,7 +741,7 @@ setMethod("qpGNrr", signature(data="matrix"),
   } else {
     qOrders <- as.integer(qOrders)
     if (min(qOrders) < 1 || max(qOrders) > min(n.var,N))
-      stop(sprintf("for the given data set q-orders must lie in the range [1,%d]\n",
+      stop(sprintf("for the given data set q-orders should lie in the range [1,%d]\n",
                    min(n.var,N)))
   }
 
@@ -1030,13 +1039,13 @@ setMethod("qpCItest", signature(X="matrix"),
   S21     <- Mmar[-1,1]
   S22     <- Mmar[-1,-1]
   S22inv  <- solve(S22)
-  betahat <- S12 %*% S22inv[,1]
+  betahat <- as.numeric(S12 %*% S22inv[,1])
   sigma   <- sqrt((S11 - S12 %*% S22inv %*% S21) * (N - 1) / (N - q - 2))
-  se      <- sigma * sqrt(S22inv[1,1] / (N - 1))
+  se      <- as.numeric(sigma * sqrt(S22inv[1,1] / (N - 1)))
   t.value <- betahat / se
   p.value <- 2 * (1 - pt(abs(t.value), N - q - 2))
 
-  return(list(t.value=t.value,p.value=p.value))
+  return(list(t.value=t.value, p.value=p.value))
 }
 
 
@@ -1060,13 +1069,13 @@ qpHist <- function(nrrMatrix, A=NULL,
     hist(nrr, col="yellow", main=titlehist, xlab="non-rejection rate", freq=freq)
   } else {
     # only beta
-    T <- nrrMatrix
-    T[!A] <- -1
+    T <- as.matrix(nrrMatrix) ## till [<- works with dspMatrix matrices
+    T[!as.matrix(A)] <- -1
     xbeta <- T[upper.tri(T)]
     xbeta <- xbeta[xbeta != -1]
     # not beta
-    T <- nrrMatrix
-    T[A] <- -1
+    T <- as.matrix(nrrMatrix) ## till [<- works with dspMatrix matrices
+    T[as.matrix(A)] <- -1
     xnotbeta <- T[upper.tri(T)]
     xnotbeta <- xnotbeta[xnotbeta != -1]
     # plots
@@ -1120,6 +1129,10 @@ qpGraph <- function(nrrMatrix, threshold=NULL, topPairs=NULL, pairup.i=NULL,
 
   return.type <- match.arg(return.type)
 
+  ## by now we need to coerce the dspMatrix into a regular matrix
+  ## hopefully this can be removed in the near future
+  nrrMatrix <- as(nrrMatrix, "matrix")
+
   n.var <- nrow(nrrMatrix)
 
   if (is.null(colnames(nrrMatrix))) {
@@ -1129,18 +1142,18 @@ qpGraph <- function(nrrMatrix, threshold=NULL, topPairs=NULL, pairup.i=NULL,
   }
 
   if (is.null(threshold) && is.null(topPairs))
-    stop("either threshold or topPairs must be set different to NULL\n")
+    stop("either threshold or topPairs should be set different to NULL\n")
 
   if (!is.null(threshold) && !is.null(topPairs))
     stop("only either threshold or topPairs can be set different to NULL\n")
 
   if ((!is.null(pairup.i) && is.null(pairup.j)) ||
       (is.null(pairup.i) && !is.null(pairup.j)))
-    stop("pairup.i and pairup.j must both either be set to NULL or contain subsets of variables\n")
+    stop("pairup.i and pairup.j should both either be set to NULL or contain subsets of variables\n")
 
   if (!is.null(pairup.i) && !is.null(pairup.j))  {
     if (is.null(colnames(nrrMatrix)))
-      stop("when using pairup.i and pairup.j, nrrMatrix must have row and column names\n")
+      stop("when using pairup.i and pairup.j, nrrMatrix should have row and column names\n")
 
     var.names <- colnames(nrrMatrix)
     pairup.i <- match(pairup.i, var.names)
@@ -1188,7 +1201,8 @@ qpGraph <- function(nrrMatrix, threshold=NULL, topPairs=NULL, pairup.i=NULL,
   diag(A) <- FALSE # whatever the threshold is the graph should have no loops
 
   if (return.type == "adjacency.matrix") {
-    return(A)
+    require(Matrix)
+    return(Matrix(A))
   } else if (return.type == "edge.list") {
     m <- cbind(row(A)[upper.tri(A) & A],col(A)[upper.tri(A) & A])
     colnames(m) <- c("i","j")
@@ -1240,6 +1254,10 @@ qpAnyGraph <- function(measurementsMatrix, threshold=NULL, remove=c("below", "ab
   remove <- match.arg(remove)
   return.type <- match.arg(return.type)
 
+  ## by now we need to coerce the dspMatrix into a regular matrix
+  ## hopefully in the near future we can do also [<- on dspMatrix matrices
+  measurementsMatrix <- as(measurementsMatrix, "matrix")
+
   n.var <- nrow(measurementsMatrix)
 
   if (is.null(colnames(measurementsMatrix))) {
@@ -1249,18 +1267,18 @@ qpAnyGraph <- function(measurementsMatrix, threshold=NULL, remove=c("below", "ab
   }
 
   if (is.null(threshold) && is.null(topPairs))
-    stop("either threshold or topPairs must be set different to NULL\n")
+    stop("either threshold or topPairs should be set different to NULL\n")
 
   if (!is.null(threshold) && !is.null(topPairs))
     stop("only either threshold or topPairs can be set different to NULL\n")
 
   if ((!is.null(pairup.i) && is.null(pairup.j)) ||
       (is.null(pairup.i) && !is.null(pairup.j)))
-    stop("pairup.i and pairup.j must both either be set to NULL or contain subsets of variables\n")
+    stop("pairup.i and pairup.j should both either be set to NULL or contain subsets of variables\n")
 
   if (!is.null(pairup.i) && !is.null(pairup.j))  {
     if (is.null(colnames(measurementsMatrix)))
-      stop("when using pairup.i and pairup.j, measurementsMatrix must have row and column names\n")
+      stop("when using pairup.i and pairup.j, measurementsMatrix should have row and column names\n")
 
     var.names <- colnames(measurementsMatrix)
     pairup.i <- match(pairup.i, var.names)
@@ -1318,7 +1336,8 @@ qpAnyGraph <- function(measurementsMatrix, threshold=NULL, remove=c("below", "ab
   diag(A) <- FALSE ## whatever the threshold is the graph should have no loops
 
   if (return.type == "adjacency.matrix") {
-    return(A)
+    require(Matrix)
+    return(Matrix(A))
   } else if (return.type == "edge.list") {
     m <- cbind(row(A)[upper.tri(A) & A],col(A)[upper.tri(A) & A])
     colnames(m) <- c("i","j")
@@ -1376,9 +1395,12 @@ qpGraphDensity <- function(nrrMatrix, threshold.lim=c(0,1), breaks=5,
     }
 
     matgdthr <- matrix(rep(0,length(br)*2),nrow=length(br),ncol=2)
-    colnames(matgdthr) <- c("density","threshold")
+    colnames(matgdthr) <- c("density", "threshold")
     n.var <- nrow(nrrMatrix)
     n.adj <- n.var*(n.var-1)/2
+
+    ## by now we coerce this to a regular matrix
+    nrrMatrix <- as(nrrMatrix, "matrix")
 
     for (i in 1:length(br)) {
       threshold <- br[i]
@@ -1421,7 +1443,7 @@ qpGraphDensity <- function(nrrMatrix, threshold.lim=c(0,1), breaks=5,
 
 ## function: qpCliqueNumber
 ## purpose: calculate the size of the largest maximal clique in a given undirected graph
-## parameters: g - either a graphNEL object or an adjacency matrix of the graph
+## parameters: g - either a graphNEL, graphAM object or an adjacency matrix of the graph
 ##             exact.calculation - flag that when set to TRUE the exact maximum clique
 ##                                 size is calculated and when set to FALSE a lower
 ##                                 bound is calculated instead
@@ -1438,21 +1460,22 @@ qpGraphDensity <- function(nrrMatrix, threshold.lim=c(0,1), breaks=5,
 qpCliqueNumber <- function(g, exact.calculation=TRUE, return.vertices=FALSE,
                            approx.iter=100, verbose=TRUE, R.code.only=FALSE) {
 
-  if (class(g) == "graphNEL") {
+  if (class(g) == "graphNEL" || class(g) == "graphAM") {
     require(graph)
     if (edgemode(g) != "undirected")
-      stop("g must be an undirected graph\n")
+      stop("g should be an undirected graph\n")
 
     A <- as(g, "matrix") == 1
-  } else if (is.matrix(g)) {
+  } else if (class(g) == "matrix" || class(g) == "lsCMatrix") {
     A <- g
-    if (nrow(A) != ncol(A))
-      stop("g is not an squared matrix nor a graphNEL object\n")
+    p <- (d <- dim(A))[1]
+    if (p != d[2])
+      stop("g is not an squared adjacency matrix nor a graphNEL or graphAM object\n")
 
-    if (!identical(A, t(A)))
-      stop("g is not a symmetric matrix nor a graphNEL object\n")
+    if (!isSymmetric(A))
+      stop("g is not a symmetric adjacency matrix nor a graphNEL or graphAM object\n")
   } else
-    stop("g must be either a graphNEL object or a boolean adjacency matrix\n")
+    stop("g should be either a graphNEL object, a graphAM object or a boolean adjacency matrix or dspMatrix\n")
 
   if (exact.calculation && R.code.only)
     stop("R code is only available for the lower bound approximation and not for the exact calculation\n");
@@ -1483,13 +1506,13 @@ qpCliqueNumber <- function(g, exact.calculation=TRUE, return.vertices=FALSE,
     A <- A == 1 ## make sure we get a boolean matrix
 
     maximum_clique <-
-      qpgraph:::.qpCliqueNumberOstergard(A,
+      qpgraph:::.qpCliqueNumberOstergard(as.matrix(A),
                                          return.vertices=return.vertices,
                                          verbose=verbose)
   } else {
     if (!R.code.only)
       maximum_clique <-
-        qpgraph:::.qpCliqueNumberLowerBound(A,
+        qpgraph:::.qpCliqueNumberLowerBound(as.matrix(A),
                                             return.vertices=return.vertices,
                                             approx.iter=approx.iter,
                                             verbose=verbose)
@@ -1501,7 +1524,7 @@ qpCliqueNumber <- function(g, exact.calculation=TRUE, return.vertices=FALSE,
       clique.number <- 0
       clique.vertices <- c()
 
-      A <- A + 0 ## make sure we get a 0-1 matrix
+      A <- as.matrix(A) + 0 ## make sure we get a 0-1 matrix
       deg <- sort(rowsum(A, rep(1,n.var)), index.return=TRUE,
                   decreasing=TRUE) ## order by degree
 
@@ -1616,6 +1639,9 @@ qpClique <- function(nrrMatrix, N=NA, threshold.lim=c(0,1), breaks=5, plot=TRUE,
     n.var <- nrow(nrrMatrix)
     n.adj <- n.var*(n.var-1)/2
 
+    ## by now we coerce this to a regular matrix
+    nrrMatrix <- as(nrrMatrix, "matrix")
+
     for (i in 1:length(br)) {
       if (verbose) {
         cat(paste("break: ",i,sep=""))
@@ -1703,23 +1729,25 @@ qpClique <- function(nrrMatrix, N=NA, threshold.lim=c(0,1), breaks=5, plot=TRUE,
 
 qpGetCliques <- function(g, clqspervtx=FALSE, verbose=TRUE) {
 
-  if (class(g) == "graphNEL") {
+  if (class(g) == "graphNEL" || class(g) == "graphAM") {
     require(graph)
     if (edgemode(g) != "undirected")
-      stop("g must be an undirected graph\n")
+      stop("g should be an undirected graph\n")
 
     A <- as(g, "matrix") == 1
-  } else if (is.matrix(g)) {
+  } else if (class(g) == "matrix" || class(g) == "lsCMatrix") {
     A <- g
-    if (nrow(A) != ncol(A))
+    p <- (d <- dim(A))[1]
+    if (p != d[2])
       stop("g is not an squared matrix nor a graphNEL object\n")
 
-    if (!identical(A, t(A)))
+    if (!isSymmetric(A))
       stop("g is not a symmetric matrix nor a graphNEL object\n")
   } else
-    stop("g must be either a graphNEL object or a boolean adjacency matrix\n")
+    stop("g should be either a graphNEL object, a graphAM object or a boolean adjacency matrix\n")
 
-  return(qpgraph:::.qpFastCliquerGetCliques(A, clqspervtx=clqspervtx, verbose=verbose))
+  return(qpgraph:::.qpFastCliquerGetCliques(as.matrix(A), clqspervtx=clqspervtx,
+                                            verbose=verbose))
 }
 
 
@@ -1742,6 +1770,9 @@ qpGetCliques <- function(g, clqspervtx=FALSE, verbose=TRUE) {
 qpIPF <- function(vv, clqlst, tol = 0.001, verbose = FALSE,
                   R.code.only = FALSE) {
 
+  ## this should be changed so that the rest of the algorithm deals with dspMatrix matrices
+  vv <- as(vv, "matrix")
+
   if (!R.code.only) {
     return(qpgraph:::.qpFastIPF(vv,clqlst,tol,verbose))
   }
@@ -1763,7 +1794,7 @@ qpIPF <- function(vv, clqlst, tol = 0.001, verbose = FALSE,
       cat("qpIPF: precision =", max(abs(V - Vold)), "\n")
   }
 
-  return(V)
+  return(as(V, "dspMatrix"))
 }
 
 
@@ -1772,7 +1803,7 @@ qpIPF <- function(vv, clqlst, tol = 0.001, verbose = FALSE,
 ## purpose: for a given undirected graph in an adjacency matrix estimate the
 ##          partial correlation coefficient (PAC) and its corresponding p-value
 ##          for each edge in the graph
-## parameters: data - data set from where to estimate the PACs
+## parameters: X - data set from where to estimate the PACs
 ##             g - either a graphNEL object or an adjacency matrix of the graph
 ##             long.dim.are.variables - if TRUE it assumes that when the data is
 ##                                      a data frame or a matrix, the longer
@@ -1788,107 +1819,105 @@ qpIPF <- function(vv, clqlst, tol = 0.001, verbose = FALSE,
 ## return: a list with two matrices, one with the estimates of the PACs and
 ##         the other with their p-values
 
-setGeneric("qpPAC", function(data, ...) standardGeneric("qpPAC"))
+setGeneric("qpPAC", function(X, ...) standardGeneric("qpPAC"))
 
-# data comes as an ExpressionSet object
-setMethod("qpPAC", signature(data="ExpressionSet"),
-          function(data, g, return.K=FALSE, verbose=TRUE,
+# X comes as an ExpressionSet object
+setMethod("qpPAC", signature(X="ExpressionSet"),
+          function(X, g, return.K=FALSE, verbose=TRUE,
                    R.code.only=FALSE) {
-            exp <- t(exprs(data))
-            S <- cov(exp)
-            N <- length(sampleNames(data))
-            rownames(S) <- colnames(S) <- featureNames(data)
-            qpgraph:::.qpPAC(S, N, g, return.K, verbose, R.code.only)
+            X <- t(exprs(X))
+            qpgraph:::.qpPAC(X, g, return.K, verbose, R.code.only)
           })
 
-# data comes as a data frame
-setMethod("qpPAC", signature(data="data.frame"),
-          function(data, g, return.K=FALSE,
+# X comes as a data frame
+setMethod("qpPAC", signature(X="data.frame"),
+          function(X, g, return.K=FALSE,
                    long.dim.are.variables=TRUE, verbose=TRUE,
-                    R.code.only=FALSE) {
-            m <- as.matrix(data)
-            rownames(m) <- rownames(data)
-            if (!is.double(m))
-              stop("data should be double-precision real numbers\n")
+                   R.code.only=FALSE) {
+            X <- as.matrix(X)
+            if (!is.double(X))
+              stop("X should be double-precision real numbers\n")
 
             if (long.dim.are.variables &&
-                sort(dim(m),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
-              m <- t(m)
-            S <- cov(m)
-            N <- length(m[,1])
-            if (is.null(colnames(m)))
-              rownames(S) <- colnames(S) <- 1:nrow(S)
-            else
-              rownames(S) <- colnames(S) <- colnames(data)
-            qpgraph:::.qpPAC(S, N, g, return.K, verbose, R.code.only)
+                sort(dim(X),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
+              X <- t(X)
+            if (is.null(colnames(X)))
+              colnames(X) <- 1:ncol(X)
+            qpgraph:::.qpPAC(X, g, return.K, verbose, R.code.only)
           })
 
           
 # data comes as a matrix
-setMethod("qpPAC", signature(data="matrix"),
-          function(data, g, return.K=FALSE,
+setMethod("qpPAC", signature(X="matrix"),
+          function(X, g, return.K=FALSE,
                    long.dim.are.variables=TRUE, verbose=TRUE,
                    R.code.only=FALSE) {
             if (long.dim.are.variables &&
-              sort(dim(data),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
-              data <- t(data)
+              sort(dim(X),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
+              X <- t(X)
 
-            S <- cov(data)
-            N <- length(data[,1])
-            if (is.null(colnames(data))) 
-              rownames(S) <- colnames(S) <- 1:nrow(S)
-            else
-              rownames(S) <- colnames(S) <- colnames(data)
-            qpgraph:::.qpPAC(S, N, g, return.K, verbose, R.code.only)
+            if (is.null(colnames(X))) 
+              colnames(X) <- 1:ncol(X)
+            qpgraph:::.qpPAC(X, g, return.K, verbose, R.code.only)
           })
 
-.qpPAC <- function(S, N, g, return.K=FALSE, verbose=TRUE, R.code.only=FALSE) {
+.qpPAC <- function(X, g, return.K=FALSE, verbose=TRUE, R.code.only=FALSE) {
 
-  if (class(g) == "graphNEL") {
+  if (class(g) == "graphNEL" || class(g) == "graphAM") {
     require(graph)
     if (edgemode(g) != "undirected")
-      stop("g must be an undirected graph\n")
+      stop("g should be an undirected graph\n")
 
     A <- as(g, "matrix") == 1
-  } else if (is.matrix(g)) {
+  } else if (class(g) == "matrix" || class(g) == "lsCMatrix") {
     A <- g
-    if (nrow(A) != ncol(A))
+    p <- (d <- dim(A))[1]
+    if (p != d[2])
       stop("g is not an squared matrix nor a graphNEL object\n")
 
-    if (!identical(A, t(A)))
+    if (!isSymmetric(A))
       stop("g is not a symmetric matrix nor a graphNEL object\n")
   } else
-    stop("g must be either a graphNEL object or a boolean adjacency matrix\n")
+    stop("g should be either a graphNEL object or a boolean adjacency matrix\n")
 
-  var.names <- rownames(S)
-  n.var <- nrow(S)
+  var.names <- colnames(X)
+  n.var <- ncol(X)
+  N <- nrow(X)
+
+  ## calculate sample covariance matrix
+  S <- qpCov(X)
   dimnames(A) <- dimnames(S)
 
-  # get the cliques
+  ## get the cliques
 
   clqlst <- qpGetCliques(A, verbose=verbose)
 
-  # get a maximum likelihood estimate of the sample covariance matrix
-  # using the clique list
+  ## get a maximum likelihood estimate of the sample covariance matrix
+  ## using the clique list
 
   Shat <- qpIPF(S, clqlst, verbose=verbose, R.code.only=R.code.only)
 
-  # estimate partial correlation coefficients and their standard errors
+  ## estimate partial correlation coefficients and their standard errors
 
   K <- solve(Shat)
   SE <- qpgraph:::.qpEdgePACSE(Shat, A, R.code.only=R.code.only)
 
-  # return matrices of partial correlations, standard errors
-  # and p-values for every edge
+  ## return matrices of partial correlations, standard errors
+  ## and p-values for every edge
 
   C <- N * (K^2 / SE)
   rho_coef <- qpK2ParCor(K)
   p.values <- 1 - pchisq(C, df=1)
   dimnames(rho_coef) <- dimnames(p.values) <- list(var.names, var.names)
 
-  list2return <- list(R=rho_coef, P=p.values)
+  list2return <- list()
+
   if (return.K)
-    list2return <- list(R=rho_coef, P=p.values, K=K)
+    list2return <- list(R=as(forceSymmetric(rho_coef), "dspMatrix"),
+                        P=as(forceSymmetric(p.values), "dspMatrix"), K=Matrix(K))
+  else
+    list2return <- list(R=as(forceSymmetric(rho_coef), "dspMatrix"),
+                        P=as(forceSymmetric(p.values), "dspMatrix"))
 
   return(list2return)
 }
@@ -1898,7 +1927,7 @@ setMethod("qpPAC", signature(data="matrix"),
 ## function: qpPCC
 ## purpose: estimate pairwise Pearson correlation coefficients (PCCs) between all
 ##         pairs of variables
-## parameters: data - data set from where to estimate the PCCs
+## parameters: X - data set from where to estimate the PCCs
 ##             long.dim.are.variables - if TRUE it assumes that when the data is
 ##                                      a data frame or a matrix, the longer
 ##                                      dimension is the one defining the random
@@ -1907,72 +1936,65 @@ setMethod("qpPAC", signature(data="matrix"),
 ## return: a list with two matrices, one with the estimated PCCs and the
 ##         other with their p-values
 
-setGeneric("qpPCC", function(data, ...) standardGeneric("qpPCC"))
+setGeneric("qpPCC", function(X, ...) standardGeneric("qpPCC"))
 
-# data comes as an ExpressionSet object
-setMethod("qpPCC", signature(data="ExpressionSet"),
-          function(data) {
-            exp <- t(exprs(data))
-            S <- cov(exp)
-            N <- length(sampleNames(data))
-            rownames(S) <- colnames(S) <- featureNames(data)
-            qpgraph:::.qpPCC(S, N)
+# X comes as an ExpressionSet object
+setMethod("qpPCC", signature(X="ExpressionSet"),
+          function(X) {
+            X <- t(exprs(X))
+            qpgraph:::.qpPCC(X)
           })
 
-# data comes as a data frame
-setMethod("qpPCC", signature(data="data.frame"),
-          function(data, long.dim.are.variables=TRUE) {
-            m <- as.matrix(data)
-            rownames(m) <- rownames(data)
-            if (!is.double(m))
-              stop("data should be double-precision real numbers\n")
+# X comes as a data frame
+setMethod("qpPCC", signature(X="data.frame"),
+          function(X, long.dim.are.variables=TRUE) {
+            X <- as.matrix(X)
+            if (!is.double(X))
+              stop("X should be double-precision real numbers\n")
 
             if (long.dim.are.variables &&
                 sort(dim(m),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
-              m <- t(m)
-            S <- cov(m)
-            N <- length(m[,1])
-            if (is.null(colnames(m)))
-              rownames(S) <- colnames(S) <- 1:nrow(S)
-            else
-              rownames(S) <- colnames(S) <- colnames(data)
-            qpgraph:::.qpPCC(S, N)
+              X <- t(X)
+            if (is.null(colnames(X)))
+              colnames(X) <- 1:ncol(X)
+            qpgraph:::.qpPCC(X)
           })
 
           
-# data comes as a matrix
-setMethod("qpPCC", signature(data="matrix"),
-          function(data, long.dim.are.variables=TRUE) {
+# X comes as a matrix
+setMethod("qpPCC", signature(X="matrix"),
+          function(X, long.dim.are.variables=TRUE) {
             if (long.dim.are.variables &&
-              sort(dim(data),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
-              data <- t(data)
+              sort(dim(X),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
+              X <- t(X)
 
-            S <- cov(data)
-            N <- length(data[,1])
-            if (is.null(colnames(data))) 
-              rownames(S) <- colnames(S) <- 1:nrow(S)
-            else
-              rownames(S) <- colnames(S) <- colnames(data)
-            qpgraph:::.qpPCC(S, N)
+            if (is.null(colnames(X))) 
+              colnames(X) <- 1:ncol(X)
+            qpgraph:::.qpPCC(X)
           })
 
-.qpPCC <- function(S, N) {
+.qpPCC <- function(X) {
 
-  var.names <- rownames(S)
+  var.names <- colnames(X)
+  N <- nrow(X)
 
-  # estimate PCCs by scaling the covariance matrix
-  R <- cov2cor(S)
+  ## calculate sample covariance matrix
+  S <- qpCov(X)
 
-  # calculate t-statistics
+  ## estimate PCCs by scaling the covariance matrix
+  ## somehow Matrix::cov2cor() refuses to scale non-positive definite matrices (?)
+  R <- as(Matrix::cov2cor(as.matrix(S)), "dspMatrix")
+
+  ## calculate t-statistics
   T <- (N - 2) / (1 - R*R)
   diag(T) <- (N - 2) * 100000 # just to get 0 p-values on the diagonal
   T <- R * sqrt(T)
 
-  # calculate two-sided p-values
-  p <- pt(T, df=N - 2)
-  P <- 2 * pmin(p, 1 - p)
+  ## calculate two-sided p-values
+  p <- pt(as.matrix(T), df=N - 2)
+  P <- as(2 * pmin(p, 1 - p), "dspMatrix")
 
-  list(R=R,P=P)
+  list(R=R, P=P)
 }
 
 
@@ -2047,7 +2069,7 @@ qpRndGraph <- function(n.vtx, n.bd){
       }
   }
 
-  return(A)
+  return(Matrix(A))
 }
 
 
@@ -2081,13 +2103,13 @@ qpRndWishart <- function(delta=1, P=0, df=NULL, n.var=NULL) {
   } 
 
   if (max(abs(P) > 1) || min(eigen(P)$values)<=0 || !identical(P, t(P))) {
-    stop("P must be either a (symmetric) positive definite matrix\n or a scalar larger than -(n.var-1)^(-1) and smaller than 1")
+    stop("P should be either a (symmetric) positive definite matrix\n or a scalar larger than -(n.var-1)^(-1) and smaller than 1")
   } 
 
   if (length(delta) == 1) delta=rep(delta, length=n.var)
-  if (min(delta) <= 0) stop("All entries of delta must be positive")
+  if (min(delta) <= 0) stop("All entries of delta should be positive")
   if (is.null(df)) df <- n.var
-  if (df <= (n.var-1)) stop("The value of df must be larger than (n.var-1)")
+  if (df <= (n.var-1)) stop("The value of df should be larger than (n.var-1)")
 
   Delta <- diag(delta)
   V <- Delta %*% P %*% Delta
@@ -2098,7 +2120,7 @@ qpRndWishart <- function(delta=1, P=0, df=NULL, n.var=NULL) {
   CW <- CWS %*% CV
   W <- t(CW) %*% CW
 
-  return(list(rW=W, meanW=df * V))
+  return(list(rW=as(W, "dspMatrix"), meanW=df * V))
 }
 
 
@@ -2115,15 +2137,15 @@ qpRndWishart <- function(delta=1, P=0, df=NULL, n.var=NULL) {
 qpG2Sigma <- function (g, rho=0, verbose = FALSE,
                        R.code.only = FALSE) {
   n.var <- NULL
-  if (is.matrix(g)) n.var <- nrow(g)
-  if (class(g) == "graphNEL") n.var <- length(nodes(g))
-  if (is.null(n.var)) stop("g is neither an adjacency matrix nor a graphNEL object")
+  if (class(g) == "matrix" || class(g) == "lsCMatrix") n.var <- nrow(g)
+  if (class(g) == "graphNEL" || class(g) == "graphAM") n.var <- length(nodes(g))
+  if (is.null(n.var)) stop("g is neither an adjacency matrix nor a graphNEL or graphAM object")
 
   clqlst <- qpGetCliques(g, verbose = verbose)
   W <- qpRndWishart(delta=sqrt(1 / n.var), P=rho, n.var=n.var)$rW
   Sigma <- qpIPF(W, clqlst, verbose=verbose, R.code.only=R.code.only)
 
-  return(Sigma)
+  return(as(Sigma, "dspMatrix"))
 }
 
 
@@ -2164,31 +2186,39 @@ qpPrecisionRecall <- function(measurementsMatrix, refA, decreasing=TRUE,
                               pairup.i=NULL, pairup.j=NULL,
                               recallSteps=c(seq(0,0.1,0.005),seq(0.2,1.0,0.1))) {
 
-  if (!is.matrix(measurementsMatrix))
-    stop("measurementsMatrix must be a matrix\n")
+  if (class(measurementsMatrix) != "matrix" && class(measurementsMatrix) != "dspMatrix" &&
+      class(measurementsMatrix) != "dgeMatrix")
+    stop("measurementsMatrix should be some kind of numerical matrix\n")
 
-  if (!is.matrix(refA))
-    stop("refA must be a matrix\n")
+  if (class(refA) != "matrix" && class(refA) != "lsCMatrix")
+    stop("refA should be an adjacency matrix\n")
 
+  p <- (d <- dim(measurementsMatrix))[1]
+  if (p != d[2])
   if (nrow(measurementsMatrix) != ncol(measurementsMatrix))
-    stop("measurementsMatrix must be a squared matrix\n")
+    stop("measurementsMatrix should be a squared matrix\n")
 
-  if (nrow(refA) != ncol(refA))
-    stop("refA must be a squared matrix\n")
+  p <- (d <- dim(refA))[1]
+  if (p != d[2])
+    stop("refA should be a squared matrix\n")
 
   if (nrow(measurementsMatrix) != nrow(refA) ||
       ncol(measurementsMatrix) != ncol(refA))
-    stop("measurementsMatrix and refA must have the same dimensions\n")
+    stop("measurementsMatrix and refA should have the same dimensions\n")
 
   n.var <- nrow(measurementsMatrix)
 
+  ## by now we have to coerce it to a regular matrix
+  ## but hopefully in the near future we can do [<- as well on a dspMatrix
+  measurementsMatrix <- as.matrix(measurementsMatrix)
+
   if ((!is.null(pairup.i) && is.null(pairup.j)) ||
       (is.null(pairup.i) && !is.null(pairup.j)))
-    stop("pairup.i and pairup.j must both either be set to NULL or contain subsets of variables\n")
+    stop("pairup.i and pairup.j should both either be set to NULL or contain subsets of variables\n")
 
   if (!is.null(pairup.i) && !is.null(pairup.j))  {
     if (is.null(colnames(measurementsMatrix)))
-      stop("when using pairup.i and pairup.j, measurementsMatrix must have row and column names\n")
+      stop("when using pairup.i and pairup.j, measurementsMatrix should have row and column names\n")
 
     var.names <- colnames(measurementsMatrix)
     pairup.i <- match(pairup.i, var.names)
@@ -2202,7 +2232,7 @@ qpPrecisionRecall <- function(measurementsMatrix, refA, decreasing=TRUE,
     pairup.i.noint <- setdiff(pairup.i, pairup.ij.int)
     pairup.j.noint <- setdiff(pairup.j, pairup.ij.int)
 
-    nomeasurementsMask <- matrix(FALSE,nrow=n.var,ncol=n.var)
+    nomeasurementsMask <- matrix(FALSE, nrow=n.var, ncol=n.var)
     nomeasurementsMask[as.matrix(
                        expand.grid(pairup.ij.int,
                                    c(pairup.i.noint, pairup.j.noint)))] <- TRUE
@@ -2347,14 +2377,20 @@ qpImportNrr <- function(filename, nTests) {
 
 setGeneric("qpFunctionalCoherence", function(object, ...) standardGeneric("qpFunctionalCoherence"))
 
-## the input object is an adjacency matrix
+## the input object is a lsCMatrix adjacency matrix
+setMethod("qpFunctionalCoherence",
+          signature(object="lsCMatrix"),
+          function(object, TFgenes, geneUniverse=rownames(object), chip, minRMsize=5, verbose=FALSE)
+            qpFunctionalCoherence(as(object, "matrix"), TFgenes, geneUniverse, chip, minRMsize, verbose))
+
+## the input object is a regular adjacency matrix
 setMethod("qpFunctionalCoherence",
           signature(object="matrix"),
           function(object, TFgenes, geneUniverse=rownames(object), chip, minRMsize=5, verbose=FALSE) {
   require(GOstats)
 
   if (is.null(colnames(object)) || is.null(rownames(object)))
-    stop("the adjacency matrix contained in the 'object' argument must have row and column names corresponding to the gene IDs")
+    stop("the adjacency matrix contained in the 'object' argument should have row and column names corresponding to the gene IDs")
 
   if (class(object[1,1]) != "logical" && class(object[1,1]) != "numeric" && class(object[1,1]) != "integer")
     stop("the adjacency matrix should be either logical or binary")
@@ -2363,10 +2399,10 @@ setMethod("qpFunctionalCoherence",
     object <- object == 1
 
   if (length(TFgenes) < 1)
-    stop("TFgenes must contain at least one transcription factor gene\n")
+    stop("TFgenes should contain at least one transcription factor gene\n")
 
   if (!is.character(TFgenes))
-    stop("gene identifiers in TFgenes must belong to the class character\n")
+    stop("gene identifiers in TFgenes should belong to the class character\n")
 
   if (sum(is.na(match(TFgenes, geneUniverse))) > 0)
     stop("TFgenes is not a subset from the genes comprising the gene universe\n")
@@ -2525,14 +2561,17 @@ setMethod("qpFunctionalCoherence",
 .qpEdgePACSE <- function(S, A, R.code.only=FALSE) {
 
   if (!R.code.only) {
-    return(qpgraph:::.qpFastPACSE(S, A));
+    ## this should change so that the entire algorithm deals with dspMatrix and lsCMatrix matrices
+    return(qpgraph:::.qpFastPACSE(as(S, "matrix"), as(A, "matrix")));
   }
+
+  A <- as(A, "matrix") ## idem
 
   n.var <- nrow(A)
 
-  A <- A + diag(n.var) # in the code below we need 1s in the main diagonal and
-                       # then at the same time we make sure we get a 0-1 matrix
-                       # as a truth value + 0 or 1 equals a number
+  A <- A + diag(n.var) ## in the code below we need 1s in the main diagonal and
+                       ## then at the same time we make sure we get a 0-1 matrix
+                       ## as a truth value + 0 or 1 equals a number
 
   A[col(A) > row(A)] <- NA
 
@@ -2552,9 +2591,9 @@ setMethod("qpFunctionalCoherence",
   FISHER <- IssI %*% Iss %*% IssI
 
   # standard errors are in the diagonal of the Fisher information matrix
-  F <- diag(FISHER)
+  FSHR <- diag(FISHER)
   SE <- matrix(NA, nrow(A), nrow(A))
-  SE[cbind(r.nz,c.nz)] <- SE[cbind(c.nz,r.nz)] <- F
+  SE[cbind(r.nz,c.nz)] <- SE[cbind(c.nz,r.nz)] <- FSHR
   diag(SE) <- NA
 
   return(SE)
@@ -2706,11 +2745,6 @@ setMethod("qpFunctionalCoherence",
                                              as.integer(pairup.j.noint),as.integer(pairup.ij.int),
                                              as.integer(verbose), as.integer(mpiCommRank()),
                                              as.integer(mpiCommSize()-1)))
-}
-
-.qpAssembleNrrMatrix <- function(n.var, nrrIdx) {
-  return(.Call("qp_assemble_nrr_matrix", as.integer(n.var),
-               as.double(nrrIdx$nrr), as.integer(nrrIdx$idx)))
 }
 
 .qpFastEdgeNrr <- function(S, N, i, j, q, nTests, alpha) {

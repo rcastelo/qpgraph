@@ -58,7 +58,7 @@ set.seed(123)
 
 A <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
 Sigma <- qpG2Sigma(A, rho=0.5)
-X <- rmvnorm(nObs, sigma=Sigma)
+X <- rmvnorm(nObs, sigma=as.matrix(Sigma))
 
 ## the higher the q the sparser the qp-graph
 

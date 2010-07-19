@@ -43,9 +43,11 @@ Gaussian graphical model search from microarray data with p larger than n,
 nVar <- 50  ## number of vertices
 maxCon <- 5 ## maximum connectivity per vertex
 
+set.seed(123)
+
 A <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
 
-summary(rowSums(A))
+summary(apply(A, 1, sum))
 }
 \keyword{models}
 \keyword{multivariate}

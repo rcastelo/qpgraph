@@ -13,17 +13,17 @@ model with undirected graph G and their corresponding P-values for the
 hypothesis of zero partial correlations.
 }
 \usage{
-\S4method{qpPAC}{ExpressionSet}(data, g, return.K=FALSE,
+\S4method{qpPAC}{ExpressionSet}(X, g, return.K=FALSE,
                                 verbose=TRUE, R.code.only=FALSE)
-\S4method{qpPAC}{data.frame}(data, g, return.K=FALSE,
+\S4method{qpPAC}{data.frame}(X, g, return.K=FALSE,
                              long.dim.are.variables=TRUE, verbose=TRUE,
                              R.code.only=FALSE)
-\S4method{qpPAC}{matrix}(data, g, return.K=FALSE,
+\S4method{qpPAC}{matrix}(X, g, return.K=FALSE,
                          long.dim.are.variables=TRUE, verbose=TRUE,
                          R.code.only=FALSE)
 }
 \arguments{
-  \item{data}{data set from where to estimate the partial correlation
+  \item{X}{data set from where to estimate the partial correlation
        coefficients. It can be an ExpressionSet object, a data frame or a
        matrix.}
   \item{g}{either a \code{graphNEL} object or an adjacency matrix of the given
@@ -31,7 +31,7 @@ hypothesis of zero partial correlations.
   \item{return.K}{logical; if TRUE this function also returns the concentration
        matrix \code{K}; if FALSE it does not return it (default).}
   \item{long.dim.are.variables}{logical; if TRUE it is assumed
-       that when data are in a data frame or in a matrix, the longer dimension
+       that when \code{X} is a data frame or a matrix, the longer dimension
        is the one defining the random variables (default); if FALSE, then random
        variables are assumed to be at the columns of the data frame or matrix.}
   \item{verbose}{show progress on the calculations.}
@@ -82,7 +82,7 @@ set.seed(123)
 
 A <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
 Sigma <- qpG2Sigma(A, rho=0.5)
-X <- rmvnorm(nObs, sigma=Sigma)
+X <- rmvnorm(nObs, sigma=as.matrix(Sigma))
 
 nrr.estimates <- qpNrr(X, verbose=FALSE)
 
