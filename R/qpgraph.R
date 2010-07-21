@@ -44,7 +44,7 @@
 
 setGeneric("qpNrr", function(X, ...) standardGeneric("qpNrr"))
 
-# X comes as an ExpressionSet object
+## X comes as an ExpressionSet object
 setMethod("qpNrr", signature(X="ExpressionSet"),
           function(X, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
                    pairup.j=NULL, verbose=TRUE, identicalQs=TRUE,
@@ -62,7 +62,7 @@ setMethod("qpNrr", signature(X="ExpressionSet"),
                              identicalQs, R.code.only, clusterSize)
           })
 
-# X comes as a data frame
+## X comes as a data frame
 setMethod("qpNrr", signature(X="data.frame"),
           function(X, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
                    pairup.j=NULL, long.dim.are.variables=TRUE,
@@ -92,7 +92,7 @@ setMethod("qpNrr", signature(X="data.frame"),
           })
 
           
-# X comes as a matrix
+## X comes as a matrix
 setMethod("qpNrr", signature(X="matrix"),
           function(X, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
                    pairup.j=NULL, long.dim.are.variables=TRUE,
@@ -451,7 +451,7 @@ setMethod("qpNrr", signature(X="matrix"),
 
 setGeneric("qpAvgNrr", function(X, ...) standardGeneric("qpAvgNrr"))
 
-# X comes as an ExpressionSet object
+## X comes as an ExpressionSet object
 setMethod("qpAvgNrr", signature(X="ExpressionSet"),
             function(X, qOrders=4, nTests=100, alpha=0.05, pairup.i=NULL,
                      pairup.j=NULL, type=c("arith.mean"), verbose=TRUE,
@@ -469,7 +469,7 @@ setMethod("qpAvgNrr", signature(X="ExpressionSet"),
                                 type, verbose, identicalQs, R.code.only, clusterSize)
           })
 
-# X comes as a data frame
+## X comes as a data frame
 setMethod("qpAvgNrr", signature(X="data.frame"),
           function(X, qOrders=4, nTests=100, alpha=0.05, pairup.i=NULL,
                    pairup.j=NULL, long.dim.are.variables=TRUE,
@@ -497,7 +497,7 @@ setMethod("qpAvgNrr", signature(X="data.frame"),
           })
 
           
-# X comes as a matrix
+## X comes as a matrix
 setMethod("qpAvgNrr", signature(X="matrix"),
           function(X, qOrders=4, nTests=100, alpha=0.05, pairup.i=NULL,
                    pairup.j=NULL, long.dim.are.variables=TRUE,
@@ -592,11 +592,21 @@ setMethod("qpAvgNrr", signature(X="matrix"),
 
 
 
-## function: qpGNrr
-## purpose: estimate generalized non-rejection rates for every pair of variables
-## parameters: data - data set from where to estimate the average non-rejection
-##                    rates
-##             qOrders - either a number of partial-correlation orders or a
+## function: qpGenNrr
+## purpose: estimate average non-rejection rates for every pair of variables
+## parameters: X - data set from where to estimate the average non-rejection
+##                 rates
+##             datasetIdx - index vector of the different datasets. if it is
+##                          a single number, it indicates the column in the
+##                          phenotypic data (ExpressionSet) or in the data
+##                          frame or in the matrix that indicates what samples
+##                          belong to what dataset. if it is a name then it
+##                          indicates the names of the phenotipic variable with
+##                          this information. if it is a vector with as many
+##                          positions as samples, then it contains itself the
+##                          indexes about what sample belongs to what dataset
+##             qOrders - either NULL indicating that a default guess on the q
+##                       order will be performed for each data set or a
 ##                       vector of particular orders to be employed in the
 ##                       calculation
 ##             nTests - number of tests to perform for each pair of variables
@@ -608,8 +618,6 @@ setMethod("qpAvgNrr", signature(X="matrix"),
 ##                                      dimension is the one defining the random
 ##                                      variables, if FALSE then random variables
 ##                                      are assumed to be at the columns
-##             type - type of average (by now only the arithmetic mean is
-##                    available)
 ##             verbose - show progress of the calculations
 ##             identicalQs - use identical conditioning subsets for all pairs
 ##                           of variables
@@ -618,13 +626,16 @@ setMethod("qpAvgNrr", signature(X="matrix"),
 ##                           in parallel via 'Rmpi' and 'snow'
 ## return: a matrix with the estimates of the average non-rejection rates
 
-setGeneric("qpGNrr", function(data, ...) standardGeneric("qpGNrr"))
+setGeneric("qpGenNrr", function(X, ...) standardGeneric("qpGenNrr"))
 
-# data comes as an ExpressionSet object
-setMethod("qpGNrr", signature(data="ExpressionSet"),
-            function(data, experiment, qOrders=1, nTests=100, alpha=0.05, pairup.i=NULL,
-                     pairup.j=NULL, verbose=TRUE, identicalQs=TRUE, R.code.only=FALSE,
-                     clusterSize=1) {
+## maybe is better to force datasetIdx to be integer in order to get an order of the
+## datasets that matches the order of the q-orders provided
+
+## X comes as an ExpressionSet object
+setMethod("qpGenNrr", signature(X="ExpressionSet"),
+            function(X, datasetIdx=1, qOrders=NULL, nTests=100, alpha=0.05, pairup.i=NULL,
+                     pairup.j=NULL, verbose=TRUE,
+                     identicalQs=TRUE, R.code.only=FALSE, clusterSize=1) {
 
             if (clusterSize > 1 && R.code.only)
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
@@ -633,19 +644,28 @@ setMethod("qpGNrr", signature(data="ExpressionSet"),
                 (!qpgraph:::.qpIsPackageLoaded("Rmpi") || !qpgraph:::.qpIsPackageLoaded("snow")))
               stop("Using a cluster (clusterSize > 1) requires first loading packages 'Rmpi' and 'snow'\n")
 
-            exp <- t(exprs(data))
-            S <- cov(exp)
-            N <- length(sampleNames(data))
-            rownames(S) <- colnames(S) <- featureNames(data)
-            qpgraph:::.qpGNrr(S, N, qOrders, nTests, alpha, pairup.i, pairup.j,
-                              verbose, identicalQs, R.code.only, clusterSize)
+            if ((is.null(pData(X)) || ncol(pData(X)) < 1) && length(datasetIdx) != dim(X)[2])
+              stop("Either supply a vector indexing the data sets to which each sample belongs to, or add a column with this information to the phenotypic data of the ExpressionSet indicating then which one is that column\n")
+
+            if (length(datasetIdx) != dim(X)[2] && length(datasetIdx) != 1)
+              stop("Argument 'datasetIdx' should be either one single number of character string indicating the column of the phenotypic data of the ExpressionSet containing the indexes to the datasets or a vector of these indexes with as many positions as samples\n")
+
+            if (length(datasetIdx) != dim(X)[2])
+              datasetIdx <- pData(X)[, datasetIdx]
+
+            datasetIdx <- as.factor(datasetIdx)
+
+            X <- t(exprs(X))
+            qpgraph:::.qpGenNrr(X, datasetIdx, qOrders, nTests, alpha, pairup.i, pairup.j,
+                                verbose, identicalQs, R.code.only, clusterSize)
           })
 
-# data comes as a data frame
-setMethod("qpGNrr", signature(data="data.frame"),
-          function(data, experiment, qOrders=1, nTests=100, alpha=0.05, pairup.i=NULL,
-                   pairup.j=NULL, long.dim.are.variables=TRUE, verbose=TRUE,
-                   identicalQs=TRUE, R.code.only=FALSE, clusterSize=1) {
+## X comes as a data frame
+setMethod("qpGenNrr", signature(X="data.frame"),
+          function(X, datasetIdx=1, qOrders=NULL, nTests=100, alpha=0.05, pairup.i=NULL,
+                   pairup.j=NULL, long.dim.are.variables=TRUE,
+                   verbose=TRUE, identicalQs=TRUE,
+                   R.code.only=FALSE, clusterSize=1) {
 
             if (clusterSize > 1 && R.code.only)
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
@@ -654,30 +674,36 @@ setMethod("qpGNrr", signature(data="data.frame"),
                 (!qpgraph:::.qpIsPackageLoaded("Rmpi") || !qpgraph:::.qpIsPackageLoaded("snow")))
               stop("Using a cluster (clusterSize > 1) requires first loading packages 'Rmpi' and 'snow'\n")
 
-            m <- as.matrix(data)
-            rownames(m) <- rownames(data)
-            if (!is.double(m))
-              stop("data should be double-precision real numbers\n")
+            X <- as.matrix(X)
+            if (!is.double(X))
+              stop("X should be double-precision real numbers\n")
 
             if (long.dim.are.variables &&
                 sort(dim(m),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
-              m <- t(m)
-            S <- cov(m)
-            N <- length(m[,1])
-            if (is.null(colnames(m)))
-              rownames(S) <- colnames(S) <- 1:nrow(S)
-            else
-              rownames(S) <- colnames(S) <- colnames(data)
-            qpgraph:::.qpGNrr(S, N, qOrders, nTests, alpha, pairup.i, pairup.j,
-                              verbose, identicalQs, R.code.only, clusterSize)
+              X <- t(X)
+
+            if (is.null(colnames(X)))
+              colnames(X) <- 1:ncol(X)
+
+            if (length(datasetIdx) != dim(X)[2] && length(datasetIdx) != 1)
+              stop("Argument 'datasetIdx' should be either one single number of character string indicating the column or row of the input data frame X containing the indexes to the datasets or a vector of these indexes with as many positions as samples\n")
+
+            if (length(datasetIdx) != dim(X)[1])
+              datasetIdx <- X[, datasetIdx]
+
+            datasetIdx <- as.factor(datasetIdx)
+
+            qpgraph:::.qpGenNrr(X, datasetIdx, qOrders, nTests, alpha, pairup.i, pairup.j,
+                                verbose, identicalQs, R.code.only, clusterSize)
           })
 
           
-# data comes as a matrix
-setMethod("qpGNrr", signature(data="matrix"),
-          function(data, experiment, qOrders=1, nTests=100, alpha=0.05, pairup.i=NULL,
-                   pairup.j=NULL, long.dim.are.variables=TRUE, verbose=TRUE,
-                   identicalQs=TRUE, R.code.only=FALSE, clusterSize=1) {
+## X comes as a matrix
+setMethod("qpGenNrr", signature(X="matrix"),
+          function(X, datasetIdx=1, qOrders=NULL, nTests=100, alpha=0.05, pairup.i=NULL,
+                   pairup.j=NULL, long.dim.are.variables=TRUE,
+                   verbose=TRUE, identicalQs=TRUE,
+                   R.code.only=FALSE, clusterSize=1) {
 
             if (clusterSize > 1 && R.code.only)
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
@@ -687,22 +713,54 @@ setMethod("qpGNrr", signature(data="matrix"),
               stop("Using a cluster (clusterSize > 1) requires first loading packages 'Rmpi' and 'snow'\n")
 
             if (long.dim.are.variables &&
-              sort(dim(data),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
-              data <- t(data)
+              sort(dim(X),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
+              X <- t(X)
 
-            S <- cov(data)
-            N <- length(data[,1])
-            if (is.null(colnames(data))) 
-              rownames(S) <- colnames(S) <- 1:nrow(S)
-            else
-              rownames(S) <- colnames(S) <- colnames(data)
-            qpgraph:::.qpGNrr(S, N, qOrders, nTests, alpha, pairup.i, pairup.j,
-                              verbose, identicalQs, R.code.only, clusterSize)
+            if (is.null(colnames(X))) 
+              colnames(X) <- 1:ncol(X)
+
+            if (length(datasetIdx) != dim(X)[2] && length(datasetIdx) != 1)
+              stop("Argument 'datasetIdx' should be either one single number of character string indicating the column or row of the input matrix X containing the indexes to the datasets or a vector of these indexes with as many positions as samples\n")
+
+            if (length(datasetIdx) != dim(X)[1])
+              datasetIdx <- X[, datasetIdx]
+
+            datasetIdx <- as.factor(datasetIdx)
+
+            qpgraph:::.qpGenNrr(X, datasetIdx, qOrders, nTests, alpha, pairup.i, pairup.j,
+                                verbose, identicalQs, R.code.only, clusterSize)
           })
 
-.qpGNrr <- function(S, N, qOrders=1, nTests=100, alpha=0.05, pairup.i=NULL,
-                    pairup.j=NULL, verbose=TRUE, identicalQs=TRUE,
-                    R.code.only=FALSE, clusterSize=1) {
+
+## X comes as a list where each member of the list is a dataset (i.e., no need for a dataset index)
+## deal with the fact that each entry might be an expression set, a data frame or a matrix
+setMethod("qpGenNrr", signature(X="list"),
+          function(X, qOrders=NULL, nTests=100, alpha=0.05, pairup.i=NULL,
+                   pairup.j=NULL, long.dim.are.variables=TRUE,
+                   verbose=TRUE, identicalQs=TRUE,
+                   R.code.only=FALSE, clusterSize=1) {
+
+            if (clusterSize > 1 && R.code.only)
+              stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
+
+            if (clusterSize > 1 &&
+                (!qpgraph:::.qpIsPackageLoaded("Rmpi") || !qpgraph:::.qpIsPackageLoaded("snow")))
+              stop("Using a cluster (clusterSize > 1) requires first loading packages 'Rmpi' and 'snow'\n")
+
+            if (long.dim.are.variables &&
+              sort(dim(X),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
+              X <- t(X)
+
+            if (is.null(colnames(X))) 
+              colnames(X) <- 1:ncol(X)
+
+            qpgraph:::.qpGenNrr(X, datasetIdx, qOrders, nTests, alpha, pairup.i, pairup.j,
+                                verbose, identicalQs, R.code.only, clusterSize)
+          })
+
+.qpGenNrr <- function(X, datasetIdx=1, qOrders=NULL, nTests=100, alpha=0.05, pairup.i=NULL,
+                      pairup.j=NULL, verbose=TRUE,
+                      identicalQs=TRUE, R.code.only=FALSE, clusterSize=1) {
 
   cl <- 1
  
@@ -724,8 +782,9 @@ setMethod("qpGNrr", signature(data="matrix"),
     }
   }
 
-  var.names <- rownames(S)
-  n.var <- nrow(S)
+  var.names <- colnames(X)
+  n.var <- ncol(X)
+  N <- nrow(X)
 
   if ((!is.null(pairup.i) && is.null(pairup.j)) ||
       (is.null(pairup.i) && !is.null(pairup.j)))
@@ -746,21 +805,24 @@ setMethod("qpGNrr", signature(data="matrix"),
   }
 
   w <- 1 / length(qOrders)
-  avgNrrMatrix <- matrix(0,nrow=n.var,ncol=n.var)
-  rownames(avgNrrMatrix) <- colnames(avgNrrMatrix) <- var.names
+  ## the idea is to return an efficiently stored symmetric matrix
+  genNrrMatrix <- new("dspMatrix", Dim=as.integer(c(n.var, n.var)),
+                      Dimnames=list(var.names, var.names),
+                      x=rep(as.double(0), n.var*(n.var-1)/2+n.var))
   for (q in qOrders) {
     if (verbose)
       cat(sprintf("q=%d\n",q))
 
-    avgNrrMatrix <- avgNrrMatrix +
-                    w * qpgraph:::.qpNrr(S, N, q, nTests, alpha, pairup.i, pairup.j,
-                                         verbose, identicalQs, R.code.only, cl)
+    ## this is necessary till we find out how to sum two dspMatrices getting a dspMatrix
+    genNrrMatrix <- as(genNrrMatrix +
+                       w * qpgraph:::.qpNrr(X, q, nTests, alpha, pairup.i, pairup.j,
+                                            verbose, identicalQs, R.code.only, cl), "dspMatrix")
   }
 
   if (clusterSize > 1 && !is.null(cl))
     stopCl(cl)
 
-  return(avgNrrMatrix)
+  return(genNrrMatrix)
 }
 
 
