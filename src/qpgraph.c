@@ -1334,6 +1334,7 @@ qp_edge_nrr_identicalQs(double* S, int n_var, int* Qs, double* Qinvs, int N, int
   int    k;
   int    nAcceptedTests = 0;
   int    nActualTests = 0;
+  double avgpr = 0;
 
   thr = qt(1.0-(alpha/2.0), N-q-2, 1, 0);
 
@@ -1351,7 +1352,8 @@ qp_edge_nrr_identicalQs(double* S, int n_var, int* Qs, double* Qinvs, int N, int
         nAcceptedTests++;
 
       nActualTests++;
-    }
+    } else
+      avgpr++;
   }
 
   return (double) ( ((double) nAcceptedTests) / ((double) nActualTests) );
@@ -1398,10 +1400,10 @@ qp_fast_edge_nrr(SEXP S, SEXP NR, SEXP iR, SEXP jR, SEXP qR,
   n_var = INTEGER(getAttrib(S,R_DimSymbol))[0];
 
   if (i < 0 || i > n_var-1 || j < 0 || j > n_var-1)
-    error("vertices of the selected edge (i,j) should lie in the range [1,n.var=%d]",n_var);
+    error("vertices of the selected edge (i,j) should lie in the range [1,n.var=%d]", n_var);
 
   if (q > n_var-2)
-    error("q=%d > n.var-2=%d",q,n_var-2);
+    error("q=%d > n.var-2=%d", q, n_var-2);
 
   if (q < 0)
     error("q=%d < 0",q);

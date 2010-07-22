@@ -28,6 +28,8 @@ The q-order partial correlation graph learning software, qpgraph.
           of variables.
     \item \code{\link{qpAvgNrr}} estimates average non-rejection rates for
           every pair of variables.
+    \item \code{\link{qpGenNrr}} estimates generalized average non-rejection rates
+          for every pair of variables.
     \item \code{\link{qpEdgeNrr}} estimate the non-rejection rate of one
           pair of variables.
     \item \code{\link{qpCItest}} performs a conditional independence test
@@ -49,6 +51,9 @@ The q-order partial correlation graph learning software, qpgraph.
           a given undirected graph.
     \item \code{\link{qpRndWishart}} random generation for the Wishart
           distribution.
+    \item \code{\link{qpCov}} calculates the sample covariance matrix, just as
+          the function \code{cov()} but returning a \code{\link{dspMatrix-class}}
+          object which efficiently stores such a dense symmetric matrix.
     \item \code{\link{qpG2Sigma}} builds a random covariance matrix from an
           undrected graph. The inverse of the resulting matrix contains zeroes
           at the missing edges of the given undirected graph.

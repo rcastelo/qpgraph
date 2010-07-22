@@ -206,6 +206,18 @@ setMethod("qpNrr", signature(X="matrix"),
 
   nrrMatrix <- NULL
 
+  ## estimate the real number of necessary tests for number required by the user
+  if (identicalQs) {
+    fractionValidQs <- 1-phyper(0, 2, n.var-2, q, lower.tail=FALSE)
+    if (fractionValidQs < 0.9) {
+      if (verbose) {
+        warning(paste(sprintf("With p=%d and q=%d the estimated fraction of valid Q sets is %.2f.", n.var, q, fractionValidQs),
+                      "Increasing nTests from", nTests, "to", floor(nTests/fractionValidQs), "in order to achieve the desired precision\n", sep=" "))
+      }
+      nTests <- floor(nTests / fractionValidQs)
+    }
+  }
+
   if (!R.code.only) {
     if (is.null(cl)) { ## single-processor execution
       if (identicalQs)
@@ -648,14 +660,28 @@ setMethod("qpGenNrr", signature(X="ExpressionSet"),
               stop("Either supply a vector indexing the data sets to which each sample belongs to, or add a column with this information to the phenotypic data of the ExpressionSet indicating then which one is that column\n")
 
             if (length(datasetIdx) != dim(X)[2] && length(datasetIdx) != 1)
-              stop("Argument 'datasetIdx' should be either one single number of character string indicating the column of the phenotypic data of the ExpressionSet containing the indexes to the datasets or a vector of these indexes with as many positions as samples\n")
+              stop("Argument 'datasetIdx' should be either a single number, or a character string, indicating the column of the phenotypic data of the ExpressionSet containing the indexes to the datasets. Alternatively, it can be a vector of these indexes with as many positions as samples\n")
+
+            if (length(datasetIdx) == 1) {
+              if (is.character(datasetIdx))
+                datasetIdx <- match(datasetIdx, colnames(pData(X)))
+              else {
+                if (is.integer(datasetIdx) || is.numeric(datasetIdx))
+                  datasetIdx <- match(datasetIdx, 1:ncol(pData(X)))
+              }
+
+              if (is.na(datasetIdx) || (!is.character(datasetIdx) && !is.integer(datasetIdx)))
+                stop("Argument 'datasetIdx' does not match any phenotypic column in the input ExpressionSet X. Please look at Biobase::pData(X)\n")
+            }
 
             if (length(datasetIdx) != dim(X)[2])
               datasetIdx <- pData(X)[, datasetIdx]
 
-            datasetIdx <- as.factor(datasetIdx)
+            if (!is.null(qOrders) && any(is.na(qOrders[unique(datasetIdx)])))
+              stop("Some values in 'datasetIdx' do not match any position in 'qOrders'\n")
 
             X <- t(exprs(X))
+
             qpgraph:::.qpGenNrr(X, datasetIdx, qOrders, nTests, alpha, pairup.i, pairup.j,
                                 verbose, identicalQs, R.code.only, clusterSize)
           })
@@ -685,13 +711,30 @@ setMethod("qpGenNrr", signature(X="data.frame"),
             if (is.null(colnames(X)))
               colnames(X) <- 1:ncol(X)
 
-            if (length(datasetIdx) != dim(X)[2] && length(datasetIdx) != 1)
-              stop("Argument 'datasetIdx' should be either one single number of character string indicating the column or row of the input data frame X containing the indexes to the datasets or a vector of these indexes with as many positions as samples\n")
+            if (length(datasetIdx) != dim(X)[1] && length(datasetIdx) != 1)
+              stop("Argument 'datasetIdx' should be either a single number, or a character string, indicating the column (or row) of the input data frame X containing the indexes to the datasets. Alternatively, it can be a vector of these indexes with as many positions as samples\n")
 
-            if (length(datasetIdx) != dim(X)[1])
-              datasetIdx <- X[, datasetIdx]
+            if (length(datasetIdx) == 1) {
+              if (is.character(datasetIdx))
+                datasetIdx <- match(datasetIdx, colnames(X))
+              else {
+                if (is.integer(datasetIdx) || is.numeric(datasetIdx))
+                  datasetIdx <- match(datasetIdx, 1:ncol(X))
+              }
 
-            datasetIdx <- as.factor(datasetIdx)
+              if (is.na(datasetIdx) || (!is.character(datasetIdx) && !is.integer(datasetIdx) &&
+                                        !is.numeric(datasetIdx)))
+                stop("Argument 'datasetIdx' does not match any column (or row) in the input data frame X\n")
+            }
+
+            if (length(datasetIdx) != dim(X)[1]) {
+              tmp <- X[, datasetIdx]
+              X <- X[, -datasetIdx]
+              datasetIdx <- tmp
+            }
+
+            if (!is.null(qOrders) && any(is.na(qOrders[unique(datasetIdx)])))
+              stop("Some values in 'datasetIdx' do not match any position in 'qOrders'\n")
 
             qpgraph:::.qpGenNrr(X, datasetIdx, qOrders, nTests, alpha, pairup.i, pairup.j,
                                 verbose, identicalQs, R.code.only, clusterSize)
@@ -719,46 +762,37 @@ setMethod("qpGenNrr", signature(X="matrix"),
             if (is.null(colnames(X))) 
               colnames(X) <- 1:ncol(X)
 
-            if (length(datasetIdx) != dim(X)[2] && length(datasetIdx) != 1)
-              stop("Argument 'datasetIdx' should be either one single number of character string indicating the column or row of the input matrix X containing the indexes to the datasets or a vector of these indexes with as many positions as samples\n")
+            if (length(datasetIdx) != dim(X)[1] && length(datasetIdx) != 1)
+              stop("Argument 'datasetIdx' should be either a single number, or a character string, indicating the column (or row) of the input matrix X containing the indexes to the datasets. Alternatively, it can be a vector of these indexes with as many positions as samples\n")
 
-            if (length(datasetIdx) != dim(X)[1])
-              datasetIdx <- X[, datasetIdx]
+            if (length(datasetIdx) == 1) {
+              if (is.character(datasetIdx))
+                datasetIdx <- match(datasetIdx, colnames(X))
+              else {
+                if (is.integer(datasetIdx) || is.numeric(datasetIdx))
+                  datasetIdx <- match(datasetIdx, 1:ncol(X))
+              }
 
-            datasetIdx <- as.factor(datasetIdx)
+              if (is.na(datasetIdx) || (!is.character(datasetIdx) && !is.integer(datasetIdx) &&
+                                        !is.numeric(datasetIdx)))
+                stop("Argument 'datasetIdx' does not match any column (or row) in the input matrix X\n")
+            }
 
-            qpgraph:::.qpGenNrr(X, datasetIdx, qOrders, nTests, alpha, pairup.i, pairup.j,
-                                verbose, identicalQs, R.code.only, clusterSize)
-          })
+            if (length(datasetIdx) != dim(X)[1]) {
+              tmp <- X[, datasetIdx]
+              X <- X[, -datasetIdx]
+              datasetIdx <- tmp
+            }
 
-
-## X comes as a list where each member of the list is a dataset (i.e., no need for a dataset index)
-## deal with the fact that each entry might be an expression set, a data frame or a matrix
-setMethod("qpGenNrr", signature(X="list"),
-          function(X, qOrders=NULL, nTests=100, alpha=0.05, pairup.i=NULL,
-                   pairup.j=NULL, long.dim.are.variables=TRUE,
-                   verbose=TRUE, identicalQs=TRUE,
-                   R.code.only=FALSE, clusterSize=1) {
-
-            if (clusterSize > 1 && R.code.only)
-              stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
-
-            if (clusterSize > 1 &&
-                (!qpgraph:::.qpIsPackageLoaded("Rmpi") || !qpgraph:::.qpIsPackageLoaded("snow")))
-              stop("Using a cluster (clusterSize > 1) requires first loading packages 'Rmpi' and 'snow'\n")
-
-            if (long.dim.are.variables &&
-              sort(dim(X),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
-              X <- t(X)
-
-            if (is.null(colnames(X))) 
-              colnames(X) <- 1:ncol(X)
+            if (!is.null(qOrders) && any(is.na(qOrders[unique(datasetIdx)])))
+              stop("Some values in 'datasetIdx' do not match any position in 'qOrders'\n")
 
             qpgraph:::.qpGenNrr(X, datasetIdx, qOrders, nTests, alpha, pairup.i, pairup.j,
                                 verbose, identicalQs, R.code.only, clusterSize)
           })
 
-.qpGenNrr <- function(X, datasetIdx=1, qOrders=NULL, nTests=100, alpha=0.05, pairup.i=NULL,
+
+.qpGenNrr <- function(X, datasetIdx, qOrders=NULL, nTests=100, alpha=0.05, pairup.i=NULL,
                       pairup.j=NULL, verbose=TRUE,
                       identicalQs=TRUE, R.code.only=FALSE, clusterSize=1) {
 
@@ -784,39 +818,43 @@ setMethod("qpGenNrr", signature(X="list"),
 
   var.names <- colnames(X)
   n.var <- ncol(X)
-  N <- nrow(X)
 
   if ((!is.null(pairup.i) && is.null(pairup.j)) ||
       (is.null(pairup.i) && !is.null(pairup.j)))
     stop("pairup.i and pairup.j should both either be set to NULL or contain subsets of variables\n")
 
-  if (length(qOrders) == 1) {
-    if (qOrders > min(n.var, N) - 3)
-      stop(sprintf("qOrders=%d is larger than the number of available q-orders for the given data set (%d)\n",
-                   qOrders, min(n.var, N) - 3))
+  N <- table(datasetIdx)
 
-    qOrders <- as.integer(round(seq(1, min(n.var, N) - 3,
-                                    by=(min(n.var, N) - 3) / qOrders), digits=0))
-  } else {
-    qOrders <- as.integer(qOrders)
-    if (min(qOrders) < 1 || max(qOrders) > min(n.var,N))
-      stop(sprintf("for the given data set q-orders should lie in the range [1,%d]\n",
-                   min(n.var,N)))
-  }
+  if (any(N < 3))
+    stop("Dataset(s) ", paste(names(N)[which(N < 4)], collapse=","), " has/have less than 4 samples\n")
 
-  w <- 1 / length(qOrders)
+  ## when qOrders is NULL the median of the possible q-orders is taken for each dataset
+  if (is.null(qOrders))
+    qOrders <- floor(sapply(sapply(N, function(x) seq(1, x-3)), median))
+
+  ## validate qOrders
+  if (min(qOrders) < 1 || any(qOrders > N[names(qOrders)]-3))
+    stop("Within each data set its q-order should lie in the range [1, N-3] with N being the corresponding number of samples\n")
+
+  ## contribution of each dataset is proportional to its sample size
+  w <- N / sum(N)
+
   ## the idea is to return an efficiently stored symmetric matrix
   genNrrMatrix <- new("dspMatrix", Dim=as.integer(c(n.var, n.var)),
                       Dimnames=list(var.names, var.names),
                       x=rep(as.double(0), n.var*(n.var-1)/2+n.var))
-  for (q in qOrders) {
+
+  if (verbose)
+    cat("Employing qOrders={",qOrders,"}\n")
+
+  for (idx in unique(datasetIdx)) {
     if (verbose)
-      cat(sprintf("q=%d\n",q))
+      cat(sprintf("Dataset %s\n", as.character(idx)))
 
     ## this is necessary till we find out how to sum two dspMatrices getting a dspMatrix
     genNrrMatrix <- as(genNrrMatrix +
-                       w * qpgraph:::.qpNrr(X, q, nTests, alpha, pairup.i, pairup.j,
-                                            verbose, identicalQs, R.code.only, cl), "dspMatrix")
+                       w[idx] * qpgraph:::.qpNrr(X, qOrders[idx], nTests, alpha, pairup.i, pairup.j,
+                                                 verbose, identicalQs, R.code.only, cl), "dspMatrix")
   }
 
   if (clusterSize > 1 && !is.null(cl))
