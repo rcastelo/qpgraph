@@ -845,7 +845,7 @@ setMethod("qpGenNrr", signature(X="matrix"),
                       x=rep(as.double(0), n.var*(n.var-1)/2+n.var))
 
   if (verbose)
-    cat("Employing qOrders={",qOrders,"}\n")
+    cat("Employing qOrders={",paste(paste(names(qOrders), qOrders, sep="="), collapse=", "),"}\n")
 
   for (idx in unique(datasetIdx)) {
     if (verbose)

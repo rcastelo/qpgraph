@@ -3,6 +3,8 @@ CHANGES IN VERSION 1.5
 
 USER VISIBLE CHANGES
 
+    o added the calculation of the generalized non-rejection rate through the function qpGenNrr()
+
     o updated the functions that work with covariance, correlations, adjacency and non-rejection rate matrices to employ more efficient matrix classes from the Matrix package
 
     o added a new function qpCov() and its man page to calculate sample covariance matrices returning them as 'dspMatrix' objects. Fixed some NAMESPACE and dependence issues
