@@ -1924,6 +1924,7 @@ qpIPF <- function(vv, clqlst, tol = 0.001, verbose = FALSE,
 ##             return.K - flag that when set to TRUE the function also returns
 ##                        the concentration matrix K; if FALSE (default) does not
 ##                        return K
+##             tol - maximum tolerance in the application of the IPF algorithm
 ##             verbose - flag that when set to TRUE the IPF algorithm
 ##                       shows the convergence progression
 ##             R.code.only - flag set to FALSE when using the C implementation
@@ -1934,17 +1935,16 @@ setGeneric("qpPAC", function(X, ...) standardGeneric("qpPAC"))
 
 # X comes as an ExpressionSet object
 setMethod("qpPAC", signature(X="ExpressionSet"),
-          function(X, g, return.K=FALSE, verbose=TRUE,
-                   R.code.only=FALSE) {
+          function(X, g, return.K=FALSE, tol=0.001,
+                   verbose=TRUE, R.code.only=FALSE) {
             X <- t(exprs(X))
-            qpgraph:::.qpPAC(X, g, return.K, verbose, R.code.only)
+            qpgraph:::.qpPAC(X, g, return.K, tol, verbose, R.code.only)
           })
 
 # X comes as a data frame
 setMethod("qpPAC", signature(X="data.frame"),
-          function(X, g, return.K=FALSE,
-                   long.dim.are.variables=TRUE, verbose=TRUE,
-                   R.code.only=FALSE) {
+          function(X, g, return.K=FALSE, long.dim.are.variables=TRUE,
+                   tol=0.001, verbose=TRUE, R.code.only=FALSE) {
             X <- as.matrix(X)
             if (!is.double(X))
               stop("X should be double-precision real numbers\n")
@@ -1954,14 +1954,14 @@ setMethod("qpPAC", signature(X="data.frame"),
               X <- t(X)
             if (is.null(colnames(X)))
               colnames(X) <- 1:ncol(X)
-            qpgraph:::.qpPAC(X, g, return.K, verbose, R.code.only)
+            qpgraph:::.qpPAC(X, g, return.K, tol, verbose, R.code.only)
           })
 
           
 # data comes as a matrix
 setMethod("qpPAC", signature(X="matrix"),
-          function(X, g, return.K=FALSE,
-                   long.dim.are.variables=TRUE, verbose=TRUE,
+          function(X, g, return.K=FALSE, long.dim.are.variables=TRUE,
+                   tol=0.001, verbose=TRUE,
                    R.code.only=FALSE) {
             if (long.dim.are.variables &&
               sort(dim(X),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
@@ -1969,10 +1969,10 @@ setMethod("qpPAC", signature(X="matrix"),
 
             if (is.null(colnames(X))) 
               colnames(X) <- 1:ncol(X)
-            qpgraph:::.qpPAC(X, g, return.K, verbose, R.code.only)
+            qpgraph:::.qpPAC(X, g, return.K, tol, verbose, R.code.only)
           })
 
-.qpPAC <- function(X, g, return.K=FALSE, verbose=TRUE, R.code.only=FALSE) {
+.qpPAC <- function(X, g, return.K=FALSE, tol=0.001, verbose=TRUE, R.code.only=FALSE) {
 
   if (class(g) == "graphNEL" || class(g) == "graphAM") {
     require(graph)
@@ -2006,7 +2006,7 @@ setMethod("qpPAC", signature(X="matrix"),
   ## get a maximum likelihood estimate of the sample covariance matrix
   ## using the clique list
 
-  Shat <- qpIPF(S, clqlst, verbose=verbose, R.code.only=R.code.only)
+  Shat <- qpIPF(S, clqlst, tol=tol, verbose=verbose, R.code.only=R.code.only)
 
   ## estimate partial correlation coefficients and their standard errors
 

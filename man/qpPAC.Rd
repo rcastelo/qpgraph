@@ -13,14 +13,12 @@ model with undirected graph G and their corresponding P-values for the
 hypothesis of zero partial correlations.
 }
 \usage{
-\S4method{qpPAC}{ExpressionSet}(X, g, return.K=FALSE,
+\S4method{qpPAC}{ExpressionSet}(X, g, return.K=FALSE, tol=0.001,
                                 verbose=TRUE, R.code.only=FALSE)
-\S4method{qpPAC}{data.frame}(X, g, return.K=FALSE,
-                             long.dim.are.variables=TRUE, verbose=TRUE,
-                             R.code.only=FALSE)
-\S4method{qpPAC}{matrix}(X, g, return.K=FALSE,
-                         long.dim.are.variables=TRUE, verbose=TRUE,
-                         R.code.only=FALSE)
+\S4method{qpPAC}{data.frame}(X, g, return.K=FALSE, long.dim.are.variables=TRUE,
+                             tol=0.001, verbose=TRUE, R.code.only=FALSE)
+\S4method{qpPAC}{matrix}(X, g, return.K=FALSE, long.dim.are.variables=TRUE,
+                         tol=0.001, verbose=TRUE, R.code.only=FALSE)
 }
 \arguments{
   \item{X}{data set from where to estimate the partial correlation
@@ -34,6 +32,7 @@ hypothesis of zero partial correlations.
        that when \code{X} is a data frame or a matrix, the longer dimension
        is the one defining the random variables (default); if FALSE, then random
        variables are assumed to be at the columns of the data frame or matrix.}
+  \item{tol}{maximum tolerance in the application of the IPF algorithm.}
   \item{verbose}{show progress on the calculations.}
   \item{R.code.only}{logical; if FALSE then the faster C implementation is used
        (default); if TRUE then only R code is executed.}
