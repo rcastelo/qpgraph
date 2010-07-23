@@ -13,17 +13,17 @@ Estimates generalized non-rejection rates for every pair of variables from
 two or more data sets.
 }
 \usage{
-\S4method{qpGenNrr}{ExpressionSet}(X, datasetIdx=1, qOrders=NULL, nTests=100,
-                                   alpha=0.05, pairup.i=NULL, pairup.j=NULL,
-                                   verbose=TRUE, identicalQs=TRUE,
+\S4method{qpGenNrr}{ExpressionSet}(X, datasetIdx=1, qOrders=NULL, return.all=FALSE,
+                                   nTests=100, alpha=0.05, pairup.i=NULL,
+                                   pairup.j=NULL, verbose=TRUE, identicalQs=TRUE,
                                    R.code.only=FALSE, clusterSize=1)
-\S4method{qpGenNrr}{data.frame}(X, datasetIdx=1, qOrders=NULL, nTests=100,
-                                alpha=0.05, pairup.i=NULL, pairup.j=NULL,
-                                long.dim.are.variables=TRUE, verbose=TRUE,
-                                identicalQs=TRUE, R.code.only=FALSE,
+\S4method{qpGenNrr}{data.frame}(X, datasetIdx=1, qOrders=NULL, return.all=FALSE,
+                                nTests=100, alpha=0.05, pairup.i=NULL,
+                                pairup.j=NULL, long.dim.are.variables=TRUE,
+                                verbose=TRUE, identicalQs=TRUE, R.code.only=FALSE,
                                 clusterSize=1)
-\S4method{qpGenNrr}{matrix}(X, datasetIdx=1, qOrders=NULL, nTests=100,
-                            alpha=0.05, pairup.i=NULL, pairup.j=NULL,
+\S4method{qpGenNrr}{matrix}(X, datasetIdx=1, qOrders=NULL, return.all=FALSE,
+                            nTests=100, alpha=0.05, pairup.i=NULL, pairup.j=NULL,
                             long.dim.are.variables=TRUE, verbose=TRUE,
                             identicalQs=TRUE, R.code.only=FALSE,
                             clusterSize=1)
@@ -40,6 +40,9 @@ two or more data sets.
        on the q-order will be employed for each data set or a vector of particular
        orders with one for each data set. The default guess corresponds to
        the floor of the median value among the valid q orders of the data set.}
+  \item{return.all}{logical; if TRUE all intervining non-rejection rates will be
+       return in a matrix per dataset within a list; FALSE (default) if only
+       generalized non-rejection rates should be returned.}
   \item{nTests}{number of tests to perform for each pair for variables.}
   \item{alpha}{significance level of each test.}
   \item{pairup.i}{subset of vertices to pair up with subset \code{pairup.j}}
@@ -71,10 +74,16 @@ computational cost may increase between 2 times and one order of magnitude
 non-rejection rate converges to the same value.
 }
 \value{
-A \code{\link{dspMatrix-class}} symmetric matrix of estimated average
-non-rejection rates with the diagonal set to \code{NA} values. When using the
-arguments \code{pairup.i} and \code{pairup.j}, those cells outside the
-constraint pairs will get also a \code{NA} value.
+A list containing the following two or more entries: a first one with name
+\code{genNrr} with a \code{\link{dspMatrix-class}} symmetric matrix of estimated
+generalized non-rejection rates with the diagonal set to \code{NA} values. When
+using the arguments \code{pairup.i} and \code{pairup.j}, those cells outside the
+constraint pairs will get also a \code{NA} value; a second one with name
+\code{qOrders} with the q-orders employed in the calculation for each data set;
+if \code{return.all=TRUE} then there will be one additional entry for each data
+set containing the matrix of the non-rejection rates estimated from that data
+set with the corresponding q-order, using the indexing value of the data set as
+entry name.
 }
 \references{
 Castelo, R. and Roverato, A. Reverse engineering molecular regulatory
@@ -106,20 +115,20 @@ Sigma2 <- qpG2Sigma(A2, rho=0.5)
 X1 <- rmvnorm(nObs, sigma=as.matrix(Sigma1))
 X2 <- rmvnorm(nObs, sigma=as.matrix(Sigma2))
 
-gennrr.estimates <- qpGenNrr(rbind(X1, X2), datasetIdx=rep(1:2, each=nObs),
-                             long.dim.are.variables=FALSE, verbose=FALSE)
+nrr.estimates <- qpGenNrr(rbind(X1, X2), datasetIdx=rep(1:2, each=nObs),
+                          long.dim.are.variables=FALSE, verbose=FALSE)
 
 ## distribution of generalized non-rejection rates for the common present edges
-summary(gennrr.estimates[upper.tri(gennrr.estimates) & A1 & A2])
+summary(nrr.estimates$genNrr[upper.tri(nrr.estimates$genNrr) & A1 & A2])
 
 ## distribution of generalized non-rejection rates for the present edges specific to A1
-summary(gennrr.estimates[upper.tri(gennrr.estimates) & A1 & !A2])
+summary(nrr.estimates$genNrr[upper.tri(nrr.estimates$genNrr) & A1 & !A2])
 
 ## distribution of generalized non-rejection rates for the present edges specific to A2
-summary(gennrr.estimates[upper.tri(gennrr.estimates) & !A1 & A2])
+summary(nrr.estimates$genNrr[upper.tri(nrr.estimates$genNrr) & !A1 & A2])
 
 ## distribution of generalized non-rejection rates for the common missing edges
-summary(gennrr.estimates[upper.tri(gennrr.estimates) & !A1 & !A2])
+summary(nrr.estimates$genNrr[upper.tri(nrr.estimates$genNrr) & !A1 & !A2])
 
 ## compare with the average non-rejection rate on the pooled data set
 avgnrr.estimates <- qpAvgNrr(rbind(X1, X2), long.dim.are.variables=FALSE, verbose=FALSE)

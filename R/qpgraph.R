@@ -57,7 +57,7 @@ setMethod("qpNrr", signature(X="ExpressionSet"),
                 (!qpgraph:::.qpIsPackageLoaded("Rmpi") || !qpgraph:::.qpIsPackageLoaded("snow")))
               stop("Using a cluster (clusterSize > 1) requires first loading packages 'Rmpi' and 'snow'\n")
 
-            exp <- t(exprs(X))
+            X <- t(exprs(X))
             qpgraph:::.qpNrr(X, q, nTests, alpha, pairup.i, pairup.j, verbose,
                              identicalQs, R.code.only, clusterSize)
           })
@@ -621,6 +621,9 @@ setMethod("qpAvgNrr", signature(X="matrix"),
 ##                       order will be performed for each data set or a
 ##                       vector of particular orders to be employed in the
 ##                       calculation
+##             return.all - logical; set to TRUE if all intervining non-rejection
+##                          rates should be return in a list; FALSE (default) if
+##                          only generalized non-rejection rates should be returned
 ##             nTests - number of tests to perform for each pair of variables
 ##             alpha - significance level of each test (Type-I error probability)
 ##             pairup.i - subset of vertices to pair up with subset pairup.j
@@ -645,8 +648,8 @@ setGeneric("qpGenNrr", function(X, ...) standardGeneric("qpGenNrr"))
 
 ## X comes as an ExpressionSet object
 setMethod("qpGenNrr", signature(X="ExpressionSet"),
-            function(X, datasetIdx=1, qOrders=NULL, nTests=100, alpha=0.05, pairup.i=NULL,
-                     pairup.j=NULL, verbose=TRUE,
+            function(X, datasetIdx=1, qOrders=NULL, return.all=FALSE, nTests=100,
+                     alpha=0.05, pairup.i=NULL, pairup.j=NULL, verbose=TRUE,
                      identicalQs=TRUE, R.code.only=FALSE, clusterSize=1) {
 
             if (clusterSize > 1 && R.code.only)
@@ -682,16 +685,16 @@ setMethod("qpGenNrr", signature(X="ExpressionSet"),
 
             X <- t(exprs(X))
 
-            qpgraph:::.qpGenNrr(X, datasetIdx, qOrders, nTests, alpha, pairup.i, pairup.j,
-                                verbose, identicalQs, R.code.only, clusterSize)
+            qpgraph:::.qpGenNrr(X, datasetIdx, qOrders, return.all, nTests, alpha,
+                                pairup.i, pairup.j, verbose, identicalQs, R.code.only,
+                                clusterSize)
           })
 
 ## X comes as a data frame
 setMethod("qpGenNrr", signature(X="data.frame"),
-          function(X, datasetIdx=1, qOrders=NULL, nTests=100, alpha=0.05, pairup.i=NULL,
-                   pairup.j=NULL, long.dim.are.variables=TRUE,
-                   verbose=TRUE, identicalQs=TRUE,
-                   R.code.only=FALSE, clusterSize=1) {
+          function(X, datasetIdx=1, qOrders=NULL, return.all=FALSE, nTests=100,
+                   alpha=0.05, pairup.i=NULL, pairup.j=NULL, long.dim.are.variables=TRUE,
+                   verbose=TRUE, identicalQs=TRUE, R.code.only=FALSE, clusterSize=1) {
 
             if (clusterSize > 1 && R.code.only)
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
@@ -736,17 +739,17 @@ setMethod("qpGenNrr", signature(X="data.frame"),
             if (!is.null(qOrders) && any(is.na(qOrders[unique(datasetIdx)])))
               stop("Some values in 'datasetIdx' do not match any position in 'qOrders'\n")
 
-            qpgraph:::.qpGenNrr(X, datasetIdx, qOrders, nTests, alpha, pairup.i, pairup.j,
-                                verbose, identicalQs, R.code.only, clusterSize)
+            qpgraph:::.qpGenNrr(X, datasetIdx, qOrders, return.all, nTests, alpha,
+                                pairup.i, pairup.j, verbose, identicalQs, R.code.only,
+                                clusterSize)
           })
 
           
 ## X comes as a matrix
 setMethod("qpGenNrr", signature(X="matrix"),
-          function(X, datasetIdx=1, qOrders=NULL, nTests=100, alpha=0.05, pairup.i=NULL,
-                   pairup.j=NULL, long.dim.are.variables=TRUE,
-                   verbose=TRUE, identicalQs=TRUE,
-                   R.code.only=FALSE, clusterSize=1) {
+          function(X, datasetIdx=1, qOrders=NULL, return.all=FALSE, nTests=100,
+                   alpha=0.05, pairup.i=NULL, pairup.j=NULL, long.dim.are.variables=TRUE,
+                   verbose=TRUE, identicalQs=TRUE, R.code.only=FALSE, clusterSize=1) {
 
             if (clusterSize > 1 && R.code.only)
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
@@ -787,13 +790,14 @@ setMethod("qpGenNrr", signature(X="matrix"),
             if (!is.null(qOrders) && any(is.na(qOrders[unique(datasetIdx)])))
               stop("Some values in 'datasetIdx' do not match any position in 'qOrders'\n")
 
-            qpgraph:::.qpGenNrr(X, datasetIdx, qOrders, nTests, alpha, pairup.i, pairup.j,
-                                verbose, identicalQs, R.code.only, clusterSize)
+            qpgraph:::.qpGenNrr(X, datasetIdx, qOrders, return.all, nTests, alpha,
+                                pairup.i, pairup.j, verbose, identicalQs, R.code.only,
+                                clusterSize)
           })
 
 
-.qpGenNrr <- function(X, datasetIdx, qOrders=NULL, nTests=100, alpha=0.05, pairup.i=NULL,
-                      pairup.j=NULL, verbose=TRUE,
+.qpGenNrr <- function(X, datasetIdx, qOrders=NULL, return.all=FALSE, nTests=100,
+                      alpha=0.05, pairup.i=NULL, pairup.j=NULL, verbose=TRUE,
                       identicalQs=TRUE, R.code.only=FALSE, clusterSize=1) {
 
   cl <- 1
@@ -840,27 +844,34 @@ setMethod("qpGenNrr", signature(X="matrix"),
   w <- N / sum(N)
 
   ## the idea is to return an efficiently stored symmetric matrix
-  genNrrMatrix <- new("dspMatrix", Dim=as.integer(c(n.var, n.var)),
-                      Dimnames=list(var.names, var.names),
-                      x=rep(as.double(0), n.var*(n.var-1)/2+n.var))
+  result <- list(genNrr=new("dspMatrix", Dim=as.integer(c(n.var, n.var)),
+                            Dimnames=list(var.names, var.names),
+                            x=rep(as.double(0), n.var*(n.var-1)/2+n.var)),
+                 qOrders=qOrders)
 
   if (verbose)
-    cat("Employing qOrders={",paste(paste(names(qOrders), qOrders, sep="="), collapse=", "),"}\n")
+    cat("Employing qOrders={", paste(paste(names(qOrders),
+                                           qOrders, sep="="),
+                                     collapse=", "),"}\n")
 
   for (idx in unique(datasetIdx)) {
     if (verbose)
       cat(sprintf("Dataset %s\n", as.character(idx)))
 
+    thisNrr <- qpgraph:::.qpNrr(X, qOrders[idx], nTests, alpha, pairup.i, pairup.j,
+                                verbose, identicalQs, R.code.only, cl)
+
     ## this is necessary till we find out how to sum two dspMatrices getting a dspMatrix
-    genNrrMatrix <- as(genNrrMatrix +
-                       w[idx] * qpgraph:::.qpNrr(X, qOrders[idx], nTests, alpha, pairup.i, pairup.j,
-                                                 verbose, identicalQs, R.code.only, cl), "dspMatrix")
+    result[["genNrr"]] <- as(result[["genNrr"]] + w[idx] * thisNrr, "dspMatrix")
+
+    if (return.all)
+      result[[as.character(idx)]] <- thisNrr
   }
 
   if (clusterSize > 1 && !is.null(cl))
     stopCl(cl)
 
-  return(genNrrMatrix)
+  return(result)
 }
 
 
