@@ -39,7 +39,7 @@
 ##                           of variables
 ##             R.code.only - flag set to FALSE when using the C implementation
 ##             clusterSize - size of the cluster of processors to do calculations
-##                           in parallel via 'Rmpi' and 'snow'
+##                           in parallel via 'snow' and 'rlecuyer'
 ## return: a matrix with the estimates of the non-rejection rates
 
 setGeneric("qpNrr", function(X, ...) standardGeneric("qpNrr"))
@@ -54,8 +54,8 @@ setMethod("qpNrr", signature(X="ExpressionSet"),
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
 
             if (clusterSize > 1 &&
-                (!qpgraph:::.qpIsPackageLoaded("Rmpi") || !qpgraph:::.qpIsPackageLoaded("snow")))
-              stop("Using a cluster (clusterSize > 1) requires first loading packages 'Rmpi' and 'snow'\n")
+               (!qpgraph:::.qpIsPackageLoaded("rlecuyer") || !qpgraph:::.qpIsPackageLoaded("snow")))
+              stop("Using a cluster (clusterSize > 1) requires first loading packages 'snow' and 'rlecuyer'\n")
 
             X <- t(exprs(X))
             qpgraph:::.qpNrr(X, q, nTests, alpha, pairup.i, pairup.j, verbose,
@@ -73,8 +73,8 @@ setMethod("qpNrr", signature(X="data.frame"),
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
 
             if (clusterSize > 1 &&
-                (!qpgraph:::.qpIsPackageLoaded("Rmpi") || !qpgraph:::.qpIsPackageLoaded("snow")))
-              stop("Using a cluster (clusterSize > 1) requires first loading packages 'Rmpi' and 'snow'\n")
+               (!qpgraph:::.qpIsPackageLoaded("rlecuyer") || !qpgraph:::.qpIsPackageLoaded("snow")))
+              stop("Using a cluster (clusterSize > 1) requires first loading packages 'snow' and 'rlecuyer'\n")
 
             X <- as.matrix(X)
             if (!is.double(X))
@@ -103,8 +103,8 @@ setMethod("qpNrr", signature(X="matrix"),
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
 
             if (clusterSize > 1 &&
-                (!qpgraph:::.qpIsPackageLoaded("Rmpi") || !qpgraph:::.qpIsPackageLoaded("snow")))
-              stop("Using a cluster (clusterSize > 1) requires first loading packages 'Rmpi' and 'snow'\n")
+               (!qpgraph:::.qpIsPackageLoaded("rlecuyer") || !qpgraph:::.qpIsPackageLoaded("snow")))
+              stop("Using a cluster (clusterSize > 1) requires first loading packages 'snow' and 'rlecuyer'\n")
 
             if (long.dim.are.variables &&
                 sort(dim(X),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
@@ -124,24 +124,31 @@ setMethod("qpNrr", signature(X="matrix"),
  
   if (class(clusterSize)[1] == "numeric" || class(clusterSize)[1] == "integer") {
     if (clusterSize > 1) {
-      message("Estimating non-rejection rates using a cluster of ", clusterSize, " nodes\n")
+      message("Estimating non-rejection rates using a ", getClusterOption("type"),
+              " cluster of ", clusterSize, " nodes\n")
       ## copying ShortRead's strategy, 'get()' are to quieten R CMD check, and for no other reason
       makeCl <- get("makeCluster", mode="function")
       clSetupRNG <- get("clusterSetupRNG", mode="function")
       clEvalQ <- get("clusterEvalQ", mode="function")
+      clExport <- get("clusterExport", mode="function")
+      clApply <- get("clusterApply", mode="function")
       stopCl <- get("stopCluster", mode="function")
       clCall <- get("clusterCall", mode="function")
 
-      cl <- makeCl(clusterSize, type="MPI")
+      cl <- makeCl(clusterSize)
       clSetupRNG(cl)
       res <- clEvalQ(cl, require(qpgraph, quietly=TRUE))
       if (!all(unlist(res))) {
         stopCl(cl)
         stop("The package 'qpgraph' could not be loaded in some of the nodes of the cluster")
       }
+      assign("clusterSize", clusterSize, env=.GlobalEnv)
+      clExport(cl, list("clusterSize"))
+      rm("clusterSize", envir=.GlobalEnv)
+      clApply(cl, 1:clusterSize, function(x) assign("clusterRank", x, envir=.GlobalEnv))
     }
   } else {
-    if (!is.na(match("MPIcluster", class(clusterSize))))
+    if (!is.na(match("cluster", class(clusterSize))))
       cl <- clusterSize
     else
       stop("Unknown class for argument clusterSize:", class(clusterSize))
@@ -458,7 +465,7 @@ setMethod("qpNrr", signature(X="matrix"),
 ##                           of variables
 ##             R.code.only - flag set to FALSE when using the C implementation
 ##             clusterSize - size of the cluster of processors to do calculations
-##                           in parallel via 'Rmpi' and 'snow'
+##                           in parallel via 'snow' and 'rlecuyer'
 ## return: a matrix with the estimates of the average non-rejection rates
 
 setGeneric("qpAvgNrr", function(X, ...) standardGeneric("qpAvgNrr"))
@@ -473,8 +480,8 @@ setMethod("qpAvgNrr", signature(X="ExpressionSet"),
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
 
             if (clusterSize > 1 &&
-                (!qpgraph:::.qpIsPackageLoaded("Rmpi") || !qpgraph:::.qpIsPackageLoaded("snow")))
-              stop("Using a cluster (clusterSize > 1) requires first loading packages 'Rmpi' and 'snow'\n")
+               (!qpgraph:::.qpIsPackageLoaded("rlecuyer") || !qpgraph:::.qpIsPackageLoaded("snow")))
+              stop("Using a cluster (clusterSize > 1) requires first loading packages 'snow' and 'rlecuyer'\n")
 
             X <- t(exprs(X))
             qpgraph:::.qpAvgNrr(X, qOrders, nTests, alpha, pairup.i, pairup.j,
@@ -492,8 +499,8 @@ setMethod("qpAvgNrr", signature(X="data.frame"),
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
 
             if (clusterSize > 1 &&
-                (!qpgraph:::.qpIsPackageLoaded("Rmpi") || !qpgraph:::.qpIsPackageLoaded("snow")))
-              stop("Using a cluster (clusterSize > 1) requires first loading packages 'Rmpi' and 'snow'\n")
+               (!qpgraph:::.qpIsPackageLoaded("rlecuyer") || !qpgraph:::.qpIsPackageLoaded("snow")))
+              stop("Using a cluster (clusterSize > 1) requires first loading packages 'snow' and 'rlecuyer'\n")
 
             X <- as.matrix(X)
             if (!is.double(X))
@@ -520,8 +527,8 @@ setMethod("qpAvgNrr", signature(X="matrix"),
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
 
             if (clusterSize > 1 &&
-                (!qpgraph:::.qpIsPackageLoaded("Rmpi") || !qpgraph:::.qpIsPackageLoaded("snow")))
-              stop("Using a cluster (clusterSize > 1) requires first loading packages 'Rmpi' and 'snow'\n")
+               (!qpgraph:::.qpIsPackageLoaded("rlecuyer") || !qpgraph:::.qpIsPackageLoaded("snow")))
+              stop("Using a cluster (clusterSize > 1) requires first loading packages 'snow' and 'rlecuyer'\n")
 
             if (long.dim.are.variables &&
               sort(dim(X),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
@@ -542,21 +549,29 @@ setMethod("qpAvgNrr", signature(X="matrix"),
   cl <- 1
  
   if (clusterSize > 1) {
-    message("Estimating average non-rejection rates using a cluster of ", clusterSize, " nodes\n")
+    message("Estimating non-rejection rates using a ", getClusterOption("type"),
+            " cluster of ", clusterSize, " nodes\n")
     ## copying ShortRead's strategy, 'get()' are to quieten R CMD check, and for no other reason
     makeCl <- get("makeCluster", mode="function")
     clSetupRNG <- get("clusterSetupRNG", mode="function")
     clEvalQ <- get("clusterEvalQ", mode="function")
+    clExport <- get("clusterExport", mode="function")
+    clApply <- get("clusterApply", mode="function")
     stopCl <- get("stopCluster", mode="function")
     clCall <- get("clusterCall", mode="function")
 
-    cl <- makeCl(clusterSize, type="MPI")
+    cl <- makeCl(clusterSize)
     clSetupRNG(cl)
     res <- clEvalQ(cl, require(qpgraph, quietly=TRUE))
     if (!all(unlist(res))) {
       stopCl(cl)
       stop("The package 'qpgraph' could not be loaded in some of the nodes of the cluster")
     }
+    assign("clusterSize", clusterSize, env=.GlobalEnv)
+    clExport(cl, list("clusterSize"))
+    rm("clusterSize", envir=.GlobalEnv)
+    clApply(cl, 1:clusterSize, function(x) assign("clusterRank", x, envir=.GlobalEnv))
+    clApply(cl, 1:clusterSize, function(x) assign("clusterRank", x, envir=.GlobalEnv))
   }
 
   var.names <- colnames(X)
@@ -638,7 +653,7 @@ setMethod("qpAvgNrr", signature(X="matrix"),
 ##                           of variables
 ##             R.code.only - flag set to FALSE when using the C implementation
 ##             clusterSize - size of the cluster of processors to do calculations
-##                           in parallel via 'Rmpi' and 'snow'
+##                           in parallel via 'snow' and 'rlecuyer'
 ## return: a matrix with the estimates of the average non-rejection rates
 
 setGeneric("qpGenNrr", function(X, ...) standardGeneric("qpGenNrr"))
@@ -656,8 +671,8 @@ setMethod("qpGenNrr", signature(X="ExpressionSet"),
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
 
             if (clusterSize > 1 &&
-                (!qpgraph:::.qpIsPackageLoaded("Rmpi") || !qpgraph:::.qpIsPackageLoaded("snow")))
-              stop("Using a cluster (clusterSize > 1) requires first loading packages 'Rmpi' and 'snow'\n")
+               (!qpgraph:::.qpIsPackageLoaded("rlecuyer") || !qpgraph:::.qpIsPackageLoaded("snow")))
+              stop("Using a cluster (clusterSize > 1) requires first loading packages 'snow' and 'rlecuyer'\n")
 
             if ((is.null(pData(X)) || ncol(pData(X)) < 1) && length(datasetIdx) != dim(X)[2])
               stop("Either supply a vector indexing the data sets to which each sample belongs to, or add a column with this information to the phenotypic data of the ExpressionSet indicating then which one is that column\n")
@@ -700,8 +715,8 @@ setMethod("qpGenNrr", signature(X="data.frame"),
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
 
             if (clusterSize > 1 &&
-                (!qpgraph:::.qpIsPackageLoaded("Rmpi") || !qpgraph:::.qpIsPackageLoaded("snow")))
-              stop("Using a cluster (clusterSize > 1) requires first loading packages 'Rmpi' and 'snow'\n")
+               (!qpgraph:::.qpIsPackageLoaded("rlecuyer") || !qpgraph:::.qpIsPackageLoaded("snow")))
+              stop("Using a cluster (clusterSize > 1) requires first loading packages 'snow' and 'rlecuyer'\n")
 
             X <- as.matrix(X)
             if (!is.double(X))
@@ -755,8 +770,8 @@ setMethod("qpGenNrr", signature(X="matrix"),
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
 
             if (clusterSize > 1 &&
-                (!qpgraph:::.qpIsPackageLoaded("Rmpi") || !qpgraph:::.qpIsPackageLoaded("snow")))
-              stop("Using a cluster (clusterSize > 1) requires first loading packages 'Rmpi' and 'snow'\n")
+               (!qpgraph:::.qpIsPackageLoaded("rlecuyer") || !qpgraph:::.qpIsPackageLoaded("snow")))
+              stop("Using a cluster (clusterSize > 1) requires first loading packages 'snow' and 'rlecuyer'\n")
 
             if (long.dim.are.variables &&
               sort(dim(X),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
@@ -803,21 +818,28 @@ setMethod("qpGenNrr", signature(X="matrix"),
   cl <- 1
  
   if (clusterSize > 1) {
-    message("Estimating average non-rejection rates using a cluster of ", clusterSize, " nodes\n")
+    message("Estimating non-rejection rates using a ", getClusterOption("type"),
+            " cluster of ", clusterSize, " nodes\n")
     ## copying ShortRead's strategy, 'get()' are to quieten R CMD check, and for no other reason
     makeCl <- get("makeCluster", mode="function")
     clSetupRNG <- get("clusterSetupRNG", mode="function")
     clEvalQ <- get("clusterEvalQ", mode="function")
+    clExport <- get("clusterExport", mode="function")
+    clApply <- get("clusterApply", mode="function")
     stopCl <- get("stopCluster", mode="function")
     clCall <- get("clusterCall", mode="function")
 
-    cl <- makeCl(clusterSize, type="MPI")
+    cl <- makeCl(clusterSize)
     clSetupRNG(cl)
     res <- clEvalQ(cl, require(qpgraph, quietly=TRUE))
     if (!all(unlist(res))) {
       stopCl(cl)
       stop("The package 'qpgraph' could not be loaded in some of the nodes of the cluster")
     }
+    assign("clusterSize", clusterSize, env=.GlobalEnv)
+    clExport(cl, list("clusterSize"))
+    rm("clusterSize", envir=.GlobalEnv)
+    clApply(cl, 1:clusterSize, function(x) assign("clusterRank", x, envir=.GlobalEnv))
   }
 
   var.names <- colnames(X)
@@ -2836,26 +2858,22 @@ setMethod("qpFunctionalCoherence",
 
 .qpFastNrrPar <- function(X, q, nTests, alpha, pairup.i.noint, pairup.j.noint,
                           pairup.ij.int, verbose) {
-  ## copying ShortRead's strategy, 'get()' are to quieten R CMD check, and for no other reason
-  mpiCommRank <- get("mpi.comm.rank", mode="function")
-  mpiCommSize <- get("mpi.comm.size", mode="function")
+  ## clusterRank and clusterSize should have been defined by the master node
   return(.Call("qp_fast_nrr_par",X,as.integer(q),as.integer(nTests),
                                  as.double(alpha),as.integer(pairup.i.noint),
                                  as.integer(pairup.j.noint),as.integer(pairup.ij.int),
-                                 as.integer(verbose), as.integer(mpiCommRank()),
-                                 as.integer(mpiCommSize()-1)))
+                                 as.integer(verbose), as.integer(clusterRank),
+                                 as.integer(clusterSize)))
 }
 
 .qpFastNrrIdenticalQsPar <- function(X, q, nTests, alpha, pairup.i.noint, pairup.j.noint,
                                      pairup.ij.int, verbose) {
-  ## copying ShortRead's strategy, 'get()' are to quieten R CMD check, and for no other reason
-  mpiCommRank <- get("mpi.comm.rank", mode="function")
-  mpiCommSize <- get("mpi.comm.size", mode="function")
+  ## clusterRank and clusterSize should have been defined by the master node
   return(.Call("qp_fast_nrr_identicalQs_par",X,as.integer(q),as.integer(nTests),
                                              as.double(alpha),as.integer(pairup.i.noint),
                                              as.integer(pairup.j.noint),as.integer(pairup.ij.int),
-                                             as.integer(verbose), as.integer(mpiCommRank()),
-                                             as.integer(mpiCommSize()-1)))
+                                             as.integer(verbose), as.integer(clusterRank),
+                                             as.integer(clusterSize)))
 }
 
 .qpFastEdgeNrr <- function(S, N, i, j, q, nTests, alpha) {

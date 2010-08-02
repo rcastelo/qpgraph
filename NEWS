@@ -11,9 +11,9 @@ USER VISIBLE CHANGES
 
     o handling of covariance matrices as 'dspMatrix' objects via the recommended 'Matrix' package
 
-    o added parallel computation of average non-rejection rates in qpAvgNrr() via Rmpi and snow
+    o added parallel computation of average non-rejection rates in qpAvgNrr() via snow and rlecuyer
 
-    o added parallel computation of non-rejection rates in qpNrr() via Rmpi and snow
+    o added parallel computation of non-rejection rates in qpNrr() via snow and rlecuyer
 
     o qpFunctionalCoherence() now takes an input list of transcriptional regulator modules
 

@@ -52,8 +52,8 @@ Estimates average non-rejection rates for every pair of variables.
   \item{clusterSize}{size of the cluster of processors to employ if we wish to
        speed-up the calculations by performing them in parallel. A value of 1
        (default) implies a single-processor execution. The use of a cluster of
-       processors requires having previously loaded the packages \code{Rmpi}
-       and \code{snow}.}
+       processors requires having previously loaded the packages \code{snow}
+       and \code{rlecuyer}.}
 }
 \details{
 Note that when specifying a vector of particular orders \code{q}, these values
@@ -106,8 +106,8 @@ summary(avgnrr.estimates[upper.tri(avgnrr.estimates) & A])
 summary(avgnrr.estimates[upper.tri(avgnrr.estimates) & !A])
 
 \dontrun{
-library(Rmpi)
 library(snow)
+library(rlecuyer)
 
 ## only for moderate and large numbers of variables the
 ## use of a cluster of processors speeds up the calculations
