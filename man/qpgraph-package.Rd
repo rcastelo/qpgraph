@@ -6,19 +6,19 @@
 The q-order partial correlation graph learning software, qpgraph.
 }
 \description{
-\Sexpr{packageDescription("qpgraph")$Description}
+\Sexpr{packageDescription("qpgraph")[["Description"]]}
 }
 \details{
   \tabular{ll}{
   Package: \tab qpgraph\cr
-  Version: \tab \Sexpr{packageDescription("qpgraph")$Version}\cr
-  Built: \tab \Sexpr{packageDescription("qpgraph")$Built}\cr
-  Depends: \tab \Sexpr{packageDescription("qpgraph")$Depends}\cr
-  Imports: \tab \Sexpr{packageDescription("qpgraph")$Imports}\cr
-  Suggests: \tab \Sexpr{packageDescription("qpgraph")$Suggests}\cr
-  biocViews: \tab \Sexpr{packageDescription("qpgraph")$biocViews}\cr
-  License: \tab \Sexpr{packageDescription("qpgraph")$License}\cr
-  URL: \tab \Sexpr{packageDescription("qpgraph")$URL}\cr
+  Version: \tab \Sexpr{packageDescription("qpgraph")[["Version"]]}\cr
+  Built: \tab \Sexpr{packageDescription("qpgraph")[["Built"]]}\cr
+  Depends: \tab \Sexpr{packageDescription("qpgraph")[["Depends"]]}\cr
+  Imports: \tab \Sexpr{packageDescription("qpgraph")[["Imports"]]}\cr
+  Suggests: \tab \Sexpr{packageDescription("qpgraph")[["Suggests"]]}\cr
+  biocViews: \tab \Sexpr{packageDescription("qpgraph")[["biocViews"]]}\cr
+  License: \tab \Sexpr{packageDescription("qpgraph")[["License"]]}\cr
+  URL: \tab \Sexpr{packageDescription("qpgraph")[["URL"]]}\cr
   }
 }
 
@@ -57,6 +57,9 @@ The q-order partial correlation graph learning software, qpgraph.
     \item \code{\link{qpG2Sigma}} builds a random covariance matrix from an
           undrected graph. The inverse of the resulting matrix contains zeroes
           at the missing edges of the given undirected graph.
+    \item \code{\link{qpUnifRndCor}} builds a matrix of uniformly random correlation
+          values between -1 and +1 for all pairs of variables that follow from the
+          number of variables given as input argument.
     \item \code{\link{qpK2ParCor}} obtains the partial correlation coefficients
           from a given concentration matrix.
     \item \code{\link{qpIPF}} performs maximum likelihood estimation of a
@@ -79,6 +82,10 @@ The q-order partial correlation graph learning software, qpgraph.
     \item \code{\link{qpFunctionalCoherence}} estimates functional coherence of
           a given transcriptional regulatory network using Gene Ontology
           annotations.
+    \item \code{\link{qpTopPairs}} reports a top number of pairs of variables
+          according to either an association measure and/or occurring in a given
+          reference graph.
+    \item \code{\link{qpPlotGraph}} plots a graph using the \code{Rgraphviz} library.
   }
 
 This package provides an implementation of the procedures described in (Castelo
@@ -100,7 +107,7 @@ model search from microarray data with p larger than n.
 \emph{J. Mach. Learn. Res.}, 7:2621-2650, 2006.
 
 Castelo, R. and Roverato, A. Reverse engineering molecular regulatory
-networks from microarray data with qp-graphs. \emph{J. Comput. Biol.},
+networks from microarray data with qp-graphs. \emph{J. Comput. Biol.}
 16(2):213-227, 2009.
 
 Gentleman, R.C., Carey, V.J., Bates, D.M., Bolstad, B., Dettling, M.,

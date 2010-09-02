@@ -9,14 +9,15 @@ Calculates the precision-recall curve (see Fawcett, 2006) for a given measure of
 association between all pairs of variables in a matrix.
 }
 \usage{
-qpPrecisionRecall(measurementsMatrix, refA, decreasing=TRUE, pairup.i=NULL,
+qpPrecisionRecall(measurementsMatrix, refGraph, decreasing=TRUE, pairup.i=NULL,
                   pairup.j=NULL, recallSteps=c(seq(0,0.1,0.005),seq(0.2,1.0,0.1)))
 }
 \arguments{
   \item{measurementsMatrix}{matrix containing the measure of association between
        all pairs of variables.}
-  \item{refA}{adjacency matrix of reference from which to calculate the
-       precision-recall curve.}
+  \item{refGraph}{a reference graph from which to calculate the precision-recall
+       curve provided either as an adjacency matrix, a two-column matrix of edges,
+       a \code{graphNEL-class} object or a \code{graphAM-class} object.}
   \item{decreasing}{logical; if TRUE then the measurements are ordered in
        decreasing order; if FALSE then in increasing order.}
   \item{pairup.i}{subset of vertices to pair up with subset \code{pairup.j}.}
@@ -66,12 +67,12 @@ pcc.estimates <- qpPCC(X)
 
 ## calculate area under the precision-recall curve
 ## for both sets of estimated values of association
-nrr.prerec <- qpPrecisionRecall(nrr.estimates, refA=A, decreasing=FALSE,
+nrr.prerec <- qpPrecisionRecall(nrr.estimates, refGraph=A, decreasing=FALSE,
                                 recallSteps=seq(0, 1, 0.1))
 f <- approxfun(nrr.prerec[, c("Recall", "Precision")])
 integrate(f, 0, 1)$value
 
-pcc.prerec <- qpPrecisionRecall(abs(pcc.estimates$R), refA=A,
+pcc.prerec <- qpPrecisionRecall(abs(pcc.estimates$R), refGraph=A,
                                 recallSteps=seq(0, 1, 0.1))
 f <- approxfun(pcc.prerec[, c("Recall", "Precision")])
 integrate(f, 0, 1)$value

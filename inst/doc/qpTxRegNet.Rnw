@@ -48,12 +48,12 @@ ls()
 @
 where \verb+filtered.regulon6.1+ contains a subset of the E. coli transcriptional
 network from RegulonDB 6.1 \citep{Gama-Castro:2008le} obtained through the
-filtering steps described in \citep{Castelo:2008uq} and \verb+gds680.eset+ is an
+filtering steps described in \citep{Castelo:2009fk} and \verb+gds680.eset+ is an
 \verb+ExpressionSet+ object with the $n=43$ microarray experiments of
 \cite{Covert:2004fx} described before. These experiments provide expression
 profiles for $p=4\,205$ genes derived from the original data set downloaded from
 the Gene Expression Omnibus \citep{Barrett:2007dq} with accession \verb+GDS680+
-by applying the filtering steps described also in \citep{Castelo:2008uq}. You can
+by applying the filtering steps described also in \citep{Castelo:2009fk}. You can
 see a summary of the data contained in this object by simply typing its name on
 the R-shell:
 
@@ -62,7 +62,7 @@ gds680.eset
 @
 where the usual probeset identifiers in the \verb+featureNames+ slot have been
 already replaced by the corresponding Entrez IDs according to the filtering steps
-taken in \citep{Castelo:2008uq}.
+taken in \citep{Castelo:2009fk}.
 
 \section{Preprocessing steps}
 
@@ -104,7 +104,7 @@ cat("There are",length(genesO2net),"different genes in this subnetwork\n")
 and, finally, select the 100 most variable genes by using the IQR:
 
 <<preprocessing, echo=TRUE, results=verbatim>>=
-IQRs <- apply(exprs(gds680.eset[genesO2net,]),1,IQR)
+IQRs <- apply(exprs(gds680.eset[genesO2net,]), 1, IQR)
 largestIQRgenesO2net <- names(sort(IQRs,decreasing=TRUE)[1:100])
 @
 Using these genes we create a new \verb+ExpressionSet+ object, which we shall call
@@ -287,7 +287,7 @@ reproduce exactly the results contained in this vignette, we will specify a
 particular seed to the random number generator as follows:
 
 <<getthenet, echo=TRUE, results=verbatim>>=
-set.seed(12345)
+set.seed(123)
 @
 Moreover, in this exercise, we are only interested in TF-TG relationships and
 thus we will speed-up the calculations by restricting the formation of gene pairs
@@ -296,7 +296,7 @@ with the parameters \verb+pairup.i+ and \verb+pairup.j+ in the following way:
 <<getthenet, echo=TRUE, results=verbatim>>=
 avgnrr.estimates <- qpAvgNrr(subset.gds680.eset,
                              pairup.i=largestIQRgenesO2netTFs,
-                             pairup.j=largestIQRgenesO2net)
+                             pairup.j=largestIQRgenesO2net, verbose=FALSE)
 @
 The function \verb+qpAvgNrr+ uses by default four equidistant q-values along the
 available range and returns a matrix with the estimates for all gene pairs except
@@ -334,9 +334,8 @@ Finally, in order to have the assignment of random correlations as a
 baseline comparison we should do the following:
 
 <<getthenet, echo=TRUE, results=verbatim>>=
-set.seed(12345)
-rndcor <- matrix(runif(10000,min=-1,max=1), nrow=100, ncol=100)
-rownames(rndcor) <- colnames(rndcor) <- rownames(avgnrr.estimates)
+set.seed(123)
+rndcor <- qpUnifRndCor(100, featureNames(subset.gds680.eset))
 random.prerec <- qpPrecisionRecall(abs(rndcor), subset.filtered.regulon6.1.I,
                                    decreasing=TRUE, pairup.i=largestIQRgenesO2netTFs,
                                    pairup.j=largestIQRgenesO2net,
@@ -452,33 +451,31 @@ use it with a nominal precision level of 50\%:
 thr <- qpPRscoreThreshold(avgnrr.prerec, level=0.5, recall.level=FALSE, max.score=0)
 thr
 
-g <- qpGraph(avgnrr.estimates, threshold=thr, return.type="graphNEL")
+A <- qpGraph(avgnrr.estimates, threshold=thr)
 @
-In the previous call to \verb+qpGraph+ we have set \verb+return.type="graphNEL"+
-in order to get a \verb+graphNEL+ object which we can directly plot using the
-\verb+Rgraphviz+ library as we will show later, but before that we want to
-estimate the corresponding PACs for the interactions. First, we should see if
-this is at all possible by calculating the size of the largest clique in this
-undirected graph with the \verb+qpCliqueNumber+ function from the \verb+qpgraph+
-package:
+We are going to estimate now the corresponding PACs for the interactions. First,
+we should see if this is at all possible by calculating the size of the largest
+clique in this undirected graph with the \verb+qpCliqueNumber+ function from the
+\verb+qpgraph+ package:
 
 <<getthenet, echo=TRUE, results=verbatim>>=
-qpCliqueNumber(g, verbose=FALSE)
+qpCliqueNumber(A, verbose=FALSE)
 @
 The maximum clique size (aka clique number) is smaller than the number of
 observations in the data ($n=43$) and therefore we can go on with the PAC
 estimation \citep[see][for further details on this]{Lauritzen:1996fj}:
 
 <<getthenet, echo=TRUE, results=verbatim>>=
-pac.estimates <- qpPAC(subset.gds680.eset, g, verbose=FALSE)
+pac.estimates <- qpPAC(subset.gds680.eset, A, verbose=FALSE)
 @
-In order to build the final reverse engineered transcriptional regulatory network
-from this 50\%-precision qp-graph we need to transform the undirected graph
-\verb+g+ into a \verb+graphNEL+ directed graph with arrows pointing from TFs to
-their targets. This can be accomplished by first setting the \verb+graphNEL+
-object \verb+g+ that stores the qp-graph as a directed graph:
+In order to display the final reverse engineered transcriptional regulatory network
+from this 50\%-precision qp-graph we need to obtain it as a \verb+graphNEL+ object
+which is returned by the \verb+qpGraph()+ function as an undirected graph and then
+transform it into a directed graph with arrows pointing from TFs to
+their targets:
 
 <<getthenet, echo=TRUE, results=verbatim>>=
+g <- qpGraph(avgnrr.estimates, threshold=thr, return.type="graphNEL")
 edgemode(g) <- "directed"
 @
 This operation leaves \verb+g+ with directed edges between all genes that were
@@ -609,7 +606,7 @@ postscript(file="qpTRnet50pctpre.eps", onefile=FALSE, paper="a4",
 rag <- plot(gSub, "twopi", nodeAttrs=nodattr, edgeAttrs=edgattrs, lwd=2,
             main="50%-precision qp-graph transcriptional regulatory network")
 bb <- c(boundBox(rag)@upRight@x, boundBox(rag)@upRight@y)
-legend(bb[1]*0.1,bb[2]*1.0,c("RegulonDB +","RegulonDB -","Novel +", "Novel -"),
+legend(bb[1]*0.2,bb[2]*1.0,c("RegulonDB +","RegulonDB -","Novel +", "Novel -"),
        lwd=4, col=c("darkred","darkblue","orange","deepskyblue"))
 @
 <<getthenet, eval=FALSE, echo=FALSE, results=hide>>=

@@ -14,11 +14,11 @@ identifiers or as a list of transcriptional regulatory modules.
 }
 \usage{
 \S4method{qpFunctionalCoherence}{lsCMatrix}(object, TFgenes, geneUniverse=rownames(object),
-                                            chip, minRMsize=5, verbose=FALSE)
+                                            chip, minRMsize=5, verbose=FALSE, clusterSize=1)
 \S4method{qpFunctionalCoherence}{matrix}(object, TFgenes, geneUniverse=rownames(object),
-                                         chip, minRMsize=5, verbose=FALSE)
+                                         chip, minRMsize=5, verbose=FALSE, clusterSize=1)
 \S4method{qpFunctionalCoherence}{list}(object, geneUniverse=unique(c(names(object), unlist(object, use.names=FALSE))),
-                                       chip, minRMsize=5, verbose=FALSE)
+                                       chip, minRMsize=5, verbose=FALSE, clusterSize=1)
 }
 \arguments{
   \item{object}{object containing the transcriptional regulatory modules for which
@@ -39,6 +39,11 @@ identifiers or as a list of transcriptional regulatory modules.
        coherence will be estimated.}
   \item{verbose}{logical; if TRUE the function will show progress on the
        calculations; if FALSE the function will remain quiet (default).}
+  \item{clusterSize}{size of the cluster of processors to employ if we wish to
+       speed-up the calculations by performing them in parallel. A value of 1
+       (default) implies a single-processor execution. The use of a cluster of
+       processors requires having previously loaded the packages \code{snow}
+       and \code{rlecuyer}.}
 }
 \details{
 This function estimates the functional coherence of a transcriptional regulatory

@@ -2,8 +2,10 @@ useDynLib(qpgraph)
 
 import(methods)
 import(Matrix)
-import(Biobase)
+importClassesFrom(Biobase)
 importFrom(AnnotationDbi, mget)
+importFrom(AnnotationDbi, revmap)
+importFrom(annotate, getAnnMap)
 
 exportMethods("qpNrr",
               "qpAvgNrr",
@@ -11,7 +13,8 @@ exportMethods("qpNrr",
               "qpPAC",
               "qpPCC",
               "qpCItest",
-              "qpEdgeNrr")
+              "qpEdgeNrr",
+              "qpFunctionalCoherence")
 
 export(qpHist,
        qpGraphDensity,
@@ -26,9 +29,11 @@ export(qpHist,
        qpRndGraph,
        qpRndWishart,
        qpG2Sigma,
+       qpUnifRndCor,
        qpK2ParCor,
        qpPrecisionRecall,
        qpPRscoreThreshold,
        qpImportNrr,
-       qpFunctionalCoherence,
+       qpTopPairs,
+       qpPlotGraph,
        qpCov)

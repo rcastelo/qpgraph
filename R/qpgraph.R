@@ -124,8 +124,6 @@ setMethod("qpNrr", signature(X="matrix"),
  
   if (class(clusterSize)[1] == "numeric" || class(clusterSize)[1] == "integer") {
     if (clusterSize > 1) {
-      message("Estimating non-rejection rates using a ", getClusterOption("type"),
-              " cluster of ", clusterSize, " nodes\n")
       ## copying ShortRead's strategy, 'get()' are to quieten R CMD check, and for no other reason
       makeCl <- get("makeCluster", mode="function")
       clSetupRNG <- get("clusterSetupRNG", mode="function")
@@ -134,6 +132,10 @@ setMethod("qpNrr", signature(X="matrix"),
       clApply <- get("clusterApply", mode="function")
       stopCl <- get("stopCluster", mode="function")
       clCall <- get("clusterCall", mode="function")
+      clOpt <- get("getClusterOption", mode="function")
+
+      message("Estimating non-rejection rates using a ", clOpt("type"),
+              " cluster of ", clusterSize, " nodes\n")
 
       cl <- makeCl(clusterSize)
       clSetupRNG(cl)
@@ -549,8 +551,6 @@ setMethod("qpAvgNrr", signature(X="matrix"),
   cl <- 1
  
   if (clusterSize > 1) {
-    message("Estimating non-rejection rates using a ", getClusterOption("type"),
-            " cluster of ", clusterSize, " nodes\n")
     ## copying ShortRead's strategy, 'get()' are to quieten R CMD check, and for no other reason
     makeCl <- get("makeCluster", mode="function")
     clSetupRNG <- get("clusterSetupRNG", mode="function")
@@ -559,6 +559,10 @@ setMethod("qpAvgNrr", signature(X="matrix"),
     clApply <- get("clusterApply", mode="function")
     stopCl <- get("stopCluster", mode="function")
     clCall <- get("clusterCall", mode="function")
+    clOpt <- get("getClusterOption", mode="function")
+
+    message("Estimating non-rejection rates using a ", clOpt("type"),
+            " cluster of ", clusterSize, " nodes\n")
 
     cl <- makeCl(clusterSize)
     clSetupRNG(cl)
@@ -818,8 +822,6 @@ setMethod("qpGenNrr", signature(X="matrix"),
   cl <- 1
  
   if (clusterSize > 1) {
-    message("Estimating non-rejection rates using a ", getClusterOption("type"),
-            " cluster of ", clusterSize, " nodes\n")
     ## copying ShortRead's strategy, 'get()' are to quieten R CMD check, and for no other reason
     makeCl <- get("makeCluster", mode="function")
     clSetupRNG <- get("clusterSetupRNG", mode="function")
@@ -828,6 +830,10 @@ setMethod("qpGenNrr", signature(X="matrix"),
     clApply <- get("clusterApply", mode="function")
     stopCl <- get("stopCluster", mode="function")
     clCall <- get("clusterCall", mode="function")
+    clOpt <- get("getClusterOption", mode="function")
+
+    message("Estimating non-rejection rates using a ", clOpt("type"),
+            " cluster of ", clusterSize, " nodes\n")
 
     cl <- makeCl(clusterSize)
     clSetupRNG(cl)
@@ -1337,16 +1343,17 @@ qpGraph <- function(nrrMatrix, threshold=NULL, topPairs=NULL, pairup.i=NULL,
     require(Matrix)
     return(Matrix(A))
   } else if (return.type == "edge.list") {
-    m <- cbind(row(A)[upper.tri(A) & A],col(A)[upper.tri(A) & A])
-    colnames(m) <- c("i","j")
+    m <- cbind(vertex.labels[row(A)[upper.tri(A) & A]], vertex.labels[col(A)[upper.tri(A) & A]])
+    colnames(m) <- c("i", "j")
     return(m)
   } else if (return.type == "graphNEL") {
     require(graph)
-    edL <- vector("list",length=n.var)
-    names(edL) <- vertex.labels
-    for (i in 1:n.var)
-      edL[[i]] <- list(edges=(1:n.var)[A[i,]],weights=rep(1,sum(A[i,])))
-    g <- new("graphNEL",nodes=vertex.labels,edgeL=edL,edgemode="undirected")
+    vertices <- unique(c(vertex.labels[row(A)[upper.tri(A) & A]], vertex.labels[col(A)[upper.tri(A) & A]]))
+    edL <- vector("list", length=length(vertices))
+    names(edL) <- vertices
+    for (v in vertices)
+      edL[[v]] <- list(edges=vertex.labels[A[v, ]], weights=rep(1, sum(A[v, ])))
+    g <- new("graphNEL",nodes=vertices, edgeL=edL,edgemode="undirected")
     return(g)
   } else if (return.type == "graphAM") {
     require(graph)
@@ -1868,7 +1875,7 @@ qpGetCliques <- function(g, clqspervtx=FALSE, verbose=TRUE) {
       stop("g should be an undirected graph\n")
 
     A <- as(g, "matrix") == 1
-  } else if (class(g) == "matrix" || class(g) == "lsCMatrix") {
+  } else if (class(g) == "matrix" || class(g) == "lsCMatrix" || class(g) == "lsyMatrix") {
     A <- g
     p <- (d <- dim(A))[1]
     if (p != d[2])
@@ -1878,6 +1885,14 @@ qpGetCliques <- function(g, clqspervtx=FALSE, verbose=TRUE) {
       stop("g is not a symmetric matrix nor a graphNEL object\n")
   } else
     stop("g should be either a graphNEL object, a graphAM object or a boolean adjacency matrix\n")
+
+  p <- dim(A)[1]
+  nEd <- sum(A)/2
+  if (nEd == 0)
+    return(as.list(1:p))
+
+  if (nEd == (p*(p-1))/2)
+    return(list(1:p))
 
   return(qpgraph:::.qpFastCliquerGetCliques(as.matrix(A), clqspervtx=clqspervtx,
                                             verbose=verbose))
@@ -2019,7 +2034,9 @@ setMethod("qpPAC", signature(X="matrix"),
 
   ## calculate sample covariance matrix
   S <- qpCov(X)
-  dimnames(A) <- dimnames(S)
+
+  ## ensure rows and columns follow the same order
+  A <- A[rownames(S), colnames(S)]
 
   ## get the cliques
 
@@ -2270,15 +2287,37 @@ qpRndWishart <- function(delta=1, P=0, df=NULL, n.var=NULL) {
 qpG2Sigma <- function (g, rho=0, verbose = FALSE,
                        R.code.only = FALSE) {
   n.var <- NULL
-  if (class(g) == "matrix" || class(g) == "lsCMatrix") n.var <- nrow(g)
-  if (class(g) == "graphNEL" || class(g) == "graphAM") n.var <- length(nodes(g))
-  if (is.null(n.var)) stop("g is neither an adjacency matrix nor a graphNEL or graphAM object")
+  if (class(g) == "matrix" || class(g) == "lsCMatrix")
+    n.var <- nrow(g)
+  if (class(g) == "graphNEL" || class(g) == "graphAM")
+    n.var <- length(nodes(g))
+  if (is.null(n.var))
+    stop("'g' is neither an adjacency matrix, nor a graphNEL, nor graphAM object.\n")
 
   clqlst <- qpGetCliques(g, verbose = verbose)
   W <- qpRndWishart(delta=sqrt(1 / n.var), P=rho, n.var=n.var)$rW
   Sigma <- qpIPF(W, clqlst, verbose=verbose, R.code.only=R.code.only)
 
   return(as(Sigma, "dspMatrix"))
+}
+
+
+
+## function: qpUnifRndCor
+## purpose: builds a matrix of uniformly random correlation values between -1 and +1
+## parameters: n.var - number of variables
+##             var.names - names of the variables to put as dimension names
+## return: a matrix of uniformly random correlation values between -1 and +1 for
+##         every pair of variables
+
+qpUnifRndCor <- function (n.var, var.names=1:n.var) {
+  n.var <- as.integer(n.var)
+  x=runif((n.var*(n.var-1))/2+n.var, min=-1, max=+1)
+  x[cumsum(1:n.var)] <- 1
+  rndcor <- new("dspMatrix", Dim=c(n.var, n.var),
+                Dimnames=list(var.names, var.names), x=x)
+
+  return(rndcor)
 }
 
 
@@ -2299,11 +2338,12 @@ qpK2ParCor <- function(K) {
 
 ## function: qpPrecisionRecall
 ## purpose: calculate the precision-recall curve for a given measure of
-##          association between all pairs of variables in a matrix
+##          association with respect to some given reference graph
 ## parameters: measurementsMatrix - matrix containing the measure of association
 ##                                  between all pairs of variables
-##             refA - adjacency matrix of reference from which to calculate
-##                    the precision-recall curve
+##             refGraph - a reference graph from which to calculate the precision-recall
+##                        curve provided either as an adjacency matrix, a two-column matrix
+##                        of edges, a graphNEL object or a graphAM object
 ##             decreasing - logical; if TRUE then the measurements are ordered
 ##                          in decreasing order; if FALSE then in increasing
 ##                          order
@@ -2315,29 +2355,59 @@ qpK2ParCor <- function(K) {
 ##         positives at that recall rate and the threshold score that yields that
 ##         recall rate
 
-qpPrecisionRecall <- function(measurementsMatrix, refA, decreasing=TRUE,
+qpPrecisionRecall <- function(measurementsMatrix, refGraph, decreasing=TRUE,
                               pairup.i=NULL, pairup.j=NULL,
                               recallSteps=c(seq(0,0.1,0.005),seq(0.2,1.0,0.1))) {
 
   if (class(measurementsMatrix) != "matrix" && class(measurementsMatrix) != "dspMatrix" &&
       class(measurementsMatrix) != "dgeMatrix")
-    stop("measurementsMatrix should be some kind of numerical matrix\n")
-
-  if (class(refA) != "matrix" && class(refA) != "lsCMatrix")
-    stop("refA should be an adjacency matrix\n")
+    stop("measurementsMatrix should be a numerical matrix\n")
 
   p <- (d <- dim(measurementsMatrix))[1]
   if (p != d[2])
-  if (nrow(measurementsMatrix) != ncol(measurementsMatrix))
     stop("measurementsMatrix should be a squared matrix\n")
 
-  p <- (d <- dim(refA))[1]
-  if (p != d[2])
-    stop("refA should be a squared matrix\n")
+  if (class(refGraph) != "data.frame" && class(refGraph) != "matrix" &&
+      class(refGraph) != "lsCMatrix" && class(refGraph)!= "graphNEL" &&
+      class(refGraph) != "graphAM")
+    stop("refGraph should be provided either as an adjacency matrix, a two-column matrix of edges, a graphNEL object, or a graphAM object\n")
 
-  if (nrow(measurementsMatrix) != nrow(refA) ||
-      ncol(measurementsMatrix) != ncol(refA))
-    stop("measurementsMatrix and refA should have the same dimensions\n")
+  if (class(refGraph) == "data.frame" || class(refGraph) == "matrix" ||
+      class(refGraph) == "lsCMatrix") {
+    p <- (d <- dim(refGraph))[1]
+    if (p != d[2] && ncol(refGraph) != 2)
+      stop("If refGraph is a matrix then it should be either a squared adjacency matrix or a two-column matrix with rows corresponding to edges \n")
+
+    if (p != d[2] && ncol(refGraph) == 2) {
+      if (class(refGraph[1, 1]) == "character") {
+        refGraph <- cbind(match(refGraph[, 1], rownames(measurementsMatrix)),
+                          match(refGraph[, 2], rownames(measurementsMatrix)))
+        if (any(is.na(refGraph)))
+          stop("Some of the identifiers in refGraph do not correspond to row and column names in measurementsMatrix\n")
+      }
+
+      refA <- matrix(FALSE, nrow=nrow(measurementsMatrix),
+                            ncol=ncol(measurementsMatrix))
+      refA[as.matrix(refGraph)] <- TRUE
+      refA <- refA | t(refA)
+      rownames(refA) <- colnames(refA) <- rownames(measurementsMatrix)
+    } else {
+      refA <- as.matrix(refGraph)
+      if (nrow(measurementsMatrix) != nrow(refA) ||
+          ncol(measurementsMatrix) != ncol(refA))
+        stop("measurementsMatrix and refGraph should have the same dimensions\n")
+    }
+
+  } else { ## graphNEL or graphAM
+    if (any(is.na(match(nodes(refGraph), rownames(measurementsMatrix)))) ||
+        length(nodes(refGraph) != dim(measurementsMatrix)[1]))
+      stop("The vertex set in refGraph does not correspond to the row and column names in measurementsMatrix\n")
+    refA <- as(refGraph, "matrix") == 1
+    if (!all(match(rownames(refA), rownames(measurementsMatrix)) == 1:dim(refA)[1])) { ## force matching the vertex order
+      refA <- refA[match(rownames(measurementsMatrix), rownames(refA)), ] ## re-order rows
+      refA <- refA[, match(colnames(measurementsMatrix), colnames(refA)), ] ## re-order columns
+    }
+  }
 
   n.var <- nrow(measurementsMatrix)
 
@@ -2491,7 +2561,7 @@ qpImportNrr <- function(filename, nTests) {
 ##          calculations Gene Ontology (GO) annotations are employed through a
 ##          given annotation .db package for the Entrez Gene IDs associated to
 ##          the rows and columns of the adjacency matrix.
-## parameters: A - adjacency matrix of the undirected graph representing the
+## parameters: object - adjacency matrix of the undirected graph representing the
 ##                 transcriptional regulatory network
 ##             TFgenes - vector of transcription factor gene names (matching the
 ##                       genes at the rows and column names of A)
@@ -2502,6 +2572,8 @@ qpImportNrr <- function(filename, nTests) {
 ##                         and thus where functional coherence will be estimated
 ##             verbose - logical; if TRUE the function will show progress on the
 ##                       calculations; if FALSE will remain quiet (default)
+##             clusterSize - size of the cluster of processors to do calculations
+##                           in parallel via 'snow' and 'rlecuyer'
 ## return: a list with three slots, a first one containing the transcriptional
 ##         regulatory network as a list of regulatory modules and their targets,
 ##         a second one containing this same network but including only those
@@ -2513,14 +2585,18 @@ setGeneric("qpFunctionalCoherence", function(object, ...) standardGeneric("qpFun
 ## the input object is a lsCMatrix adjacency matrix
 setMethod("qpFunctionalCoherence",
           signature(object="lsCMatrix"),
-          function(object, TFgenes, geneUniverse=rownames(object), chip, minRMsize=5, verbose=FALSE)
-            qpFunctionalCoherence(as(object, "matrix"), TFgenes, geneUniverse, chip, minRMsize, verbose))
+          function(object, TFgenes, geneUniverse=rownames(object), chip, minRMsize=5, verbose=FALSE, clusterSize=1)
+            qpFunctionalCoherence(as(object, "matrix"), TFgenes, geneUniverse, chip, minRMsize, verbose, clusterSize))
 
 ## the input object is a regular adjacency matrix
 setMethod("qpFunctionalCoherence",
           signature(object="matrix"),
-          function(object, TFgenes, geneUniverse=rownames(object), chip, minRMsize=5, verbose=FALSE) {
+          function(object, TFgenes, geneUniverse=rownames(object), chip, minRMsize=5, verbose=FALSE, clusterSize=1) {
   require(GOstats)
+
+  if (clusterSize > 1 &&
+      (!qpgraph:::.qpIsPackageLoaded("rlecuyer") || !qpgraph:::.qpIsPackageLoaded("snow")))
+    stop("Using a cluster (clusterSize > 1) requires first loading packages 'snow' and 'rlecuyer'\n")
 
   if (is.null(colnames(object)) || is.null(rownames(object)))
     stop("the adjacency matrix contained in the 'object' argument should have row and column names corresponding to the gene IDs")
@@ -2544,15 +2620,19 @@ setMethod("qpFunctionalCoherence",
   txRegNet <- lapply(TFgenes_i, function(x) geneUniverse[object[as.integer(x), ]])
   names(txRegNet) <- TFgenes
 
-  return(qpgraph:::.qpFunctionalCoherence(txRegNet, geneUniverse, chip, minRMsize, verbose))
+  return(qpgraph:::.qpFunctionalCoherence(txRegNet, geneUniverse, chip, minRMsize, verbose, clusterSize))
 })
 
 ## the input object is a list of regulatory modules
 setMethod("qpFunctionalCoherence",
           signature(object="list"),
           function(object, geneUniverse=unique(c(names(object), unlist(object, use.names=FALSE))),
-                   chip, minRMsize=5, verbose=FALSE) {
+                   chip, minRMsize=5, verbose=FALSE, clusterSize=1) {
   require(GOstats)
+
+  if (clusterSize > 1 &&
+      (!qpgraph:::.qpIsPackageLoaded("rlecuyer") || !qpgraph:::.qpIsPackageLoaded("snow")))
+    stop("Using a cluster (clusterSize > 1) requires first loading packages 'snow' and 'rlecuyer'\n")
 
   TFgenes <- names(object)
 
@@ -2562,10 +2642,10 @@ setMethod("qpFunctionalCoherence",
   if (sum(is.na(match(TFgenes, geneUniverse))) > 0)
     stop("TFgenes is not a subset from the genes comprising the gene universe\n")
 
-  return(qpgraph:::.qpFunctionalCoherence(object, geneUniverse, chip, minRMsize, verbose))
+  return(qpgraph:::.qpFunctionalCoherence(object, geneUniverse, chip, minRMsize, verbose, clusterSize))
 })
 
-.qpFunctionalCoherence <- function(txRegNet, geneUniverse, chip, minRMsize, verbose) {
+.qpFunctionalCoherence <- function(txRegNet, geneUniverse, chip, minRMsize, verbose, clusterSize) {
   TFgenes <- names(txRegNet)
   regModuleSize <- unlist(lapply(txRegNet, length))
 
@@ -2575,25 +2655,74 @@ setMethod("qpFunctionalCoherence",
     cat(sprintf("qpFunctionalCoherence: calculating GO enrichment in %d target gene sets\n",
         length(TFgenes[regModuleSize >= minRMsize])))
 
-  txRegNetGO <- list()
-  for (TFgene in TFgenes[regModuleSize >= minRMsize]) {
-    if (verbose)
-      cat(".")
-    TFgeneTGs <- txRegNet[[TFgene]]
-    TFgeneTGsWithGO <- qpgraph:::.qpFilterByGO(TFgeneTGs, chip, "BP")
+  if (clusterSize > 1) {
+    ## copying ShortRead's strategy, 'get()' are to quieten R CMD check, and for no other reason
+    makeCl <- get("makeCluster", mode="function")
+    clSetupRNG <- get("clusterSetupRNG", mode="function")
+    clEvalQ <- get("clusterEvalQ", mode="function")
+    clExport <- get("clusterExport", mode="function")
+    clApply <- get("clusterApply", mode="function")
+    stopCl <- get("stopCluster", mode="function")
+    clCall <- get("clusterCall", mode="function")
+    clOpt <- get("getClusterOption", mode="function")
+    clParLapply <- get("parLapply", mode="function")
 
-    if (length(TFgeneTGsWithGO) >= minRMsize) {
-      goHypGparams <- new("GOHyperGParams",
-                          geneIds=TFgeneTGsWithGO,
-                          universeGeneIds=geneBPuniverse,
-                          annotation=chip, ontology="BP",
-                          pvalueCutoff=0.05, conditional=TRUE,
-                          testDirection="over")
-      goHypGcond <- hyperGTest(goHypGparams)
-      txRegNetGO[[TFgene]] <- list(initialRMsize=regModuleSize[TFgene],
-                                   TGgenesWithGO=TFgeneTGsWithGO,
-                                   goBPcondResult=goHypGcond,
-                                   goBPcondResultSigCat=sigCategories(goHypGcond))
+    message("Estimating functional coherence using a ", clOpt("type"),
+            " cluster of ", clusterSize, " nodes\n")
+
+    cl <- makeCl(clusterSize)
+    clSetupRNG(cl)
+    res <- clEvalQ(cl, require(qpgraph, quietly=TRUE))
+    if (!all(unlist(res))) {
+      stopCl(cl)
+      stop("The package 'qpgraph' could not be loaded in some of the nodes of the cluster")
+    }
+    res <- clEvalQ(cl, require(GOstats, quietly=TRUE))
+    if (!all(unlist(res))) {
+      stopCl(cl)
+      stop("The package 'GOstats' could not be loaded in some of the nodes of the cluster")
+    }
+    txRegNetGO <- clParLapply(cl, txRegNet[TFgenes[regModuleSize >= minRMsize]],
+                              function(TFgeneTGs, geneBPuniverse, chip) {
+                                TFgeneTGsWithGO <- qpgraph:::.qpFilterByGO(TFgeneTGs, chip, "BP")
+                                res <- NULL
+
+                                if (length(TFgeneTGsWithGO) >= minRMsize) {
+                                  goHypGparams <- new("GOHyperGParams",
+                                                      geneIds=TFgeneTGsWithGO,
+                                                      universeGeneIds=geneBPuniverse,
+                                                      annotation=chip, ontology="BP",
+                                                      pvalueCutoff=0.05, conditional=TRUE,
+                                                      testDirection="over")
+                                  goHypGcond <- hyperGTest(goHypGparams)
+                                  res <- list(TGgenesWithGO=TFgeneTGsWithGO,
+                                              goBPcondResult=goHypGcond,
+                                              goBPcondResultSigCat=sigCategories(goHypGcond))
+                                }
+                                res
+                             }, geneBPuniverse, chip)
+    txRegNetGO <- txRegNetGO[which(sapply(txRegNetGO, length) > 0)]
+    stopCl(cl)
+  } else {
+    txRegNetGO <- list()
+    for (TFgene in TFgenes[regModuleSize >= minRMsize]) {
+      if (verbose)
+        cat(".")
+      TFgeneTGs <- txRegNet[[TFgene]]
+      TFgeneTGsWithGO <- qpgraph:::.qpFilterByGO(TFgeneTGs, chip, "BP")
+
+      if (length(TFgeneTGsWithGO) >= minRMsize) {
+        goHypGparams <- new("GOHyperGParams",
+                            geneIds=TFgeneTGsWithGO,
+                            universeGeneIds=geneBPuniverse,
+                            annotation=chip, ontology="BP",
+                            pvalueCutoff=0.05, conditional=TRUE,
+                            testDirection="over")
+        goHypGcond <- hyperGTest(goHypGparams)
+        txRegNetGO[[TFgene]] <- list(TGgenesWithGO=TFgeneTGsWithGO,
+                                     goBPcondResult=goHypGcond,
+                                     goBPcondResultSigCat=sigCategories(goHypGcond))
+      }
     }
   }
 
@@ -2668,6 +2797,334 @@ setMethod("qpFunctionalCoherence",
   return(list(txRegNet=txRegNet,
               txRegNetGO=txRegNetGO,
               functionalCoherenceValues=GOgraphSim))
+}
+
+
+
+## function: qpTopPairs
+## purpose: report a top number of pairs of variables from a network encoded by a given
+##          graph and possibly adding annotation and other information
+## parameters: measurementsMatrix - matrix of pairwise associations
+##             refGraph - undirected graph of selected interactions provided either as
+##                        an adjacency matrix, a graphNEL object or a graphAM object
+##             n - number of pairs to report
+##             file - file name to dump the pairs information as tab-separated column text
+##             decreasing - logical; if TRUE then the measurements are ordered
+##                          in decreasing order; if FALSE then in increasing
+##                          order. It applies only when measurementsMatrix is not null
+##             pairup.i - subset of vertices to pair up with subset pairup.j
+##             pairup.j - subset of vertices to pair up with subset pairup.i
+##             annotation - name of an annotation package to transform gene identifiers
+##                          into gene symbols
+##             fcOutput - output of qpFunctionalCoherence
+##             digits - number of decimal digits reported in the association measure and
+##                      functional coherence values
+
+
+qpTopPairs <- function(measurementsMatrix=NULL, refGraph=NULL, n=6L, file=NULL,
+                       decreasing=FALSE, pairup.i=NULL, pairup.j=NULL,
+                       annotation=NULL, fcOutput=NULL, fcOutput.na.rm=FALSE,
+                       digits=2) {
+
+  haveMeasurements <- FALSE
+
+  if (is.null(measurementsMatrix) && is.null(refGraph))
+    stop("A proper value for either 'measurementsMatrix' or 'refGraph' should be provided\n")
+
+  if (is.null(measurementsMatrix)) {
+    if (class(refGraph) != "matrix" && class(refGraph) != "lsCMatrix" &&
+        class(refGraph)!= "graphNEL" && class(refGraph) != "graphAM")
+      stop("refGraph should be provided either as an adjacency matrix, a graphNEL object, or a graphAM object\n")
+
+    refGraph <- as(refGraph, "matrix")
+
+    p <- (d <- dim(refGraph))[1]
+    if (p != d[2])
+      stop("'measurementsMatrix' should be a squared matrix\n")
+
+    if (is.null(rownames(refGraph)) || is.null(colnames(refGraph)))
+      stop("'refGraph' should have row and column names\n")
+    else {
+      if (!identical(rownames(refGraph), colnames(refGraph)))
+        stop("Row and column names of 'refGraph' should be the same\n")
+    }
+
+    measurementsMatrix <- matrix(0, nrow=dim(refGraph)[1], ncol=dim(refGraph)[1],
+                                 dimnames=dimnames(refGraph))
+  } else {
+    if (class(measurementsMatrix) != "matrix" && class(measurementsMatrix) != "dspMatrix" &&
+        class(measurementsMatrix) != "dgeMatrix")
+      stop("'measurementsMatrix' should be a numerical matrix\n")
+
+    p <- (d <- dim(measurementsMatrix))[1]
+    if (p != d[2])
+      stop("'measurementsMatrix' should be a squared matrix\n")
+
+    if (is.null(rownames(measurementsMatrix)) || is.null(colnames(measurementsMatrix)))
+      stop("'measurementsmatrix' should have row and column names\n")
+    else {
+      if (!identical(rownames(measurementsMatrix), colnames(measurementsMatrix)))
+        stop("Row and column names of 'measurementsMatrix' should be the same\n")
+    }
+
+    haveMeasurements <- TRUE
+  }
+
+  if (is.null(refGraph)) {
+    refGraph <- matrix(TRUE, nrow=dim(measurementsMatrix)[1],
+                       ncol=dim(measurementsMatrix)[2],
+                       dimnames=dimnames(measurementsMatrix))
+  } else {
+    if (class(refGraph) != "matrix" && class(refGraph) != "lsCMatrix" &&
+        class(refGraph)!= "graphNEL" && class(refGraph) != "graphAM")
+      stop("'refGraph' should be provided either as an adjacency matrix, a graphNEL object, or a graphAM object\n")
+
+    if (class(refGraph) == "graphNEL" || class(refGraph) == "graphAM")
+      refGraph <- ugraph(refGraph)
+
+    refGraph <- as(refGraph, "matrix")
+
+    p <- (d <- dim(refGraph))[1]
+    if (p != d[2])
+      stop("'refGraph' should be a squared matrix\n")
+
+    if (is.null(rownames(refGraph)) || is.null(colnames(refGraph)))
+      stop("'refGraph' should have row and column names\n")
+    else {
+      if (!identical(rownames(refGraph), colnames(refGraph)))
+        stop("Row and column names of 'refGraph' should be the same\n")
+    }
+  }
+
+  if (!identical(rownames(measurementsMatrix), rownames(refGraph)))
+    stop("Row and column names in 'measurementsMatrix' and 'refGraph' should be the same\n")
+
+  if (fcOutput.na.rm && is.null(fcOutput))
+    stop("When 'fcOutput.na.rm=TRUE then 'fcOutput' should be set.\n")
+
+  var.names <- rownames(measurementsMatrix)
+  n.var <- nrow(measurementsMatrix)
+
+  ## by now we have to coerce it to a regular matrix
+  ## but hopefully in the near future we can do [<- as well on a dspMatrix
+  measurementsMatrix <- as.matrix(measurementsMatrix)
+
+  if ((!is.null(pairup.i) && is.null(pairup.j)) ||
+      (is.null(pairup.i) && !is.null(pairup.j)))
+    stop("'pairup.i' and 'pairup.j' should both either be set to NULL or contain subsets of variables\n")
+
+  if (!is.null(pairup.i) && !is.null(pairup.j))  {
+    if (sum(is.na(match(var.names, c(pairup.i, pairup.j)))) > 0)
+      warning("Some of the variables in 'measurementsMatrix' or 'refGraph' do not form part of 'pairup.i' nor 'pairup.j'\n")
+
+    pairup.i <- match(pairup.i, var.names)
+    pairup.i <- pairup.i[!is.na(pairup.i)]
+
+    pairup.j <- match(pairup.j, var.names)
+    pairup.j <- pairup.j[!is.na(pairup.j)]
+
+    pairup.ij.int <- intersect(pairup.i, pairup.j)
+    pairup.i.noint <- setdiff(pairup.i, pairup.ij.int)
+    pairup.j.noint <- setdiff(pairup.j, pairup.ij.int)
+
+    nomeasurementsMask <- matrix(FALSE, nrow=n.var, ncol=n.var)
+    nomeasurementsMask[as.matrix(
+                       expand.grid(pairup.ij.int,
+                                   c(pairup.i.noint, pairup.j.noint)))] <- TRUE
+    nomeasurementsMask[as.matrix(expand.grid(pairup.i.noint, pairup.j.noint))] <- TRUE
+    nomeasurementsMask[as.matrix(expand.grid(pairup.ij.int, pairup.ij.int))] <- TRUE
+    diag(nomeasurementsMask) <- FALSE
+    nomeasurementsMask <- nomeasurementsMask | t(nomeasurementsMask)
+    nomeasurementsMask <- !nomeasurementsMask
+    measurementsMatrix[nomeasurementsMask] <- NA
+  }
+
+  upperTriRow <- row(measurementsMatrix)[upper.tri(measurementsMatrix) &
+                                         !is.na(measurementsMatrix) & refGraph]
+  upperTriCol <- col(measurementsMatrix)[upper.tri(measurementsMatrix) &
+                                         !is.na(measurementsMatrix) & refGraph]
+  measurementsUpperTriMatrix <- measurementsMatrix[upper.tri(measurementsMatrix) &
+                                                   !is.na(measurementsMatrix) & refGraph]
+  orderedMeasurements <- sort(measurementsUpperTriMatrix,index.return=TRUE,
+                              decreasing=decreasing)
+
+  if (!fcOutput.na.rm) {
+    if (n == Inf)
+      n <- length(measurementsUpperTriMatrix)
+
+    edgeRnk <- data.frame(i=var.names[upperTriRow[orderedMeasurements$ix[1:n]]],
+                          j=var.names[upperTriCol[orderedMeasurements$ix[1:n]]],
+                          x=orderedMeasurements$x[1:n], stringsAsFactors=FALSE)
+  } else {
+    n2 <- length(measurementsUpperTriMatrix)
+
+    edgeRnk <- data.frame(i=var.names[upperTriRow[orderedMeasurements$ix[1:n2]]],
+                          j=var.names[upperTriCol[orderedMeasurements$ix[1:n2]]],
+                          x=orderedMeasurements$x[1:n2], stringsAsFactors=FALSE)
+  }
+
+  if (!is.null(pairup.i)) {
+    swapMask <- is.na(match(edgeRnk$i, var.names[pairup.i]))
+    subRnk <- edgeRnk[swapMask, ]
+    subRnk <- data.frame(subRnk$j, subRnk$i, subRnk$x, stringsAsFactors=FALSE)
+    edgeRnk[swapMask, ] <- subRnk
+  }
+
+  if (!is.null(annotation)) {
+    syms <- unlist(AnnotationDbi::mget(unique(c(edgeRnk$i, edgeRnk$j)),
+                     annotate::getAnnMap(map="SYMBOL", chip=annotation, type="db"),
+                     ifnotfound=NA))
+    edgeRnk <- cbind(edgeRnk, iSymbol=syms[edgeRnk$i], stringsAsFactors=FALSE)
+    edgeRnk <- cbind(edgeRnk, jSymbol=syms[edgeRnk$j], stringsAsFactors=FALSE)
+    edgeRnk <- edgeRnk[, c(1,2,4,5,3)]
+  }
+
+  edgeRnk$x <- round(edgeRnk$x, digits=digits)
+
+  if (!haveMeasurements)
+    edgeRnk <- edgeRnk[, -dim(edgeRnk)[2]]
+
+  if (!is.null(fcOutput)) {
+    if (class(fcOutput) != "list")
+      stop("'fcOutput' should be the output of 'qpFunctionalCoherence'.\n")
+
+    if (!all(names(fcOutput) == c("txRegNet", "txRegNetGO", "functionalCoherenceValues")))
+      stop("'fcOutput' should be the output of 'qpFunctionalCoherence'.\n")
+
+    if (is.null(pairup.i))
+      stop("When 'fcOutput' is set 'pairup.i' and 'pairup.j' should be also set.\n")
+
+    edgeRnk <- cbind(edgeRnk, funCoherence=NA_real_)
+    fcMask <- !is.na(match(edgeRnk$i, names(fcOutput$functionalCoherenceValues)))
+    if (any(fcMask)) {
+      fcMask[fcMask] <- apply(edgeRnk[fcMask, ], 1, function(x, tx) !is.na(match(x[2], tx[[x[1]]])),
+                              fcOutput$txRegNet)
+      edgeRnk$funCoherence[fcMask] <- fcOutput$functionalCoherenceValues[edgeRnk$i[fcMask]]
+    }
+
+    edgeRnk$funCoherence <- round(edgeRnk$funCoherence, digits=digits)
+
+    if (fcOutput.na.rm) {
+      if (!any(!is.na(edgeRnk$funCoherence)))
+        stop("No functional coherence value is different from NA. Please set 'fcOutput.na.rm=FALSE'\n")
+
+      edgeRnk <- edgeRnk[!is.na(edgeRnk$funCoherence), ]
+
+      if (n == Inf)
+        n <- length(measurementsUpperTriMatrix)
+
+      edgeRnk <- edgeRnk[1:n, ]
+    }
+  }
+
+  rownames(edgeRnk) <- 1:dim(edgeRnk)[1]
+
+  if (is.null(file))
+    return(edgeRnk)
+  else
+    write.table(edgeRnk, file=file, quote=FALSE, sep="\t", row.names=FALSE, col.names=TRUE)
+
+  invisible(edgeRnk)
+}
+
+
+
+## function: qpPlotGraph
+## purpose: plot a given graph using Rgraphviz
+## parameters: g - the graph to plot
+##             vertexSubset - a subset of vertices inducing the subgraph we want to plot
+##             boundary - flag set to TRUE if we want also to plot the vertices connected
+##                        to the given vertex subset including their connecting edges;
+##                        FALSE (default) otherwise
+##             minimumSizeConnComp - minimum size of the connected components we want to plot
+##             pairup.i - subset of vertices to pair up with subset pairup.j
+##             pairup.j - subset of vertices to pair up with subset pairup.i
+##             annotation - name of an annotation package to transform gene identifiers
+##                          into gene symbols
+
+qpPlotGraph <- function(g, vertexSubset=nodes(g), boundary=FALSE, minimumSizeConnComp=2,
+                        pairup.i=NULL, pairup.j=NULL, annotation=NULL) {
+  require(graph)
+  require(Rgraphviz)
+
+  if (any(is.na(match(nodes(g), vertexSubset)))) {
+    vertexSubsetNoMatch <- vertexSubset[is.na(match(vertexSubset, nodes(g)))]
+    if (length(vertexSubsetNoMatch) > 0 && is.null(annotation))
+      stop("Vertex names in 'vertexSubset' ", vertexSubsetNoMatch, " do not form part of the vertices in 'g' and 'annotation' is set to NULL.\n")
+
+    if (length(vertexSubsetNoMatch) > 0 && !is.null(annotation)) {
+      vertexSubsetNoMatchIDs <- unlist(AnnotationDbi::mget(vertexSubsetNoMatch,
+                                         AnnotationDbi::revmap(annotate::getAnnMap(map="SYMBOL", chip=annotation, type="db")),
+                                         ifnotfound=NA))
+      if (any(is.na(vertexSubsetNoMatchIDs)))
+        stop("Vertex names in 'vertexSubset' ", vertexSubsetNoMatch[is.na(vertexSubsetNoMatchIDs)], " do not form part of the vertices in 'g' and identifiers could not be found through the SYMBOL map from 'annotation'.\n")
+
+      vertexSubset <- c(setdiff(vertexSubset, vertexSubsetNoMatch), vertexSubsetNoMatchIDs)
+    }
+
+    if (boundary) {
+      bd <- boundary(vertexSubset, g)
+      bd <- bd[sapply(bd, length) > 0]
+      vertexSubset <- unique(c(vertexSubset, unlist(bd)))
+    }
+    g <- subGraph(vertexSubset, g)
+  }
+
+  if (minimumSizeConnComp > 1) {
+    gCc <- connComp(g)
+    gCcOfMinSize <- gCc[sapply(gCc, length) >= minimumSizeConnComp]
+    vertexSubset <- unique(unlist(gCcOfMinSize))
+
+    if (any(is.na(match(nodes(g), vertexSubset))))
+      g <- subGraph(vertexSubset, g)
+  }
+
+  if ((!is.null(pairup.i) && is.null(pairup.j)) ||
+      (is.null(pairup.i) && !is.null(pairup.j)))
+    stop("'pairup.i' and 'pairup.j' should both either be set to NULL or contain subsets of variables\n")
+
+  if (!is.null(pairup.i) && !is.null(pairup.j))  {
+    if (sum(is.na(match(nodes(g), c(pairup.i, pairup.j)))) > 0)
+      warning("Some of the vertices in the resulting graph do not form part of 'pairup.i' nor 'pairup.j'\n")
+
+    edL <- matrix(unlist(sapply(nodes(g), function(x) t(cbind(x, edges(g)[[x]])), USE.NAMES=FALSE)),
+                   ncol=2, byrow=TRUE)
+    edL <- unique(t(apply(edL, 1, sort)))
+    mask <- apply(edL, 1, function(x) sum(!is.na(match(x, pairup.i)))*sum(!is.na(match(x, pairup.j)))) == 0
+    if (sum(mask) > 0)
+      removeEdge(from=edL[mask, 1], to=edL[mask, 2], g)
+
+    edgemode(g) <- "directed"
+    g.iNodes <- nodes(g)[!is.na(match(nodes(g), pairup.i))]
+    wrongEdges <- boundary(setdiff(nodes(g), g.iNodes), g)
+    wrongEdges <- wrongEdges[sapply(wrongEdges, length) > 0]
+    wrongEdges <- matrix(unlist(sapply(names(wrongEdges), function(x) t(cbind(x, wrongEdges[[x]])), USE.NAMES=FALSE)),
+                         ncol=2, byrow=TRUE)
+    g <- removeEdge(from=wrongEdges[, 1], to=wrongEdges[, 2], g)
+
+    nodeLabels <- nodes(g)
+    if (!is.null(annotation)) {
+      nodeLabels <- unlist(AnnotationDbi::mget(nodes(g),
+                             annotate::getAnnMap(map="SYMBOL", chip=annotation, type="db"),
+                             ifnotfound=NA))
+    }
+
+    nodattr <- makeNodeAttrs(g, label=nodeLabels, shape="ellipse", fixedsize=FALSE, fillcolor=grey(0.9))
+    nodattr$fillcolor[g.iNodes] <- grey(0.65)
+  } else {
+    nodeLabels <- nodes(g)
+    if (!is.null(annotation)) {
+      nodeLabels <- unlist(AnnotationDbi::mget(nodes(g),
+                             annotate::getAnnMap(map="SYMBOL", chip=annotation, type="db"),
+                             ifnotfound=NA))
+    }
+
+    nodattr <- makeNodeAttrs(g, label=nodeLabels, shape="ellipse", fixedsize=FALSE, fillcolor=grey(0.9))
+  }
+
+  plot(g, "twopi", nodeAttrs=nodattr, lwd=2)
+
+  invisible(g)
 }
 
 
@@ -2798,11 +3255,10 @@ setMethod("qpFunctionalCoherence",
 ##         ontology branch are found
 
 .qpFilterByGO <- function(entrezGeneIds, chip, ontologyType=c("BP", "MF", "CC")) {
-  require(annotate)
   ontologyType <- match.arg(ontologyType)
 
   haveGo <- sapply(AnnotationDbi::mget(entrezGeneIds,
-                                       getAnnMap(map="GO", chip=chip, type="db"),
+                                       annotate::getAnnMap(map="GO", chip=chip, type="db"),
                                        ifnotfound=NA),
                    function(x) {
                      if (length(x) == 1 && is.na(x))
@@ -2862,8 +3318,8 @@ setMethod("qpFunctionalCoherence",
   return(.Call("qp_fast_nrr_par",X,as.integer(q),as.integer(nTests),
                                  as.double(alpha),as.integer(pairup.i.noint),
                                  as.integer(pairup.j.noint),as.integer(pairup.ij.int),
-                                 as.integer(verbose), as.integer(clusterRank),
-                                 as.integer(clusterSize)))
+                                 as.integer(verbose), as.integer(get("clusterRank")),
+                                 as.integer(get("clusterSize"))))
 }
 
 .qpFastNrrIdenticalQsPar <- function(X, q, nTests, alpha, pairup.i.noint, pairup.j.noint,
@@ -2872,8 +3328,8 @@ setMethod("qpFunctionalCoherence",
   return(.Call("qp_fast_nrr_identicalQs_par",X,as.integer(q),as.integer(nTests),
                                              as.double(alpha),as.integer(pairup.i.noint),
                                              as.integer(pairup.j.noint),as.integer(pairup.ij.int),
-                                             as.integer(verbose), as.integer(clusterRank),
-                                             as.integer(clusterSize)))
+                                             as.integer(verbose), as.integer(get("clusterRank")),
+                                             as.integer(get("clusterSize"))))
 }
 
 .qpFastEdgeNrr <- function(S, N, i, j, q, nTests, alpha) {
