@@ -11,14 +11,14 @@ The q-order partial correlation graph learning software, qpgraph.
 \details{
   \tabular{ll}{
   Package: \tab qpgraph\cr
-  Version: \tab \Sexpr{packageDescription("qpgraph")[["Version"]]}\cr
-  Built: \tab \Sexpr{packageDescription("qpgraph")[["Built"]]}\cr
-  Depends: \tab \Sexpr{packageDescription("qpgraph")[["Depends"]]}\cr
-  Imports: \tab \Sexpr{packageDescription("qpgraph")[["Imports"]]}\cr
-  Suggests: \tab \Sexpr{packageDescription("qpgraph")[["Suggests"]]}\cr
-  biocViews: \tab \Sexpr{packageDescription("qpgraph")[["biocViews"]]}\cr
-  License: \tab \Sexpr{packageDescription("qpgraph")[["License"]]}\cr
-  URL: \tab \Sexpr{packageDescription("qpgraph")[["URL"]]}\cr
+%  Version: \tab \Sexpr{packageDescription("qpgraph")[["Version"]]}\cr
+%  Built: \tab \Sexpr{packageDescription("qpgraph")[["Built"]]}\cr
+%  Depends: \tab \Sexpr{packageDescription("qpgraph")[["Depends"]]}\cr
+%  Imports: \tab \Sexpr{packageDescription("qpgraph")[["Imports"]]}\cr
+%  Suggests: \tab \Sexpr{packageDescription("qpgraph")[["Suggests"]]}\cr
+%  biocViews: \tab \Sexpr{packageDescription("qpgraph")[["biocViews"]]}\cr
+%  License: \tab \Sexpr{packageDescription("qpgraph")[["License"]]}\cr
+%  URL: \tab \Sexpr{packageDescription("qpgraph")[["URL"]]}\cr
   }
 }
 
