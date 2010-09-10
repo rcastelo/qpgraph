@@ -6,7 +6,14 @@
 The q-order partial correlation graph learning software, qpgraph.
 }
 \description{
-\Sexpr{packageDescription("qpgraph")[["Description"]]}
+%\Sexpr{packageDescription("qpgraph")[["Description"]]}
+q-order partial correlation graphs, or qp-graphs for short, are
+undirected Gaussian graphical Markov models built from q-order
+partial correlations. They are useful for learning undirected
+graphical Gaussian Markov models from data sets where the number of
+random variables p exceeds the available sample size n as, for
+instance, in the case of microarray data where they can be employed
+to reverse engineer a molecular regulatory network.
 }
 \details{
   \tabular{ll}{
@@ -96,9 +103,10 @@ vignette \code{qpTxRegNet}. This package is a contribution to the Bioconductor
 }
 
 \author{
-\Sexpr{packageDescription("qpgraph")$Author}
+%\Sexpr{packageDescription("qpgraph")$Author}
+R. Castelo and A. Roverato
 
-\Sexpr{packageDescription("qpgraph")$Maintainer}
+%\Sexpr{packageDescription("qpgraph")$Maintainer}
 }
 
 \references{

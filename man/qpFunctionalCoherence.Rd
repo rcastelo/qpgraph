@@ -75,8 +75,7 @@ networks from microarray data with qp-graphs. \emph{J. Comp. Biol.},
   \code{\link{qpGraph}}
 }
 \examples{
-require(annotate)
-require(org.EcK12.eg.db)
+library(org.EcK12.eg.db)
 
 # load RegulonDB data from this package
 data(EcoliOxygen)
@@ -86,7 +85,7 @@ data(EcoliOxygen)
 TFgenes <- c("mhpR", "iscR")
 
 # get their Entrez Gene Identifiers
-TFgenesEgIDs <- unlist(mget(TFgenes, revmap(getAnnMap("SYMBOL", "org.EcK12.eg.db"))))
+TFgenesEgIDs <- unlist(mget(TFgenes, AnnotationDbi::revmap(org.EcK12.egSYMBOL)))
 
 # get all genes involved in their regulatory modules from
 # the RegulonDB data in this package
