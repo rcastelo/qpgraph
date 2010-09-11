@@ -16,7 +16,7 @@ qpG2Sigma(g, rho=0, verbose=FALSE, R.code.only=FALSE)
 \arguments{
   \item{g}{undirected graph specified either as a \code{graphNEL} object or as
            an adjacency matrix.}
-  \item{rho}{real number between 1/(n.var-1) and 1.}
+  \item{rho}{real number between -1/(n.var-1) and 1.}
   \item{verbose}{show progress on the calculations.}
   \item{R.code.only}{logical; if FALSE then the faster C implementation is used
        in the internal call to the IPF algorithm (default); if TRUE then only R code is executed.}
