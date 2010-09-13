@@ -1888,14 +1888,77 @@ qpGetCliques <- function(g, clqspervtx=FALSE, verbose=TRUE) {
 
   p <- dim(A)[1]
   nEd <- sum(A)/2
-  if (nEd == 0)
-    return(as.list(1:p))
+  if (nEd == 0) {
+    clqlst <- as.list(1:p)
+    if (clqspervtx)
+      clqlst <- c(clqlst, as.list(1:p))
+    return(clqlst)
+  }
 
-  if (nEd == (p*(p-1))/2)
+  if (nEd == (p*(p-1))/2) {
+    clqlst <- list(1:p)
+    if (clqspervtx)
+      clqlst <- c(clqlst, as.list(rep(1, times=p)))
     return(list(1:p))
+  }
 
   return(qpgraph:::.qpFastCliquerGetCliques(as.matrix(A), clqspervtx=clqspervtx,
                                             verbose=verbose))
+}
+
+
+
+## function: qpUpdateCliquesRemoving
+## purpose: update the set of maximal cliques of an undirected graph after
+##          removing a given edge in order to obtain the corresponding set of
+##          maximal cliques after the edge removal. it calls the C compiled faster
+##          code of a function implementing the algorithm from
+##
+##          Stix, V. Finding all maximal cliques in dynamic graphs
+##          Comput. Optimization and Appl., 27:173-186, 2004.
+##
+## parameters: g - either a graphNEL object or an adjacency matrix of the graph
+##             clqslst - list of cliques of the graph encoded in g. this list should
+##                       start on element n+1 (for n vertices) while between elements
+##                       1 to n there should be references to the cliques to which each
+##                       of the 1 to n vertices belong to (i.e., the output of
+##                       qpGetCliques() with parameter clqspervtx=TRUE 
+##             v - vertex of the edge being removed
+##             w - vertex of the edge being removed
+##             verbose - show progress on the clique search
+## return: an updated list of maximal cliques
+
+qpUpdateCliquesRemoving <- function(g, clqlst, v, w, verbose=TRUE) {
+  if (class(g) == "graphNEL" || class(g) == "graphAM") {
+    require(graph)
+    if (edgemode(g) != "undirected")
+      stop("g should be an undirected graph\n")
+
+    A <- as(g, "matrix") == 1
+  } else if (class(g) == "matrix" || class(g) == "lsCMatrix" || class(g) == "lsyMatrix") {
+    A <- g
+    p <- (d <- dim(A))[1]
+    if (p != d[2])
+      stop("g is not an squared matrix nor a graphNEL object\n")
+
+    if (!isSymmetric(A))
+      stop("g is not a symmetric matrix nor a graphNEL object\n")
+  } else
+    stop("g should be either a graphNEL object, a graphAM object or a boolean adjacency matrix\n")
+
+  if (is.character(v)) {
+    v <- match(v, colnames(A))
+    if (is.na(v))
+      stop("vertex ", v, " does not match any vertex in 'g'\n")
+  }
+
+  if (is.character(w)) {
+    w <- match(w, colnames(A))
+    if (is.na(w))
+      stop("vertex ", w, " does not match any vertex in 'g'\n")
+  }
+
+  return(qpgraph:::.qpFastUpdateCliquesRemoving(as.matrix(A), clqlst, v, w, verbose=verbose))
 }
 
 
@@ -3346,8 +3409,12 @@ qpPlotGraph <- function(g, vertexSubset=nodes(g), boundary=FALSE, minimumSizeCon
 }
 
 
-.qpFastCliquerGetCliques <- function(I,clqspervtx,verbose) {
-  return(.Call("qp_fast_cliquer_get_cliques",I,clqspervtx,verbose))
+.qpFastCliquerGetCliques <- function(A, clqspervtx, verbose) {
+  return(.Call("qp_fast_cliquer_get_cliques", A, clqspervtx, verbose))
+}
+
+.qpFastUpdateCliquesRemoving <- function(A, clqlst, v, w, verbose) {
+  return(.Call("qp_fast_update_cliques_removing", A, clqlst, v, w, verbose))
 }
 
 .qpFastPACSE <- function(Shat, A) {

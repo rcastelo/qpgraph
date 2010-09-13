@@ -3,7 +3,9 @@ CHANGES IN VERSION 1.5
 
 USER VISIBLE CHANGES
 
-    o added qpUnifRndCor to generate correlations between -1 and +1 uniformly at random
+    o added qpUpdateCliquesRemoving() to update a clique list after an edge removal
+
+    o added qpUnifRndCor() to generate correlations between -1 and +1 uniformly at random
 
     o added graph reporting through qpPlotGraph
 

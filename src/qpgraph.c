@@ -126,6 +126,9 @@ Rboolean
 is_maximal_clique(int* I, int n, int* clq, int cs, set_t noclq);
 
 static SEXP
+qp_fast_update_cliques_removing(SEXP I, SEXP clqlstR, SEXP vR, SEXP wR, SEXP verbose);
+
+static SEXP
 qp_clique_number_lb(SEXP I, SEXP return_vertices, SEXP approx_iter, SEXP verbose);
 
 static SEXP
@@ -199,6 +202,7 @@ callMethods[] = {
   {"qp_fast_ci_test", (DL_FUNC) &qp_fast_ci_test,6},
   {"qp_fast_ci_test2", (DL_FUNC) &qp_fast_ci_test2,6},
   {"qp_fast_cliquer_get_cliques", (DL_FUNC) &qp_fast_cliquer_get_cliques, 3},
+  {"qp_fast_update_cliques_removing", (DL_FUNC) &qp_fast_update_cliques_removing, 5},
   {"qp_clique_number_lb", (DL_FUNC) &qp_clique_number_lb, 4},
   {"qp_clique_number_os", (DL_FUNC) &qp_clique_number_os, 3},
   {"qp_fast_pac_se", (DL_FUNC) &qp_fast_pac_se, 2},
@@ -1964,6 +1968,8 @@ int_cmp(const void *a, const void *b) {
   return *ia - *ib;
 }
 
+
+
 /*
   FUNCTION: qp_fast_cliquer_get_cliques
   PURPOSE: finds the (maximal) cliques of an undirected graph, it uses the
@@ -1986,7 +1992,7 @@ qp_fast_cliquer_get_cliques(SEXP I, SEXP clqspervtx, SEXP verbose) {
   clique_options clq_opts;
 
   if (!isMatrix(I)) {
-    error("get.cliques expects an incidence matrix");
+    error("qpGetCliques() expects an incidence matrix");
   }
 
   PROTECT_INDEX Ipi;
@@ -2120,6 +2126,260 @@ qp_fast_cliquer_get_cliques(SEXP I, SEXP clqspervtx, SEXP verbose) {
   UNPROTECT(1); /* clqlstR */
 
   return clqlstR;
+}
+
+
+
+/*
+  FUNCTION: qp_fast_update_cliques_removing
+  PURPOSE: modifies an input list of maximal cliques by removing one edge of the graph
+  RETURNS: a list of maximal cliques
+*/
+
+static SEXP
+qp_fast_update_cliques_removing(SEXP I, SEXP clqlstR, SEXP vR, SEXP wR, SEXP verbose) {
+  SEXP new_clqlstR;
+  int n = INTEGER(getAttrib(I,R_DimSymbol))[0];
+  int v = INTEGER(coerceVector(vR,INTSXP))[0] - 1; /* internally we work with 0-based vertices */
+  int w = INTEGER(coerceVector(wR,INTSXP))[0] - 1; /* internally we work with 0-based vertices */
+  int nclqlstR = length(clqlstR);
+  int nnew_clqlstR;
+  int* clqs_v_w;
+  int  nclqs_v,nclqs_w;
+  int  nclqs_v_w;
+  clique_set_t clqlst;
+  int* new_clq_v;
+  int* new_clq_w;
+  set_t allvtc;
+  clique_t* p;
+  int removed_so_far;
+  int i,inewclq;
+  int** idxclqs;
+  int*  nidxclqs;
+  int*  sidxclqs;
+  int ppct;
+
+  if (!isMatrix(I)) {
+    error("qpUpdateCliquesRemoving() expects an incidence matrix");
+  }
+
+  PROTECT_INDEX Ipi;
+
+  PROTECT_WITH_INDEX(I,&Ipi);
+
+  REPROTECT(I = coerceVector(I,INTSXP),Ipi);
+
+  nclqs_v = length(VECTOR_ELT(clqlstR,v));
+  nclqs_w = length(VECTOR_ELT(clqlstR,w));
+  clqs_v_w = (int *) Calloc(nclqs_v+nclqs_w,int);
+
+  if (INTEGER(verbose)[0]) {
+    Rprintf("qpUpdateCliquesRemoving: initially there are %d maximal clique(s)\n",nclqlstR-n);
+    Rprintf("qpUpdateCliquesRemoving: searching cliques to which the edge v-w belongs to (v belongs to %d, w belongs to %d)\n",nclqs_v,nclqs_w);
+  }
+
+  /* the cliques where the edge v-w is are the common ones to those where v and w belong to */
+  nclqs_v_w = 0;
+  for (i=0;i<nclqs_v;i++)
+    if (bsearch(INTEGER(VECTOR_ELT(clqlstR,v))+i,INTEGER(VECTOR_ELT(clqlstR,w)),nclqs_w,sizeof(int),int_cmp))
+        clqs_v_w[nclqs_v_w++] = INTEGER(VECTOR_ELT(clqlstR,v))[i] - 1; /* internally the clique index
+                                                                          in the R list is 0-based */
+
+  /* sort the cliques to be removed in ascending clique index order */
+  qsort(clqs_v_w,nclqs_v_w,sizeof(int),int_cmp);
+
+  INTEGER(I)[v*n+w] = INTEGER(I)[w*n+v] = 0; /* make sure the edge is removed */
+
+  allvtc = set_new(n);
+  for (i=0;i<n;i++)
+    SET_ADD_ELEMENT(allvtc,i);
+
+  new_clq_v = Calloc(n,int); /* store here each new clique that formerly contained vertex v */
+  new_clq_w = Calloc(n,int); /* store here each new clique that formerly contained vertex w */
+
+  if (INTEGER(verbose)[0])
+    Rprintf("qpUpdateCliquesRemoving: going through the %d v-w-containing clique(s) and decide which one(s) to add\n",nclqs_v_w);
+
+  /* go through all the cliques where the edge v-w forms part */
+
+  init_cliques_list(&clqlst);
+  for (i=0;i<nclqs_v_w;i++) {
+    int clq_v_w_size = length(VECTOR_ELT(clqlstR,clqs_v_w[i]));
+    set_t restvtc_v = set_duplicate(allvtc);
+    set_t restvtc_w = set_duplicate(allvtc);
+    int iclq_v = 0;
+    int iclq_w = 0;
+    int j;
+
+    for (j=0;j<clq_v_w_size;j++) {
+      int vtx = INTEGER(VECTOR_ELT(clqlstR,clqs_v_w[i]))[j] - 1; /* internally we work with 0-based vertices */
+
+      if (vtx != v) {
+        new_clq_v[iclq_v++] = vtx + 1;  /* in the R object vertices are 1-based */
+        SET_DEL_ELEMENT(restvtc_v,vtx);
+      }
+
+      if (vtx != w) {
+        new_clq_w[iclq_w++] = vtx + 1;  /* in the R object vertices are 1-based */
+        SET_DEL_ELEMENT(restvtc_w,vtx);
+      }
+    }
+
+    if (is_maximal_clique(INTEGER(I),n,new_clq_v,clq_v_w_size-1,restvtc_v))
+      add_clique_vta(&clqlst,new_clq_v,clq_v_w_size-1);
+
+    if (is_maximal_clique(INTEGER(I),n,new_clq_w,clq_v_w_size-1,restvtc_w))
+      add_clique_vta(&clqlst,new_clq_w,clq_v_w_size-1);
+  }
+
+  Free(new_clq_v);
+  Free(new_clq_w);
+
+  UNPROTECT(1); /* I */
+
+  /* remove the cliques that contain the edge v-w and add the new ones */
+
+  nnew_clqlstR = nclqlstR + clqlst.n - nclqs_v_w;
+  PROTECT(new_clqlstR=allocVector(VECSXP,nnew_clqlstR));
+
+  if (INTEGER(verbose)[0])
+    Rprintf("qpUpdateCliquesRemoving: going to remove %d clique(s) and add %d clique(s) ending with %d clique(s)\n",nclqs_v_w,clqlst.n,nnew_clqlstR-n);
+
+  inewclq = n;
+  removed_so_far = 0;
+  for (i=n;i<nclqlstR;i++)
+    if (removed_so_far >= nclqs_v_w || clqs_v_w[removed_so_far] != i)
+      SET_VECTOR_ELT(new_clqlstR,inewclq++, Rf_duplicate(VECTOR_ELT(clqlstR,i)));
+    else
+      removed_so_far++;
+
+  p = clqlst.first;
+  while (p != NULL) {
+    SEXP newclq;
+    clique_t* tmpp;
+
+    PROTECT(newclq = allocVector(INTSXP,p->n));
+    Memcpy(INTEGER(newclq),p->u.vta,(size_t) p->n);
+    SET_VECTOR_ELT(new_clqlstR,inewclq++,newclq);
+    UNPROTECT(1); /* newclq */
+
+    /* free the elements of the linked list at the same time that the new R list
+       structure is created to store the cliques in order to use a little memory as possible */
+
+    tmpp = p->next;
+    Free(p->u.vta);
+    Free(p);
+    p = tmpp;
+  }
+
+  Free(clqs_v_w);
+
+  if (INTEGER(verbose)[0])
+    Rprintf("qpUpdateCliquesRemoving: rebuilding references to cliques\n");
+
+  idxclqs = (int **) Calloc(n,int *);
+  nidxclqs = (int *) Calloc(n,int);
+  sidxclqs = (int *) Calloc(n,int);
+
+  for (i=0;i<n;i++)
+    nidxclqs[i]=0;
+
+  ppct = -1;
+  for (i=n;i<nnew_clqlstR;i++) {
+    int j;
+
+    for (j=0;j<length(VECTOR_ELT(new_clqlstR,i));j++) {
+      v = INTEGER(VECTOR_ELT(new_clqlstR,i))[j] - 1;
+      if (nidxclqs[v] == 0) {
+        sidxclqs[v] = 1;
+        idxclqs[v] = (int *) Calloc(sidxclqs[v],int);
+        idxclqs[v][nidxclqs[v]] = i + 1;
+        nidxclqs[v]++;
+      } else {
+        if (sidxclqs[v] > nidxclqs[v]) {
+          idxclqs[v][nidxclqs[v]] = i + 1;
+          nidxclqs[v]++;
+        } else {
+          sidxclqs[v] = sidxclqs[v] * 2;
+          idxclqs[v] = (int *) Realloc(idxclqs[v],sidxclqs[v],int);
+          idxclqs[v][nidxclqs[v]] = i + 1;
+          nidxclqs[v]++;
+        }
+      }
+    }
+
+    if (INTEGER(verbose)[0]) {
+      int pct = (int) ((i*100)/nnew_clqlstR);
+
+      if (pct != ppct) {
+        if (pct % 10 == 0)
+          Rprintf("%d",pct);
+        else
+          Rprintf(".",pct);
+        R_FlushConsole();
+#ifdef Win32
+        R_ProcessEvents();
+#endif
+#ifdef HAVE_AQUA
+        R_ProcessEvents();
+#endif
+        ppct = pct;
+      }
+    }
+  }
+  if (INTEGER(verbose)[0])
+    Rprintf("\n");
+
+  for (i=0;i<n;i++) {
+    SEXP clqrefs;
+
+    qsort(idxclqs[i],nidxclqs[i],sizeof(int),int_cmp);
+    PROTECT(clqrefs = allocVector(INTSXP,nidxclqs[i]));
+    Memcpy(INTEGER(clqrefs),idxclqs[i],(size_t) nidxclqs[i]);
+    Free(idxclqs[i]);
+
+    SET_VECTOR_ELT(new_clqlstR,i,clqrefs);
+    UNPROTECT(1); /* clqrefs */
+  }
+
+  Free(sidxclqs);
+  Free(nidxclqs);
+  Free(idxclqs);
+
+  UNPROTECT(1); /* new_clqlstR */
+
+  return new_clqlstR;
+}
+
+
+
+/*
+  FUNCTION: is_maximal_clique
+  PURPOSE: returns whether the clique in 'clq' is maximal. note that the
+           vertices in clq come 1-based and vertices in noclq come 0-based
+  RETURNS: TRUE if the clique is maximal; FALSE otherwise
+*/
+/* vertices in clq come 1-based vertices in noclq come 0-based */
+
+Rboolean
+is_maximal_clique(int* I, int n, int* clq, int cs, set_t noclq) {
+  int i;
+  Rboolean maximal = TRUE;
+
+  i=-1;
+  while ((i=set_return_next(noclq,i))>=0 && maximal) {
+    int j=0;
+    int allconnected = TRUE;
+
+    while (j < cs && allconnected) {
+      allconnected = allconnected && I[(clq[j]-1)*n+i];
+      j++;
+    }
+
+    maximal = !allconnected;
+  }
+
+  return maximal;
 }
 
 
