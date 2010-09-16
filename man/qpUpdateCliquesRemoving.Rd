@@ -8,7 +8,7 @@ Update clique list when removing one edge
 Updates the set of (maximal) cliques of a given undirected graph when removing one edge.
 }
 \usage{
-qpUpdateCliquesRemoving <- function(g, clqlst, v, w, verbose=TRUE)
+qpUpdateCliquesRemoving(g, clqlst, v, w, verbose=TRUE)
 }
 \arguments{
   \item{g}{either a \code{graphNEL} object or an adjacency matrix of the given
@@ -34,9 +34,15 @@ in the first call to \code{\link{qpGetCliques}} we set \code{clqspervtx=TRUE}.
 It calls a C implementation of the algorithm from Stix (2004).
 }
 \value{
-A list of maximal cliques. When \code{clqspervtx=TRUE} the first p entries
-(p=number of variables) contain, each of them, the indices of the cliques where
-that particular vertex belongs to.
+The updated list of maximal cliques after removing one edge from the input graph.
+Note that because the corresponding input clique list had to be generated with the
+argument \code{clqspervtx=TRUE} in the call to \code{\link{qpGetCliques}}, the
+resulting updated list of cliques also includes in its first p entries
+(p=number of variables) the indices of the cliques where that particular vertex
+belongs to. Notice also that although this strategy might be in general more
+efficient than generating again the entire list of cliques, when removing one edge
+from the graph, the clique enumeration problem remains NP-hard (see Garey and Johnson, 1979)
+and therefore depending on the input graph its computation may become unfeasible.
 }
 \references{
 Garey, M.R. and Johnson D.S. \emph{Computers and intractability: a guide to the
@@ -54,15 +60,24 @@ Stix, V. Finding all maximal cliques in dynamic graphs
 \examples{
 require(graph)
 
-## this example should be updated
 set.seed(123)
-nVar <- 50
-g1 <- randomEGraph(V=as.character(1:nVar), p=0.3)
-clqs1 <- qpGetCliques(g1, verbose=FALSE)
+nVar <- 1000
+g1 <- randomEGraph(V=as.character(1:nVar), p=0.1)
+g1
+clqs1 <- qpGetCliques(g1, clqspervtx=TRUE, verbose=FALSE)
 
 length(clqs1)
 
-summary(sapply(clqs1, length))
+g2 <- removeEdge(from="1", to=edges(g1)[["1"]][1], g1)
+g2
+
+system.time(clqs2a <- qpGetCliques(g2, verbose=FALSE))
+
+system.time(clqs2b <- qpUpdateCliquesRemoving(g1, clqs1, "1", edges(g1)[["1"]][1], verbose=FALSE))
+
+length(clqs2a)
+
+length(clqs2b)-nVar
 }
 \keyword{models}
 \keyword{multivariate}
