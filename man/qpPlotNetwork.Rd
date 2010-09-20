@@ -1,5 +1,5 @@
-\name{qpPlotGraph}
-\alias{qpPlotGraph}
+\name{qpPlotNetwork}
+\alias{qpPlotNetwork}
 
 \title{
 Plots a graph
@@ -8,8 +8,8 @@ Plots a graph
 Plots a graph using the \code{Rgraphviz} library
 }
 \usage{
-qpPlotGraph(g, vertexSubset=nodes(g), boundary=FALSE, minimumSizeConnComp=2,
-            pairup.i=NULL, pairup.j=NULL, annotation=NULL)
+qpPlotNetwork(g, vertexSubset=nodes(g), boundary=FALSE, minimumSizeConnComp=2,
+              pairup.i=NULL, pairup.j=NULL, annotation=NULL)
 }
 \arguments{
   \item{g}{graph to plot provided as a \code{graphNEL-class} object.}

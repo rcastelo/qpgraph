@@ -36,5 +36,5 @@ export(qpHist,
        qpPRscoreThreshold,
        qpImportNrr,
        qpTopPairs,
-       qpPlotGraph,
+       qpPlotNetwork,
        qpCov)

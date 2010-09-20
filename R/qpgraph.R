@@ -3092,9 +3092,9 @@ qpTopPairs <- function(measurementsMatrix=NULL, refGraph=NULL, n=6L, file=NULL,
 
 
 
-## function: qpPlotGraph
-## purpose: plot a given graph using Rgraphviz
-## parameters: g - the graph to plot
+## function: qpPlotNetwork
+## purpose: plot a given network using Rgraphviz
+## parameters: g - the network to plot given as a graph
 ##             vertexSubset - a subset of vertices inducing the subgraph we want to plot
 ##             boundary - flag set to TRUE if we want also to plot the vertices connected
 ##                        to the given vertex subset including their connecting edges;
@@ -3105,7 +3105,7 @@ qpTopPairs <- function(measurementsMatrix=NULL, refGraph=NULL, n=6L, file=NULL,
 ##             annotation - name of an annotation package to transform gene identifiers
 ##                          into gene symbols
 
-qpPlotGraph <- function(g, vertexSubset=nodes(g), boundary=FALSE, minimumSizeConnComp=2,
+qpPlotNetwork <- function(g, vertexSubset=nodes(g), boundary=FALSE, minimumSizeConnComp=2,
                         pairup.i=NULL, pairup.j=NULL, annotation=NULL) {
   require(graph)
   require(Rgraphviz)

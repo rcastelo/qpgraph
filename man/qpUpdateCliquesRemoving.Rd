@@ -1,5 +1,5 @@
 \name{qpUpdateCliquesRemoving}
-\alias{qpUpdateGetCliquesRemoving}
+\alias{qpUpdateCliquesRemoving}
 
 \title{
 Update clique list when removing one edge
