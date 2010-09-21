@@ -64,9 +64,9 @@ to reverse engineer a molecular regulatory network.
     \item \code{\link{qpG2Sigma}} builds a random covariance matrix from an
           undrected graph. The inverse of the resulting matrix contains zeroes
           at the missing edges of the given undirected graph.
-    \item \code{\link{qpUnifRndCor}} builds a matrix of uniformly random correlation
-          values between -1 and +1 for all pairs of variables that follow from the
-          number of variables given as input argument.
+    \item \code{\link{qpUnifRndAssociation}} builds a matrix of uniformly random
+          association values between -1 and +1 for all pairs of variables that
+          follow from the number of variables given as input argument.
     \item \code{\link{qpK2ParCor}} obtains the partial correlation coefficients
           from a given concentration matrix.
     \item \code{\link{qpIPF}} performs maximum likelihood estimation of a
@@ -92,7 +92,7 @@ to reverse engineer a molecular regulatory network.
     \item \code{\link{qpTopPairs}} reports a top number of pairs of variables
           according to either an association measure and/or occurring in a given
           reference graph.
-    \item \code{\link{qpPlotGraph}} plots a graph using the \code{Rgraphviz} library.
+    \item \code{\link{qpPlotNetwork}} plots a network using the \code{Rgraphviz} library.
   }
 
 This package provides an implementation of the procedures described in (Castelo

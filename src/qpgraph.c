@@ -72,12 +72,13 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP nTests, SEXP alpha, SEXP pairup_i
                         SEXP pairup_j_noint, SEXP pairup_ij_int, SEXP verbose);
 
 static SEXP
-qp_fast_nrr_par(SEXP XR, SEXP qR, SEXP nTests, SEXP alpha, SEXP pairup_i_noint,
-                SEXP pairup_j_noint, SEXP pairup_ij_int, SEXP verbose, SEXP rankR, SEXP clSzeR);
-
+qp_fast_nrr_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
+                SEXP pairup_j_nointR, SEXP pairup_ij_intR, SEXP verboseR, SEXP myRankR,
+                SEXP clSzeR, SEXP masterNode, SEXP env);
 static SEXP
 qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
-                            SEXP pairup_j_nointR, SEXP pairup_ij_intR, SEXP verboseR, SEXP myRankR, SEXP clqSzeR);
+                            SEXP pairup_j_nointR, SEXP pairup_ij_intR, SEXP verboseR,
+                            SEXP myRankR, SEXP clqSzeR, SEXP masterNode, SEXP env);
 static SEXP
 qp_fast_edge_nrr(SEXP S, SEXP NR, SEXP iR, SEXP jR, SEXP qR, SEXP TR, SEXP sigR);
 
@@ -196,8 +197,8 @@ static R_CallMethodDef
 callMethods[] = {
   {"qp_fast_nrr", (DL_FUNC) &qp_fast_nrr, 8},
   {"qp_fast_nrr_identicalQs", (DL_FUNC) &qp_fast_nrr_identicalQs, 8},
-  {"qp_fast_nrr_par", (DL_FUNC) &qp_fast_nrr_par, 10},
-  {"qp_fast_nrr_identicalQs_par", (DL_FUNC) &qp_fast_nrr_identicalQs_par, 10},
+  {"qp_fast_nrr_par", (DL_FUNC) &qp_fast_nrr_par, 12},
+  {"qp_fast_nrr_identicalQs_par", (DL_FUNC) &qp_fast_nrr_identicalQs_par, 12},
   {"qp_fast_edge_nrr", (DL_FUNC) &qp_fast_edge_nrr, 7},
   {"qp_fast_ci_test", (DL_FUNC) &qp_fast_ci_test,6},
   {"qp_fast_ci_test2", (DL_FUNC) &qp_fast_ci_test2,6},
@@ -624,7 +625,7 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup
 static SEXP
 qp_fast_nrr_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
                 SEXP pairup_j_nointR, SEXP pairup_ij_intR, SEXP verboseR, SEXP myRankR,
-                SEXP clSzeR) {
+                SEXP clSzeR, SEXP masterNode, SEXP env) {
   int     N;
   int     n_var;
   int     q;
@@ -639,7 +640,7 @@ qp_fast_nrr_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_noint
   int*    pairup_j_noint = INTEGER(pairup_j_nointR);
   int*    pairup_ij_int = INTEGER(pairup_ij_intR);
   int*    pairup_ij_noint = NULL;
-  int     i,j,k,n_adj;
+  int     i,j,k,n_adj,n_adj_this_proc,pct,ppct;
   SEXP    nrrR, idxR;
   SEXP    result, result_names;
   double* nrr;
@@ -648,6 +649,25 @@ qp_fast_nrr_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_noint
   int     myrank;
   int     clsze;
   int     firstAdj, lastAdj;
+  SEXP    progressReport,progressReportType,
+          progressReportValue,progressReportSuccess,
+          progressReportTag,progressReport_names;
+
+  PROTECT(progressReport = allocVector(VECSXP,4));
+  SET_VECTOR_ELT(progressReport,0,progressReportType = allocVector(STRSXP,1));
+  SET_VECTOR_ELT(progressReport,1,progressReportValue = allocVector(INTSXP,1));
+  SET_VECTOR_ELT(progressReport,2,progressReportSuccess = allocVector(LGLSXP,1));
+  SET_VECTOR_ELT(progressReport,3,progressReportTag = allocVector(STRSXP,1));
+  PROTECT(progressReport_names = allocVector(STRSXP,4));
+  SET_STRING_ELT(progressReport_names,0,mkChar("type"));
+  SET_STRING_ELT(progressReport_names,1,mkChar("value"));
+  SET_STRING_ELT(progressReport_names,2,mkChar("success"));
+  SET_STRING_ELT(progressReport_names,3,mkChar("tag"));
+  setAttrib(progressReport,R_NamesSymbol,progressReport_names);
+  SET_STRING_ELT(VECTOR_ELT(progressReport,0), 0, mkChar("VALUE"));
+  INTEGER(VECTOR_ELT(progressReport,1))[0] = 0;
+  LOGICAL(VECTOR_ELT(progressReport,2))[0] = TRUE;
+  SET_STRING_ELT(VECTOR_ELT(progressReport,3), 0, mkChar("UPDATE"));
 
   PROTECT_INDEX Spi;
 
@@ -689,6 +709,8 @@ qp_fast_nrr_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_noint
 
   lastAdj--;
 
+  n_adj_this_proc = lastAdj - firstAdj + 1;
+
   PROTECT(result = allocVector(VECSXP,2));
   SET_VECTOR_ELT(result, 0, nrrR = allocVector(REALSXP, lastAdj-firstAdj+1));
   SET_VECTOR_ELT(result, 1, idxR = allocVector(INTSXP, lastAdj-firstAdj+1));
@@ -700,6 +722,7 @@ qp_fast_nrr_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_noint
   idx = INTEGER(VECTOR_ELT(result, 1));
 
   k = firstAdj;
+  ppct = -1;
 
   if (k < l_int * (l_ini + l_jni)) {
     int j_first = k % (l_ini + l_jni);
@@ -714,6 +737,23 @@ qp_fast_nrr_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_noint
         nrr[k-firstAdj] = qp_edge_nrr(S, n_var, N, i2, j2, q, nTests, alpha);
         idx[k-firstAdj] = UTE2I(i2, j2) + 1;
         k++;
+        if (verbose) {
+          pct = (int) (((k-firstAdj) * 100) / n_adj_this_proc);
+          if (pct != ppct) {
+            SEXP s, t;
+            PROTECT(t = s = allocList(3));
+            SET_TYPEOF(s, LANGSXP);
+            SETCAR(t, install("sendData")); t=CDR(t);
+            SETCAR(t, masterNode);
+            SET_TAG(t, install("node")); t=CDR(t);
+            INTEGER(VECTOR_ELT(progressReport,1))[0] = k-firstAdj;
+            SETCAR(t, progressReport);
+            SET_TAG(t, install("data"));
+            eval(s, env);
+            UNPROTECT(1);
+          }
+          ppct = pct;
+        }
       }
       j_first = 0;
     }
@@ -736,6 +776,23 @@ qp_fast_nrr_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_noint
         nrr[k-firstAdj] = qp_edge_nrr(S, n_var, N, i2, j2, q, nTests, alpha);
         idx[k-firstAdj] = UTE2I(i2, j2) + 1;
         k++;
+        if (verbose) {
+          pct = (int) (((k-firstAdj) * 100) / n_adj_this_proc);
+          if (pct != ppct) {
+            SEXP s, t;
+            PROTECT(t = s = allocList(3));
+            SET_TYPEOF(s, LANGSXP);
+            SETCAR(t, install("sendData")); t=CDR(t);
+            SETCAR(t, masterNode);
+            SET_TAG(t, install("node")); t=CDR(t);
+            INTEGER(VECTOR_ELT(progressReport,1))[0] = k-firstAdj;
+            SETCAR(t, progressReport);
+            SET_TAG(t, install("data"));
+            eval(s, env);
+            UNPROTECT(1);
+          }
+          ppct = pct;
+        }
       }
       j_first = 0;
     }
@@ -756,10 +813,27 @@ qp_fast_nrr_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_noint
       nrr[k-firstAdj] = qp_edge_nrr(S, n_var, N, i2, j2, q, nTests, alpha);
       idx[k-firstAdj] = UTE2I(i2, j2) + 1;
       k++;
+      if (verbose) {
+        pct = (int) (((k-firstAdj) * 100) / n_adj_this_proc);
+        if (pct != ppct) {
+          SEXP s, t;
+          PROTECT(t = s = allocList(3));
+          SET_TYPEOF(s, LANGSXP);
+          SETCAR(t, install("sendData")); t=CDR(t);
+          SETCAR(t, masterNode);
+          SET_TAG(t, install("node")); t=CDR(t);
+          INTEGER(VECTOR_ELT(progressReport,1))[0] = k-firstAdj;
+          SETCAR(t, progressReport);
+          SET_TAG(t, install("data"));
+          eval(s, env);
+          UNPROTECT(1);
+        }
+        ppct = pct;
+      }
     }
   }
 
-  UNPROTECT(3);   /* SR result result_names */
+  UNPROTECT(4);   /* SR result result_names progressReport */
 
   return result;
 }
@@ -779,7 +853,7 @@ qp_fast_nrr_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_noint
 static SEXP
 qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
                             SEXP pairup_j_nointR, SEXP pairup_ij_intR, SEXP verboseR, SEXP myRankR,
-                            SEXP clSzeR) {
+                            SEXP clSzeR, SEXP masterNode, SEXP env) {
   int     N;
   int     n_var;
   int     q;
@@ -794,7 +868,7 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pa
   int*    pairup_j_noint = INTEGER(pairup_j_nointR);
   int*    pairup_ij_int = INTEGER(pairup_ij_intR);
   int*    pairup_ij_noint = NULL;
-  int     i,j,k,n_adj;
+  int     i,j,k,n_adj,n_adj_this_proc,pct,ppct;
   int*    q_by_T_samples;
   int*    Q;
   double* Qmat;
@@ -807,6 +881,25 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pa
   int     myrank;
   int     clsze;
   int     firstAdj, lastAdj;
+  SEXP    progressReport,progressReportType,
+          progressReportValue,progressReportSuccess,
+          progressReportTag,progressReport_names;
+
+  PROTECT(progressReport = allocVector(VECSXP,4));
+  SET_VECTOR_ELT(progressReport,0,progressReportType = allocVector(STRSXP,1));
+  SET_VECTOR_ELT(progressReport,1,progressReportValue = allocVector(INTSXP,1));
+  SET_VECTOR_ELT(progressReport,2,progressReportSuccess = allocVector(LGLSXP,1));
+  SET_VECTOR_ELT(progressReport,3,progressReportTag = allocVector(STRSXP,1));
+  PROTECT(progressReport_names = allocVector(STRSXP,4));
+  SET_STRING_ELT(progressReport_names,0,mkChar("type"));
+  SET_STRING_ELT(progressReport_names,1,mkChar("value"));
+  SET_STRING_ELT(progressReport_names,2,mkChar("success"));
+  SET_STRING_ELT(progressReport_names,3,mkChar("tag"));
+  setAttrib(progressReport,R_NamesSymbol,progressReport_names);
+  SET_STRING_ELT(VECTOR_ELT(progressReport,0), 0, mkChar("VALUE"));
+  INTEGER(VECTOR_ELT(progressReport,1))[0] = 0;
+  LOGICAL(VECTOR_ELT(progressReport,2))[0] = TRUE;
+  SET_STRING_ELT(VECTOR_ELT(progressReport,3), 0, mkChar("UPDATE"));
 
   PROTECT_INDEX Spi;
 
@@ -879,6 +972,8 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pa
 
   lastAdj--;
 
+  n_adj_this_proc = lastAdj - firstAdj + 1;
+
   PROTECT(result = allocVector(VECSXP,2));
   SET_VECTOR_ELT(result, 0, nrrR = allocVector(REALSXP, lastAdj-firstAdj+1));
   SET_VECTOR_ELT(result, 1, idxR = allocVector(INTSXP, lastAdj-firstAdj+1));
@@ -890,6 +985,7 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pa
   idx = INTEGER(VECTOR_ELT(result, 1));
 
   k = firstAdj;
+  ppct = -1;
 
   if (k < l_int * (l_ini + l_jni)) {
     int j_first = k % (l_ini + l_jni);
@@ -905,6 +1001,23 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pa
                                                   N, i2, j2, q, nTests, alpha);
         idx[k-firstAdj] = UTE2I(i2, j2) + 1;
         k++;
+        if (verbose) {
+          pct = (int) (((k-firstAdj) * 100) / n_adj_this_proc);
+          if (pct != ppct) {
+            SEXP s, t;
+            PROTECT(t = s = allocList(3));
+            SET_TYPEOF(s, LANGSXP);
+            SETCAR(t, install("sendData")); t=CDR(t);
+            SETCAR(t, masterNode);
+            SET_TAG(t, install("node")); t=CDR(t);
+            INTEGER(VECTOR_ELT(progressReport,1))[0] = k-firstAdj;
+            SETCAR(t, progressReport);
+            SET_TAG(t, install("data"));
+            eval(s, env);
+            UNPROTECT(1);
+          }
+          ppct = pct;
+        }
       }
       j_first = 0;
     }
@@ -928,6 +1041,23 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pa
                                                   N, i2, j2, q, nTests, alpha);
         idx[k-firstAdj] = UTE2I(i2, j2) + 1;
         k++;
+        if (verbose) {
+          pct = (int) (((k-firstAdj) * 100) / n_adj_this_proc);
+          if (pct != ppct) {
+            SEXP s, t;
+            PROTECT(t = s = allocList(3));
+            SET_TYPEOF(s, LANGSXP);
+            SETCAR(t, install("sendData")); t=CDR(t);
+            SETCAR(t, masterNode);
+            SET_TAG(t, install("node")); t=CDR(t);
+            INTEGER(VECTOR_ELT(progressReport,1))[0] = k-firstAdj;
+            SETCAR(t, progressReport);
+            SET_TAG(t, install("data"));
+            eval(s, env);
+            UNPROTECT(1);
+          }
+          ppct = pct;
+        }
       }
       j_first = 0;
     }
@@ -949,12 +1079,29 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pa
                                                 N, i2, j2, q, nTests, alpha);
       idx[k-firstAdj] = UTE2I(i2, j2) + 1;
       k++;
+      if (verbose) {
+        pct = (int) (((k-firstAdj) * 100) / n_adj_this_proc);
+        if (pct != ppct) {
+          SEXP s, t;
+          PROTECT(t = s = allocList(3));
+          SET_TYPEOF(s, LANGSXP);
+          SETCAR(t, install("sendData")); t=CDR(t);
+          SETCAR(t, masterNode);
+          SET_TAG(t, install("node")); t=CDR(t);
+          INTEGER(VECTOR_ELT(progressReport,1))[0] = k-firstAdj;
+          SETCAR(t, progressReport);
+          SET_TAG(t, install("data"));
+          eval(s, env);
+          UNPROTECT(1);
+        }
+        ppct = pct;
+      }
     }
   }
 
   Free(Qinv);
 
-  UNPROTECT(3);   /* SR result result_names */
+  UNPROTECT(4);   /* SR result result_names progressReport */
 
   return result;
 }

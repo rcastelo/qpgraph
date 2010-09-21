@@ -335,7 +335,7 @@ baseline comparison we should do the following:
 
 <<getthenet, echo=TRUE, results=verbatim>>=
 set.seed(123)
-rndcor <- qpUnifRndCor(100, featureNames(subset.gds680.eset))
+rndcor <- qpUnifRndAssociation(100, featureNames(subset.gds680.eset))
 random.prerec <- qpPrecisionRecall(abs(rndcor), subset.filtered.regulon6.1.I,
                                    decreasing=TRUE, pairup.i=largestIQRgenesO2netTFs,
                                    pairup.j=largestIQRgenesO2net,

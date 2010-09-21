@@ -1,28 +1,28 @@
-\name{qpUnifRndCor}
-\alias{qpUnifRndCor}
+\name{qpUnifRndAssociation}
+\alias{qpUnifRndAssociation}
 
 \title{
-Uniformly random correlation values
+Uniformly random association values
 }
 \description{
-Builds a matrix of uniformly random correlation values between -1 and +1
+Builds a matrix of uniformly random association values between -1 and +1
 for all pairs of variables that follow from the number of variables given
 as input argument.
 }
 \usage{
-qpUnifRndCor(n.var, var.names=1:n.var)
+qpUnifRndAssociation(n.var, var.names=1:n.var)
 }
 \arguments{
   \item{n.var}{number of variables.}
   \item{var.names}{names of the variables to use as row and column names in the resulting matrix.}
 }
 \details{
-This function simply generates random correlation values with no independence
+This function simply generates uniformly random association values with no independence
 pattern associated to them. For generating a random covariance matrix that reflects
-inksuch a pattern use the function \code{\link{qpG2Sigma}}.
+such a pattern use the function \code{\link{qpG2Sigma}}.
 }
 \value{
-A symmetric matrix of uniformly random correlation values between -1 and +1.
+A symmetric matrix of uniformly random association values between -1 and +1.
 }
 \references{
 }
@@ -31,7 +31,7 @@ A symmetric matrix of uniformly random correlation values between -1 and +1.
   \code{\link{qpG2Sigma}}
 }
 \examples{
-rndcor <- qpUnifRndCor(100)
+rndcor <- qpUnifRndAssociation(100)
 summary(rndcor[upper.tri(rndcor)])
 }
 \keyword{models}

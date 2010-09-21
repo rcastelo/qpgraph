@@ -137,7 +137,7 @@ setMethod("qpNrr", signature(X="matrix"),
       message("Estimating non-rejection rates using a ", clOpt("type"),
               " cluster of ", clusterSize, " nodes\n")
 
-      cl <- makeCl(clusterSize)
+      cl <- makeCl(clusterSize, useRscript=FALSE, scriptdir=system.file(package="qpgraph"))
       clSetupRNG(cl)
       res <- clEvalQ(cl, require(qpgraph, quietly=TRUE))
       if (!all(unlist(res))) {
@@ -242,12 +242,22 @@ setMethod("qpNrr", signature(X="matrix"),
     } else {           ## use a cluster !
       clCall <- get("clusterCall", mode="function")
       nrrIdx <- list()
-      if (identicalQs)
-        nrrIdx <- clCall(cl, qpgraph:::.qpFastNrrIdenticalQsPar, X, q, nTests, alpha,
-                         pairup.i.noint, pairup.j.noint, pairup.ij.int, verbose)
-      else
-        nrrIdx <- clCall(cl, qpgraph:::.qpFastNrrPar, X, q, nTests, alpha,
-                         pairup.i.noint, pairup.j.noint, pairup.ij.int, verbose)
+      if (verbose) {
+        if (identicalQs)
+          nrrIdx <- clPrCall(cl, qpgraph:::.qpFastNrrIdenticalQsPar, n.adj, X, q,
+                             nTests, alpha, pairup.i.noint, pairup.j.noint,
+                             pairup.ij.int, verbose)
+        else
+          nrrIdx <- clPrCall(cl, qpgraph:::.qpFastNrrPar, n.adj, X, q, nTests, alpha,
+                             pairup.i.noint, pairup.j.noint, pairup.ij.int, verbose)
+      } else {
+        if (identicalQs)
+          nrrIdx <- clCall(cl, qpgraph:::.qpFastNrrIdenticalQsPar, X, q, nTests, alpha,
+                           pairup.i.noint, pairup.j.noint, pairup.ij.int, verbose)
+        else
+          nrrIdx <- clCall(cl, qpgraph:::.qpFastNrrPar, X, q, nTests, alpha,
+                           pairup.i.noint, pairup.j.noint, pairup.ij.int, verbose)
+      }
 
       if (class(clusterSize)[1] == "numeric" || class(clusterSize)[1] == "integer")
         stopCl(cl)
@@ -564,7 +574,7 @@ setMethod("qpAvgNrr", signature(X="matrix"),
     message("Estimating non-rejection rates using a ", clOpt("type"),
             " cluster of ", clusterSize, " nodes\n")
 
-    cl <- makeCl(clusterSize)
+    cl <- makeCl(clusterSize, useRscript=FALSE, scriptdir=system.file(package="qpgraph"))
     clSetupRNG(cl)
     res <- clEvalQ(cl, require(qpgraph, quietly=TRUE))
     if (!all(unlist(res))) {
@@ -835,7 +845,7 @@ setMethod("qpGenNrr", signature(X="matrix"),
     message("Estimating non-rejection rates using a ", clOpt("type"),
             " cluster of ", clusterSize, " nodes\n")
 
-    cl <- makeCl(clusterSize)
+    cl <- makeCl(clusterSize, useRscript=FALSE, scriptdir=system.file(package="qpgraph"))
     clSetupRNG(cl)
     res <- clEvalQ(cl, require(qpgraph, quietly=TRUE))
     if (!all(unlist(res))) {
@@ -2366,14 +2376,14 @@ qpG2Sigma <- function (g, rho=0, verbose = FALSE,
 
 
 
-## function: qpUnifRndCor
+## function: qpUnifRndAssociation
 ## purpose: builds a matrix of uniformly random correlation values between -1 and +1
 ## parameters: n.var - number of variables
 ##             var.names - names of the variables to put as dimension names
 ## return: a matrix of uniformly random correlation values between -1 and +1 for
 ##         every pair of variables
 
-qpUnifRndCor <- function (n.var, var.names=1:n.var) {
+qpUnifRndAssociation <- function (n.var, var.names=1:n.var) {
   n.var <- as.integer(n.var)
   x=runif((n.var*(n.var-1))/2+n.var, min=-1, max=+1)
   x[cumsum(1:n.var)] <- 1
@@ -2733,7 +2743,7 @@ setMethod("qpFunctionalCoherence",
     message("Estimating functional coherence using a ", clOpt("type"),
             " cluster of ", clusterSize, " nodes\n")
 
-    cl <- makeCl(clusterSize)
+    cl <- makeCl(clusterSize, useRscript=FALSE, scriptdir=system.file(package="qpgraph"))
     clSetupRNG(cl)
     res <- clEvalQ(cl, require(qpgraph, quietly=TRUE))
     if (!all(unlist(res))) {
@@ -3355,6 +3365,68 @@ qpPlotNetwork <- function(g, vertexSubset=nodes(g), boundary=FALSE, minimumSizeC
 }    
 
 
+## function: clPrCall
+## purpose: is a copy of the function clusterCall() from the 'snow' package
+##          but allows the slave loops to report progress which is then
+##          reported to the console of the master node
+## parameters: cl - cluster data from makeCluster()
+##             fun - function to call at each node
+##             n.adj - total number of adjacencies through which computations
+##                     should be made
+##             ... - parameters passed to the function specified at 'fun'
+## return: the result just as clusterCall() would do
+
+clPrCall <- function(cl, fun, n.adj, ...) {
+  checkCl <- get("checkCluster", mode="function")
+  sndCall <- get("sendCall", mode="function")
+  rcv1Result <- get("recvOneResult", mode="function")
+  check4RmtErrors <- get("checkForRemoteErrors", mode="function")
+
+  checkCl(cl)
+  for (i in seq(along = cl))
+    sndCall(cl[[i]], fun, list(...))
+
+  i <- rep(0, length(cl))
+  k <- 0
+  ppct <- -1
+
+  r <- vector(mode="list", length=length(cl))
+  foundError <- FALSE
+  nodesDone <- 0
+  while (nodesDone < length(cl) && !foundError) {
+    r1 <- rcv1Result(cl)
+    if (!is.null(r1$tag)) {
+      ## message("received value ", r1$value, " from node ", r1$node, " with tag ", r1$tag)
+      if (r1$tag != "UPDATE") {
+        if (inherits(r1, "try-error")) {
+          stop("at least one node produced an error: ", r)
+          foundError <- TRUE
+        }
+      } else {
+        k <- k - i[r1$node] + r1$value
+        i[r1$node] <- r1$value
+        pct <- floor((k * 100) / n.adj)
+        if (pct != ppct) {
+          if (pct %% 10 == 0) {
+            cat(pct)
+          } else {
+            cat(".")
+          }
+          ppct <- pct
+        }
+      }
+    } else {
+      r1 <- check4RmtErrors(r1)
+      r[[r1$node]] <- r1$value
+      nodesDone <- nodesDone + 1
+    }
+  }
+
+  cat("\n")
+
+  r
+}
+
 ##########################################################################
 ## PRIVATE FUNCTIONS THAT ARE ENTRY POINTS TO THE C CODE OF THE PACKAGE ##
 ##########################################################################
@@ -3377,22 +3449,26 @@ qpPlotNetwork <- function(g, vertexSubset=nodes(g), boundary=FALSE, minimumSizeC
 
 .qpFastNrrPar <- function(X, q, nTests, alpha, pairup.i.noint, pairup.j.noint,
                           pairup.ij.int, verbose) {
+  myMaster <- get("master", sys.frame(-7))
+
   ## clusterRank and clusterSize should have been defined by the master node
   return(.Call("qp_fast_nrr_par",X,as.integer(q),as.integer(nTests),
                                  as.double(alpha),as.integer(pairup.i.noint),
                                  as.integer(pairup.j.noint),as.integer(pairup.ij.int),
                                  as.integer(verbose), as.integer(get("clusterRank")),
-                                 as.integer(get("clusterSize"))))
+                                 as.integer(get("clusterSize")), myMaster, .GlobalEnv))
 }
 
 .qpFastNrrIdenticalQsPar <- function(X, q, nTests, alpha, pairup.i.noint, pairup.j.noint,
                                      pairup.ij.int, verbose) {
+  myMaster <- get("master", sys.frame(-7))
+
   ## clusterRank and clusterSize should have been defined by the master node
   return(.Call("qp_fast_nrr_identicalQs_par",X,as.integer(q),as.integer(nTests),
                                              as.double(alpha),as.integer(pairup.i.noint),
                                              as.integer(pairup.j.noint),as.integer(pairup.ij.int),
                                              as.integer(verbose), as.integer(get("clusterRank")),
-                                             as.integer(get("clusterSize"))))
+                                             as.integer(get("clusterSize")), myMaster, .GlobalEnv))
 }
 
 .qpFastEdgeNrr <- function(S, N, i, j, q, nTests, alpha) {
@@ -3438,3 +3514,5 @@ qpCov <- function(X) {
              Dimnames=list(colnames(X), colnames(X)),
              x = .Call("qp_cov_upper_triangular",X)))
 }
+
+
