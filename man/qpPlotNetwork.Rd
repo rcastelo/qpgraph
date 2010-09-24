@@ -8,8 +8,9 @@ Plots a graph
 Plots a graph using the \code{Rgraphviz} library
 }
 \usage{
-qpPlotNetwork(g, vertexSubset=nodes(g), boundary=FALSE, minimumSizeConnComp=2,
-              pairup.i=NULL, pairup.j=NULL, annotation=NULL)
+qpPlotNetwork(g, vertexSubset=graph::nodes(g), boundary=FALSE,
+              minimumSizeConnComp=2, pairup.i=NULL, pairup.j=NULL,
+              annotation=NULL)
 }
 \arguments{
   \item{g}{graph to plot provided as a \code{graphNEL-class} object.}
@@ -21,18 +22,24 @@ qpPlotNetwork(g, vertexSubset=nodes(g), boundary=FALSE, minimumSizeConnComp=2,
   \item{annotation}{name of an annotation package to transform gene identifiers into gene symbols when vertices correspond to genes.}
 }
 \details{
+This function acts as a wrapper for the functionality provided by the \code{Rgraphviz}
+package to plot graphs in R. It should be help to plot networks obtained with the \code{qpgraph}
+package methods.
 }
 \value{
 The plotted graph is invisibly returned as a \code{graphNEL-class} object.
 }
-\references{
-}
 \author{R. Castelo}
 \seealso{
   \code{\link{qpGraph}}
+  \code{\link{qpAnyGraph}}
 }
 \examples{
-## missing
+require(Rgraphviz)
+
+rndassociations <- qpUnifRndAssociation(10)
+g <- qpAnyGraph(abs(rndassociations), threshold=0.7, remove="below", return.type="graphNEL")
+qpPlotNetwork(g)
 }
 \keyword{models}
 \keyword{multivariate}

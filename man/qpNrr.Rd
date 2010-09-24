@@ -106,8 +106,8 @@ A <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
 Sigma <- qpG2Sigma(A, rho=0.5)
 X <- rmvnorm(nObs, sigma=as.matrix(Sigma))
 
-system.time(nrr.estimates <- qpNrr(X, q=5, verbose=FALSE))
-system.time(nrr.estimates <- qpNrr(X, q=5, verbose=FALSE, clusterSize=8))
+system.time(nrr.estimates <- qpNrr(X, q=5, verbose=TRUE))
+system.time(nrr.estimates <- qpNrr(X, q=5, verbose=TRUE, clusterSize=8))
 }
 }
 \keyword{models}

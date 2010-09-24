@@ -57,7 +57,7 @@ setMethod("qpNrr", signature(X="ExpressionSet"),
                (!qpgraph:::.qpIsPackageLoaded("rlecuyer") || !qpgraph:::.qpIsPackageLoaded("snow")))
               stop("Using a cluster (clusterSize > 1) requires first loading packages 'snow' and 'rlecuyer'\n")
 
-            X <- t(exprs(X))
+            X <- t(Biobase::exprs(X))
             qpgraph:::.qpNrr(X, q, nTests, alpha, pairup.i, pairup.j, verbose,
                              identicalQs, R.code.only, clusterSize)
           })
@@ -495,7 +495,7 @@ setMethod("qpAvgNrr", signature(X="ExpressionSet"),
                (!qpgraph:::.qpIsPackageLoaded("rlecuyer") || !qpgraph:::.qpIsPackageLoaded("snow")))
               stop("Using a cluster (clusterSize > 1) requires first loading packages 'snow' and 'rlecuyer'\n")
 
-            X <- t(exprs(X))
+            X <- t(Biobase::exprs(X))
             qpgraph:::.qpAvgNrr(X, qOrders, nTests, alpha, pairup.i, pairup.j,
                                 type, verbose, identicalQs, R.code.only, clusterSize)
           })
@@ -712,7 +712,7 @@ setMethod("qpGenNrr", signature(X="ExpressionSet"),
             if (!is.null(qOrders) && any(is.na(qOrders[unique(datasetIdx)])))
               stop("Some values in 'datasetIdx' do not match any position in 'qOrders'\n")
 
-            X <- t(exprs(X))
+            X <- t(Biobase::exprs(X))
 
             qpgraph:::.qpGenNrr(X, datasetIdx, qOrders, return.all, nTests, alpha,
                                 pairup.i, pairup.j, verbose, identicalQs, R.code.only,
@@ -939,7 +939,7 @@ setGeneric("qpEdgeNrr", function(X, ...) standardGeneric("qpEdgeNrr"))
 setMethod("qpEdgeNrr", signature(X="ExpressionSet"),
           function(X, i=1, j=2, q=1, nTests=100,
                    alpha=0.05, R.code.only=FALSE) {
-            X <- t(exprs(X))
+            X <- t(Biobase::exprs(X))
             S <- qpCov(X)
             N <- nrow(X)
             qpgraph:::.qpEdgeNrr(S, N, i, j, q, nTests, alpha, R.code.only)
@@ -1103,7 +1103,7 @@ setGeneric("qpCItest", function(X, ...) standardGeneric("qpCItest"))
 # X comes as an ExpressionSet object
 setMethod("qpCItest", signature(X="ExpressionSet"),
           function(X, i=1, j=2, Q=c(), R.code.only=FALSE) {
-            X <- t(exprs(X))
+            X <- t(Biobase::exprs(X))
             S <- qpCov(X)
             N <- length(sampleNames(data))
             qpgraph:::.qpCItest(S, N, i, j, Q, R.code.only)
@@ -1350,24 +1350,24 @@ qpGraph <- function(nrrMatrix, threshold=NULL, topPairs=NULL, pairup.i=NULL,
   diag(A) <- FALSE # whatever the threshold is the graph should have no loops
 
   if (return.type == "adjacency.matrix") {
-    require(Matrix)
+    ## require(Matrix)
     return(Matrix(A))
   } else if (return.type == "edge.list") {
     m <- cbind(vertex.labels[row(A)[upper.tri(A) & A]], vertex.labels[col(A)[upper.tri(A) & A]])
     colnames(m) <- c("i", "j")
     return(m)
   } else if (return.type == "graphNEL") {
-    require(graph)
+    ## require(graph)
     vertices <- unique(c(vertex.labels[row(A)[upper.tri(A) & A]], vertex.labels[col(A)[upper.tri(A) & A]]))
     edL <- vector("list", length=length(vertices))
     names(edL) <- vertices
     for (v in vertices)
       edL[[v]] <- list(edges=vertex.labels[A[v, ]], weights=rep(1, sum(A[v, ])))
-    g <- new("graphNEL",nodes=vertices, edgeL=edL,edgemode="undirected")
+    g <- new("graphNEL",nodes=vertices, edgeL=edL, edgemode="undirected")
     return(g)
   } else if (return.type == "graphAM") {
-    require(graph)
-    g <- new("graphAM",adjMat=A+0,edgemode="undirected",values=list(weight=1))
+    ## require(graph)
+    g <- new("graphAM", adjMat=A+0, edgemode="undirected", values=list(weight=1))
     return(g)
   }
 
@@ -1486,23 +1486,23 @@ qpAnyGraph <- function(measurementsMatrix, threshold=NULL, remove=c("below", "ab
   diag(A) <- FALSE ## whatever the threshold is the graph should have no loops
 
   if (return.type == "adjacency.matrix") {
-    require(Matrix)
+    ## require(Matrix)
     return(Matrix(A))
   } else if (return.type == "edge.list") {
     m <- cbind(row(A)[upper.tri(A) & A],col(A)[upper.tri(A) & A])
     colnames(m) <- c("i","j")
     return(m)
   } else if (return.type == "graphNEL") {
-    require(graph)
+    ## require(graph)
     edL <- vector("list",length=n.var)
     names(edL) <- vertex.labels
     for (i in 1:n.var)
       edL[[i]] <- list(edges=(1:n.var)[A[i,]],weights=rep(1,sum(A[i,])))
-    g <- new("graphNEL",nodes=vertex.labels,edgeL=edL,edgemode="undirected")
+    g <- new("graphNEL", nodes=vertex.labels, edgeL=edL, edgemode="undirected")
     return(g)
   } else if (return.type == "graphAM") {
-    require(graph)
-    g <- new("graphAM",adjMat=A+0,edgemode="undirected",values=list(weight=1))
+    ## require(graph)
+    g <- new("graphAM", adjMat=A+0, edgemode="undirected", values=list(weight=1))
     return(g)
   }
 
@@ -1611,8 +1611,8 @@ qpCliqueNumber <- function(g, exact.calculation=TRUE, return.vertices=FALSE,
                            approx.iter=100, verbose=TRUE, R.code.only=FALSE) {
 
   if (class(g) == "graphNEL" || class(g) == "graphAM") {
-    require(graph)
-    if (edgemode(g) != "undirected")
+    ## require(graph)
+    if (graph::edgemode(g) != "undirected")
       stop("g should be an undirected graph\n")
 
     A <- as(g, "matrix") == 1
@@ -1880,8 +1880,8 @@ qpClique <- function(nrrMatrix, N=NA, threshold.lim=c(0,1), breaks=5, plot=TRUE,
 qpGetCliques <- function(g, clqspervtx=FALSE, verbose=TRUE) {
 
   if (class(g) == "graphNEL" || class(g) == "graphAM") {
-    require(graph)
-    if (edgemode(g) != "undirected")
+    ## require(graph)
+    if (graph::edgemode(g) != "undirected")
       stop("g should be an undirected graph\n")
 
     A <- as(g, "matrix") == 1
@@ -1940,8 +1940,8 @@ qpGetCliques <- function(g, clqspervtx=FALSE, verbose=TRUE) {
 
 qpUpdateCliquesRemoving <- function(g, clqlst, v, w, verbose=TRUE) {
   if (class(g) == "graphNEL" || class(g) == "graphAM") {
-    require(graph)
-    if (edgemode(g) != "undirected")
+    ## require(graph)
+    if (graph::edgemode(g) != "undirected")
       stop("g should be an undirected graph\n")
 
     A <- as(g, "matrix") == 1
@@ -2047,7 +2047,7 @@ setGeneric("qpPAC", function(X, ...) standardGeneric("qpPAC"))
 setMethod("qpPAC", signature(X="ExpressionSet"),
           function(X, g, return.K=FALSE, tol=0.001,
                    verbose=TRUE, R.code.only=FALSE) {
-            X <- t(exprs(X))
+            X <- t(Biobase::exprs(X))
             qpgraph:::.qpPAC(X, g, return.K, tol, verbose, R.code.only)
           })
 
@@ -2085,8 +2085,8 @@ setMethod("qpPAC", signature(X="matrix"),
 .qpPAC <- function(X, g, return.K=FALSE, tol=0.001, verbose=TRUE, R.code.only=FALSE) {
 
   if (class(g) == "graphNEL" || class(g) == "graphAM") {
-    require(graph)
-    if (edgemode(g) != "undirected")
+    ## require(graph)
+    if (graph::edgemode(g) != "undirected")
       stop("g should be an undirected graph\n")
 
     A <- as(g, "matrix") == 1
@@ -2164,7 +2164,7 @@ setGeneric("qpPCC", function(X, ...) standardGeneric("qpPCC"))
 # X comes as an ExpressionSet object
 setMethod("qpPCC", signature(X="ExpressionSet"),
           function(X) {
-            X <- t(exprs(X))
+            X <- t(Biobase::exprs(X))
             qpgraph:::.qpPCC(X)
           })
 
@@ -2363,7 +2363,7 @@ qpG2Sigma <- function (g, rho=0, verbose = FALSE,
   if (class(g) == "matrix" || class(g) == "lsCMatrix")
     n.var <- nrow(g)
   if (class(g) == "graphNEL" || class(g) == "graphAM")
-    n.var <- length(nodes(g))
+    n.var <- length(graph::nodes(g))
   if (is.null(n.var))
     stop("'g' is neither an adjacency matrix, nor a graphNEL, nor graphAM object.\n")
 
@@ -2472,8 +2472,8 @@ qpPrecisionRecall <- function(measurementsMatrix, refGraph, decreasing=TRUE,
     }
 
   } else { ## graphNEL or graphAM
-    if (any(is.na(match(nodes(refGraph), rownames(measurementsMatrix)))) ||
-        length(nodes(refGraph) != dim(measurementsMatrix)[1]))
+    if (any(is.na(match(graph::nodes(refGraph), rownames(measurementsMatrix)))) ||
+        length(graph::nodes(refGraph) != dim(measurementsMatrix)[1]))
       stop("The vertex set in refGraph does not correspond to the row and column names in measurementsMatrix\n")
     refA <- as(refGraph, "matrix") == 1
     if (!all(match(rownames(refA), rownames(measurementsMatrix)) == 1:dim(refA)[1])) { ## force matching the vertex order
@@ -3115,13 +3115,14 @@ qpTopPairs <- function(measurementsMatrix=NULL, refGraph=NULL, n=6L, file=NULL,
 ##             annotation - name of an annotation package to transform gene identifiers
 ##                          into gene symbols
 
-qpPlotNetwork <- function(g, vertexSubset=nodes(g), boundary=FALSE, minimumSizeConnComp=2,
-                        pairup.i=NULL, pairup.j=NULL, annotation=NULL) {
-  require(graph)
+qpPlotNetwork <- function(g, vertexSubset=graph::nodes(g), boundary=FALSE,
+                          minimumSizeConnComp=2, pairup.i=NULL, pairup.j=NULL,
+                          annotation=NULL) {
+  ## require(graph)
   require(Rgraphviz)
 
-  if (any(is.na(match(nodes(g), vertexSubset)))) {
-    vertexSubsetNoMatch <- vertexSubset[is.na(match(vertexSubset, nodes(g)))]
+  if (any(is.na(match(graph::nodes(g), vertexSubset)))) {
+    vertexSubsetNoMatch <- vertexSubset[is.na(match(vertexSubset, graph::nodes(g)))]
     if (length(vertexSubsetNoMatch) > 0 && is.null(annotation))
       stop("Vertex names in 'vertexSubset' ", vertexSubsetNoMatch, " do not form part of the vertices in 'g' and 'annotation' is set to NULL.\n")
 
@@ -3148,7 +3149,7 @@ qpPlotNetwork <- function(g, vertexSubset=nodes(g), boundary=FALSE, minimumSizeC
     gCcOfMinSize <- gCc[sapply(gCc, length) >= minimumSizeConnComp]
     vertexSubset <- unique(unlist(gCcOfMinSize))
 
-    if (any(is.na(match(nodes(g), vertexSubset))))
+    if (any(is.na(match(graph::nodes(g), vertexSubset))))
       g <- subGraph(vertexSubset, g)
   }
 
@@ -3157,27 +3158,28 @@ qpPlotNetwork <- function(g, vertexSubset=nodes(g), boundary=FALSE, minimumSizeC
     stop("'pairup.i' and 'pairup.j' should both either be set to NULL or contain subsets of variables\n")
 
   if (!is.null(pairup.i) && !is.null(pairup.j))  {
-    if (sum(is.na(match(nodes(g), c(pairup.i, pairup.j)))) > 0)
+    if (sum(is.na(match(graph::nodes(g), c(pairup.i, pairup.j)))) > 0)
       warning("Some of the vertices in the resulting graph do not form part of 'pairup.i' nor 'pairup.j'\n")
 
-    edL <- matrix(unlist(sapply(nodes(g), function(x) t(cbind(x, edges(g)[[x]])), USE.NAMES=FALSE)),
+    edL <- matrix(unlist(sapply(graph::nodes(g),
+                                function(x) t(cbind(x, graph::edges(g)[[x]])), USE.NAMES=FALSE)),
                    ncol=2, byrow=TRUE)
     edL <- unique(t(apply(edL, 1, sort)))
     mask <- apply(edL, 1, function(x) sum(!is.na(match(x, pairup.i)))*sum(!is.na(match(x, pairup.j)))) == 0
     if (sum(mask) > 0)
       removeEdge(from=edL[mask, 1], to=edL[mask, 2], g)
 
-    edgemode(g) <- "directed"
-    g.iNodes <- nodes(g)[!is.na(match(nodes(g), pairup.i))]
-    wrongEdges <- boundary(setdiff(nodes(g), g.iNodes), g)
+    graph::edgemode(g) <- "directed"
+    g.iNodes <- graph::nodes(g)[!is.na(match(graph::nodes(g), pairup.i))]
+    wrongEdges <- boundary(setdiff(graph::nodes(g), g.iNodes), g)
     wrongEdges <- wrongEdges[sapply(wrongEdges, length) > 0]
     wrongEdges <- matrix(unlist(sapply(names(wrongEdges), function(x) t(cbind(x, wrongEdges[[x]])), USE.NAMES=FALSE)),
                          ncol=2, byrow=TRUE)
     g <- removeEdge(from=wrongEdges[, 1], to=wrongEdges[, 2], g)
 
-    nodeLabels <- nodes(g)
+    nodeLabels <- graph::nodes(g)
     if (!is.null(annotation)) {
-      nodeLabels <- unlist(AnnotationDbi::mget(nodes(g),
+      nodeLabels <- unlist(AnnotationDbi::mget(graph::nodes(g),
                              annotate::getAnnMap(map="SYMBOL", chip=annotation, type="db"),
                              ifnotfound=NA))
     }
@@ -3185,9 +3187,9 @@ qpPlotNetwork <- function(g, vertexSubset=nodes(g), boundary=FALSE, minimumSizeC
     nodattr <- makeNodeAttrs(g, label=nodeLabels, shape="ellipse", fixedsize=FALSE, fillcolor=grey(0.9))
     nodattr$fillcolor[g.iNodes] <- grey(0.65)
   } else {
-    nodeLabels <- nodes(g)
+    nodeLabels <- graph::nodes(g)
     if (!is.null(annotation)) {
-      nodeLabels <- unlist(AnnotationDbi::mget(nodes(g),
+      nodeLabels <- unlist(AnnotationDbi::mget(graph::nodes(g),
                              annotate::getAnnMap(map="SYMBOL", chip=annotation, type="db"),
                              ifnotfound=NA))
     }

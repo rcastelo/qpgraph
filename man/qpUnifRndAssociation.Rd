@@ -24,15 +24,13 @@ such a pattern use the function \code{\link{qpG2Sigma}}.
 \value{
 A symmetric matrix of uniformly random association values between -1 and +1.
 }
-\references{
-}
 \author{R. Castelo}
 \seealso{
   \code{\link{qpG2Sigma}}
 }
 \examples{
-rndcor <- qpUnifRndAssociation(100)
-summary(rndcor[upper.tri(rndcor)])
+rndassociation <- qpUnifRndAssociation(100)
+summary(rndassociation[upper.tri(rndassociation)])
 }
 \keyword{models}
 \keyword{multivariate}

@@ -41,8 +41,6 @@ be specified.
 \value{
 The ranking of pairs is invisibly returned.
 }
-\references{
-}
 \author{R. Castelo}
 \seealso{
   \code{\link{qpGraph}}
@@ -50,7 +48,7 @@ The ranking of pairs is invisibly returned.
   \code{\link{qpFunctionalCoherence}}
 }
 \examples{
-## missing
+qpTopPairs(matrix(runif(100), nrow=10, dimnames=list(1:10,1:10)))
 }
 \keyword{models}
 \keyword{multivariate}

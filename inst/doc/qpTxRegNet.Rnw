@@ -33,6 +33,7 @@ $\Delta${\it oxyR}, $\Delta${\it soxS} and the double knockout
 $\Delta${\it arcA}$\Delta${\it fnr}. To get started, load the following packages:
 
 <<setup, echo=TRUE, results=hide>>=
+library(Biobase)
 library(annotate)
 library(genefilter)
 library(org.EcK12.eg.db)
