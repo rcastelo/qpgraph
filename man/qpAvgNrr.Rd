@@ -113,12 +113,13 @@ library(rlecuyer)
 ## use of a cluster of processors speeds up the calculations
 
 nVar <- 500
+maxCon <- 3
 A <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
 Sigma <- qpG2Sigma(A, rho=0.5)
 X <- rmvnorm(nObs, sigma=as.matrix(Sigma))
 
-system.time(avgnrr.estimates <- qpAvgNrr(X, q=5, verbose=TRUE))
-system.time(avgnrr.estimates <- qpAvgNrr(X, q=5, verbose=TRUE, clusterSize=8))
+system.time(avgnrr.estimates <- qpAvgNrr(X, q=10, verbose=TRUE))
+system.time(avgnrr.estimates <- qpAvgNrr(X, q=10, verbose=TRUE, clusterSize=4))
 }
 }
 \keyword{models}

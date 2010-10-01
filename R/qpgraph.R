@@ -712,6 +712,9 @@ setMethod("qpGenNrr", signature(X="ExpressionSet"),
             if (!is.null(qOrders) && any(is.na(qOrders[unique(datasetIdx)])))
               stop("Some values in 'datasetIdx' do not match any position in 'qOrders'\n")
 
+            if (!is.null(qOrders) && is.null(names(qOrders)))
+              stop("When they are specified, values in 'qOrders' should have names matching the data sets index names\n")
+
             X <- t(Biobase::exprs(X))
 
             qpgraph:::.qpGenNrr(X, datasetIdx, qOrders, return.all, nTests, alpha,
@@ -768,6 +771,9 @@ setMethod("qpGenNrr", signature(X="data.frame"),
             if (!is.null(qOrders) && any(is.na(qOrders[unique(datasetIdx)])))
               stop("Some values in 'datasetIdx' do not match any position in 'qOrders'\n")
 
+            if (!is.null(qOrders) && is.null(names(qOrders)))
+              stop("When they are specified, values in 'qOrders' should have names matching the data sets index names\n")
+
             qpgraph:::.qpGenNrr(X, datasetIdx, qOrders, return.all, nTests, alpha,
                                 pairup.i, pairup.j, verbose, identicalQs, R.code.only,
                                 clusterSize)
@@ -818,6 +824,9 @@ setMethod("qpGenNrr", signature(X="matrix"),
 
             if (!is.null(qOrders) && any(is.na(qOrders[unique(datasetIdx)])))
               stop("Some values in 'datasetIdx' do not match any position in 'qOrders'\n")
+
+            if (!is.null(qOrders) && is.null(names(qOrders)))
+              stop("When they are specified, values in 'qOrders' should have names matching the data sets index names\n")
 
             qpgraph:::.qpGenNrr(X, datasetIdx, qOrders, return.all, nTests, alpha,
                                 pairup.i, pairup.j, verbose, identicalQs, R.code.only,
@@ -1586,7 +1595,7 @@ qpGraphDensity <- function(nrrMatrix, threshold.lim=c(0,1), breaks=5,
   f <- approxfun(m)
   area <- integrate(f,min(m[,1]),max(m[,1]))
 
-  return(list(data=matgdthr,sparseness=1-area$value))
+  invisible(list(data=matgdthr,sparseness=1-area$value))
 }
 
 
@@ -1855,8 +1864,8 @@ qpClique <- function(nrrMatrix, N=NA, threshold.lim=c(0,1), breaks=5, plot=TRUE,
   f <- approxfun(m)
   area <- integrate(f,min(m[,1]),max(m[,1]))
 
-  return(list(data=mpctedclqsze,complexity=area$value,threshold=thrmaxclqszeunderN,
-              clqsizeunderN=maxclqszeunderN,N=N,exact.calculation=exact.calculation))
+  invisible(list(data=mpctedclqsze,complexity=area$value,threshold=thrmaxclqszeunderN,
+                 clqsizeunderN=maxclqszeunderN,N=N,exact.calculation=exact.calculation))
 }
 
 
@@ -2360,16 +2369,25 @@ qpRndWishart <- function(delta=1, P=0, df=NULL, n.var=NULL) {
 qpG2Sigma <- function (g, rho=0, verbose = FALSE,
                        R.code.only = FALSE) {
   n.var <- NULL
-  if (class(g) == "matrix" || class(g) == "lsCMatrix")
+  var.names <- NULL
+  if (class(g) == "matrix" || class(g) == "lsCMatrix") {
     n.var <- nrow(g)
-  if (class(g) == "graphNEL" || class(g) == "graphAM")
+    var.names <- rownames(g)
+    if (is.null(rownames(var.names)))
+      var.names <- 1:n.var
+  }
+  if (class(g) == "graphNEL" || class(g) == "graphAM") {
     n.var <- length(graph::nodes(g))
+    var.names <- nodes(g)
+  }
+
   if (is.null(n.var))
     stop("'g' is neither an adjacency matrix, nor a graphNEL, nor graphAM object.\n")
 
   clqlst <- qpGetCliques(g, verbose = verbose)
   W <- qpRndWishart(delta=sqrt(1 / n.var), P=rho, n.var=n.var)$rW
   Sigma <- qpIPF(W, clqlst, verbose=verbose, R.code.only=R.code.only)
+  rownames(Sigma) <- colnames(Sigma) <- var.names
 
   return(as(Sigma, "dspMatrix"))
 }
