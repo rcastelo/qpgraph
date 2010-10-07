@@ -16,17 +16,18 @@ two or more data sets.
 \S4method{qpGenNrr}{ExpressionSet}(X, datasetIdx=1, qOrders=NULL, return.all=FALSE,
                                    nTests=100, alpha=0.05, pairup.i=NULL,
                                    pairup.j=NULL, verbose=TRUE, identicalQs=TRUE,
-                                   R.code.only=FALSE, clusterSize=1)
+                                   R.code.only=FALSE, clusterSize=1, estimateTime=FALSE,
+                                   nAdj2estimateTime=10)
 \S4method{qpGenNrr}{data.frame}(X, datasetIdx=1, qOrders=NULL, return.all=FALSE,
                                 nTests=100, alpha=0.05, pairup.i=NULL,
                                 pairup.j=NULL, long.dim.are.variables=TRUE,
                                 verbose=TRUE, identicalQs=TRUE, R.code.only=FALSE,
-                                clusterSize=1)
+                                clusterSize=1, estimateTime=FALSE, nAdj2estimateTime=10)
 \S4method{qpGenNrr}{matrix}(X, datasetIdx=1, qOrders=NULL, return.all=FALSE,
                             nTests=100, alpha=0.05, pairup.i=NULL, pairup.j=NULL,
                             long.dim.are.variables=TRUE, verbose=TRUE,
-                            identicalQs=TRUE, R.code.only=FALSE,
-                            clusterSize=1)
+                            identicalQs=TRUE, R.code.only=FALSE, clusterSize=1,
+                            estimateTime=FALSE, nAdj2estimateTime=10)
 }
 \arguments{
   \item{X}{data set from where to estimate the average non-rejection rates.
@@ -62,6 +63,15 @@ two or more data sets.
        (default) implies a single-processor execution. The use of a cluster of
        processors requires having previously loaded the packages \code{snow}
        and \code{rlecuyer}.}
+  \item{estimateTime}{logical; if \code{TRUE} then the time for carrying out the
+       calculations with the given parameters is estimated by calculating for a
+       limited number of adjacencies, specified by \code{nAdj2estimateTime}, and
+       extrapolating the elapsed time; if \code{FALSE} (default) calculations are
+       performed normally till they finish.}
+  \item{nAdj2estimateTime}{number of adjacencies to employ when estimating the
+       time of calculations (\code{estimateTime=TRUE}). By default this has a
+       default value of 10 adjacencies and larger values should provide more
+       accurate estimates. This might be relevant when using a cluster facility.}
 }
 \details{
 Note that when specifying a vector of particular orders \code{q}, these values
@@ -84,6 +94,11 @@ if \code{return.all=TRUE} then there will be one additional entry for each data
 set containing the matrix of the non-rejection rates estimated from that data
 set with the corresponding q-order, using the indexing value of the data set as
 entry name.
+
+Note, however, that when \code{estimateTime=TRUE}, then instead of the list with
+matrices of estimated (generalized) non-rejection rates, a vector specifying the
+estimated number of days, hours, minutes and seconds for completion of the
+calculations is returned.
 }
 \references{
 Castelo, R. and Roverato, A. Reverse engineering molecular regulatory
@@ -136,13 +151,13 @@ avgnrr.estimates <- qpAvgNrr(rbind(X1, X2), long.dim.are.variables=FALSE, verbos
 ## distribution of average non-rejection rates for the common present edges
 summary(avgnrr.estimates[upper.tri(avgnrr.estimates) & A1 & A2])
 
-## distribution of generalized non-rejection rates for the present edges specific to A1
+## distribution of average non-rejection rates for the present edges specific to A1
 summary(avgnrr.estimates[upper.tri(avgnrr.estimates) & A1 & !A2])
 
-## distribution of generalized non-rejection rates for the present edges specific to A2
+## distribution of average non-rejection rates for the present edges specific to A2
 summary(avgnrr.estimates[upper.tri(avgnrr.estimates) & !A1 & A2])
 
-## distribution of generalized non-rejection rates for the common missing edges
+## distribution of average non-rejection rates for the common missing edges
 summary(avgnrr.estimates[upper.tri(avgnrr.estimates) & !A1 & !A2])
 }
 \keyword{models}

@@ -1,6 +1,6 @@
 /*
   qpgraph package - this C code implements functions to learn qp-graphs from
-                    data and utilities to for GGM model inference and simulation
+                    data and utilities for GGM model inference and simulation
  
   Copyright (C) 2009 R. Castelo and A. Roverato
   This program is free software; you can redistribute it and/or
@@ -65,20 +65,23 @@ extern void R_ProcessEvents(void);
 
 static SEXP
 qp_fast_nrr(SEXP XR, SEXP qR, SEXP nTests, SEXP alpha, SEXP pairup_i_noint,
-            SEXP pairup_j_noint, SEXP pairup_ij_int, SEXP verbose);
+            SEXP pairup_j_noint, SEXP pairup_ij_int, SEXP verbose,
+            SEXP startTimeR, SEXP nAdj2estimateTimeR, SEXP env);
 
 static SEXP
 qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP nTests, SEXP alpha, SEXP pairup_i_noint,
-                        SEXP pairup_j_noint, SEXP pairup_ij_int, SEXP verbose);
+                        SEXP pairup_j_noint, SEXP pairup_ij_int, SEXP verbose,
+                        SEXP startTimeR, SEXP nAdj2estimateTimeR, SEXP env);
 
 static SEXP
 qp_fast_nrr_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
-                SEXP pairup_j_nointR, SEXP pairup_ij_intR, SEXP verboseR, SEXP myRankR,
-                SEXP clSzeR, SEXP masterNode, SEXP env);
+                SEXP pairup_j_nointR, SEXP pairup_ij_intR, SEXP verboseR, SEXP startTimeR,
+                SEXP nAdj2estimateTimeR, SEXP myRankR, SEXP clSzeR, SEXP masterNode, SEXP env);
 static SEXP
 qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
                             SEXP pairup_j_nointR, SEXP pairup_ij_intR, SEXP verboseR,
-                            SEXP myRankR, SEXP clqSzeR, SEXP masterNode, SEXP env);
+                            SEXP startTimeR, SEXP nAdj2estimateTimeR, SEXP myRankR, SEXP clSzeR,
+                            SEXP masterNode, SEXP env);
 static SEXP
 qp_fast_edge_nrr(SEXP S, SEXP NR, SEXP iR, SEXP jR, SEXP qR, SEXP TR, SEXP sigR);
 
@@ -195,10 +198,10 @@ qp_cov_upper_triangular(SEXP XR);
 
 static R_CallMethodDef
 callMethods[] = {
-  {"qp_fast_nrr", (DL_FUNC) &qp_fast_nrr, 8},
-  {"qp_fast_nrr_identicalQs", (DL_FUNC) &qp_fast_nrr_identicalQs, 8},
-  {"qp_fast_nrr_par", (DL_FUNC) &qp_fast_nrr_par, 12},
-  {"qp_fast_nrr_identicalQs_par", (DL_FUNC) &qp_fast_nrr_identicalQs_par, 12},
+  {"qp_fast_nrr", (DL_FUNC) &qp_fast_nrr, 11},
+  {"qp_fast_nrr_identicalQs", (DL_FUNC) &qp_fast_nrr_identicalQs, 11},
+  {"qp_fast_nrr_par", (DL_FUNC) &qp_fast_nrr_par, 14},
+  {"qp_fast_nrr_identicalQs_par", (DL_FUNC) &qp_fast_nrr_identicalQs_par, 14},
   {"qp_fast_edge_nrr", (DL_FUNC) &qp_fast_edge_nrr, 7},
   {"qp_fast_ci_test", (DL_FUNC) &qp_fast_ci_test,6},
   {"qp_fast_ci_test2", (DL_FUNC) &qp_fast_ci_test2,6},
@@ -234,7 +237,8 @@ R_init_qpgraph(DllInfo* info) {
 
 static SEXP
 qp_fast_nrr(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
-            SEXP pairup_j_nointR, SEXP pairup_ij_intR, SEXP verboseR) {
+            SEXP pairup_j_nointR, SEXP pairup_ij_intR, SEXP verboseR,
+            SEXP startTimeR, SEXP nAdj2estimateTimeR, SEXP env) {
   int     N;
   int     n_var;
   int     q;
@@ -253,15 +257,19 @@ qp_fast_nrr(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
   SEXP    nrrR;
   double* nrr;
   int     verbose;
+  double  startTime, elapsedTime;
+  int     nAdjEtime;
 
   PROTECT_INDEX Spi;
 
-  N       = INTEGER(getAttrib(XR, R_DimSymbol))[0];
-  n_var   = INTEGER(getAttrib(XR, R_DimSymbol))[1];
-  q       = INTEGER(qR)[0];
-  nTests  = INTEGER(nTestsR)[0];
-  alpha   = REAL(alphaR)[0];
-  verbose = INTEGER(verboseR)[0];
+  N         = INTEGER(getAttrib(XR, R_DimSymbol))[0];
+  n_var     = INTEGER(getAttrib(XR, R_DimSymbol))[1];
+  q         = INTEGER(qR)[0];
+  nTests    = INTEGER(nTestsR)[0];
+  alpha     = REAL(alphaR)[0];
+  verbose   = INTEGER(verboseR)[0];
+  startTime = REAL(startTimeR)[0];
+  nAdjEtime = INTEGER(nAdj2estimateTimeR)[0];
 
   if (q > n_var-2)
     error("q=%d > n.var-2=%d",q,n_var-2);
@@ -290,6 +298,20 @@ qp_fast_nrr(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
 
   n_adj = l_int * (l_jni + l_ini) + l_ini * l_jni + l_int * (l_int - 1) / 2;
 
+  elapsedTime = 0.0;
+  if (startTime > 0.0) {
+    SEXP procTimeR;
+    double* procTime;
+    SEXP call;
+
+    PROTECT(call = lang1(install("proc.time")));
+    PROTECT(procTimeR = eval(call, env));
+    procTime = REAL(procTimeR);
+    elapsedTime = procTime[2] - startTime;
+    startTime = procTime[2];
+    UNPROTECT(2); /* call procTimeR */
+  }
+
   ppct = -1;
   k = 0;
 
@@ -302,9 +324,11 @@ qp_fast_nrr(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
 
       nrr[UTE2I(i2, j2)] = qp_edge_nrr(S, n_var, N, i2, j2, q, nTests, alpha);
       k++;
+      if (startTime > 0 && k == nAdjEtime)
+        break;
       pct = (int) ((k * 100) / n_adj);
       if (pct != ppct) {
-        if (verbose) {
+        if (verbose && startTime == 0) {
           if (pct % 10 == 0)
             Rprintf("%d",pct);
           else
@@ -321,75 +345,120 @@ qp_fast_nrr(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
         ppct = pct;
       }
     }
+    if (startTime > 0 && k == nAdjEtime)
+      break;
   }
 
   if (l_ini + l_jni > 0)
     Free(pairup_ij_noint);
 
   /* i-exclusive variables against j-exclusive variables */
-  for (i=0; i < l_ini; i++) {
-    int i2 = pairup_i_noint[i] - 1;
+  if (startTime == 0 || k < 10) {
+    for (i=0; i < l_ini; i++) {
+      int i2 = pairup_i_noint[i] - 1;
 
-    for (j=0; j < l_jni; j++) {
-      int j2 = pairup_j_noint[j] - 1;
+      for (j=0; j < l_jni; j++) {
+        int j2 = pairup_j_noint[j] - 1;
 
-      nrr[UTE2I(i2, j2)] = qp_edge_nrr(S, n_var, N, i2, j2, q, nTests, alpha);
-      k++;
-      pct = (int) ((k * 100) / n_adj);
-      if (pct != ppct) {
-        if (verbose) {
-          if (pct % 10 == 0)
-            Rprintf("%d",pct);
-          else
-            Rprintf(".",pct);
-          R_FlushConsole();
-        }
-        R_CheckUserInterrupt();
+        nrr[UTE2I(i2, j2)] = qp_edge_nrr(S, n_var, N, i2, j2, q, nTests, alpha);
+        k++;
+        if (startTime > 0 && k == nAdjEtime)
+          break;
+        pct = (int) ((k * 100) / n_adj);
+        if (pct != ppct) {
+          if (verbose && startTime == 0) {
+            if (pct % 10 == 0)
+              Rprintf("%d",pct);
+            else
+              Rprintf(".",pct);
+            R_FlushConsole();
+          }
+          R_CheckUserInterrupt();
 #ifdef Win32
-        R_ProcessEvents();
+          R_ProcessEvents();
 #endif
 #ifdef HAVE_AQUA
-        R_ProcessEvents();
+          R_ProcessEvents();
 #endif
-        ppct = pct;
+          ppct = pct;
+        }
       }
+      if (startTime > 0 && k == nAdjEtime)
+        break;
     }
   }
 
   /* intersection variables against themselves (avoiding pairing the same) */
-  for (i = 0; i < l_int-1; i++) {
-    int i2 = pairup_ij_int[i] - 1;
+  if (startTime == 0 || k < 10) {
+    for (i = 0; i < l_int-1; i++) {
+      int i2 = pairup_ij_int[i] - 1;
 
-    for (j = i+1; j < l_int; j++) {
-      int j2 = pairup_ij_int[j] - 1;
+      for (j = i+1; j < l_int; j++) {
+        int j2 = pairup_ij_int[j] - 1;
 
-      nrr[UTE2I(i2, j2)] = qp_edge_nrr(S, n_var, N, i2, j2, q, nTests, alpha);
-      k++;
-      pct = (int) ((k * 100) / n_adj);
-      if (pct != ppct) {
-        if (verbose) {
-          if (pct % 10 == 0)
-            Rprintf("%d",pct);
-          else
-            Rprintf(".",pct);
-          R_FlushConsole();
-        }
-        R_CheckUserInterrupt();
+        nrr[UTE2I(i2, j2)] = qp_edge_nrr(S, n_var, N, i2, j2, q, nTests, alpha);
+        k++;
+        if (startTime > 0 && k == nAdjEtime)
+          break;
+        pct = (int) ((k * 100) / n_adj);
+        if (pct != ppct) {
+          if (verbose && startTime == 0) {
+            if (pct % 10 == 0)
+              Rprintf("%d",pct);
+            else
+              Rprintf(".",pct);
+            R_FlushConsole();
+          }
+          R_CheckUserInterrupt();
 #ifdef Win32
-        R_ProcessEvents();
+          R_ProcessEvents();
 #endif
 #ifdef HAVE_AQUA
-        R_ProcessEvents();
+          R_ProcessEvents();
 #endif
-        ppct = pct;
+          ppct = pct;
+        }
       }
+      if (startTime > 0 && k == nAdjEtime)
+        break;
     }
   }
 
-  if (verbose)
+  if (verbose && startTime == 0)
     Rprintf("\n");
 
   UNPROTECT(2);   /* SR nrrR */
+
+  if (startTime > 0) {
+    SEXP procTimeR;
+    double* procTime;
+    SEXP nm;
+    int* estimatedTime;
+    SEXP call;
+
+    PROTECT(call = lang1(install("proc.time")));
+    PROTECT(procTimeR = eval(call, env));
+    procTime = REAL(procTimeR);
+    elapsedTime = elapsedTime + ((procTime[2] - startTime) / (double) k) * (double) n_adj;
+    UNPROTECT(2); /* call procTimeR */
+
+    PROTECT(nrrR = allocVector(INTSXP, 4));
+    PROTECT(nm = allocVector(STRSXP, 4));
+    estimatedTime = INTEGER(nrrR);
+    estimatedTime[0] = (int) (elapsedTime / (24.0*3600.0));
+    estimatedTime[1] = (int) ((elapsedTime - estimatedTime[0]*24.0*3600.0) / 3600.0);
+    estimatedTime[2] = (int) ((elapsedTime - estimatedTime[0]*24.0*3600.0 -
+                               estimatedTime[1]*3600.0) / 60.0);
+    estimatedTime[3] = (int) (elapsedTime - estimatedTime[0]*24.0*3600.0 -
+                              estimatedTime[1]*3600.0 - estimatedTime[2]*60.0 + 1.0);
+    SET_STRING_ELT(nm, 0, mkChar("days"));
+    SET_STRING_ELT(nm, 1, mkChar("hours"));
+    SET_STRING_ELT(nm, 2, mkChar("minutes"));
+    SET_STRING_ELT(nm, 3, mkChar("seconds"));
+    setAttrib(nrrR, R_NamesSymbol, nm);
+
+    UNPROTECT(2); /* nrrR nm */
+  }
 
   return nrrR;
 }
@@ -408,7 +477,8 @@ qp_fast_nrr(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
 
 static SEXP
 qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
-                        SEXP pairup_j_nointR, SEXP pairup_ij_intR, SEXP verboseR) {
+                        SEXP pairup_j_nointR, SEXP pairup_ij_intR, SEXP verboseR,
+                        SEXP startTimeR, SEXP nAdj2estimateTimeR, SEXP env) {
   int     N;
   int     n_var;
   int     q;
@@ -431,6 +501,8 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup
   SEXP    nrrR;
   double* nrr;
   int     verbose;
+  double  startTime, elapsedTime;
+  int     nAdjEtime;
 
   PROTECT_INDEX Spi;
 
@@ -440,6 +512,8 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup
   nTests  = INTEGER(nTestsR)[0];
   alpha   = REAL(alphaR)[0];
   verbose = INTEGER(verboseR)[0];
+  startTime = REAL(startTimeR)[0];
+  nAdjEtime = INTEGER(nAdj2estimateTimeR)[0];
 
   if (q > n_var-2)
     error("q=%d > n.var-2=%d",q,n_var-2);
@@ -499,6 +573,20 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup
 
   n_adj = l_int * (l_jni + l_ini) + l_ini * l_jni + l_int * (l_int - 1) / 2;
 
+  elapsedTime = 0.0;
+  if (startTime > 0.0) {
+    SEXP procTimeR;
+    double* procTime;
+    SEXP call;
+
+    PROTECT(call = lang1(install("proc.time")));
+    PROTECT(procTimeR = eval(call, env));
+    procTime = REAL(procTimeR);
+    elapsedTime = procTime[2] - startTime;
+    startTime = procTime[2];
+    UNPROTECT(2); /* call procTimeR */
+  }
+
   ppct = -1;
   k = 0;
 
@@ -512,9 +600,11 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup
       nrr[UTE2I(i2, j2)] = qp_edge_nrr_identicalQs(S, n_var, q_by_T_samples, Qinv,
                                                    N, i2, j2, q, nTests, alpha);
       k++;
+      if (startTime > 0 && k == nAdjEtime)
+        break;
       pct = (int) ((k * 100) / n_adj);
       if (pct != ppct) {
-        if (verbose) {
+        if (verbose && startTime == 0) {
           if (pct % 10 == 0)
             Rprintf("%d",pct);
           else
@@ -531,79 +621,124 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup
         ppct = pct;
       }
     }
+    if (startTime > 0 && k == nAdjEtime)
+      break;
   }
 
   if (l_ini + l_jni > 0)
     Free(pairup_ij_noint);
 
   /* i-exclusive variables against j-exclusive variables */
-  for (i=0; i < l_ini; i++) {
-    int i2 = pairup_i_noint[i] - 1;
+  if (startTime == 0 || k < 10) {
+    for (i=0; i < l_ini; i++) {
+      int i2 = pairup_i_noint[i] - 1;
 
-    for (j=0; j < l_jni; j++) {
-      int j2 = pairup_j_noint[j] - 1;
+      for (j=0; j < l_jni; j++) {
+        int j2 = pairup_j_noint[j] - 1;
 
-      nrr[UTE2I(i2, j2)] = qp_edge_nrr_identicalQs(S, n_var, q_by_T_samples, Qinv,
-                                                   N, i2, j2, q, nTests, alpha);
-      k++;
-      pct = (int) ((k * 100) / n_adj);
-      if (pct != ppct) {
-        if (verbose) {
-          if (pct % 10 == 0)
-            Rprintf("%d",pct);
-          else
-            Rprintf(".",pct);
-          R_FlushConsole();
-        }
-        R_CheckUserInterrupt();
+        nrr[UTE2I(i2, j2)] = qp_edge_nrr_identicalQs(S, n_var, q_by_T_samples, Qinv,
+                                                     N, i2, j2, q, nTests, alpha);
+        k++;
+        if (startTime > 0 && k == nAdjEtime)
+          break;
+        pct = (int) ((k * 100) / n_adj);
+        if (pct != ppct) {
+          if (verbose && startTime == 0) {
+            if (pct % 10 == 0)
+              Rprintf("%d",pct);
+            else
+              Rprintf(".",pct);
+            R_FlushConsole();
+          }
+          R_CheckUserInterrupt();
 #ifdef Win32
-        R_ProcessEvents();
+          R_ProcessEvents();
 #endif
 #ifdef HAVE_AQUA
-        R_ProcessEvents();
+          R_ProcessEvents();
 #endif
-        ppct = pct;
+          ppct = pct;
+        }
       }
+      if (startTime > 0 && k == nAdjEtime)
+        break;
     }
   }
 
   /* intersection variables against themselves (avoiding pairing the same) */
-  for (i = 0; i < l_int-1; i++) {
-    int i2 = pairup_ij_int[i] - 1;
+  if (startTime == 0 || k < 10) {
+    for (i = 0; i < l_int-1; i++) {
+      int i2 = pairup_ij_int[i] - 1;
 
-    for (j = i+1; j < l_int; j++) {
-      int j2 = pairup_ij_int[j] - 1;
+      for (j = i+1; j < l_int; j++) {
+        int j2 = pairup_ij_int[j] - 1;
 
-      nrr[UTE2I(i2, j2)] = qp_edge_nrr_identicalQs(S, n_var, q_by_T_samples, Qinv,
-                                                   N, i2, j2, q, nTests, alpha);
-      k++;
-      pct = (int) ((k * 100) / n_adj);
-      if (pct != ppct) {
-        if (verbose) {
-          if (pct % 10 == 0)
-            Rprintf("%d",pct);
-          else
-            Rprintf(".",pct);
-          R_FlushConsole();
-        }
-        R_CheckUserInterrupt();
+        nrr[UTE2I(i2, j2)] = qp_edge_nrr_identicalQs(S, n_var, q_by_T_samples, Qinv,
+                                                     N, i2, j2, q, nTests, alpha);
+        k++;
+        if (startTime > 0 && k == nAdjEtime)
+          break;
+        pct = (int) ((k * 100) / n_adj);
+        if (pct != ppct) {
+          if (verbose && startTime == 0) {
+            if (pct % 10 == 0)
+              Rprintf("%d",pct);
+            else
+              Rprintf(".",pct);
+            R_FlushConsole();
+          }
+          R_CheckUserInterrupt();
 #ifdef Win32
-        R_ProcessEvents();
+          R_ProcessEvents();
 #endif
 #ifdef HAVE_AQUA
-        R_ProcessEvents();
+          R_ProcessEvents();
 #endif
-        ppct = pct;
+          ppct = pct;
+        }
       }
+      if (startTime > 0 && k == nAdjEtime)
+        break;
     }
   }
 
   Free(Qinv);
 
-  if (verbose)
+  if (verbose && startTime == 0)
     Rprintf("\n");
 
   UNPROTECT(2);   /* SR nrrR */
+
+  if (startTime > 0) {
+    SEXP procTimeR;
+    double* procTime;
+    SEXP nm;
+    int* estimatedTime;
+    SEXP call;
+
+    PROTECT(call = lang1(install("proc.time")));
+    PROTECT(procTimeR = eval(call, env));
+    procTime = REAL(procTimeR);
+    elapsedTime = elapsedTime + ((procTime[2] - startTime) / (double) k) * (double) n_adj;
+    UNPROTECT(2); /* call procTimeR */
+
+    PROTECT(nrrR = allocVector(INTSXP, 4));
+    PROTECT(nm = allocVector(STRSXP, 4));
+    estimatedTime = INTEGER(nrrR);
+    estimatedTime[0] = (int) (elapsedTime / (24.0*3600.0));
+    estimatedTime[1] = (int) ((elapsedTime - estimatedTime[0]*24.0*3600.0) / 3600.0);
+    estimatedTime[2] = (int) ((elapsedTime - estimatedTime[0]*24.0*3600.0 -
+                               estimatedTime[1]*3600.0) / 60.0);
+    estimatedTime[3] = (int) (elapsedTime - estimatedTime[0]*24.0*3600.0 -
+                              estimatedTime[1]*3600.0 - estimatedTime[2]*60.0 + 1.0);
+    SET_STRING_ELT(nm, 0, mkChar("days"));
+    SET_STRING_ELT(nm, 1, mkChar("hours"));
+    SET_STRING_ELT(nm, 2, mkChar("minutes"));
+    SET_STRING_ELT(nm, 3, mkChar("seconds"));
+    setAttrib(nrrR, R_NamesSymbol, nm);
+
+    UNPROTECT(2); /* nrrR nm */
+  }
 
   return nrrR;
 }
@@ -624,8 +759,9 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup
 
 static SEXP
 qp_fast_nrr_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
-                SEXP pairup_j_nointR, SEXP pairup_ij_intR, SEXP verboseR, SEXP myRankR,
-                SEXP clSzeR, SEXP masterNode, SEXP env) {
+                SEXP pairup_j_nointR, SEXP pairup_ij_intR, SEXP verboseR,
+                SEXP startTimeR, SEXP nAdj2estimateTimeR, SEXP myRankR, SEXP clSzeR,
+                SEXP masterNode, SEXP env) {
   int     N;
   int     n_var;
   int     q;
@@ -649,6 +785,8 @@ qp_fast_nrr_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_noint
   int     myrank;
   int     clsze;
   int     firstAdj, lastAdj;
+  double  startTime, elapsedTime;
+  int     nAdjEtime;
   SEXP    progressReport,progressReportType,
           progressReportValue,progressReportSuccess,
           progressReportTag,progressReport_names;
@@ -671,14 +809,16 @@ qp_fast_nrr_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_noint
 
   PROTECT_INDEX Spi;
 
-  N       = INTEGER(getAttrib(XR, R_DimSymbol))[0];
-  n_var   = INTEGER(getAttrib(XR, R_DimSymbol))[1];
-  q       = INTEGER(qR)[0];
-  nTests  = INTEGER(nTestsR)[0];
-  alpha   = REAL(alphaR)[0];
-  verbose = INTEGER(verboseR)[0];
-  myrank  = INTEGER(myRankR)[0];
-  clsze   = INTEGER(clSzeR)[0];
+  N         = INTEGER(getAttrib(XR, R_DimSymbol))[0];
+  n_var     = INTEGER(getAttrib(XR, R_DimSymbol))[1];
+  q         = INTEGER(qR)[0];
+  nTests    = INTEGER(nTestsR)[0];
+  alpha     = REAL(alphaR)[0];
+  verbose   = INTEGER(verboseR)[0];
+  startTime = REAL(startTimeR)[0];
+  nAdjEtime = INTEGER(nAdj2estimateTimeR)[0];
+  myrank    = INTEGER(myRankR)[0];
+  clsze     = INTEGER(clSzeR)[0];
 
   if (q > n_var-2)
     error("q=%d > n.var-2=%d",q,n_var-2);
@@ -721,6 +861,25 @@ qp_fast_nrr_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_noint
   nrr = REAL(VECTOR_ELT(result, 0));
   idx = INTEGER(VECTOR_ELT(result, 1));
 
+  elapsedTime = 0.0;
+  if (startTime > 0.0) {
+    SEXP procTimeR;
+    double* procTime;
+    SEXP call;
+
+    /* initialize 'idx' so that the R code copying the result works as
+     * in a normal execution */
+    for (k=0; k < n_adj_this_proc; k++)
+      idx[k] = firstAdj + k + 1;
+
+    PROTECT(call = lang1(install("proc.time")));
+    PROTECT(procTimeR = eval(call, env));
+    procTime = REAL(procTimeR);
+    elapsedTime = procTime[2] - startTime;
+    startTime = procTime[2];
+    UNPROTECT(2); /* call procTimeR */
+  }
+
   k = firstAdj;
   ppct = -1;
 
@@ -737,7 +896,9 @@ qp_fast_nrr_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_noint
         nrr[k-firstAdj] = qp_edge_nrr(S, n_var, N, i2, j2, q, nTests, alpha);
         idx[k-firstAdj] = UTE2I(i2, j2) + 1;
         k++;
-        if (verbose) {
+        if (startTime > 0 && k-firstAdj == 10)
+          break;
+        if (verbose && startTime == 0) {
           pct = (int) (((k-firstAdj) * 100) / n_adj_this_proc);
           if (pct != ppct) {
             SEXP s, t;
@@ -750,11 +911,13 @@ qp_fast_nrr_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_noint
             SETCAR(t, progressReport);
             SET_TAG(t, install("data"));
             eval(s, env);
-            UNPROTECT(1);
+            UNPROTECT(1); /* t s */
           }
           ppct = pct;
         }
       }
+      if (startTime > 0 && k-firstAdj == 10)
+        break;
       j_first = 0;
     }
   }
@@ -762,7 +925,8 @@ qp_fast_nrr_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_noint
   if (l_ini + l_jni > 0)
     Free(pairup_ij_noint);
 
-  if (k <= lastAdj && k < l_int * (l_ini + l_jni) + l_ini * l_jni) {
+  if (k <= lastAdj && k < l_int * (l_ini + l_jni) + l_ini * l_jni &&
+      (startTime == 0 || k-firstAdj < 10)) {
     int i_first = ((int) ((k - l_int * (l_ini + l_jni)) / l_jni));
     int j_first = (k - l_int * (l_ini + l_jni)) % l_jni;
 
@@ -776,7 +940,9 @@ qp_fast_nrr_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_noint
         nrr[k-firstAdj] = qp_edge_nrr(S, n_var, N, i2, j2, q, nTests, alpha);
         idx[k-firstAdj] = UTE2I(i2, j2) + 1;
         k++;
-        if (verbose) {
+        if (startTime > 0 && k-firstAdj == 10)
+          break;
+        if (verbose && startTime == 0) {
           pct = (int) (((k-firstAdj) * 100) / n_adj_this_proc);
           if (pct != ppct) {
             SEXP s, t;
@@ -789,16 +955,18 @@ qp_fast_nrr_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_noint
             SETCAR(t, progressReport);
             SET_TAG(t, install("data"));
             eval(s, env);
-            UNPROTECT(1);
+            UNPROTECT(1); /* t s */
           }
           ppct = pct;
         }
       }
+      if (startTime > 0 && k-firstAdj == 10)
+        break;
       j_first = 0;
     }
   }
 
-  if (k <= lastAdj) {
+  if (k <= lastAdj && (startTime == 0 || k-firstAdj < 10)) {
     int i_first = k - l_int * (l_ini + l_jni) - l_ini * l_jni;
     int l;
 
@@ -813,7 +981,9 @@ qp_fast_nrr_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_noint
       nrr[k-firstAdj] = qp_edge_nrr(S, n_var, N, i2, j2, q, nTests, alpha);
       idx[k-firstAdj] = UTE2I(i2, j2) + 1;
       k++;
-      if (verbose) {
+      if (startTime > 0 && k-firstAdj == 10)
+        break;
+      if (verbose && startTime == 0) {
         pct = (int) (((k-firstAdj) * 100) / n_adj_this_proc);
         if (pct != ppct) {
           SEXP s, t;
@@ -826,14 +996,28 @@ qp_fast_nrr_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_noint
           SETCAR(t, progressReport);
           SET_TAG(t, install("data"));
           eval(s, env);
-          UNPROTECT(1);
+          UNPROTECT(1); /* t s */
         }
         ppct = pct;
       }
     }
   }
 
-  UNPROTECT(4);   /* SR result result_names progressReport */
+  if (startTime > 0) {
+    SEXP procTimeR;
+    double* procTime;
+    SEXP call;
+
+    PROTECT(call = lang1(install("proc.time")));
+    PROTECT(procTimeR = eval(call, env));
+    procTime = REAL(procTimeR);
+    elapsedTime = elapsedTime + ((procTime[2] - startTime) / (double) (k-firstAdj)) * (double) n_adj_this_proc;
+    UNPROTECT(2); /* call procTimeR */
+
+    nrr[0] = elapsedTime; /* store in the first position of the nrr vector the estimated time */
+  }
+
+  UNPROTECT(5);   /* SR result result_names progressReport progressReport_names */
 
   return result;
 }
@@ -852,8 +1036,9 @@ qp_fast_nrr_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_noint
 
 static SEXP
 qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
-                            SEXP pairup_j_nointR, SEXP pairup_ij_intR, SEXP verboseR, SEXP myRankR,
-                            SEXP clSzeR, SEXP masterNode, SEXP env) {
+                            SEXP pairup_j_nointR, SEXP pairup_ij_intR, SEXP verboseR,
+                            SEXP startTimeR, SEXP nAdj2estimateTimeR, SEXP myRankR, SEXP clSzeR,
+                            SEXP masterNode, SEXP env) {
   int     N;
   int     n_var;
   int     q;
@@ -881,6 +1066,8 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pa
   int     myrank;
   int     clsze;
   int     firstAdj, lastAdj;
+  double  startTime, elapsedTime;
+  int     nAdjEtime;
   SEXP    progressReport,progressReportType,
           progressReportValue,progressReportSuccess,
           progressReportTag,progressReport_names;
@@ -903,14 +1090,16 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pa
 
   PROTECT_INDEX Spi;
 
-  N       = INTEGER(getAttrib(XR, R_DimSymbol))[0];
-  n_var   = INTEGER(getAttrib(XR, R_DimSymbol))[1];
-  q       = INTEGER(qR)[0];
-  nTests  = INTEGER(nTestsR)[0];
-  alpha   = REAL(alphaR)[0];
-  verbose = INTEGER(verboseR)[0];
-  myrank  = INTEGER(myRankR)[0];
-  clsze   = INTEGER(clSzeR)[0];
+  N         = INTEGER(getAttrib(XR, R_DimSymbol))[0];
+  n_var     = INTEGER(getAttrib(XR, R_DimSymbol))[1];
+  q         = INTEGER(qR)[0];
+  nTests    = INTEGER(nTestsR)[0];
+  alpha     = REAL(alphaR)[0];
+  verbose   = INTEGER(verboseR)[0];
+  startTime = REAL(startTimeR)[0];
+  nAdjEtime = INTEGER(nAdj2estimateTimeR)[0];
+  myrank    = INTEGER(myRankR)[0];
+  clsze     = INTEGER(clSzeR)[0];
 
   if (q > n_var-2)
     error("q=%d > n.var-2=%d",q,n_var-2);
@@ -984,6 +1173,25 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pa
   nrr = REAL(VECTOR_ELT(result, 0));
   idx = INTEGER(VECTOR_ELT(result, 1));
 
+  elapsedTime = 0.0;
+  if (startTime > 0.0) {
+    SEXP procTimeR;
+    double* procTime;
+    SEXP call;
+
+    /* initialize 'idx' so that the R code copying the result works as
+     * in a normal execution */
+    for (k=0; k < n_adj_this_proc; k++)
+      idx[k] = firstAdj + k + 1;
+
+    PROTECT(call = lang1(install("proc.time")));
+    PROTECT(procTimeR = eval(call, env));
+    procTime = REAL(procTimeR);
+    elapsedTime = procTime[2] - startTime;
+    startTime = procTime[2];
+    UNPROTECT(2); /* call procTimeR */
+  }
+
   k = firstAdj;
   ppct = -1;
 
@@ -1001,7 +1209,9 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pa
                                                   N, i2, j2, q, nTests, alpha);
         idx[k-firstAdj] = UTE2I(i2, j2) + 1;
         k++;
-        if (verbose) {
+        if (startTime > 0 && k-firstAdj == 10)
+          break;
+        if (verbose && startTime == 0) {
           pct = (int) (((k-firstAdj) * 100) / n_adj_this_proc);
           if (pct != ppct) {
             SEXP s, t;
@@ -1019,6 +1229,8 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pa
           ppct = pct;
         }
       }
+      if (startTime > 0 && k-firstAdj == 10)
+        break;
       j_first = 0;
     }
   }
@@ -1026,7 +1238,8 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pa
   if (l_ini + l_jni > 0)
     Free(pairup_ij_noint);
 
-  if (k <= lastAdj && k < l_int * (l_ini + l_jni) + l_ini * l_jni) {
+  if (k <= lastAdj && k < l_int * (l_ini + l_jni) + l_ini * l_jni &&
+      (startTime == 0 || k-firstAdj < 10)) {
     int i_first = ((int) ((k - l_int * (l_ini + l_jni)) / l_jni));
     int j_first = (k - l_int * (l_ini + l_jni)) % l_jni;
 
@@ -1041,7 +1254,9 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pa
                                                   N, i2, j2, q, nTests, alpha);
         idx[k-firstAdj] = UTE2I(i2, j2) + 1;
         k++;
-        if (verbose) {
+        if (startTime > 0 && k-firstAdj == 10)
+          break;
+        if (verbose && startTime == 0) {
           pct = (int) (((k-firstAdj) * 100) / n_adj_this_proc);
           if (pct != ppct) {
             SEXP s, t;
@@ -1059,11 +1274,13 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pa
           ppct = pct;
         }
       }
+      if (startTime > 0 && k-firstAdj == 10)
+        break;
       j_first = 0;
     }
   }
 
-  if (k <= lastAdj) {
+  if (k <= lastAdj && (startTime == 0 || k-firstAdj < 10)) {
     int i_first = k - l_int * (l_ini + l_jni) - l_ini * l_jni;
     int l;
 
@@ -1079,7 +1296,9 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pa
                                                 N, i2, j2, q, nTests, alpha);
       idx[k-firstAdj] = UTE2I(i2, j2) + 1;
       k++;
-      if (verbose) {
+      if (startTime > 0 && k-firstAdj == 10)
+        break;
+      if (verbose && startTime == 0) {
         pct = (int) (((k-firstAdj) * 100) / n_adj_this_proc);
         if (pct != ppct) {
           SEXP s, t;
@@ -1101,7 +1320,21 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pa
 
   Free(Qinv);
 
-  UNPROTECT(4);   /* SR result result_names progressReport */
+  if (startTime > 0) {
+    SEXP procTimeR;
+    double* procTime;
+    SEXP call;
+
+    PROTECT(call = lang1(install("proc.time")));
+    PROTECT(procTimeR = eval(call, env));
+    procTime = REAL(procTimeR);
+    elapsedTime = elapsedTime + ((procTime[2] - startTime) / (double) (k-firstAdj)) * (double) n_adj_this_proc;
+    UNPROTECT(2); /* call procTimeR */
+
+    nrr[0] = elapsedTime; /* store in the first position of the nrr vector the estimated time */
+  }
+
+  UNPROTECT(5);   /* SR result result_names progressReport progressReport_names */
 
   return result;
 }

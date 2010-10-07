@@ -46,9 +46,14 @@ setGeneric("qpNrr", function(X, ...) standardGeneric("qpNrr"))
 
 ## X comes as an ExpressionSet object
 setMethod("qpNrr", signature(X="ExpressionSet"),
-          function(X, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
-                   pairup.j=NULL, verbose=TRUE, identicalQs=TRUE,
-                   R.code.only=FALSE, clusterSize=1) {
+          function(X, q=1, nTests=100, alpha=0.05, pairup.i=NULL, pairup.j=NULL,
+                   verbose=TRUE, identicalQs=TRUE, R.code.only=FALSE, clusterSize=1,
+                   estimateTime=FALSE, nAdj2estimateTime=10) {
+
+            startTime <- c(user.self=0, sys.self=0, elapsed=0, user.child=0, sys.child=0)
+            class(startTime) <- "proc_time"
+            if (estimateTime)
+              startTime <- proc.time()
 
             if (clusterSize > 1 && R.code.only)
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
@@ -58,8 +63,8 @@ setMethod("qpNrr", signature(X="ExpressionSet"),
               stop("Using a cluster (clusterSize > 1) requires first loading packages 'snow' and 'rlecuyer'\n")
 
             X <- t(Biobase::exprs(X))
-            qpgraph:::.qpNrr(X, q, nTests, alpha, pairup.i, pairup.j, verbose,
-                             identicalQs, R.code.only, clusterSize)
+            qpgraph:::.qpNrr(X, q, nTests, alpha, pairup.i, pairup.j, verbose, identicalQs,
+                             R.code.only, clusterSize, startTime, nAdj2estimateTime)
           })
 
 ## X comes as a data frame
@@ -67,7 +72,12 @@ setMethod("qpNrr", signature(X="data.frame"),
           function(X, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
                    pairup.j=NULL, long.dim.are.variables=TRUE,
                    verbose=TRUE, identicalQs=TRUE, R.code.only=FALSE,
-                   clusterSize=1) {
+                   clusterSize=1, estimateTime=FALSE, nAdj2estimateTime=10) {
+
+            startTime <- c(user.self=0, sys.self=0, elapsed=0, user.child=0, sys.child=0)
+            class(startTime) <- "proc_time"
+            if (estimateTime)
+              startTime <- proc.time()
 
             if (clusterSize > 1 && R.code.only)
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
@@ -87,8 +97,8 @@ setMethod("qpNrr", signature(X="data.frame"),
             if (is.null(colnames(m)))
               colnames(X) <- 1:ncol(X)
 
-            qpgraph:::.qpNrr(X, q, nTests, alpha, pairup.i, pairup.j, verbose,
-                             identicalQs, R.code.only, clusterSize)
+            qpgraph:::.qpNrr(X, q, nTests, alpha, pairup.i, pairup.j, verbose, identicalQs,
+                             R.code.only, clusterSize, startTime, nAdj2estimateTime)
           })
 
           
@@ -97,7 +107,12 @@ setMethod("qpNrr", signature(X="matrix"),
           function(X, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
                    pairup.j=NULL, long.dim.are.variables=TRUE,
                    verbose=TRUE, identicalQs=TRUE, R.code.only=FALSE,
-                   clusterSize=1) {
+                   clusterSize=1, estimateTime=FALSE, nAdj2estimateTime=10) {
+
+            startTime <- c(user.self=0, sys.self=0, elapsed=0, user.child=0, sys.child=0)
+            class(startTime) <- "proc_time"
+            if (estimateTime)
+              startTime <- proc.time()
 
             if (clusterSize > 1 && R.code.only)
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
@@ -113,12 +128,12 @@ setMethod("qpNrr", signature(X="matrix"),
             if (is.null(colnames(X))) 
               colnames(X) <- 1:ncol(X)
 
-            qpgraph:::.qpNrr(X, q, nTests, alpha, pairup.i, pairup.j, verbose,
-                             identicalQs, R.code.only, clusterSize)
+            qpgraph:::.qpNrr(X, q, nTests, alpha, pairup.i, pairup.j, verbose, identicalQs,
+                             R.code.only, clusterSize, startTime, nAdj2estimateTime)
           })
 
-.qpNrr <- function(X, q=1, nTests=100, alpha=0.05, pairup.i=NULL, pairup.j=NULL,
-                   verbose=TRUE, identicalQs=TRUE, R.code.only=FALSE, clusterSize=1) {
+.qpNrr <- function(X, q=1, nTests=100, alpha=0.05, pairup.i=NULL, pairup.j=NULL, verbose=TRUE,
+                   identicalQs=TRUE, R.code.only=FALSE, clusterSize=1, startTime, nAdj2estimateTime) {
 
   cl <- NULL
  
@@ -134,10 +149,14 @@ setMethod("qpNrr", signature(X="matrix"),
       clCall <- get("clusterCall", mode="function")
       clOpt <- get("getClusterOption", mode="function")
 
-      message("Estimating non-rejection rates using a ", clOpt("type"),
-              " cluster of ", clusterSize, " nodes\n")
+      if (startTime["elapsed"] == 0)
+        message("Estimating non-rejection rates using a ", clOpt("type"),
+                " cluster of ", clusterSize, " nodes\n")
+      else
+        message("Estimating time of calculation of non-rejection rates using a ", clOpt("type"),
+                " cluster of ", clusterSize, " nodes\n")
 
-      cl <- makeCl(clusterSize, useRscript=FALSE, scriptdir=system.file(package="qpgraph"))
+      cl <- makeCl(clusterSize, snowlib=system.file(package="qpgraph"))
       clSetupRNG(cl)
       res <- clEvalQ(cl, require(qpgraph, quietly=TRUE))
       if (!all(unlist(res))) {
@@ -219,44 +238,59 @@ setMethod("qpNrr", signature(X="matrix"),
   if (identicalQs) {
     fractionValidQs <- 1-phyper(0, 2, n.var-2, q, lower.tail=FALSE)
     if (fractionValidQs < 0.9) {
-      if (verbose) {
-        warning(paste(sprintf("With p=%d and q=%d the estimated fraction of valid Q sets is %.2f.", n.var, q, fractionValidQs),
+      warning(paste(sprintf("With p=%d and q=%d the estimated fraction of valid Q sets is %.2f.", n.var, q, fractionValidQs),
                       "Increasing nTests from", nTests, "to", floor(nTests/fractionValidQs), "in order to achieve the desired precision\n", sep=" "))
-      }
       nTests <- floor(nTests / fractionValidQs)
     }
   }
 
   if (!R.code.only) {
+    elapsedTime <- 0
+    if (startTime["elapsed"] > 0) {
+      elapsedTime <- (proc.time() - startTime)["elapsed"]
+      startTime <- proc.time()
+    }
+
     if (is.null(cl)) { ## single-processor execution
+
       if (identicalQs)
-        nrrMatrix <- new("dspMatrix", Dim=as.integer(c(n.var, n.var)),
-                         Dimnames=list(var.names, var.names),
-                         x=qpgraph:::.qpFastNrrIdenticalQs(X, q, nTests, alpha, pairup.i.noint,
-                                                           pairup.j.noint, pairup.ij.int, verbose))
+        nrrMatrix <- qpgraph:::.qpFastNrrIdenticalQs(X, q, nTests, alpha, pairup.i.noint,
+                                                     pairup.j.noint, pairup.ij.int, verbose,
+                                                     startTime["elapsed"], nAdj2estimateTime)
       else
+        nrrMatrix <- qpgraph:::.qpFastNrr(X, q, nTests, alpha, pairup.i.noint, pairup.j.noint,
+                                          pairup.ij.int, verbose, startTime["elapsed"], nAdj2estimateTime)
+
+      if (startTime["elapsed"] == 0)
         nrrMatrix <- new("dspMatrix", Dim=as.integer(c(n.var, n.var)),
-                         Dimnames=list(var.names, var.names),
-                         x=qpgraph:::.qpFastNrr(X, q, nTests, alpha, pairup.i.noint,
-                                                pairup.j.noint, pairup.ij.int, verbose))
+                         Dimnames=list(var.names, var.names), x=nrrMatrix)
+
     } else {           ## use a cluster !
       clCall <- get("clusterCall", mode="function")
       nrrIdx <- list()
-      if (verbose) {
+      if (verbose && startTime["elapsed"] == 0) { ## no cluster progress-call when only estimating time
         if (identicalQs)
-          nrrIdx <- clPrCall(cl, qpgraph:::.qpFastNrrIdenticalQsPar, n.adj, X, q,
-                             nTests, alpha, pairup.i.noint, pairup.j.noint,
-                             pairup.ij.int, verbose)
+          nrrIdx <- clPrCall(cl, qpgraph:::.qpFastNrrIdenticalQsPar, n.adj, X, q, nTests, alpha,
+                             pairup.i.noint, pairup.j.noint, pairup.ij.int, verbose, FALSE, nAdj2estimateTime)
         else
           nrrIdx <- clPrCall(cl, qpgraph:::.qpFastNrrPar, n.adj, X, q, nTests, alpha,
-                             pairup.i.noint, pairup.j.noint, pairup.ij.int, verbose)
+                             pairup.i.noint, pairup.j.noint, pairup.ij.int, verbose, FALSE, nAdj2estimateTime)
       } else {
         if (identicalQs)
-          nrrIdx <- clCall(cl, qpgraph:::.qpFastNrrIdenticalQsPar, X, q, nTests, alpha,
-                           pairup.i.noint, pairup.j.noint, pairup.ij.int, verbose)
+          nrrIdx <- clCall(cl, qpgraph:::.qpFastNrrIdenticalQsPar, X, q, nTests, alpha, pairup.i.noint,
+                           pairup.j.noint, pairup.ij.int, verbose, startTime["elapsed"] > 0, nAdj2estimateTime)
         else
-          nrrIdx <- clCall(cl, qpgraph:::.qpFastNrrPar, X, q, nTests, alpha,
-                           pairup.i.noint, pairup.j.noint, pairup.ij.int, verbose)
+          nrrIdx <- clCall(cl, qpgraph:::.qpFastNrrPar, X, q, nTests, alpha, pairup.i.noint, pairup.j.noint,
+                           pairup.ij.int, verbose, startTime["elapsed"] > 0, nAdj2estimateTime)
+      }
+
+      if (startTime["elapsed"] > 0) {
+        ## the following calculation makes important part of the estimation of the time
+        ## it assumes that the estimated time per processor is stored on the first position of 'nrr'
+        ## and uses the median of the times estimated for each processor to try to be robust against
+        ## fluctuations on the execution time taken in some processors
+        elapsedTime <- elapsedTime + median(sapply(nrrIdx, function(x) x$nrr[1]))
+        startTime <- proc.time()
       }
 
       if (class(clusterSize)[1] == "numeric" || class(clusterSize)[1] == "integer")
@@ -267,14 +301,23 @@ setMethod("qpNrr", signature(X="matrix"),
                        x=rep(as.double(NA), n.var*(n.var-1)/2+n.var)) 
       nrrMatrix@x[do.call("c", lapply(nrrIdx, function(x) x$idx))] <-
         do.call("c", lapply(nrrIdx, function(x) x$nrr))
+
+      if (startTime["elapsed"] > 0) {
+        elapsedTime <- elapsedTime + (proc.time() - startTime)["elapsed"]
+        d <- as.vector(floor(elapsedTime / (24*3600)))
+        h <- as.vector(floor((elapsedTime-d*24*3600)/3600))
+        m <- as.vector(floor((elapsedTime-d*24*3600-h*3600)/60))
+        s <- as.vector(ceiling(elapsedTime-d*24*3600-h*3600-m*60))
+        nrrMatrix <- c(days=d, hours=h, minutes=m, seconds=s)
+      }
     }
 
     return(nrrMatrix)
   }
 
   if (identicalQs) {
-    nrrMatrix <- .qpNrrIdenticalQs(X, q, nTests, alpha, pairup.i.noint,
-                                   pairup.j.noint, pairup.ij.int, verbose)
+    nrrMatrix <- .qpNrrIdenticalQs(X, q, nTests, alpha, pairup.i.noint, pairup.j.noint,
+                                   pairup.ij.int, verbose, startTime, nAdj2estimateTime)
 
     return(nrrMatrix)
   }
@@ -286,6 +329,13 @@ setMethod("qpNrr", signature(X="matrix"),
   nrrMatrix <- new("dspMatrix", Dim=as.integer(c(n.var, n.var)),
                    Dimnames=list(var.names, var.names),
                    x=rep(as.double(NA), n.var*(n.var-1)/2+n.var))
+
+  elapsedTime <- 0
+  if (startTime["elapsed"] > 0) {
+    elapsedTime <- (proc.time() - startTime)["elapsed"]
+    startTime <- proc.time()
+  }
+
   ppct <- -1
   k <- 0
 
@@ -295,8 +345,10 @@ setMethod("qpNrr", signature(X="matrix"),
       nrrMatrix[j,i] <- nrrMatrix[i,j] <-
         qpgraph:::.qpEdgeNrr(S, N, i, j, q, nTests, alpha, R.code.only=TRUE)
       k <- k + 1
+      if (elapsedTime > 0 && k == nAdj2estimateTime)
+        break;
       pct <- floor((k * 100) / n.adj)
-      if (pct != ppct && verbose) {
+      if (pct != ppct && verbose && elapsedTime == 0) {
         if (pct %% 10 == 0) {
           cat(pct)
         } else {
@@ -305,57 +357,87 @@ setMethod("qpNrr", signature(X="matrix"),
         ppct <- pct
       }
     }
+    if (elapsedTime > 0 && k == nAdj2estimateTime)
+      break;
   }
 
   ## i-exclusive variables against j-exclusive variables
-  for (i in pairup.i.noint) {
-    for (j in pairup.j.noint) {
-      nrrMatrix[j,i] <- nrrMatrix[i,j] <-
-        qpgraph:::.qpEdgeNrr(S, N, i, j, q, nTests, alpha, R.code.only=TRUE)
-      k <- k + 1
-      pct <- floor((k * 100) / n.adj)
-      if (pct != ppct && verbose) {
-        if (pct %% 10 == 0) {
-          cat(pct)
-        } else {
-          cat(".")
+  if (elapsedTime == 0 || k < 10) {
+    for (i in pairup.i.noint) {
+      for (j in pairup.j.noint) {
+        nrrMatrix[j,i] <- nrrMatrix[i,j] <-
+          qpgraph:::.qpEdgeNrr(S, N, i, j, q, nTests, alpha, R.code.only=TRUE)
+        k <- k + 1
+        if (elapsedTime > 0 && k == nAdj2estimateTime)
+          break;
+        pct <- floor((k * 100) / n.adj)
+        if (pct != ppct && verbose && elapsedTime == 0) {
+          if (pct %% 10 == 0) {
+            cat(pct)
+          } else {
+            cat(".")
+          }
+          ppct <- pct
         }
-        ppct <- pct
       }
+      if (elapsedTime > 0 && k == nAdj2estimateTime)
+        break;
     }
   }
 
   ## intersection variables against themselves (avoiding pairing of the same)
-  for (i in 1:(l.int-1)) {
-    i2 <- pairup.ij.int[i]
+  if (elapsedTime == 0 || k < 10) {
+    for (i in 1:(l.int-1)) {
+      i2 <- pairup.ij.int[i]
 
-    for (j in (i+1):l.int) {
-      j2 <- pairup.ij.int[j]
-      nrrMatrix[j2,i2] <- nrrMatrix[i2,j2] <-
-        qpgraph:::.qpEdgeNrr(S, N, i2, j2, q, nTests, alpha, R.code.only=TRUE)
-      k <- k + 1
-      pct <- floor((k * 100) / n.adj)
-      if (pct != ppct && verbose) {
-        if (pct %% 10 == 0) {
-          cat(pct)
-        } else {
-          cat(".")
+      for (j in (i+1):l.int) {
+        j2 <- pairup.ij.int[j]
+        nrrMatrix[j2,i2] <- nrrMatrix[i2,j2] <-
+          qpgraph:::.qpEdgeNrr(S, N, i2, j2, q, nTests, alpha, R.code.only=TRUE)
+        k <- k + 1
+        if (elapsedTime > 0 && k == nAdj2estimateTime)
+          break;
+        pct <- floor((k * 100) / n.adj)
+        if (pct != ppct && verbose && elapsedTime == 0) {
+          if (pct %% 10 == 0) {
+            cat(pct)
+          } else {
+            cat(".")
+          }
+          ppct <- pct
         }
-        ppct <- pct
       }
+      if (elapsedTime > 0 && k == nAdj2estimateTime)
+        break;
     }
   }
 
-  if (verbose) {
+  if (verbose && elapsedTime == 0) {
     cat("\n")
   }
 
+  if (elapsedTime > 0) {
+    elapsedTime <- elapsedTime + ((proc.time()-startTime)["elapsed"]/k) * n.adj
+    startTime <- proc.time()
+  }
+
   ## this is necessary till we find out how to properly assign values in a dspMatrix
-  return(as(nrrMatrix, "dspMatrix"))
+  nrrMatrix <- as(nrrMatrix, "dspMatrix")
+
+  if (elapsedTime > 0) {
+    elapsedTime <- elapsedTime + (proc.time()-startTime)["elapsed"]
+    d <- as.vector(floor(elapsedTime / (24*3600)))
+    h <- as.vector(floor((elapsedTime-d*24*3600)/3600))
+    m <- as.vector(floor((elapsedTime-d*24*3600-h*3600)/60))
+    s <- as.vector(ceiling(elapsedTime-d*24*3600-h*3600-m*60))
+    nrrMatrix <- c(days=d, hours=h, minutes=m, seconds=s)
+  }
+
+  return(nrrMatrix)
 }
 
-.qpNrrIdenticalQs <- function(X, q, nTests, alpha, pairup.i.noint,
-                              pairup.j.noint, pairup.ij.int, verbose) {
+.qpNrrIdenticalQs <- function(X, q, nTests, alpha, pairup.i.noint, pairup.j.noint,
+                              pairup.ij.int, verbose, startTime, nAdj2estimateTime) {
 
   ## X the matrix of data with columns as r.v. and rows as multivariate observations
   var.names <- colnames(X)
@@ -382,6 +464,12 @@ setMethod("qpNrr", signature(X="matrix"),
                    Dimnames=list(var.names, var.names),
                    x=rep(as.double(NA), n.var*(n.var-1)/2+n.var))
 
+  elapsedTime <- 0
+  if (startTime["elapsed"] > 0) {
+    elapsedTime <- (proc.time() - startTime)["elapsed"]
+    startTime <- proc.time()
+  }
+
   ppct <- -1
   k <- 0
 
@@ -391,8 +479,10 @@ setMethod("qpNrr", signature(X="matrix"),
       nrrMatrix[j,i] <- nrrMatrix[i,j] <-
         qpgraph:::.qpEdgeNrrIdenticalQs(S, Qs, S22invs, N, i, j, q, nTests, alpha, R.code.only=TRUE)
       k <- k + 1
+      if (elapsedTime > 0 && k == nAdj2estimateTime)
+        break;
       pct <- floor((k * 100) / n.adj)
-      if (pct != ppct && verbose) {
+      if (pct != ppct && verbose && elapsedTime == 0) {
         if (pct %% 10 == 0) {
           cat(pct)
         } else {
@@ -401,55 +491,85 @@ setMethod("qpNrr", signature(X="matrix"),
         ppct <- pct
       }
     }
+    if (elapsedTime > 0 && k == nAdj2estimateTime)
+      break;
   }
 
   ## i-exclusive variables against j-exclusive variables
-  for (i in pairup.i.noint) {
-    for (j in pairup.j.noint) {
-      nrrMatrix[j,i] <- nrrMatrix[i,j] <-
-        qpgraph:::.qpEdgeNrrIdenticalQs(S, Qs, S22invs, N, i, j, q, nTests, alpha, R.code.only=TRUE)
-      k <- k + 1
-      pct <- floor((k * 100) / n.adj)
-      if (pct != ppct && verbose) {
-        if (pct %% 10 == 0) {
-          cat(pct)
-        } else {
-          cat(".")
+  if (elapsedTime == 0 || k < 10) {
+    for (i in pairup.i.noint) {
+      for (j in pairup.j.noint) {
+        nrrMatrix[j,i] <- nrrMatrix[i,j] <-
+          qpgraph:::.qpEdgeNrrIdenticalQs(S, Qs, S22invs, N, i, j, q, nTests, alpha, R.code.only=TRUE)
+        k <- k + 1
+        if (elapsedTime > 0 && k == nAdj2estimateTime)
+          break;
+        pct <- floor((k * 100) / n.adj)
+        if (pct != ppct && verbose && elapsedTime == 0) {
+          if (pct %% 10 == 0) {
+            cat(pct)
+          } else {
+            cat(".")
+          }
+          ppct <- pct
         }
-        ppct <- pct
       }
+      if (elapsedTime > 0 && k == nAdj2estimateTime)
+        break;
     }
   }
 
   l.int <- length(pairup.ij.int)
 
   ## intersection variables against themselves (avoiding pairing of the same)
-  for (i in 1:(l.int-1)) {
-    i2 <- pairup.ij.int[i]
+  if (elapsedTime == 0 || k < 10) {
+    for (i in 1:(l.int-1)) {
+      i2 <- pairup.ij.int[i]
 
-    for (j in (i+1):l.int) {
-      j2 <- pairup.ij.int[j]
-      nrrMatrix[j2,i2] <- nrrMatrix[i2,j2] <-
-        qpgraph:::.qpEdgeNrrIdenticalQs(S, Qs, S22invs, N, i2, j2, q, nTests, alpha, R.code.only=TRUE)
-      k <- k + 1
-      pct <- floor((k * 100) / n.adj)
-      if (pct != ppct && verbose) {
-        if (pct %% 10 == 0) {
-          cat(pct)
-        } else {
-          cat(".")
+      for (j in (i+1):l.int) {
+        j2 <- pairup.ij.int[j]
+        nrrMatrix[j2,i2] <- nrrMatrix[i2,j2] <-
+          qpgraph:::.qpEdgeNrrIdenticalQs(S, Qs, S22invs, N, i2, j2, q, nTests, alpha, R.code.only=TRUE)
+        k <- k + 1
+        if (elapsedTime > 0 && k == nAdj2estimateTime)
+          break;
+        pct <- floor((k * 100) / n.adj)
+        if (pct != ppct && verbose && elapsedTime == 0) {
+          if (pct %% 10 == 0) {
+            cat(pct)
+          } else {
+            cat(".")
+          }
+          ppct <- pct
         }
-        ppct <- pct
       }
+      if (elapsedTime > 0 && k == nAdj2estimateTime)
+        break;
     }
   }
 
-  if (verbose) {
+  if (verbose && elapsedTime == 0) {
     cat("\n")
   }
 
+  if (elapsedTime > 0) {
+    elapsedTime <- elapsedTime + ((proc.time()-startTime)["elapsed"]/k) * n.adj
+    startTime <- proc.time()
+  }
+
   ## this is necessary till we find out how to properly assign values in a dspMatrix
-  return(as(nrrMatrix, "dspMatrix"))
+  nrrMatrix <- as(nrrMatrix, "dspMatrix")
+
+  if (elapsedTime > 0) {
+    elapsedTime <- elapsedTime + (proc.time()-startTime)["elapsed"]
+    d <- as.vector(floor(elapsedTime / (24*3600)))
+    h <- as.vector(floor((elapsedTime-d*24*3600)/3600))
+    m <- as.vector(floor((elapsedTime-d*24*3600-h*3600)/60))
+    s <- as.vector(ceiling(elapsedTime-d*24*3600-h*3600-m*60))
+    nrrMatrix <- c(days=d, hours=h, minutes=m, seconds=s)
+  }
+
+  return(nrrMatrix)
 }
 
 
@@ -486,7 +606,13 @@ setGeneric("qpAvgNrr", function(X, ...) standardGeneric("qpAvgNrr"))
 setMethod("qpAvgNrr", signature(X="ExpressionSet"),
             function(X, qOrders=4, nTests=100, alpha=0.05, pairup.i=NULL,
                      pairup.j=NULL, type=c("arith.mean"), verbose=TRUE,
-                     identicalQs=TRUE, R.code.only=FALSE, clusterSize=1) {
+                     identicalQs=TRUE, R.code.only=FALSE, clusterSize=1,
+                     estimateTime=FALSE, nAdj2estimateTime=10) {
+
+            startTime <- c(user.self=0, sys.self=0, elapsed=0, user.child=0, sys.child=0)
+            class(startTime) <- "proc_time"
+            if (estimateTime)
+              startTime <- proc.time()
 
             if (clusterSize > 1 && R.code.only)
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
@@ -497,7 +623,8 @@ setMethod("qpAvgNrr", signature(X="ExpressionSet"),
 
             X <- t(Biobase::exprs(X))
             qpgraph:::.qpAvgNrr(X, qOrders, nTests, alpha, pairup.i, pairup.j,
-                                type, verbose, identicalQs, R.code.only, clusterSize)
+                                type, verbose, identicalQs, R.code.only, clusterSize,
+                                startTime, nAdj2estimateTime)
           })
 
 ## X comes as a data frame
@@ -505,7 +632,13 @@ setMethod("qpAvgNrr", signature(X="data.frame"),
           function(X, qOrders=4, nTests=100, alpha=0.05, pairup.i=NULL,
                    pairup.j=NULL, long.dim.are.variables=TRUE,
                    type=c("arith.mean"), verbose=TRUE, identicalQs=TRUE,
-                   R.code.only=FALSE, clusterSize=1) {
+                   R.code.only=FALSE, clusterSize=1, estimateTime=FALSE,
+                   nAdj2estimateTime=10) {
+
+            startTime <- c(user.self=0, sys.self=0, elapsed=0, user.child=0, sys.child=0)
+            class(startTime) <- "proc_time"
+            if (estimateTime)
+              startTime <- proc.time()
 
             if (clusterSize > 1 && R.code.only)
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
@@ -519,12 +652,13 @@ setMethod("qpAvgNrr", signature(X="data.frame"),
               stop("X should be double-precision real numbers\n")
 
             if (long.dim.are.variables &&
-                sort(dim(m),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
+                sort(dim(X), decreasing=TRUE, index.return=TRUE)$ix[1] == 1)
               X <- t(X)
             if (is.null(colnames(X)))
               colnames(X) <- 1:ncol(X)
             qpgraph:::.qpAvgNrr(X, qOrders, nTests, alpha, pairup.i, pairup.j,
-                                type, verbose, identicalQs, R.code.only, clusterSize)
+                                type, verbose, identicalQs, R.code.only, clusterSize,
+                                startTime, nAdj2estimateTime)
           })
 
           
@@ -533,7 +667,13 @@ setMethod("qpAvgNrr", signature(X="matrix"),
           function(X, qOrders=4, nTests=100, alpha=0.05, pairup.i=NULL,
                    pairup.j=NULL, long.dim.are.variables=TRUE,
                    type=c("arith.mean"), verbose=TRUE, identicalQs=TRUE,
-                   R.code.only=FALSE, clusterSize=1) {
+                   R.code.only=FALSE, clusterSize=1, estimateTime=FALSE,
+                   nAdj2estimateTime=10) {
+
+            startTime <- c(user.self=0, sys.self=0, elapsed=0, user.child=0, sys.child=0)
+            class(startTime) <- "proc_time"
+            if (estimateTime)
+              startTime <- proc.time()
 
             if (clusterSize > 1 && R.code.only)
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
@@ -543,18 +683,20 @@ setMethod("qpAvgNrr", signature(X="matrix"),
               stop("Using a cluster (clusterSize > 1) requires first loading packages 'snow' and 'rlecuyer'\n")
 
             if (long.dim.are.variables &&
-              sort(dim(X),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
+                sort(dim(X), decreasing=TRUE, index.return=TRUE)$ix[1] == 1)
               X <- t(X)
 
             if (is.null(colnames(X))) 
               colnames(X) <- 1:ncol(X)
             qpgraph:::.qpAvgNrr(X, qOrders, nTests, alpha, pairup.i, pairup.j,
-                                type, verbose, identicalQs, R.code.only, clusterSize)
+                                type, verbose, identicalQs, R.code.only, clusterSize,
+                                startTime, nAdj2estimateTime)
           })
 
 .qpAvgNrr <- function(X, qOrders=4, nTests=100, alpha=0.05, pairup.i=NULL,
                       pairup.j=NULL, type=c("arith.mean"), verbose=TRUE,
-                      identicalQs=TRUE, R.code.only=FALSE, clusterSize=1) {
+                      identicalQs=TRUE, R.code.only=FALSE, clusterSize=1,
+                      startTime, nAdj2estimateTime) {
 
   type <- match.arg(type)
 
@@ -571,10 +713,14 @@ setMethod("qpAvgNrr", signature(X="matrix"),
     clCall <- get("clusterCall", mode="function")
     clOpt <- get("getClusterOption", mode="function")
 
-    message("Estimating non-rejection rates using a ", clOpt("type"),
-            " cluster of ", clusterSize, " nodes\n")
+    if (startTime["elapsed"] == 0)
+      message("Estimating average non-rejection rates using a ", clOpt("type"),
+              " cluster of ", clusterSize, " nodes\n")
+    else
+      message("Estimating time of calculation of average non-rejection rates using a ",
+              clOpt("type"), " cluster of ", clusterSize, " nodes\n")
 
-    cl <- makeCl(clusterSize, useRscript=FALSE, scriptdir=system.file(package="qpgraph"))
+    cl <- makeCl(clusterSize, snowlib=system.file(package="qpgraph"))
     clSetupRNG(cl)
     res <- clEvalQ(cl, require(qpgraph, quietly=TRUE))
     if (!all(unlist(res))) {
@@ -615,18 +761,39 @@ setMethod("qpAvgNrr", signature(X="matrix"),
   avgNrrMatrix <- new("dspMatrix", Dim=as.integer(c(n.var, n.var)),
                       Dimnames=list(var.names, var.names),
                       x=rep(as.double(0), n.var*(n.var-1)/2+n.var))
+
+  elapsedTime <- 0
+
   for (q in qOrders) {
-    if (verbose)
+    if (verbose && startTime["elapsed"] == 0)
       cat(sprintf("q=%d\n",q))
 
-    ## this is necessary till we find out how to sum two dspMatrices getting a dspMatrix
-    avgNrrMatrix <- as(avgNrrMatrix +
-                       w * qpgraph:::.qpNrr(X, q, nTests, alpha, pairup.i, pairup.j,
-                                            verbose, identicalQs, R.code.only, cl), "dspMatrix")
+    thisNrr <- qpgraph:::.qpNrr(X, q, nTests, alpha, pairup.i, pairup.j, verbose,
+                                identicalQs, R.code.only, cl, startTime, nAdj2estimateTime)
+
+    if (startTime["elapsed"] > 0) {
+      elapsedTime <- elapsedTime + thisNrr["days"]*24*3600 + thisNrr["hours"]*3600 +
+                     thisNrr["minutes"]*60 + thisNrr["seconds"]
+      startTime <- proc.time()
+    } else {
+      ## this is necessary till we find out how to sum two dspMatrices getting a dspMatrix
+      avgNrrMatrix <- as(avgNrrMatrix + w * thisNrr, "dspMatrix")
+    }
   }
 
-  if (clusterSize > 1 && !is.null(cl))
+  if (clusterSize > 1 && !is.null(cl)) {
     stopCl(cl)
+
+    elapsedTime <- elapsedTime + (proc.time() - startTime)["elapsed"]
+  }
+
+  if (startTime["elapsed"] > 0) {
+    d <- as.vector(floor(elapsedTime / (24*3600)))
+    h <- as.vector(floor((elapsedTime-d*24*3600)/3600))
+    m <- as.vector(floor((elapsedTime-d*24*3600-h*3600)/60))
+    s <- as.vector(ceiling(elapsedTime-d*24*3600-h*3600-m*60))
+    avgNrrMatrix <- c(days=d, hours=h, minutes=m, seconds=s)
+  }
 
   return(avgNrrMatrix)
 }
@@ -679,7 +846,13 @@ setGeneric("qpGenNrr", function(X, ...) standardGeneric("qpGenNrr"))
 setMethod("qpGenNrr", signature(X="ExpressionSet"),
             function(X, datasetIdx=1, qOrders=NULL, return.all=FALSE, nTests=100,
                      alpha=0.05, pairup.i=NULL, pairup.j=NULL, verbose=TRUE,
-                     identicalQs=TRUE, R.code.only=FALSE, clusterSize=1) {
+                     identicalQs=TRUE, R.code.only=FALSE, clusterSize=1,
+                     estimateTime=FALSE, nAdj2estimateTime=10) {
+
+            startTime <- c(user.self=0, sys.self=0, elapsed=0, user.child=0, sys.child=0)
+            class(startTime) <- "proc_time"
+            if (estimateTime)
+              startTime <- proc.time()
 
             if (clusterSize > 1 && R.code.only)
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
@@ -688,7 +861,7 @@ setMethod("qpGenNrr", signature(X="ExpressionSet"),
                (!qpgraph:::.qpIsPackageLoaded("rlecuyer") || !qpgraph:::.qpIsPackageLoaded("snow")))
               stop("Using a cluster (clusterSize > 1) requires first loading packages 'snow' and 'rlecuyer'\n")
 
-            if ((is.null(pData(X)) || ncol(pData(X)) < 1) && length(datasetIdx) != dim(X)[2])
+            if ((is.null(Biobase::pData(X)) || ncol(Biobase::pData(X)) < 1) && length(datasetIdx) != dim(X)[2])
               stop("Either supply a vector indexing the data sets to which each sample belongs to, or add a column with this information to the phenotypic data of the ExpressionSet indicating then which one is that column\n")
 
             if (length(datasetIdx) != dim(X)[2] && length(datasetIdx) != 1)
@@ -696,10 +869,10 @@ setMethod("qpGenNrr", signature(X="ExpressionSet"),
 
             if (length(datasetIdx) == 1) {
               if (is.character(datasetIdx))
-                datasetIdx <- match(datasetIdx, colnames(pData(X)))
+                datasetIdx <- match(datasetIdx, colnames(Biobase::pData(X)))
               else {
                 if (is.integer(datasetIdx) || is.numeric(datasetIdx))
-                  datasetIdx <- match(datasetIdx, 1:ncol(pData(X)))
+                  datasetIdx <- match(datasetIdx, 1:ncol(Biobase::pData(X)))
               }
 
               if (is.na(datasetIdx) || (!is.character(datasetIdx) && !is.integer(datasetIdx)))
@@ -707,7 +880,7 @@ setMethod("qpGenNrr", signature(X="ExpressionSet"),
             }
 
             if (length(datasetIdx) != dim(X)[2])
-              datasetIdx <- pData(X)[, datasetIdx]
+              datasetIdx <- Biobase::pData(X)[, datasetIdx]
 
             if (!is.null(qOrders) && any(is.na(qOrders[unique(datasetIdx)])))
               stop("Some values in 'datasetIdx' do not match any position in 'qOrders'\n")
@@ -719,14 +892,20 @@ setMethod("qpGenNrr", signature(X="ExpressionSet"),
 
             qpgraph:::.qpGenNrr(X, datasetIdx, qOrders, return.all, nTests, alpha,
                                 pairup.i, pairup.j, verbose, identicalQs, R.code.only,
-                                clusterSize)
+                                clusterSize, startTime, nAdj2estimateTime)
           })
 
 ## X comes as a data frame
 setMethod("qpGenNrr", signature(X="data.frame"),
           function(X, datasetIdx=1, qOrders=NULL, return.all=FALSE, nTests=100,
                    alpha=0.05, pairup.i=NULL, pairup.j=NULL, long.dim.are.variables=TRUE,
-                   verbose=TRUE, identicalQs=TRUE, R.code.only=FALSE, clusterSize=1) {
+                   verbose=TRUE, identicalQs=TRUE, R.code.only=FALSE, clusterSize=1,
+                   estimateTime=FALSE, nAdj2estimateTime=10) {
+
+            startTime <- c(user.self=0, sys.self=0, elapsed=0, user.child=0, sys.child=0)
+            class(startTime) <- "proc_time"
+            if (estimateTime)
+              startTime <- proc.time()
 
             if (clusterSize > 1 && R.code.only)
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
@@ -776,7 +955,7 @@ setMethod("qpGenNrr", signature(X="data.frame"),
 
             qpgraph:::.qpGenNrr(X, datasetIdx, qOrders, return.all, nTests, alpha,
                                 pairup.i, pairup.j, verbose, identicalQs, R.code.only,
-                                clusterSize)
+                                clusterSize, startTime, nAdj2estimateTime)
           })
 
           
@@ -784,7 +963,13 @@ setMethod("qpGenNrr", signature(X="data.frame"),
 setMethod("qpGenNrr", signature(X="matrix"),
           function(X, datasetIdx=1, qOrders=NULL, return.all=FALSE, nTests=100,
                    alpha=0.05, pairup.i=NULL, pairup.j=NULL, long.dim.are.variables=TRUE,
-                   verbose=TRUE, identicalQs=TRUE, R.code.only=FALSE, clusterSize=1) {
+                   verbose=TRUE, identicalQs=TRUE, R.code.only=FALSE, clusterSize=1,
+                   estimateTime=FALSE, nAdj2estimateTime=10) {
+
+            startTime <- c(user.self=0, sys.self=0, elapsed=0, user.child=0, sys.child=0)
+            class(startTime) <- "proc_time"
+            if (estimateTime)
+              startTime <- proc.time()
 
             if (clusterSize > 1 && R.code.only)
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
@@ -830,13 +1015,14 @@ setMethod("qpGenNrr", signature(X="matrix"),
 
             qpgraph:::.qpGenNrr(X, datasetIdx, qOrders, return.all, nTests, alpha,
                                 pairup.i, pairup.j, verbose, identicalQs, R.code.only,
-                                clusterSize)
+                                clusterSize, startTime, nAdj2estimateTime)
           })
 
 
 .qpGenNrr <- function(X, datasetIdx, qOrders=NULL, return.all=FALSE, nTests=100,
                       alpha=0.05, pairup.i=NULL, pairup.j=NULL, verbose=TRUE,
-                      identicalQs=TRUE, R.code.only=FALSE, clusterSize=1) {
+                      identicalQs=TRUE, R.code.only=FALSE, clusterSize=1,
+                      startTime, nAdj2estimateTime) {
 
   cl <- 1
  
@@ -851,10 +1037,14 @@ setMethod("qpGenNrr", signature(X="matrix"),
     clCall <- get("clusterCall", mode="function")
     clOpt <- get("getClusterOption", mode="function")
 
-    message("Estimating non-rejection rates using a ", clOpt("type"),
-            " cluster of ", clusterSize, " nodes\n")
+    if (startTime["elapsed"] == 0)
+      message("Estimating generalized non-rejection rates using a ", clOpt("type"),
+              " cluster of ", clusterSize, " nodes\n")
+    else
+      message("Estimating time of calculation of generalized non-rejection rates using a ",
+              clOpt("type"), " cluster of ", clusterSize, " nodes\n")
 
-    cl <- makeCl(clusterSize, useRscript=FALSE, scriptdir=system.file(package="qpgraph"))
+    cl <- makeCl(clusterSize, snowlib=system.file(package="qpgraph"))
     clSetupRNG(cl)
     res <- clEvalQ(cl, require(qpgraph, quietly=TRUE))
     if (!all(unlist(res))) {
@@ -877,11 +1067,11 @@ setMethod("qpGenNrr", signature(X="matrix"),
   N <- table(datasetIdx)
 
   if (any(N < 3))
-    stop("Dataset(s) ", paste(names(N)[which(N < 4)], collapse=","), " has/have less than 4 samples\n")
+    stop("Dataset(s) ", paste(names(N)[which(N < 3)], collapse=","), " has/have less than 3 samples\n")
 
   ## when qOrders is NULL the median of the possible q-orders is taken for each dataset
   if (is.null(qOrders))
-    qOrders <- floor(sapply(sapply(N, function(x) seq(1, x-3)), median))
+    qOrders <- floor(sapply(N, function(x) median(seq(1, x-3))))
 
   ## validate qOrders
   if (min(qOrders) < 1 || any(qOrders > N[names(qOrders)]-3))
@@ -896,27 +1086,47 @@ setMethod("qpGenNrr", signature(X="matrix"),
                             x=rep(as.double(0), n.var*(n.var-1)/2+n.var)),
                  qOrders=qOrders)
 
-  if (verbose)
+  if (verbose && startTime["elapsed"] == 0)
     cat("Employing qOrders={", paste(paste(names(qOrders),
                                            qOrders, sep="="),
                                      collapse=", "),"}\n")
 
+  elapsedTime <- 0
   for (idx in unique(datasetIdx)) {
-    if (verbose)
+
+    if (verbose && startTime["elapsed"] == 0)
       cat(sprintf("Dataset %s\n", as.character(idx)))
 
     thisNrr <- qpgraph:::.qpNrr(X, qOrders[idx], nTests, alpha, pairup.i, pairup.j,
-                                verbose, identicalQs, R.code.only, cl)
+                                verbose, identicalQs, R.code.only, cl, startTime,
+                                nAdj2estimateTime)
 
-    ## this is necessary till we find out how to sum two dspMatrices getting a dspMatrix
-    result[["genNrr"]] <- as(result[["genNrr"]] + w[idx] * thisNrr, "dspMatrix")
+    if (startTime["elapsed"] > 0) {
+      elapsedTime <- elapsedTime + thisNrr["days"]*24*3600 + thisNrr["hours"]*3600 +
+                     thisNrr["minutes"]*60 + thisNrr["seconds"]
+      startTime <- proc.time()
+    } else {
+      ## this is necessary till we find out how to sum two dspMatrices getting a dspMatrix
+      result[["genNrr"]] <- as(result[["genNrr"]] + w[idx] * thisNrr, "dspMatrix")
 
-    if (return.all)
-      result[[as.character(idx)]] <- thisNrr
+      if (return.all)
+        result[[as.character(idx)]] <- thisNrr
+    }
   }
 
-  if (clusterSize > 1 && !is.null(cl))
+  if (clusterSize > 1 && !is.null(cl)) {
     stopCl(cl)
+
+    elapsedTime <- elapsedTime + (proc.time() - startTime)["elapsed"]
+  }
+
+  if (startTime["elapsed"] > 0) {
+    d <- as.vector(floor(elapsedTime / (24*3600)))
+    h <- as.vector(floor((elapsedTime-d*24*3600)/3600))
+    m <- as.vector(floor((elapsedTime-d*24*3600-h*3600)/60))
+    s <- as.vector(ceiling(elapsedTime-d*24*3600-h*3600-m*60))
+    result <- c(days=d, hours=h, minutes=m, seconds=s)
+  }
 
   return(result)
 }
@@ -2093,12 +2303,17 @@ setMethod("qpPAC", signature(X="matrix"),
 
 .qpPAC <- function(X, g, return.K=FALSE, tol=0.001, verbose=TRUE, R.code.only=FALSE) {
 
+  A <- matrix(FALSE, nrow=ncol(X), ncol=ncol(X), dimnames=list(colnames(X), colnames(X)))
   if (class(g) == "graphNEL" || class(g) == "graphAM") {
     ## require(graph)
     if (graph::edgemode(g) != "undirected")
       stop("g should be an undirected graph\n")
 
-    A <- as(g, "matrix") == 1
+    Ag <- as(g, "matrix") == 1
+    if (any(is.na(match(rownames(Ag), colnames(X)))))
+      stop("some variables in the graph 'g' do not match the variables in the data")
+
+    A[rownames(Ag), colnames(Ag)] <- Ag
   } else if (class(g) == "matrix" || class(g) == "lsCMatrix") {
     A <- g
     p <- (d <- dim(A))[1]
@@ -2761,7 +2976,7 @@ setMethod("qpFunctionalCoherence",
     message("Estimating functional coherence using a ", clOpt("type"),
             " cluster of ", clusterSize, " nodes\n")
 
-    cl <- makeCl(clusterSize, useRscript=FALSE, scriptdir=system.file(package="qpgraph"))
+    cl <- makeCl(clusterSize, snowlib=system.file(package="qpgraph"))
     clSetupRNG(cl)
     res <- clEvalQ(cl, require(qpgraph, quietly=TRUE))
     if (!all(unlist(res))) {
@@ -3136,8 +3351,7 @@ qpTopPairs <- function(measurementsMatrix=NULL, refGraph=NULL, n=6L, file=NULL,
 qpPlotNetwork <- function(g, vertexSubset=graph::nodes(g), boundary=FALSE,
                           minimumSizeConnComp=2, pairup.i=NULL, pairup.j=NULL,
                           annotation=NULL) {
-  ## require(graph)
-  require(Rgraphviz)
+  require(graph)
 
   if (any(is.na(match(graph::nodes(g), vertexSubset)))) {
     vertexSubsetNoMatch <- vertexSubset[is.na(match(vertexSubset, graph::nodes(g)))]
@@ -3185,9 +3399,9 @@ qpPlotNetwork <- function(g, vertexSubset=graph::nodes(g), boundary=FALSE,
     edL <- unique(t(apply(edL, 1, sort)))
     mask <- apply(edL, 1, function(x) sum(!is.na(match(x, pairup.i)))*sum(!is.na(match(x, pairup.j)))) == 0
     if (sum(mask) > 0)
-      removeEdge(from=edL[mask, 1], to=edL[mask, 2], g)
+      g <- removeEdge(from=edL[mask, 1], to=edL[mask, 2], g)
 
-    graph::edgemode(g) <- "directed"
+    edgemode(g) <- "directed"
     g.iNodes <- graph::nodes(g)[!is.na(match(graph::nodes(g), pairup.i))]
     wrongEdges <- boundary(setdiff(graph::nodes(g), g.iNodes), g)
     wrongEdges <- wrongEdges[sapply(wrongEdges, length) > 0]
@@ -3202,7 +3416,14 @@ qpPlotNetwork <- function(g, vertexSubset=graph::nodes(g), boundary=FALSE,
                              ifnotfound=NA))
     }
 
-    nodattr <- makeNodeAttrs(g, label=nodeLabels, shape="ellipse", fixedsize=FALSE, fillcolor=grey(0.9))
+    pkg <- "Rgraphviz"
+    if (!library(pkg, logical.return=TRUE, character.only=TRUE)) {
+      warning("qpPlotNetwork() requires package 'Rgraphviz' to plot the network and does not seem to be installed\n")
+      return(invisible(g))
+    }
+
+    mkNodeAttrs <- get("makeNodeAttrs", mode="function")
+    nodattr <- mkNodeAttrs(g, label=nodeLabels, shape="ellipse", fixedsize=FALSE, fillcolor=grey(0.9))
     nodattr$fillcolor[g.iNodes] <- grey(0.65)
   } else {
     nodeLabels <- graph::nodes(g)
@@ -3212,7 +3433,14 @@ qpPlotNetwork <- function(g, vertexSubset=graph::nodes(g), boundary=FALSE,
                              ifnotfound=NA))
     }
 
-    nodattr <- makeNodeAttrs(g, label=nodeLabels, shape="ellipse", fixedsize=FALSE, fillcolor=grey(0.9))
+    pkg <- "Rgraphviz"
+    if (!library(pkg, logical.return=TRUE, character.only=TRUE)) {
+      warning("qpPlotNetwork() requires package 'Rgraphviz' to plot the network and does not seem to be installed\n")
+      return(invisible(g))
+    }
+
+    mkNodeAttrs <- get("makeNodeAttrs", mode="function")
+    nodattr <- mkNodeAttrs(g, label=nodeLabels, shape="ellipse", fixedsize=FALSE, fillcolor=grey(0.9))
   }
 
   plot(g, "twopi", nodeAttrs=nodattr, lwd=2)
@@ -3452,42 +3680,54 @@ clPrCall <- function(cl, fun, n.adj, ...) {
 ##########################################################################
 
 .qpFastNrr <- function(X, q, nTests, alpha, pairup.i.noint, pairup.j.noint,
-                       pairup.ij.int, verbose) {
+                       pairup.ij.int, verbose, startTime, nAdj2estimateTime) {
   return(.Call("qp_fast_nrr",X,as.integer(q),as.integer(nTests),
                              as.double(alpha),as.integer(pairup.i.noint),
                              as.integer(pairup.j.noint),as.integer(pairup.ij.int),
-                             as.integer(verbose)))
+                             as.integer(verbose), as.double(startTime),
+                             as.integer(nAdj2estimateTime), .GlobalEnv))
 }
 
 .qpFastNrrIdenticalQs <- function(X, q, nTests, alpha, pairup.i.noint, pairup.j.noint,
-                                  pairup.ij.int, verbose) {
+                                  pairup.ij.int, verbose, startTime, nAdj2estimateTime) {
   return(.Call("qp_fast_nrr_identicalQs",X,as.integer(q),as.integer(nTests),
                                          as.double(alpha),as.integer(pairup.i.noint),
                                          as.integer(pairup.j.noint),as.integer(pairup.ij.int),
-                                         as.integer(verbose)))
+                                         as.integer(verbose), as.double(startTime),
+                                         as.integer(nAdj2estimateTime), .GlobalEnv))
 }
 
 .qpFastNrrPar <- function(X, q, nTests, alpha, pairup.i.noint, pairup.j.noint,
-                          pairup.ij.int, verbose) {
+                          pairup.ij.int, verbose, estimateTime, nAdj2estimateTime) {
   myMaster <- get("master", sys.frame(-7))
+
+  startTime <- 0
+  if (estimateTime)
+    startTime <- proc.time()["elapsed"]
 
   ## clusterRank and clusterSize should have been defined by the master node
   return(.Call("qp_fast_nrr_par",X,as.integer(q),as.integer(nTests),
                                  as.double(alpha),as.integer(pairup.i.noint),
                                  as.integer(pairup.j.noint),as.integer(pairup.ij.int),
-                                 as.integer(verbose), as.integer(get("clusterRank")),
+                                 as.integer(verbose), as.double(startTime),
+                                 as.integer(nAdj2estimateTime), as.integer(get("clusterRank")),
                                  as.integer(get("clusterSize")), myMaster, .GlobalEnv))
 }
 
 .qpFastNrrIdenticalQsPar <- function(X, q, nTests, alpha, pairup.i.noint, pairup.j.noint,
-                                     pairup.ij.int, verbose) {
+                                     pairup.ij.int, verbose, estimateTime, nAdj2estimateTime) {
   myMaster <- get("master", sys.frame(-7))
+
+  startTime <- 0
+  if (estimateTime)
+    startTime <- proc.time()["elapsed"]
 
   ## clusterRank and clusterSize should have been defined by the master node
   return(.Call("qp_fast_nrr_identicalQs_par",X,as.integer(q),as.integer(nTests),
                                              as.double(alpha),as.integer(pairup.i.noint),
                                              as.integer(pairup.j.noint),as.integer(pairup.ij.int),
-                                             as.integer(verbose), as.integer(get("clusterRank")),
+                                             as.integer(verbose), as.double(startTime),
+                                             as.integer(nAdj2estimateTime), as.integer(get("clusterRank")),
                                              as.integer(get("clusterSize")), myMaster, .GlobalEnv))
 }
 

@@ -451,8 +451,14 @@ use it with a nominal precision level of 50\%:
 <<getthenet, echo=TRUE, results=verbatim>>=
 thr <- qpPRscoreThreshold(avgnrr.prerec, level=0.5, recall.level=FALSE, max.score=0)
 thr
+@
+In order to manipulate the final reverse engineered transcriptional regulatory network
+from this 50\%-precision qp-graph we will obtain a \verb+graphNEL+ object
+through the \verb+qpGraph()+ function:
 
-A <- qpGraph(avgnrr.estimates, threshold=thr)
+<<getthenet, echo=TRUE, results=verbatim>>=
+g <- qpGraph(avgnrr.estimates, threshold=thr, return.type="graphNEL")
+g
 @
 We are going to estimate now the corresponding PACs for the interactions. First,
 we should see if this is at all possible by calculating the size of the largest
@@ -460,38 +466,14 @@ clique in this undirected graph with the \verb+qpCliqueNumber+ function from the
 \verb+qpgraph+ package:
 
 <<getthenet, echo=TRUE, results=verbatim>>=
-qpCliqueNumber(A, verbose=FALSE)
+qpCliqueNumber(g, verbose=FALSE)
 @
 The maximum clique size (aka clique number) is smaller than the number of
 observations in the data ($n=43$) and therefore we can go on with the PAC
 estimation \citep[see][for further details on this]{Lauritzen:1996fj}:
 
 <<getthenet, echo=TRUE, results=verbatim>>=
-pac.estimates <- qpPAC(subset.gds680.eset, A, verbose=FALSE)
-@
-In order to display the final reverse engineered transcriptional regulatory network
-from this 50\%-precision qp-graph we need to obtain it as a \verb+graphNEL+ object
-which is returned by the \verb+qpGraph()+ function as an undirected graph and then
-transform it into a directed graph with arrows pointing from TFs to
-their targets:
-
-<<getthenet, echo=TRUE, results=verbatim>>=
-g <- qpGraph(avgnrr.estimates, threshold=thr, return.type="graphNEL")
-edgemode(g) <- "directed"
-@
-This operation leaves \verb+g+ with directed edges between all genes that were
-adjacent in the former undirected graph. Therefore, we should next remove those
-directed edges that go from TG genes to TF genes:
-
-<<getthenet, echo=TRUE, results=verbatim>>=
-gTFvertices <- nodes(g)[!is.na(match(nodes(g), filtered.regulon6.1[,"EgID_TF"]))]
-
-wrongEdges <- boundary(setdiff(nodes(g),gTFvertices),g)
-wrongEdges <- wrongEdges[unlist(lapply(wrongEdges, length)) > 0]
-wrongEdges <- matrix(unlist(sapply(names(wrongEdges),
-                     function(x) t(cbind(x,wrongEdges[[x]])), USE.NAMES=FALSE)),
-                     ncol=2, byrow=TRUE)
-g <- removeEdge(from=wrongEdges[,1], to=wrongEdges[,2], g)
+pac.estimates <- qpPAC(subset.gds680.eset, g, verbose=FALSE)
 @
 Before making a graphical representation of the transcriptional regulatory
 network we have in \verb+g+ we would like to make a text-based summary of the
@@ -553,44 +535,8 @@ the weaker (1.0) support for the presence of that interaction in the network:
 <<getthenet, echo=TRUE, results=verbatim>>=
 txregnet[sort(txregnet[["AvgNRR"]],index.return=TRUE)$ix,]
 @
-We can plot the network, which should look like the one in Figure~3, by loading
-first the \verb+Rgraphviz+ library:
-
-<<getthenet, echo=TRUE, results=verbatim>>=
-library(Rgraphviz)
-@
-Next, get the genes forming connected components with more than 1 vertex
-(i.e., those involved in edges) using the \verb+connComp+ function from the
-\verb+graph+ package:
-
-<<getthenet, echo=TRUE, results=verbatim>>=
-gCc <- connComp(g)
-gCc_gt1 <- gCc[(1:length(gCc))[unlist(lapply(gCc,length)) > 1]]
-genesCcGt1 <- unique(unlist(gCc_gt1))
-@
-We extract the subgraph involving those genes, label them with their symbol
-names and make TF genes look darker:
-
-<<getthenet, echo=TRUE, results=verbatim>>=
-gSub <- subGraph(genesCcGt1,g)
-
-nodattr <- makeNodeAttrs(gSub,label=unlist(mget(nodes(gSub),org.EcK12.egSYMBOL)),
-                         shape="ellipse",fixedsize=FALSE,fillcolor=grey(0.90))
-gSubTFnodes <- nodes(gSub)[!is.na(match(nodes(gSub),filtered.regulon6.1[,"EgID_TF"]))]
-nodattr$fillcolor[gSubTFnodes] <- grey(0.65)
-@
-Set different colors for edges representing RegulonDB interactions, novel
-interactions, positive PACs and negative PACs:
-
-<<getthenet, echo=TRUE, results=verbatim>>=
-edgecolors <- rep("darkred",length(isinRegDB))
-edgecolors[isinRegDB == "absent" & pacs.rho > 0] <- "orange"
-edgecolors[isinRegDB == "present" & pacs.rho < 0] <- "darkblue"
-edgecolors[isinRegDB == "absent" & pacs.rho < 0] <- "deepskyblue"
-names(edgecolors) <- paste(edM[,1],edM[,2],sep="~")
-edgattrs <- list(color=edgecolors)
-@
-We can finally do the plotting and put a legend as follows:
+We can plot the network with the function \verb+qpPlotNetwork+ as follows and
+obtain the result shown in Figure~3.
 
 \begin{figure}
 \label{fig:txregnet}
@@ -603,16 +549,15 @@ We can finally do the plotting and put a legend as follows:
 postscript(file="qpTRnet50pctpre.eps", onefile=FALSE, paper="a4",
            pointsize=12, horizontal=FALSE, height=7, width=7)
 @
-<<getthenet, echo=TRUE, results=hide>>=
-rag <- plot(gSub, "twopi", nodeAttrs=nodattr, edgeAttrs=edgattrs, lwd=2,
-            main="50%-precision qp-graph transcriptional regulatory network")
-bb <- c(boundBox(rag)@upRight@x, boundBox(rag)@upRight@y)
-legend(bb[1]*0.2,bb[2]*1.0,c("RegulonDB +","RegulonDB -","Novel +", "Novel -"),
-       lwd=4, col=c("darkred","darkblue","orange","deepskyblue"))
+<<getthenet, echo=TRUE, results=verbatim>>=
+qpPlotNetwork(g, pairup.i=largestIQRgenesO2netTFs, pairup.j=largestIQRgenesO2net,
+              annotation="org.EcK12.eg.db")
 @
 <<getthenet, eval=FALSE, echo=FALSE, results=hide>>=
 dev.off()
 @
+
+\section{Session Information}
 
 <<info, results=tex>>=
 toLatex(sessionInfo())
