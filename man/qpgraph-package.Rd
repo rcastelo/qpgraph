@@ -6,19 +6,27 @@
 The q-order partial correlation graph learning software, qpgraph.
 }
 \description{
-\Sexpr{packageDescription("qpgraph")[["Description"]]}
+%%\Sexpr{packageDescription("qpgraph")[["Description"]]}
+q-order partial correlation graphs, or qp-graphs for short, are
+undirected Gaussian graphical Markov models built from q-order
+partial correlations. They are useful for learning undirected
+graphical Gaussian Markov models from data sets where the number
+of random variables p exceeds the available sample size n as, for
+instance, in the case of microarray data where they can be
+employed to reverse engineer a molecular regulatory network.
 }
 \details{
   \tabular{ll}{
   Package: \tab qpgraph\cr
-  Version: \tab \Sexpr{packageDescription("qpgraph")[["Version"]]}\cr
-  Built: \tab \Sexpr{packageDescription("qpgraph")[["Built"]]}\cr
-  Depends: \tab \Sexpr{packageDescription("qpgraph")[["Depends"]]}\cr
-  Imports: \tab \Sexpr{packageDescription("qpgraph")[["Imports"]]}\cr
-  Suggests: \tab \Sexpr{packageDescription("qpgraph")[["Suggests"]]}\cr
-  biocViews: \tab \Sexpr{packageDescription("qpgraph")[["biocViews"]]}\cr
-  License: \tab \Sexpr{packageDescription("qpgraph")[["License"]]}\cr
-  URL: \tab \Sexpr{packageDescription("qpgraph")[["URL"]]}\cr
+  Version: \tab 1.6.0\cr %%\Sexpr{packageDescription("qpgraph")[["Version"]]}\cr
+  Built: \tab R 2.12.0\cr %%\Sexpr{packageDescription("qpgraph")[["Built"]]}\cr
+  Depends: \tab methods\cr %%\Sexpr{packageDescription("qpgraph")[["Depends"]]}\cr
+  Imports: \tab methods, annotate, Matrix, graph, Biobase, AnnotationDbi\cr %%\Sexpr{packageDescription("qpgraph")[["Imports"]]}\cr
+  Enhances: \tab rlecuyer, snow, Rgraphviz\cr %%\Sexpr{packageDescription("qpgraph")[["Enhances"]]\cr
+  Suggests: \tab Matrix, mvtnorm, graph, genefilter, Category, org.EcK12.eg.db, GOstats\cr %%\Sexpr{packageDescription("qpgraph")[["Suggests"]]}\cr
+  biocViews: \tab Microarray, GeneExpression, Transcription, Pathways, Bioinformatics, GraphsAndNetworks\cr %%\Sexpr{packageDescription("qpgraph")[["biocViews"]]}\cr
+  License: \tab GPL (>= 2)\cr %%\Sexpr{packageDescription("qpgraph")[["License"]]}\cr
+  URL: \tab http://functionalgenomics.upf.edu/qpgraph\cr %%\Sexpr{packageDescription("qpgraph")[["URL"]]}\cr
   }
 }
 
