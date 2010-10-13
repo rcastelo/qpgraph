@@ -1097,9 +1097,9 @@ setMethod("qpGenNrr", signature(X="matrix"),
     if (verbose && startTime["elapsed"] == 0)
       cat(sprintf("Dataset %s\n", as.character(idx)))
 
-    thisNrr <- qpgraph:::.qpNrr(X, qOrders[idx], nTests, alpha, pairup.i, pairup.j,
-                                verbose, identicalQs, R.code.only, cl, startTime,
-                                nAdj2estimateTime)
+    thisNrr <- qpgraph:::.qpNrr(X[datasetIdx == idx, ], qOrders[idx], nTests,
+                                alpha, pairup.i, pairup.j, verbose, identicalQs,
+                                R.code.only, cl, startTime, nAdj2estimateTime)
 
     if (startTime["elapsed"] > 0) {
       elapsedTime <- elapsedTime + thisNrr["days"]*24*3600 + thisNrr["hours"]*3600 +
