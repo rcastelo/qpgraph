@@ -2,6 +2,8 @@
 \alias{qpFunctionalCoherence}
 \alias{qpFunctionalCoherence,matrix-method}
 \alias{qpFunctionalCoherence,lsCMatrix-method}
+\alias{qpFunctionalCoherence,lspMatrix-method}
+\alias{qpFunctionalCoherence,lsyMatrix-method}
 \alias{qpFunctionalCoherence,list-method}
 
 \title{
@@ -14,6 +16,10 @@ identifiers or as a list of transcriptional regulatory modules.
 }
 \usage{
 \S4method{qpFunctionalCoherence}{lsCMatrix}(object, TFgenes, geneUniverse=rownames(object),
+                                            chip, minRMsize=5, verbose=FALSE, clusterSize=1)
+\S4method{qpFunctionalCoherence}{lspMatrix}(object, TFgenes, geneUniverse=rownames(object),
+                                            chip, minRMsize=5, verbose=FALSE, clusterSize=1)
+\S4method{qpFunctionalCoherence}{lsyMatrix}(object, TFgenes, geneUniverse=rownames(object),
                                             chip, minRMsize=5, verbose=FALSE, clusterSize=1)
 \S4method{qpFunctionalCoherence}{matrix}(object, TFgenes, geneUniverse=rownames(object),
                                          chip, minRMsize=5, verbose=FALSE, clusterSize=1)

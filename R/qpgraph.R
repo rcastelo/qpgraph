@@ -3,7 +3,7 @@
 ##                   to interact with microarray data in order to build network
 ##                   models of molecular regulation
 ##
-## Copyright (C) 2009 R. Castelo and A. Roverato
+## Copyright (C) 2010 R. Castelo and A. Roverato
 ## This program is free software; you can redistribute it and/or
 ## modify it under the terms of the GNU General Public License
 ## as published by the Free Software Foundation; either version 2
@@ -1835,7 +1835,7 @@ qpCliqueNumber <- function(g, exact.calculation=TRUE, return.vertices=FALSE,
       stop("g should be an undirected graph\n")
 
     A <- as(g, "matrix") == 1
-  } else if (class(g) == "matrix" || class(g) == "lsCMatrix") {
+  } else if (class(g) == "matrix" || length(grep("Matrix", class(g))) > 0) {
     A <- g
     p <- (d <- dim(A))[1]
     if (p != d[2])
@@ -1844,7 +1844,7 @@ qpCliqueNumber <- function(g, exact.calculation=TRUE, return.vertices=FALSE,
     if (!isSymmetric(A))
       stop("g is not a symmetric adjacency matrix nor a graphNEL or graphAM object\n")
   } else
-    stop("g should be either a graphNEL object, a graphAM object or a boolean adjacency matrix or dspMatrix\n")
+    stop("g should be either a graphNEL object, a graphAM object or a boolean adjacency matrix\n")
 
   if (exact.calculation && R.code.only)
     stop("R code is only available for the lower bound approximation and not for the exact calculation\n");
@@ -2104,7 +2104,7 @@ qpGetCliques <- function(g, clqspervtx=FALSE, verbose=TRUE) {
       stop("g should be an undirected graph\n")
 
     A <- as(g, "matrix") == 1
-  } else if (class(g) == "matrix" || class(g) == "lsCMatrix" || class(g) == "lsyMatrix") {
+  } else if (class(g) == "matrix" || length(grep("Matrix", class(g))) > 0) {
     A <- g
     p <- (d <- dim(A))[1]
     if (p != d[2])
@@ -2164,7 +2164,7 @@ qpUpdateCliquesRemoving <- function(g, clqlst, v, w, verbose=TRUE) {
       stop("g should be an undirected graph\n")
 
     A <- as(g, "matrix") == 1
-  } else if (class(g) == "matrix" || class(g) == "lsCMatrix" || class(g) == "lsyMatrix") {
+  } else if (class(g) == "matrix" || length(grep("Matrix", class(g))) > 0) {
     A <- g
     p <- (d <- dim(A))[1]
     if (p != d[2])
@@ -2314,7 +2314,7 @@ setMethod("qpPAC", signature(X="matrix"),
       stop("some variables in the graph 'g' do not match the variables in the data")
 
     A[rownames(Ag), colnames(Ag)] <- Ag
-  } else if (class(g) == "matrix" || class(g) == "lsCMatrix") {
+  } else if (class(g) == "matrix" || length(grep("Matrix", class(g))) > 0) {
     A <- g
     p <- (d <- dim(A))[1]
     if (p != d[2])
@@ -2585,7 +2585,7 @@ qpG2Sigma <- function (g, rho=0, verbose = FALSE,
                        R.code.only = FALSE) {
   n.var <- NULL
   var.names <- NULL
-  if (class(g) == "matrix" || class(g) == "lsCMatrix") {
+  if (class(g) == "matrix" || length(grep("Matrix", class(g))) > 0) {
     n.var <- nrow(g)
     var.names <- rownames(g)
     if (is.null(rownames(var.names)))
@@ -2674,12 +2674,12 @@ qpPrecisionRecall <- function(measurementsMatrix, refGraph, decreasing=TRUE,
     stop("measurementsMatrix should be a squared matrix\n")
 
   if (class(refGraph) != "data.frame" && class(refGraph) != "matrix" &&
-      class(refGraph) != "lsCMatrix" && class(refGraph)!= "graphNEL" &&
-      class(refGraph) != "graphAM")
+      class(refGraph)!= "graphNEL" && class(refGraph) != "graphAM" &&
+      length(grep("Matrix", class(refGraph))) == 0)
     stop("refGraph should be provided either as an adjacency matrix, a two-column matrix of edges, a graphNEL object, or a graphAM object\n")
 
   if (class(refGraph) == "data.frame" || class(refGraph) == "matrix" ||
-      class(refGraph) == "lsCMatrix") {
+      length(grep("Matrix", class(refGraph))) > 0) {
     p <- (d <- dim(refGraph))[1]
     if (p != d[2] && ncol(refGraph) != 2)
       stop("If refGraph is a matrix then it should be either a squared adjacency matrix or a two-column matrix with rows corresponding to edges \n")
@@ -2891,6 +2891,18 @@ setGeneric("qpFunctionalCoherence", function(object, ...) standardGeneric("qpFun
 ## the input object is a lsCMatrix adjacency matrix
 setMethod("qpFunctionalCoherence",
           signature(object="lsCMatrix"),
+          function(object, TFgenes, geneUniverse=rownames(object), chip, minRMsize=5, verbose=FALSE, clusterSize=1)
+            qpFunctionalCoherence(as(object, "matrix"), TFgenes, geneUniverse, chip, minRMsize, verbose, clusterSize))
+
+## the input object is a lspMatrix adjacency matrix
+setMethod("qpFunctionalCoherence",
+          signature(object="lspMatrix"),
+          function(object, TFgenes, geneUniverse=rownames(object), chip, minRMsize=5, verbose=FALSE, clusterSize=1)
+            qpFunctionalCoherence(as(object, "matrix"), TFgenes, geneUniverse, chip, minRMsize, verbose, clusterSize))
+
+## the input object is a lsyMatrix adjacency matrix
+setMethod("qpFunctionalCoherence",
+          signature(object="lsyMatrix"),
           function(object, TFgenes, geneUniverse=rownames(object), chip, minRMsize=5, verbose=FALSE, clusterSize=1)
             qpFunctionalCoherence(as(object, "matrix"), TFgenes, geneUniverse, chip, minRMsize, verbose, clusterSize))
 
@@ -3138,8 +3150,8 @@ qpTopPairs <- function(measurementsMatrix=NULL, refGraph=NULL, n=6L, file=NULL,
     stop("A proper value for either 'measurementsMatrix' or 'refGraph' should be provided\n")
 
   if (is.null(measurementsMatrix)) {
-    if (class(refGraph) != "matrix" && class(refGraph) != "lsCMatrix" &&
-        class(refGraph)!= "graphNEL" && class(refGraph) != "graphAM")
+    if (class(refGraph) != "matrix" && class(refGraph)!= "graphNEL" &&
+        class(refGraph) != "graphAM" && length(grep("Matrix", class(refGraph))) == 0)
       stop("refGraph should be provided either as an adjacency matrix, a graphNEL object, or a graphAM object\n")
 
     refGraph <- as(refGraph, "matrix")
@@ -3181,8 +3193,8 @@ qpTopPairs <- function(measurementsMatrix=NULL, refGraph=NULL, n=6L, file=NULL,
                        ncol=dim(measurementsMatrix)[2],
                        dimnames=dimnames(measurementsMatrix))
   } else {
-    if (class(refGraph) != "matrix" && class(refGraph) != "lsCMatrix" &&
-        class(refGraph)!= "graphNEL" && class(refGraph) != "graphAM")
+    if (class(refGraph) != "matrix" && class(refGraph)!= "graphNEL" &&
+        class(refGraph) != "graphAM" && length(grep("Matrix", class(refGraph))) == 0)
       stop("'refGraph' should be provided either as an adjacency matrix, a graphNEL object, or a graphAM object\n")
 
     if (class(refGraph) == "graphNEL" || class(refGraph) == "graphAM")
@@ -3472,7 +3484,7 @@ qpPlotNetwork <- function(g, vertexSubset=graph::nodes(g), boundary=FALSE,
 .qpEdgePACSE <- function(S, A, R.code.only=FALSE) {
 
   if (!R.code.only) {
-    ## this should change so that the entire algorithm deals with dspMatrix and lsCMatrix matrices
+    ## this should change so that the entire algorithm deals with *Matrix classes from the Matrix package
     return(qpgraph:::.qpFastPACSE(as(S, "matrix"), as(A, "matrix")));
   }
 
