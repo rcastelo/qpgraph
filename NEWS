@@ -1,43 +1,54 @@
-CHANGES IN VERSION 1.5
+CHANGES IN VERSION 1.7
 ----------------------
 
 USER VISIBLE CHANGES
+
+    o progress is reported now through the standardized 'txtProgressBar()' function from the 'utils' package
+
+CHANGES IN VERSION 1.6
+----------------------
+
+USER VISIBLE CHANGES
+
+    o updated the functions that work with covariance, correlations, adjacency and non-rejection rate matrices to employ more efficient matrix classes from the Matrix package
+
+    o handling of covariance matrices as 'dspMatrix' objects via the recommended 'Matrix' package
+
+    o qpFunctionalCoherence() now takes an input list of transcriptional regulator modules
+
+NEW FEATURES
 
     o added estimation of completion time for calculations via the 'estimateTime' argument
 
     o added progress reporting to the functions using parallel support
 
-    o added qpUpdateCliquesRemoving() to update a clique list after an edge removal
-
-    o added qpUnifRndAssociation() to generate correlations between -1 and +1 uniformly at random
+    o added a new function qpCov() and its man page to calculate sample covariance matrices returning them as 'dspMatrix' objects. Fixed some NAMESPACE and dependence issues
 
     o added network reporting through qpPlotNetwork
 
     o added network reporting through qpTopPairs
 
-    o added parallel computation of gene ontology enrichment calculations in qpFunctionalCoherence()
-
     o added the calculation of the generalized non-rejection rate through the function qpGenNrr()
-
-    o updated the functions that work with covariance, correlations, adjacency and non-rejection rate matrices to employ more efficient matrix classes from the Matrix package
-
-    o added a new function qpCov() and its man page to calculate sample covariance matrices returning them as 'dspMatrix' objects. Fixed some NAMESPACE and dependence issues
-
-    o handling of covariance matrices as 'dspMatrix' objects via the recommended 'Matrix' package
 
     o added parallel computation of average non-rejection rates in qpAvgNrr() via snow and rlecuyer
 
     o added parallel computation of non-rejection rates in qpNrr() via snow and rlecuyer
 
-    o qpFunctionalCoherence() now takes an input list of transcriptional regulator modules
+    o added qpUpdateCliquesRemoving() to update a clique list after an edge removal
+
+    o added qpUnifRndAssociation() to generate correlations between -1 and +1 uniformly at random
+
+    o added parallel computation of gene ontology enrichment calculations in qpFunctionalCoherence()
 
 BUG FIXES
+
+    o fixed some buggy bits of the interaction with the Matrix package
 
     o removed unnecessary calls to INTEGER() and REAL() within long loops in the C code in order to speed it up
 
     o binary adjacency matrices (and not only logical ones) are now also handled by qpFunctionalCoherence()
 
-CHANGES IN VERSION 1.3
+CHANGES IN VERSION 1.4
 ----------------------
 
 USER VISIBLE CHANGES
@@ -65,7 +76,7 @@ BUG FIXES
     o added R_CheckUserInterrupt() to the C code of the IPF algorithm
 
 
-CHANGES IN VERSION 1.1
+CHANGES IN VERSION 1.2
 ----------------------
 
 USER VISIBLE CHANGES
@@ -88,7 +99,7 @@ BUG FIXES
     o fixed a minor bug on identifying variable names on matrices
 
 
-CHANGES IN VERSION 0.99
+CHANGES IN VERSION 1.0
 -----------------------
 
 USER VISIBLE CHANGES

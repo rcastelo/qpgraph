@@ -338,6 +338,9 @@ setMethod("qpNrr", signature(X="matrix"),
 
   ppct <- -1
   k <- 0
+  pb <- NULL
+  if (verbose && elapsedTime == 0)
+    pb <- txtProgressBar(style=3)
 
   ## intersection variables against ij-exclusive variables
   for (i in pairup.ij.int) {
@@ -349,11 +352,7 @@ setMethod("qpNrr", signature(X="matrix"),
         break;
       pct <- floor((k * 100) / n.adj)
       if (pct != ppct && verbose && elapsedTime == 0) {
-        if (pct %% 10 == 0) {
-          cat(pct)
-        } else {
-          cat(".")
-        }
+        setTxtProgressBar(pb, pct/100)
         ppct <- pct
       }
     }
@@ -372,11 +371,7 @@ setMethod("qpNrr", signature(X="matrix"),
           break;
         pct <- floor((k * 100) / n.adj)
         if (pct != ppct && verbose && elapsedTime == 0) {
-          if (pct %% 10 == 0) {
-            cat(pct)
-          } else {
-            cat(".")
-          }
+          setTxtProgressBar(pb, pct/100)
           ppct <- pct
         }
       }
@@ -399,11 +394,7 @@ setMethod("qpNrr", signature(X="matrix"),
           break;
         pct <- floor((k * 100) / n.adj)
         if (pct != ppct && verbose && elapsedTime == 0) {
-          if (pct %% 10 == 0) {
-            cat(pct)
-          } else {
-            cat(".")
-          }
+          setTxtProgressBar(pb, pct/100)
           ppct <- pct
         }
       }
@@ -413,7 +404,7 @@ setMethod("qpNrr", signature(X="matrix"),
   }
 
   if (verbose && elapsedTime == 0) {
-    cat("\n")
+    close(pb)
   }
 
   if (elapsedTime > 0) {
@@ -472,6 +463,9 @@ setMethod("qpNrr", signature(X="matrix"),
 
   ppct <- -1
   k <- 0
+  pb <- NULL
+  if (verbose && elapsedTime == 0)
+    pb <- txtProgressBar(style=3)
 
   ## intersection variables against ij-exclusive variables
   for (i in pairup.ij.int) {
@@ -483,11 +477,7 @@ setMethod("qpNrr", signature(X="matrix"),
         break;
       pct <- floor((k * 100) / n.adj)
       if (pct != ppct && verbose && elapsedTime == 0) {
-        if (pct %% 10 == 0) {
-          cat(pct)
-        } else {
-          cat(".")
-        }
+        setTxtProgressBar(pb, pct/100)
         ppct <- pct
       }
     }
@@ -506,11 +496,7 @@ setMethod("qpNrr", signature(X="matrix"),
           break;
         pct <- floor((k * 100) / n.adj)
         if (pct != ppct && verbose && elapsedTime == 0) {
-          if (pct %% 10 == 0) {
-            cat(pct)
-          } else {
-            cat(".")
-          }
+          setTxtProgressBar(pb, pct/100)
           ppct <- pct
         }
       }
@@ -535,11 +521,7 @@ setMethod("qpNrr", signature(X="matrix"),
           break;
         pct <- floor((k * 100) / n.adj)
         if (pct != ppct && verbose && elapsedTime == 0) {
-          if (pct %% 10 == 0) {
-            cat(pct)
-          } else {
-            cat(".")
-          }
+          setTxtProgressBar(pb, pct/100)
           ppct <- pct
         }
       }
@@ -549,7 +531,7 @@ setMethod("qpNrr", signature(X="matrix"),
   }
 
   if (verbose && elapsedTime == 0) {
-    cat("\n")
+    close(pb) 
   }
 
   if (elapsedTime > 0) {
@@ -1095,7 +1077,7 @@ setMethod("qpGenNrr", signature(X="matrix"),
   for (idx in unique(datasetIdx)) {
 
     if (verbose && startTime["elapsed"] == 0)
-      cat(sprintf("Dataset %s\n", as.character(idx)))
+      cat(sprintf("Data set %s\n", as.character(idx)))
 
     thisNrr <- qpgraph:::.qpNrr(X[datasetIdx == idx, ], qOrders[idx], nTests,
                                 alpha, pairup.i, pairup.j, verbose, identicalQs,
@@ -1199,7 +1181,7 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
               if (!is.null(N))
                 stop("if X is not a sample covariance matrix then N should not be set\n")
 
-              S <- cov(X)
+              S <- qpCov(X)
               N <- nrow(X)
               if (is.null(colnames(X))) 
                 rownames(S) <- colnames(S) <- 1:nrow(S)
@@ -1374,7 +1356,9 @@ setMethod("qpCItest", signature(X="matrix"),
 
 .qpCItest <- function(S, N, i=1, j=2, Q=c(), R.code.only=FALSE) {
 
-  stopifnot(class(S) == "dspMatrix")
+  p <- (d <- dim(S))[1]
+  if (p != d[2] || !isSymmetric(S))
+    stop("S is not squared and symmetric. Is it really a covariance matrix?n")
 
   if (is.character(i)) {
     if (is.na(match(i, colnames(S))))
@@ -3649,6 +3633,7 @@ clPrCall <- function(cl, fun, n.adj, ...) {
   i <- rep(0, length(cl))
   k <- 0
   ppct <- -1
+  pb <- txtProgressBar(style=3)
 
   r <- vector(mode="list", length=length(cl))
   foundError <- FALSE
@@ -3667,11 +3652,7 @@ clPrCall <- function(cl, fun, n.adj, ...) {
         i[r1$node] <- r1$value
         pct <- floor((k * 100) / n.adj)
         if (pct != ppct) {
-          if (pct %% 10 == 0) {
-            cat(pct)
-          } else {
-            cat(".")
-          }
+          setTxtProgressBar(pb, pct/100)
           ppct <- pct
         }
       }
@@ -3682,7 +3663,7 @@ clPrCall <- function(cl, fun, n.adj, ...) {
     }
   }
 
-  cat("\n")
+  close(pb)
 
   r
 }
@@ -3744,9 +3725,8 @@ clPrCall <- function(cl, fun, n.adj, ...) {
 }
 
 .qpFastEdgeNrr <- function(S, N, i, j, q, nTests, alpha) {
-  return(.Call("qp_fast_edge_nrr",S,as.integer(N),as.integer(i),as.integer(j),
-                                  as.integer(q),as.integer(nTests),
-                                  as.double(alpha)))
+  return(.Call("qp_fast_edge_nrr",S@x,nrow(S),as.integer(N),as.integer(i),as.integer(j),
+                                  as.integer(q),as.integer(nTests), as.double(alpha)))
 }
 
 .qpFastCItest <- function(S, N, i, j, C=c()) {

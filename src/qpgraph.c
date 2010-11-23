@@ -83,7 +83,7 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pa
                             SEXP startTimeR, SEXP nAdj2estimateTimeR, SEXP myRankR, SEXP clSzeR,
                             SEXP masterNode, SEXP env);
 static SEXP
-qp_fast_edge_nrr(SEXP S, SEXP NR, SEXP iR, SEXP jR, SEXP qR, SEXP TR, SEXP sigR);
+qp_fast_edge_nrr(SEXP S, SEXP n_varR, SEXP NR, SEXP iR, SEXP jR, SEXP qR, SEXP TR, SEXP sigR);
 
 static double
 qp_edge_nrr(double* S, int n_var, int N, int i, int j, int q, int nTests, double alpha);
@@ -202,7 +202,7 @@ callMethods[] = {
   {"qp_fast_nrr_identicalQs", (DL_FUNC) &qp_fast_nrr_identicalQs, 11},
   {"qp_fast_nrr_par", (DL_FUNC) &qp_fast_nrr_par, 14},
   {"qp_fast_nrr_identicalQs_par", (DL_FUNC) &qp_fast_nrr_identicalQs_par, 14},
-  {"qp_fast_edge_nrr", (DL_FUNC) &qp_fast_edge_nrr, 7},
+  {"qp_fast_edge_nrr", (DL_FUNC) &qp_fast_edge_nrr, 8},
   {"qp_fast_ci_test", (DL_FUNC) &qp_fast_ci_test,6},
   {"qp_fast_ci_test2", (DL_FUNC) &qp_fast_ci_test2,6},
   {"qp_fast_cliquer_get_cliques", (DL_FUNC) &qp_fast_cliquer_get_cliques, 3},
@@ -259,6 +259,7 @@ qp_fast_nrr(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
   int     verbose;
   double  startTime, elapsedTime;
   int     nAdjEtime;
+  SEXP    pb;
 
   PROTECT_INDEX Spi;
 
@@ -314,6 +315,16 @@ qp_fast_nrr(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
 
   ppct = -1;
   k = 0;
+  if (verbose && startTime == 0) {
+    SEXP s, t;
+    PROTECT(t = s = allocList(2));
+    SET_TYPEOF(s, LANGSXP);
+    SETCAR(t, install("txtProgressBar")); t=CDR(t);
+    SETCAR(t, ScalarInteger(3));
+    SET_TAG(t, install("style"));
+    PROTECT(pb = eval(s, R_GlobalEnv));
+    UNPROTECT(1); /* t s */
+  }
 
   /* intersection variables against ij-exclusive variables */
   for (i=0; i < l_int; i++) {
@@ -329,11 +340,16 @@ qp_fast_nrr(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
       pct = (int) ((k * 100) / n_adj);
       if (pct != ppct) {
         if (verbose && startTime == 0) {
-          if (pct % 10 == 0)
-            Rprintf("%d",pct);
-          else
-            Rprintf(".",pct);
-          R_FlushConsole();
+          SEXP s, t;
+          PROTECT(t = s = allocList(3));
+          SET_TYPEOF(s, LANGSXP);
+          SETCAR(t, install("setTxtProgressBar")); t=CDR(t);
+          SETCAR(t, pb);
+          SET_TAG(t, install("pb")); t=CDR(t);
+          SETCAR(t, ScalarReal(((double) pct) / 100.0));
+          SET_TAG(t, install("value"));
+          eval(s, R_GlobalEnv);
+          UNPROTECT(1); /* t s */
         }
         R_CheckUserInterrupt();
 #ifdef Win32
@@ -367,11 +383,16 @@ qp_fast_nrr(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
         pct = (int) ((k * 100) / n_adj);
         if (pct != ppct) {
           if (verbose && startTime == 0) {
-            if (pct % 10 == 0)
-              Rprintf("%d",pct);
-            else
-              Rprintf(".",pct);
-            R_FlushConsole();
+            SEXP s, t;
+            PROTECT(t = s = allocList(3));
+            SET_TYPEOF(s, LANGSXP);
+            SETCAR(t, install("setTxtProgressBar")); t=CDR(t);
+            SETCAR(t, pb);
+            SET_TAG(t, install("pb")); t=CDR(t);
+            SETCAR(t, ScalarReal(((double) pct) / 100.0));
+            SET_TAG(t, install("value"));
+            eval(s, R_GlobalEnv);
+            UNPROTECT(1); /* t s */
           }
           R_CheckUserInterrupt();
 #ifdef Win32
@@ -403,11 +424,16 @@ qp_fast_nrr(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
         pct = (int) ((k * 100) / n_adj);
         if (pct != ppct) {
           if (verbose && startTime == 0) {
-            if (pct % 10 == 0)
-              Rprintf("%d",pct);
-            else
-              Rprintf(".",pct);
-            R_FlushConsole();
+            SEXP s, t;
+            PROTECT(t = s = allocList(3));
+            SET_TYPEOF(s, LANGSXP);
+            SETCAR(t, install("setTxtProgressBar")); t=CDR(t);
+            SETCAR(t, pb);
+            SET_TAG(t, install("pb")); t=CDR(t);
+            SETCAR(t, ScalarReal(((double) pct) / 100.0));
+            SET_TAG(t, install("value"));
+            eval(s, R_GlobalEnv);
+            UNPROTECT(1); /* t s */
           }
           R_CheckUserInterrupt();
 #ifdef Win32
@@ -424,8 +450,15 @@ qp_fast_nrr(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
     }
   }
 
-  if (verbose && startTime == 0)
-    Rprintf("\n");
+  if (verbose && startTime == 0) {
+    SEXP s, t;
+    PROTECT(t = s = allocList(2));
+    SET_TYPEOF(s, LANGSXP);
+    SETCAR(t, install("close")); t=CDR(t);
+    SETCAR(t, pb);
+    eval(s, R_GlobalEnv);
+    UNPROTECT(2); /* t s pb */
+  }
 
   UNPROTECT(2);   /* SR nrrR */
 
@@ -503,6 +536,7 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup
   int     verbose;
   double  startTime, elapsedTime;
   int     nAdjEtime;
+  SEXP    pb;
 
   PROTECT_INDEX Spi;
 
@@ -589,6 +623,16 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup
 
   ppct = -1;
   k = 0;
+  if (verbose && startTime == 0) {
+    SEXP s, t;
+    PROTECT(t = s = allocList(2));
+    SET_TYPEOF(s, LANGSXP);
+    SETCAR(t, install("txtProgressBar")); t=CDR(t);
+    SETCAR(t, ScalarInteger(3));
+    SET_TAG(t, install("style"));
+    PROTECT(pb = eval(s, R_GlobalEnv));
+    UNPROTECT(1); /* t s */
+  }
 
   /* intersection variables against ij-exclusive variables */
   for (i=0; i < l_int; i++) {
@@ -605,11 +649,16 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup
       pct = (int) ((k * 100) / n_adj);
       if (pct != ppct) {
         if (verbose && startTime == 0) {
-          if (pct % 10 == 0)
-            Rprintf("%d",pct);
-          else
-            Rprintf(".",pct);
-          R_FlushConsole();
+          SEXP s, t;
+          PROTECT(t = s = allocList(3));
+          SET_TYPEOF(s, LANGSXP);
+          SETCAR(t, install("setTxtProgressBar")); t=CDR(t);
+          SETCAR(t, pb);
+          SET_TAG(t, install("pb")); t=CDR(t);
+          SETCAR(t, ScalarReal(((double) pct) / 100.0));
+          SET_TAG(t, install("value"));
+          eval(s, R_GlobalEnv);
+          UNPROTECT(1); /* t s */
         }
         R_CheckUserInterrupt();
 #ifdef Win32
@@ -644,11 +693,16 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup
         pct = (int) ((k * 100) / n_adj);
         if (pct != ppct) {
           if (verbose && startTime == 0) {
-            if (pct % 10 == 0)
-              Rprintf("%d",pct);
-            else
-              Rprintf(".",pct);
-            R_FlushConsole();
+            SEXP s, t;
+            PROTECT(t = s = allocList(3));
+            SET_TYPEOF(s, LANGSXP);
+            SETCAR(t, install("setTxtProgressBar")); t=CDR(t);
+            SETCAR(t, pb);
+            SET_TAG(t, install("pb")); t=CDR(t);
+            SETCAR(t, ScalarReal(((double) pct) / 100.0));
+            SET_TAG(t, install("value"));
+            eval(s, R_GlobalEnv);
+            UNPROTECT(1); /* t s */
           }
           R_CheckUserInterrupt();
 #ifdef Win32
@@ -681,11 +735,16 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup
         pct = (int) ((k * 100) / n_adj);
         if (pct != ppct) {
           if (verbose && startTime == 0) {
-            if (pct % 10 == 0)
-              Rprintf("%d",pct);
-            else
-              Rprintf(".",pct);
-            R_FlushConsole();
+            SEXP s, t;
+            PROTECT(t = s = allocList(3));
+            SET_TYPEOF(s, LANGSXP);
+            SETCAR(t, install("setTxtProgressBar")); t=CDR(t);
+            SETCAR(t, pb);
+            SET_TAG(t, install("pb")); t=CDR(t);
+            SETCAR(t, ScalarReal(((double) pct) / 100.0));
+            SET_TAG(t, install("value"));
+            eval(s, R_GlobalEnv);
+            UNPROTECT(1); /* t s */
           }
           R_CheckUserInterrupt();
 #ifdef Win32
@@ -704,8 +763,15 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup
 
   Free(Qinv);
 
-  if (verbose && startTime == 0)
-    Rprintf("\n");
+  if (verbose && startTime == 0) {
+    SEXP s, t;
+    PROTECT(t = s = allocList(2));
+    SET_TYPEOF(s, LANGSXP);
+    SETCAR(t, install("close")); t=CDR(t);
+    SETCAR(t, pb);
+    eval(s, R_GlobalEnv);
+    UNPROTECT(2); /* t s pb */
+  }
 
   UNPROTECT(2);   /* SR nrrR */
 
@@ -1754,13 +1820,13 @@ qp_edge_nrr_identicalQs(double* S, int n_var, int* Qs, double* Qinvs, int N, int
 */
 
 static SEXP
-qp_fast_edge_nrr(SEXP S, SEXP NR, SEXP iR, SEXP jR, SEXP qR,
+qp_fast_edge_nrr(SEXP S, SEXP n_varR, SEXP NR, SEXP iR, SEXP jR, SEXP qR,
                  SEXP nTestsR, SEXP alphaR) {
   int    i,j;
+  int    n_var = INTEGER(n_varR)[0];
   int    N;
   int    q;
   int    nTests;
-  int    n_var;
   double alpha;
   SEXP   nrr;
 
@@ -1779,9 +1845,6 @@ qp_fast_edge_nrr(SEXP S, SEXP NR, SEXP iR, SEXP jR, SEXP qR,
   nTests = INTEGER(nTestsR)[0];
 
   alpha = REAL(alphaR)[0];
-
-  /* number of variables equals number of rows */
-  n_var = INTEGER(getAttrib(S,R_DimSymbol))[0];
 
   if (i < 0 || i > n_var-1 || j < 0 || j > n_var-1)
     error("vertices of the selected edge (i,j) should lie in the range [1,n.var=%d]", n_var);
