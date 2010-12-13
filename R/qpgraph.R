@@ -1303,7 +1303,7 @@ setGeneric("qpCItest", function(X, ...) standardGeneric("qpCItest"))
 
 # X comes as an ExpressionSet object
 setMethod("qpCItest", signature(X="ExpressionSet"),
-          function(X, i=1, j=2, Q=c(), R.code.only=FALSE) {
+          function(X, i=1, j=2, Q=c(), I=NULL, R.code.only=FALSE) {
             X <- t(Biobase::exprs(X))
             S <- qpCov(X)
             N <- length(sampleNames(data))
@@ -1312,8 +1312,8 @@ setMethod("qpCItest", signature(X="ExpressionSet"),
 
 # X comes as a data frame
 setMethod("qpCItest", signature(X="data.frame"),
-          function(X, i=1, j=2, Q=c(), long.dim.are.variables=TRUE,
-                   R.code.only=FALSE) {
+          function(X, i=1, j=2, Q=c(), I=NULL,
+                   long.dim.are.variables=TRUE, R.code.only=FALSE) {
             X <- as.matrix(X)
             if (!is.double(X))
               stop("X should be double-precision real numbers\n")
@@ -1321,40 +1321,85 @@ setMethod("qpCItest", signature(X="data.frame"),
             if (long.dim.are.variables &&
                 sort(dim(X),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
               X <- t(X)
-            S <- qpCov(X)
-            N <- nrow(X)
+
             if (is.null(colnames(X)))
-              rownames(S) <- colnames(S) <- 1:nrow(S)
-            qpgraph:::.qpCItest(S, N, i, j, Q, R.code.only)
+              colnames(X) <- 1:ncol(X)
+
+            if (is.null(I)) {
+              S <- qpCov(X)
+              N <- nrow(X)
+
+              qpgraph:::.qpCItest(S, N, i, j, Q, R.code.only)
+            } else {
+              if (!is.character(I) && !is.numeric(I) && !is.integer(I))
+                stop("I should be either variables names or indices\n")
+
+              Y <- colnames(X)
+              if (is.character(I))
+                Y <- setdiff(colnames(X), I)
+              else
+                Y <- (1:ncol(X))[-I]
+
+              ssd <- qpCov(X[, Y, drop=FALSE], corrected=FALSE)
+
+              qpgraph:::.qpCItestHMGM(X, I, Y, ssd, i, j, Q, R.code.only)
+            }
           })
 
           
 # X comes as a matrix
 setMethod("qpCItest", signature(X="matrix"),
-          function(X, N=NULL, i=1, j=2, Q=c(),
+          function(X, N=NULL, i=1, j=2, Q=c(), I=NULL,
                    long.dim.are.variables=TRUE, R.code.only=FALSE) {
+            if (!is.double(X))
+              stop("X should be double-precision real numbers\n")
+
             if (long.dim.are.variables &&
                 sort(dim(X),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
               X <- t(X)
+
+            if (is.null(colnames(X)))
+              colnames(X) <- 1:ncol(X)
 
             # if the matrix is squared let's assume then that it is the sample
             # covariance matrix and that the sample size is the next parameter
             if (nrow(X) != ncol(X)) {
               if (!is.null(N))
-                stop("if X is not a sample covariance matrix then N should not be set\n")
+                stop("If X is not a sample covariance matrix then N should not be set\n")
 
-              S <- qpCov(X)
-              N <- nrow(X)
-              if (is.null(colnames(X))) 
-                rownames(S) <- colnames(S) <- 1:nrow(S)
-              qpgraph:::.qpCItest(S, N, i, j, Q, R.code.only)
+              if (is.null(I)) {
+                S <- qpCov(X)
+                N <- nrow(X)
+
+                qpgraph:::.qpCItest(S, N, i, j, Q, R.code.only)
+              } else {
+                if (!is.character(I) && !is.numeric(I) && !is.integer(I))
+                  stop("I should be either variables names or indices\n")
+
+                Y <- colnames(X)
+                if (is.character(I))
+                  Y <- setdiff(colnames(X), I)
+                else
+                  Y <- (1:ncol(X))[-I]
+
+                ssd <- qpCov(X[, Y, drop=FALSE], corrected=FALSE)
+
+                qpgraph:::.qpCItestHMGM(X, I, Y, ssd, i, j, Q, R.code.only)
+              }
+
             } else {
+              if (!is.null(I))
+                stop("If X is a sample covariance matrix then I should not be set\n")
+
+              if (is.null(rownames(X)) || is.null(colnames(X)))
+                rownames(X) <- colnames(X) <- 1:ncol(X)
+
               S <- X
               qpgraph:::.qpCItest(S, N, i, j, Q, R.code.only)
             }
           })
 
-.qpCItest <- function(S, N, i=1, j=2, Q=c(), R.code.only=FALSE) {
+.qpCItest <- function(S, n, i=1, j=2, Q=c(), R.code.only=FALSE) {
 
   p <- (d <- dim(S))[1]
   if (p != d[2] || !isSymmetric(S))
@@ -1373,15 +1418,15 @@ setMethod("qpCItest", signature(X="matrix"),
   }
 
   if (is.character(Q)) {
-    if (sum(is.na(match(Q, colnames(S)))) > 0)
+    if (any(is.na(match(Q, colnames(S)))))
       stop(sprintf("%s in Q does not form part of the variable names of the data\n",
            Q[is.na(match(Q, colnames(S)))]))
     Q <- match(Q, colnames(S))
   }
 
   if (!R.code.only) {
-    # return(qpgraph:::.qpFastCItest(S, N, i, j, Q)); ### this should be definitively replaced at some point
-    return(qpgraph:::.qpFastCItest2(S, N, i, j, Q));
+    # return(qpgraph:::.qpFastCItest(S, n, i, j, Q)); ### this should be definitively replaced at some point
+    return(qpgraph:::.qpFastCItest2(S, n, i, j, Q));
   }
 
   q       <- length(Q)
@@ -1392,12 +1437,135 @@ setMethod("qpCItest", signature(X="matrix"),
   S22     <- Mmar[-1,-1]
   S22inv  <- solve(S22)
   betahat <- as.numeric(S12 %*% S22inv[,1])
-  sigma   <- sqrt((S11 - S12 %*% S22inv %*% S21) * (N - 1) / (N - q - 2))
-  se      <- as.numeric(sigma * sqrt(S22inv[1,1] / (N - 1)))
+  sigma   <- sqrt((S11 - S12 %*% S22inv %*% S21) * (n - 1) / (n - q - 2))
+  se      <- as.numeric(sigma * sqrt(S22inv[1,1] / (n - 1)))
   t.value <- betahat / se
-  p.value <- 2 * (1 - pt(abs(t.value), N - q - 2))
+  p.value <- 2 * (1 - pt(abs(t.value), n - q - 2))
 
   return(list(t.value=t.value, p.value=p.value))
+}
+
+.ssdStats <- function(X, I, Y) {
+
+  n <- dim(X)[1]
+
+  if (length(I) == 0)
+    return((n-1) * cov(X[, Y, drop=FALSE]))
+
+  xtab <- tapply(1:n, as.data.frame(X[, I, drop=FALSE]))
+  xtab <- split(as.data.frame(X[, Y, drop=FALSE]), xtab)
+  xtab <- xtab[which(sapply(lapply(xtab, dim), "[", 1) > 0)]
+  ni <- sapply(lapply(xtab, dim), "[", 1)
+  ssd <- Reduce("+",
+                lapply(as.list(1:length(xtab)),
+                       function(i, x, ni, n) (ni[i]-1)*cov(x[[i]]), xtab, ni, n))
+  ssd
+}
+
+.qpCItestHMGM <- function(X, I, Y, ssdMat, i, j, Q, R.code.only=FALSE ) {
+  if (all(!is.na(match(c(i,j), I))))
+    stop("i and j cannot be both discrete at the moment")
+
+  p <- (d <- dim(ssdMat))[1]
+  if (p != d[2] || !isSymmetric(ssdMat))
+    stop("ssdMat is not squared and symmetric. Is it really a ssd matrix?\n")
+
+  if (p != length(Y))
+    stop("ssdMat is not the ssd matrix of the variables in Y\n")
+
+  if (is.null(rownames(ssdMat)) || is.null(colnames(ssdMat)) ||
+      any(is.na(match(colnames(ssdMat), colnames(X)))))
+    stop("ssdMat should have row and column names that match variables in X\n")
+
+  if (is.character(i)) {
+    if (is.na(match(i, colnames(X))))
+      stop(sprintf("i=%s does not form part of the variable names in X\n",i))
+    i <- match(i,colnames(X))
+  }
+
+  if (is.character(j)) {
+    if (is.na(match(j, colnames(X))))
+      stop(sprintf("j=%s does not form part of the variable names in X\n",j))
+    j <- match(j,colnames(X))
+  }
+
+  if (is.character(Q)) {
+    if (any(is.na(match(Q, colnames(X)))))
+      stop(sprintf("%s in Q does not form part of the variable names of the data\n",
+           Q[is.na(match(Q, colnames(X)))]))
+    Q <- match(Q, colnames(X))
+  }
+
+  if (is.character(I)) {
+    if (any(is.na(match(I, colnames(X)))))
+      stop(sprintf("Some variables in I do not form part of the variable names in X\n",i))
+    I <- match(I, colnames(X))
+  }
+
+  if (is.character(Y)) {
+    if (any(is.na(match(Y, colnames(X)))))
+      stop(sprintf("Some variables in Y do not form part of the variable names in X\n",i))
+    Y <- match(Y, colnames(X))
+  }
+
+  if (all(!is.na(match(c(i,j), I))))
+    error("i and j cannot be both discrete at the moment")
+
+  if (!is.na(match(j, I))) { ## if any of (i,j) is discrete, it should be i
+    tmp <- i
+    i <- j
+    j <- tmp
+  }
+
+  mapX2ssdMat <- match(colnames(X), colnames(ssdMat))
+
+  if (!R.code.only) {
+    return(qpgraph:::.qpFastCItestHMGM(X, I, Y, ssdMat, i, j, Q, mapX2ssdMat))
+  }
+
+  names(mapX2ssdMat) <- colnames(X)
+
+  I <- intersect(I, c(i,Q))
+  Y <- intersect(Y, c(i,j,Q))
+
+  ssd <- ssd_i <- ssd_j <- ssd_ij <- diag(2) 
+  n <- nrow(X)
+
+  if (length(I) == 0) { ## dspMatrix -> matrix because det() still doesn't work with Matrix classes
+    ssd <- as.matrix(ssdMat[mapX2ssdMat[Y], mapX2ssdMat[Y], drop=FALSE])
+    ## ssd_i = ssd_Gamma when i is discrete or ssd_{Gamma\i} when i is continuous
+    ssd_i <- as.matrix(ssdMat[mapX2ssdMat[setdiff(Y, i)], mapX2ssdMat[setdiff(Y, i)], drop=FALSE])
+    if (length(setdiff(Y, j)) > 0) {
+      ssd_j <- as.matrix(ssdMat[mapX2ssdMat[setdiff(Y, j)], mapX2ssdMat[setdiff(Y, j)], drop=FALSE])
+      if (length(setdiff(Y, c(i, j))) > 0)
+        ssd_ij <- as.matrix(ssdMat[mapX2ssdMat[setdiff(Y, c(i, j))],
+                                   mapX2ssdMat[setdiff(Y, c(i, j))], drop=FALSE])
+    }
+  } else {
+    ssd <- qpgraph:::.ssdStats(X, I, Y)
+    if (length(setdiff(I, i)) == 0) ## dspMatrix -> matrix because det() still doesn't work with Matrix classes
+      ssd_i <- (n-1) * as.matrix(ssdMat[mapX2ssdMat[setdiff(Y, i)], mapX2ssdMat[setdiff(Y, i)], drop=FALSE])
+    else ## ssd_i = ssd_Gamma when i is discrete or ssd_{Gamma\i} when i is continuous
+      ssd_i <- qpgraph:::.ssdStats(X, setdiff(I, i), setdiff(Y, i))
+
+    if (length(setdiff(Y, j)) > 0) {
+      ssd_j <- qpgraph:::.ssdStats(X, I, setdiff(Y, j))
+      if (length(setdiff(Y, c(i,j))) > 0) {
+        if (length(setdiff(I, i)) == 0) ## dspMatrix -> matrix because det() still doesn't work with Matrix classes
+          ssd_ij <- as.matrix(ssdMat[mapX2ssdMat[setdiff(Y, c(i, j))],
+                                     mapX2ssdMat[setdiff(Y, c(i, j))], drop=FALSE])
+        else
+          ssd_ij <- qpgraph:::.ssdStats(X, setdiff(I, i), setdiff(Y, c(i, j)))
+      }
+    }
+  }
+
+  lr <- -n * log((det(ssd) * det(ssd_ij)) / 
+                 (det(ssd_j) * det(ssd_i)))
+
+  p.value <- 1 - pchisq(lr, df=1, lower.tail=TRUE)
+
+  list(lr=lr, p.value=p.value)
 }
 
 
@@ -3729,13 +3897,20 @@ clPrCall <- function(cl, fun, n.adj, ...) {
                                   as.integer(q),as.integer(nTests), as.double(alpha)))
 }
 
-.qpFastCItest <- function(S, N, i, j, C=c()) {
-  return(.Call("qp_fast_ci_test",S@x,nrow(S),as.integer(N),as.integer(i),as.integer(j),C))
+.qpFastCItest <- function(S, N, i, j, Q=c()) {
+  return(.Call("qp_fast_ci_test", S@x, nrow(S), as.integer(N), as.integer(i), as.integer(j),
+               as.integer(Q)))
 }
-.qpFastCItest2 <- function(S, N, i, j, C=c()) {
-  return(.Call("qp_fast_ci_test2",S@x,nrow(S),as.integer(N),as.integer(i),as.integer(j),C))
+.qpFastCItest2 <- function(S, N, i, j, Q=c()) {
+  return(.Call("qp_fast_ci_test2", S@x, nrow(S), as.integer(N), as.integer(i), as.integer(j),
+               as.integer(Q)))
 }
 
+.qpFastCItestHMGM <- function(X, I, Y, ssd, i, j, Q, mapX2ssd) {
+  nLevels <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
+  return(.Call("qp_fast_ci_test_hmgm", X, I, nLevels, Y, ssd@x, as.integer(i), as.integer(j),
+               as.integer(Q), as.integer(mapX2ssd)))
+}
 
 .qpFastCliquerGetCliques <- function(A, clqspervtx, verbose) {
   return(.Call("qp_fast_cliquer_get_cliques", A, clqspervtx, verbose))
@@ -3761,10 +3936,10 @@ clPrCall <- function(cl, fun, n.adj, ...) {
  return(.Call("qp_clique_number_os", A, return.vertices, verbose))
 }
 
-qpCov <- function(X) {
+qpCov <- function(X, corrected=TRUE) {
   return(new("dspMatrix", Dim=c(ncol(X), ncol(X)),
              Dimnames=list(colnames(X), colnames(X)),
-             x = .Call("qp_cov_upper_triangular",X)))
+             x = .Call("qp_cov_upper_triangular",X,corrected)))
 }
 
 

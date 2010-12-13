@@ -105,6 +105,14 @@ static double
 qp_ci_test2(double* S, int n_var, int N, int i, int j, int* C, int q, double*);
 
 
+static SEXP
+qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
+                     SEXP iR, SEXP jR, SEXP QR, SEXP mapX2ssdR);
+static double
+qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
+                int n_Y, double* ucond_ssd, int i, int j, int* Q, int q, int* mapX2ssd,
+                int n_mapX2ssd);
+
 boolean
 cliquer_cb_add_clique_to_list(set_t clique, graph_t* g, clique_options* opts);
 
@@ -159,6 +167,9 @@ matprod(double *x, int nrx, int ncx, double *y, int nry, int ncy, double *z);
 static void
 matinv(double* inv, double* M, int n);
 
+static double
+symmatlogdet(double* M, int n, int* sign);
+
 static void
 matsumf(double* R, int nrow, int ncol, double* M, double* N, double factor);
 
@@ -171,6 +182,9 @@ mattran(double* T, double* M, int nrow, int ncol);
 static void
 matsubm(double* subM, double* M, int n, int* subrows,
         int nsubrows, int* subcols, int nsubcols);
+
+static void
+symmatsubm(double* subM, double* M, int n, int* subrows, int nsubrows);
 
 static double
 matmxab(double* M, int nrow, int ncol);
@@ -189,10 +203,22 @@ int
 e2i(int e_i, int e_j, int* i);
 
 void
-calculate_means(double* X, int n_var, int N, double* meanv);
+calculate_means(double* X, int p, int n, int* Y, int n_Y, int* idx_obs,
+                int n_idx_obs, double* meanv);
+
+void
+ssd(double* X, int p, int n, int* Y, int n_Y, int* idx_obs, int n_idx_obs,
+    int corrected, double* ssd_mat);
 
 static SEXP
-qp_cov_upper_triangular(SEXP XR);
+qp_cov_upper_triangular(SEXP XR, SEXP corrected);
+
+void
+calculate_xtab(double* X, int p, int n, int* I, int n_I, int* n_levels, int* xtab);
+
+void
+ssd_A(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
+      double* ssd_A);
 
 /* R-function register */
 
@@ -205,13 +231,14 @@ callMethods[] = {
   {"qp_fast_edge_nrr", (DL_FUNC) &qp_fast_edge_nrr, 8},
   {"qp_fast_ci_test", (DL_FUNC) &qp_fast_ci_test,6},
   {"qp_fast_ci_test2", (DL_FUNC) &qp_fast_ci_test2,6},
+  {"qp_fast_ci_test_hmgm", (DL_FUNC) &qp_fast_ci_test_hmgm,9},
   {"qp_fast_cliquer_get_cliques", (DL_FUNC) &qp_fast_cliquer_get_cliques, 3},
   {"qp_fast_update_cliques_removing", (DL_FUNC) &qp_fast_update_cliques_removing, 5},
   {"qp_clique_number_lb", (DL_FUNC) &qp_clique_number_lb, 4},
   {"qp_clique_number_os", (DL_FUNC) &qp_clique_number_os, 3},
   {"qp_fast_pac_se", (DL_FUNC) &qp_fast_pac_se, 2},
   {"qp_fast_ipf", (DL_FUNC) &qp_fast_ipf, 4},
-  {"qp_cov_upper_triangular", (DL_FUNC) &qp_cov_upper_triangular, 1},
+  {"qp_cov_upper_triangular", (DL_FUNC) &qp_cov_upper_triangular, 2},
   {NULL}
 };
 
@@ -259,7 +286,7 @@ qp_fast_nrr(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
   int     verbose;
   double  startTime, elapsedTime;
   int     nAdjEtime;
-  SEXP    pb;
+  SEXP    pb=NULL;
 
   PROTECT_INDEX Spi;
 
@@ -281,7 +308,7 @@ qp_fast_nrr(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
   if (q > N-3)
     error("q=%d > N-3=%d", q, N-3);
 
-  SR = qp_cov_upper_triangular(XR);
+  SR = qp_cov_upper_triangular(XR, ScalarInteger(TRUE));
   PROTECT_WITH_INDEX(SR, &Spi);
   S = REAL(SR);
 
@@ -536,7 +563,7 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup
   int     verbose;
   double  startTime, elapsedTime;
   int     nAdjEtime;
-  SEXP    pb;
+  SEXP    pb=NULL;
 
   PROTECT_INDEX Spi;
 
@@ -558,7 +585,7 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup
   if (q > N-3)
     error("q=%d > N-3=%d", q, N-3);
 
-  SR = qp_cov_upper_triangular(XR);
+  SR = qp_cov_upper_triangular(XR, ScalarInteger(TRUE));
   PROTECT_WITH_INDEX(SR, &Spi);
   S = REAL(SR);
 
@@ -895,7 +922,7 @@ qp_fast_nrr_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_noint
   if (q > N-3)
     error("q=%d > N-3=%d", q, N-3);
 
-  SR = qp_cov_upper_triangular(XR);
+  SR = qp_cov_upper_triangular(XR, ScalarInteger(TRUE));
   PROTECT_WITH_INDEX(SR, &Spi);
   S = REAL(SR);
 
@@ -1176,7 +1203,7 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pa
   if (q > N-3)
     error("q=%d > N-3=%d", q, N-3);
 
-  SR = qp_cov_upper_triangular(XR);
+  SR = qp_cov_upper_triangular(XR, ScalarInteger(TRUE));
   PROTECT_WITH_INDEX(SR, &Spi);
   S = REAL(SR);
 
@@ -1727,6 +1754,390 @@ qp_ci_test2(double* S, int n_var, int N, int i, int j, int* Q, int q, double* Qi
     Free(Qinv);
 
   return t_value;
+}
+
+
+
+/*
+  FUNCTION: qp_fast_ci_test_hmgm
+  PURPOSE: wrapper of the R-C interface for calling the function that performs
+           a test for conditional independence between variables i and j
+           given de conditioning set Q where variables indicated by i and Q can
+           be discrete
+  RETURNS: a list with two members, the likelihood ratio statistic value and the
+           p-value on rejecting the null hypothesis of independence
+*/
+
+static SEXP
+qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
+                     SEXP iR, SEXP jR, SEXP QR, SEXP mapX2ssdR) {
+  int     n = INTEGER(getAttrib(XR, R_DimSymbol))[0];
+  int     p = INTEGER(getAttrib(XR, R_DimSymbol))[1];
+  int     n_I = length(IR);
+  int     n_Y = length(YR);
+  int     q = length(QR);
+  int     n_mapX2ssd = length(mapX2ssdR);
+  int     i,j,k;
+  int*    I;
+  int*    Y;
+  int*    Q;
+  int*    mapX2ssd;
+  double  p_value;
+  double  lr_value;
+  SEXP    result;
+  SEXP    result_names;
+  SEXP    result_lr_val;
+  SEXP    result_p_val;
+
+  PROTECT_INDEX ssd_pi;
+
+  PROTECT_WITH_INDEX(ssdR,&ssd_pi);
+
+  REPROTECT(ssdR = coerceVector(ssdR,REALSXP), ssd_pi);
+
+  i = INTEGER(iR)[0] - 1;
+  j = INTEGER(jR)[0] - 1;
+
+  I = Calloc(n_I, int);
+  for (k=0; k < n_I; k++)
+    I[k] = INTEGER(IR)[k]-1;
+
+  Y = Calloc(n_Y, int);
+  for (k=0; k < n_Y; k++)
+    Y[k] = INTEGER(YR)[k]-1;
+
+  Q = Calloc(q, int);
+  for (k=0; k < q; k++)
+    Q[k] = INTEGER(QR)[k]-1;
+
+  mapX2ssd = Calloc(n_mapX2ssd, int);
+  for (k=0; k < n_mapX2ssd; k++)
+    mapX2ssd[k] = INTEGER(mapX2ssdR)[k]-1;
+
+  lr_value = qp_ci_test_hmgm(REAL(XR), p, n, I, n_I, INTEGER(n_levelsR), Y, n_Y,
+                             REAL(ssdR), i, j, Q, q, mapX2ssd, n_mapX2ssd);
+  p_value = 1.0 - pchisq(lr_value, 1, TRUE, FALSE);
+
+  PROTECT(result = allocVector(VECSXP,2));
+  SET_VECTOR_ELT(result,0,result_lr_val = allocVector(REALSXP,1));
+  SET_VECTOR_ELT(result,1,result_p_val = allocVector(REALSXP,1));
+  PROTECT(result_names = allocVector(STRSXP,2));
+  SET_STRING_ELT(result_names,0,mkChar("lr"));
+  SET_STRING_ELT(result_names,1,mkChar("p.value"));
+  setAttrib(result,R_NamesSymbol,result_names);
+  REAL(VECTOR_ELT(result,0))[0] = lr_value;
+  REAL(VECTOR_ELT(result,1))[0] = p_value;
+
+  UNPROTECT(3); /* ssdR result result_names */
+
+  Free(I);
+  Free(Y);
+  Free(Q);
+  Free(mapX2ssd);
+
+  return result;
+}
+
+
+
+/*
+  FUNCTION: qp_ci_test_hmgm
+  PURPOSE: perform a test for conditional independence between variables
+           indexed by i and j given the conditioning set Q. this version
+           is more efficient than the original one.
+  RETURNS: a list with two members, the t-statistic value and the p-value
+           on rejecting the null hypothesis of independence
+*/
+
+static double
+qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
+                int n_Y, double* ucond_ssd, int i, int j, int* Q, int q, int* mapX2ssd,
+                int n_mapX2ssd) {
+  int     k, l, m;
+  int     n_I_int = 0;
+  int     n_Y_int = 0;
+  int     n_I_i, n_Y_i, n_Y_j, n_Y_ij;
+  int     total_n_Y;
+  int     sign;
+  int     final_sign = 1;
+  double* ssd_mat;
+  double  lr = 0.0;
+
+  /* I <- intersect(I, c(i, Q)) */
+  k = 0;
+  while (i != I[k] && k < n_I)
+    k++;
+
+  if (k < n_I) {
+    I[k] = I[0];
+    I[0] = i;
+    n_I_int++;
+  }
+
+  for (k=0; k < q; k++) {
+    l = 0;
+    while (Q[k] != I[l] && l < n_I)
+      l++;
+
+    if (l < n_I) {
+      I[l] = I[n_I_int];
+      I[n_I_int] = Q[k];
+      n_I_int++;
+    }
+  }
+
+  n_I = n_I_int;
+
+  /* Y <- intersect(Y, c(i, j, Q)) */
+  if (n_I > 0) {
+    if (I[0] != i) {  /* i is continuous */
+      k = 0;
+      while (i != Y[k] && k < n_Y)
+        k++;
+
+      if (k < n_Y) {
+        Y[k] = Y[0];
+        Y[0] = i;
+        n_Y_int++;
+      }
+    }
+  } else { /* no discrete variables, then i is continuous */
+    k = 0;
+    while (i != Y[k] && k < n_Y)
+      k++;
+
+    if (k < n_Y) {
+      Y[k] = Y[0];
+      Y[0] = i;
+      n_Y_int++;
+    }
+  }
+
+  k = 0;
+  while (j != Y[k] && k < n_Y)
+    k++;
+
+  if (k < n_Y) {
+    Y[k] = Y[n_Y_int];
+    Y[n_Y_int] = j;
+    n_Y_int++;
+  }
+
+
+  for (k=0; k < q; k++) {
+    l = 0;
+    while (Q[k] != Y[l] && l < n_Y)
+      l++;
+
+    if (l < n_Y) {
+      Y[l] = Y[n_Y_int];
+      Y[n_Y_int] = Q[k];
+      n_Y_int++;
+    }
+  }
+
+  total_n_Y = n_Y;
+  n_Y = n_Y_int;
+
+  ssd_mat = Calloc((n_Y * (n_Y + 1)) / 2, double);  /* upper triangle includes the diagonal */
+
+  if (n_I > 0 || ucond_ssd == NULL)
+    ssd_A(X, p, n, I, n_I, n_levels, Y, n_Y,  ssd_mat);
+  else {
+    int* tmp;
+
+    tmp = Calloc(n_Y, int);
+    for (k=0; k < n_Y; k++)
+      tmp[k] = mapX2ssd[Y[k]];
+
+    symmatsubm(ssd_mat, ucond_ssd, total_n_Y, tmp, n_Y);
+
+    Free(tmp);
+  }
+/*
+  Rprintf("ssd:\n");
+  m = 0;
+  for (k=0; k < n_Y; k++) {
+    for (l=0; l <= k; l++) {
+       Rprintf("%10.6f\t", ssd_mat[m++]);
+    }
+    Rprintf("\n");
+  }
+*/
+
+  lr = symmatlogdet(ssd_mat, n_Y, &sign);
+  final_sign *= sign;
+
+/*
+  Rprintf("log(det(ssd_A))=%.5f\n", symmatlogdet(ssd_mat, n_Y, &sign));
+  Rprintf("sign(log(det(ssd_A)))=%d\n", sign);
+*/
+
+  /* ssd_i = ssd_Gamma when i is discrete or ssd_{Gamma\i} when i is continuous */
+
+  k = 0;
+  while (i != I[k] && k < n_I)
+    k++;
+
+  n_I_i = n_I;
+  n_Y_i = n_Y;
+  if (k < n_I) {  /* i is discrete */
+    int tmp;
+
+    I[k] = I[n_I-1];
+    I[n_I-1] = i;
+    n_I_i = n_I - 1;
+    tmp = n_levels[k];
+    n_levels[k] = n_levels[n_I-1];
+    n_levels[n_I-1] = tmp;
+  } else {       /* i is continuous */
+    k = 0;
+    while (i != Y[k] && k < n_Y)
+      k++;
+
+    if (k < n_Y) {
+      Y[k] = Y[n_Y-1];
+      Y[n_Y-1] = i;
+      n_Y_i = n_Y - 1;
+    } else
+      error("qp_ci_test_hmgm: i does not form part of neither I nor Y\n");
+  }
+
+  if (n_I > 0 || ucond_ssd == NULL) {
+    memset(ssd_mat, 0, ((n_Y_i * (n_Y_i + 1)) / 2) * sizeof(double));
+    ssd_A(X, p, n, I, n_I_i, n_levels, Y, n_Y_i, ssd_mat);
+  } else {
+    int* tmp;
+
+    tmp = Calloc(n_Y_i, int);
+    for (k=0; k < n_Y_i; k++)
+      tmp[k] = mapX2ssd[Y[k]];
+
+    symmatsubm(ssd_mat, ucond_ssd, total_n_Y, tmp, n_Y_i);
+
+    Free(tmp);
+  }
+
+/*
+  Rprintf("ssd_i:\n");
+  m = 0;
+  for (k=0; k < n_Y_i; k++) {
+    Rprintf("%d", Y[k]+1);
+    for (l=0; l <= k; l++) {
+       Rprintf("\t%10.6f", ssd_mat[m++]);
+    }
+    Rprintf("\n");
+  }
+*/
+
+  lr -= symmatlogdet(ssd_mat, n_Y_i, &sign);
+  final_sign *= sign;
+/*
+  Rprintf("log(det(ssd_A))=%.5f\n", symmatlogdet(ssd_mat, n_Y_i, &sign));
+  Rprintf("sign(log(det(ssd_A)))=%d\n", sign);
+*/
+
+  if (n_Y > 1) {
+    n_Y_j = n_Y;
+    k = 0;
+    while (j != Y[k] && k < n_Y)
+      k++;
+
+    if (k < n_Y) {
+      Y[k] = Y[n_Y-1];
+      Y[n_Y-1] = j;
+      n_Y_j = n_Y - 1;
+    }
+
+    if (n_I > 0 || ucond_ssd == NULL) {
+      memset(ssd_mat, 0, ((n_Y_j * (n_Y_j + 1)) / 2) * sizeof(double));
+      ssd_A(X, p, n, I, n_I, n_levels, Y, n_Y_j, ssd_mat);
+    } else {
+      int* tmp;
+
+      tmp = Calloc(n_Y_j, int);
+      for (k=0; k < n_Y_j; k++)
+        tmp[k] = mapX2ssd[Y[k]];
+
+      symmatsubm(ssd_mat, ucond_ssd, total_n_Y, tmp, n_Y_j);
+
+      Free(tmp);
+    }
+
+    /*
+    Rprintf("ssd_j:\n");
+    m = 0;
+    for (k=0; k < n_Y_j; k++) {
+      Rprintf("%d", Y[k]+1);
+      for (l=0; l <= k; l++) {
+         Rprintf("\t%10.6f", ssd_mat[m++]);
+      }
+      Rprintf("\n");
+    }
+    */
+
+    lr -= symmatlogdet(ssd_mat, n_Y_j, &sign);
+    final_sign *= sign;
+
+    /*
+    Rprintf("log(det(ssd_A))=%.5f\n", symmatlogdet(ssd_mat, n_Y_j, &sign));
+    Rprintf("sign(log(det(ssd_A)))=%d\n", sign);
+    */
+
+    n_Y_ij = n_Y_j;
+    k = 0;
+    while (i != Y[k] && k < n_Y)
+      k++;
+
+    if (k < n_Y) {
+      Y[k] = Y[n_Y-2];
+      Y[n_Y-2] = i;
+      n_Y_ij = n_Y_j - 1;
+    }
+
+    if (n_Y_ij > 0) {
+      if (n_I > 0 || ucond_ssd == NULL) {
+        memset(ssd_mat, 0, ((n_Y_j * (n_Y_j + 1)) / 2) * sizeof(double));
+        ssd_A(X, p, n, I, n_I_i, n_levels, Y, n_Y_ij, ssd_mat);
+      } else {
+        int* tmp;
+
+        tmp = Calloc(n_Y_ij, int);
+        for (k=0; k < n_Y_ij; k++)
+          tmp[k] = mapX2ssd[Y[k]];
+
+        symmatsubm(ssd_mat, ucond_ssd, total_n_Y, tmp, n_Y_ij);
+
+        Free(tmp);
+      }
+
+      /*
+      Rprintf("ssd_ij:\n");
+      m = 0;
+      for (k=0; k < n_Y_ij; k++) {
+        Rprintf("%d", Y[k]+1);
+        for (l=0; l <= k; l++) {
+           Rprintf("\t%10.6f", ssd_mat[m++]);
+        }
+        Rprintf("\n");
+      }
+      */
+
+      lr += symmatlogdet(ssd_mat, n_Y_ij, &sign);
+      final_sign *= sign;
+
+      /*
+      Rprintf("log(det(ssd_A))=%.5f\n", symmatlogdet(ssd_mat, n_Y_ij, &sign));
+      Rprintf("sign(log(det(ssd_A)))=%d\n", sign);
+      */
+    }
+
+  }
+
+  if (final_sign == -1)
+    error("something wrong with the signs of the determinants in the likelihood ratio\n");
+
+  return ((double) -n) * lr;
 }
 
 
@@ -3276,7 +3687,7 @@ matprod(double *x, int nrx, int ncx, double *y, int nry, int ncy, double *z) {
 
 static void
 matinv(double* inv, double* M, int n) {
-  int     i,j;
+  int     i;
   int     info;
   int*    ipiv;
   double* avals;
@@ -3285,9 +3696,14 @@ matinv(double* inv, double* M, int n) {
   double  rcond;
   double  tol = DBL_MIN;
 
+  /*
   for (i=0;i<n;i++)
     for (j=0;j<n;j++)
       inv[i+j*n] = i == j ? 1.0 : 0.0; 
+  */
+  memset(inv, 0, n * n * sizeof(double));
+  for (i=0; i < n; i++)
+    inv[i+i*n] = 1.0;
 
   ipiv = (int *) Calloc(n,double);
   avals = (double *) Calloc(n*n,double);
@@ -3310,6 +3726,62 @@ matinv(double* inv, double* M, int n) {
   Free(ipiv);
   Free(avals);
   Free(work);
+}
+
+
+
+/*
+  FUNCTION: symmatlogdet
+  PURPOSE: calculates de determinant of a symmetric matrix by using the LaPACK
+           library that comes along with the R distribution, this code is taken
+           from the function moddet_ge_real in file
+
+           R-2.13.0/src/modules/lapack/Lapack.c
+
+           the input symmetric matrix should come as the upper triangle
+  RETURNS: none
+*/
+
+static double
+symmatlogdet(double* M, int n, int* sign) {
+  double* A;
+  double  modulus = 0.0;
+  int     i,j;
+  int*    jpvt;
+  int     info;
+
+  A = Calloc(n*n, double);
+  for (i=0; i < n; i++)
+    for (j=0; j <= i; j++)
+      A[i + j*n] = A[j + i*n] = M[UTE2I(i, j)];
+
+  jpvt = Calloc(n, int);
+  F77_CALL(dgetrf)(&n, &n, A, &n, jpvt, &info);
+
+  *sign = 1;
+  if (info < 0)
+    error("error code %d from Lapack routine '%s'", info, "dgetrf");
+  if (info > 0)
+    warning("Lapack routine dgetrf: system is exactly singular");
+
+  if (info == 0) {
+    for (i=0; i < n; i++)
+      if (jpvt[i] != (i + 1))
+        *sign = -(*sign);
+
+    for (i=0; i < n; i++) {
+      double dii = A[i * (n + 1)];
+
+      modulus += log(dii < 0 ? -dii : dii);
+      if (dii < 0)
+        *sign = -(*sign);
+    }
+  }
+
+  Free(jpvt);
+  Free(A);
+
+  return modulus;
 }
 
 
@@ -3377,9 +3849,26 @@ matsubm(double* subM, double* M, int n, int* subrows, int nsubrows,
         int* subcols, int nsubcols) {
   int  i,j;
 
-  for (i=0;i<nsubrows;i++)
-    for (j=0;j<nsubcols;j++)
-      subM[i+nsubrows*j] = M[subrows[i]+n*subcols[j]];
+  for (i=0; i < nsubrows; i++)
+    for (j=0; j < nsubcols; j++)
+      subM[i + nsubrows*j] = M[subrows[i] + n*subcols[j]];
+}
+
+
+
+/*
+  FUNCTION: symmatsubm
+  PURPOSE: extracts a symmetric submatrix of a symmetric matrix
+  RETURNS: none
+*/
+
+static void
+symmatsubm(double* subM, double* M, int n, int* subrows, int nsubrows) {
+  int  i,j;
+
+  for (i=0; i < nsubrows; i++)
+    for (j=0;j <= i; j++)
+      subM[UTE2I(i,j)] = M[UTE2I(subrows[i], subrows[j])];
 }
 
 
@@ -3495,52 +3984,117 @@ e2i(int e_i, int e_j, int* i) {
   PURPOSE: calculate the means of the values at the columns of the input matrix
            provided as a column-major vector
   PARAMETERS: X - vector containing the column-major stored matrix of values
-              n_var - number of variables
-              N - number of values per variable
-              meanv - output vector of mean values
+              p - number of variables
+              n - number of observations
+              Y - vector containing the indices of the variables in X for which we
+                  want to calculate the mean
+              n_Y - number of elements in Y
+              idx_obs - indices of the observations to employ in the calculation of the mean
+              n_idx_obs - number of observations to employ in the calculation of the mean
+              meanv - output vector of n_Y mean values
   RETURN: none
 */
 
 void
-calculate_means(double* X, int n_var, int N, double* meanv) {
+calculate_means(double* X, int p, int n, int* Y, int n_Y, int* idx_obs,
+                int n_idx_obs, double* meanv) {
   long double sum, tmp;
   double*     xx;
   int         i, j;
 
-  for (i=0;i < n_var;i++) {
-    xx = &X[i * N];
+  for (i=0;i < n_Y;i++) {
+    xx = n_Y < p ? &X[Y[i] * n] : &X[i * n];
     sum = 0.0;
-    for (j=0;j < N;j++)
-      sum += xx[j];
-    tmp = sum / N;
+    for (j=0;j < n_idx_obs;j++)
+      sum += n_idx_obs < n ? xx[idx_obs[j]] : xx[j];
+    tmp = sum / n_idx_obs;
     if (R_FINITE((double) tmp)) {
       sum = 0.0;
-      for (j=0;j < N;j++)
-        sum += (xx[j] - tmp);
-      tmp = tmp + sum / N;
+      for (j=0;j < n_idx_obs;j++)
+        sum += n_idx_obs < n ? (xx[idx_obs[j]] - tmp) : (xx[j] - tmp);
+      tmp = tmp + sum / n_idx_obs;
     }
-      meanv[i] = tmp;
+    meanv[i] = tmp;
   }
 }
+
+
+
+/*
+  FUNCTION: ssd
+  PURPOSE: calculate the, corrected or not, sum of squares and deviations matrix
+           returning only the upper triangle of the matrix in column-major order
+           (for creating later a dspMatrix object)
+  PARAMETERS: X - vector containing the column-major stored matrix of values
+              p - number of variables
+              n - number of values per variable
+              Y - vector containing the indices of the variables in X for which we
+                  want to calculate the ssd
+              n_Y - number of elements in Y
+              idx_obs - indices of the observations to employ in the calculation of the ssd
+              n_idx_obs - number of observations to employ in the calculation of the ssd
+              corrected - flag indicating whether the sum be corrected (=covariance)
+              ssd_mat - pointer to the matrix where the result is returned
+  RETURN: none
+*/
+
+void
+ssd(double* X, int p, int n, int* Y, int n_Y, int* idx_obs, int n_idx_obs,
+    int corrected, double* ssd_mat) {
+  double* meanv;
+  int     n1;
+  int     i,j,k,l;
+
+  meanv = Calloc(n_Y, double);
+
+  calculate_means(X, p, n, Y, n_Y, idx_obs, n_idx_obs, meanv);
+
+  n1 = n - 1;
+
+  l = 0;
+  for (i=0; i < n_Y; i++)
+    for (j=0; j <= i; j++) {
+      double*     xx;
+      double*     yy;
+      long double xxm, yym, sum;
+
+      xx  = n_Y < p ? &X[Y[i] * n] : &X[i * n];
+      xxm = meanv[i];
+      yy  = n_Y < p ? &X[Y[j] * n] : &X[j * n];
+      yym = meanv[j];
+      sum = 0.0;
+      for (k=0; k < n_idx_obs; k++)
+        sum += n_idx_obs < n ? (xx[idx_obs[k]] - xxm) * (yy[idx_obs[k]] - yym) : (xx[k] - xxm) * (yy[k] - yym);
+
+      /* here we assume that ssd_mat was properly initialized before the call to this function */
+      ssd_mat[l] += corrected ? (double) (sum / ((long double) n1)) : (double) sum;
+      l++;
+    }
+
+  Free(meanv);
+
+  return;
+}
+
+
 
 /*
   FUNCTION: qp_cov_upper_triangular
   PURPOSE: calculate a covariance matrix returning only the upper triangle
            of the matrix in column-major order (for creating later a dspMatrix object)
-  PARAMETERS: X - vector containing the column-major stored matrix of values
-              n_var - number of variables
-              N - number of values per variable
+  PARAMETERS: XR - matrix of multivariate observations
+              corrected - flag set to TRUE when calculating the sample covariance matrix
+                          and set to FALSE when calculating the uncorrected sum of
+                          squares and deviations
   RETURN: cov_val covariance values
 */
 
 static SEXP
-qp_cov_upper_triangular(SEXP XR) {
+qp_cov_upper_triangular(SEXP XR, SEXP corrected) {
   SEXP          cov_valR;
   double*       X;
   double*       cov_val;
-  double*       meanv;
-  int           n_var,N,N1;
-  int           i,j,k,l;
+  int           n_var, N, n_upper_tri;
   PROTECT_INDEX Xpi;
 
   PROTECT_WITH_INDEX(XR,&Xpi);
@@ -3552,37 +4106,114 @@ qp_cov_upper_triangular(SEXP XR) {
   N = INTEGER(getAttrib(XR,R_DimSymbol))[0];
   /* number of variables equals number of columns */
   n_var = INTEGER(getAttrib(XR,R_DimSymbol))[1];
+  /* number of elements in the upper triangular matrix including diagonal */
+  n_upper_tri = (n_var * (n_var+1)) / 2;
 
-  PROTECT(cov_valR = allocVector(REALSXP, n_var * (n_var+1) / 2));
+  PROTECT(cov_valR = allocVector(REALSXP, n_upper_tri)); /* upper triangle includes diagonal */
   cov_val = REAL(cov_valR);
 
-  meanv = Calloc(n_var, double);
+  /* the following line is needed before each call to ssd() where the last argument points
+   * to a memory chunk allocated with anything that does not set the memory to zeroes */
+  memset(cov_val, 0, sizeof(double) * n_upper_tri);
 
-  calculate_means(X, n_var, N, meanv);
-
-  N1 = N - 1;
-
-  l = 0;
-  for (i=0; i < n_var; i++)
-    for (j=0; j <= i; j++) {
-      double*     xx;
-      double*     yy;
-      long double xxm, yym, sum;
-
-      xx  = &X[i * N];
-      xxm = meanv[i];
-      yy  = &X[j * N];
-      yym = meanv[j];
-      sum = 0.0;
-      for (k=0; k < N; k++)
-        sum += (xx[k] - xxm) * (yy[k] - yym);
-
-      cov_val[l++] = (double) (sum / ((long double) N1));
-    }
-
-  Free(meanv);
+  ssd(X, n_var, N, NULL, n_var, NULL, N, INTEGER(corrected)[0], cov_val);
 
   UNPROTECT(2); /* XR cov_valR */
 
   return(cov_valR);
+}
+
+
+
+/*
+  FUNCTION: calculate_xtab
+  PURPOSE: calculate the cross-tabulation of the observations according to the
+           discrete variables indicated in the arguments
+  PARAMETERS: X - vector containing the column-major stored matrix of values
+              p - number of variables
+              n - number of values per variable
+              xtab - pointer to the matrix where the result is returned
+  RETURN: none
+*/
+
+void
+calculate_xtab(double* X, int p, int n, int* I, int n_I, int* n_levels, int* xtab) {
+  int i,j;
+  int base=1;
+
+  for (i=0; i < n; i++)
+    xtab[i] = 1;
+
+  for (i=0; i < n_I; i++) {
+    for (j=0; j < n; j++)
+      xtab[j] = xtab[j] + base * ((int) (X[j + I[i] * n]-1.0));
+    base = base * n_levels[i];
+  }
+
+  return;
+}
+
+
+
+/*
+  FUNCTION: ssd_A
+  PURPOSE: calculate the, corrected or not, sum of squares and deviations matrix
+           for a subset of variables A = I \cup Y returning only the upper
+           triangle of the matrix in column-major order (for creating later a dspMatrix object)
+  PARAMETERS: X - vector containing the column-major stored matrix of values
+              p - number of variables
+              n - number of values per variable
+              I - vector containing the indices of the discrete variables in X which we
+                  want to employ in the calculation of the ssd
+              n_I - number of elements in I
+              Y - vector containing the indices of the variables in X for which we
+                  want to calculate the ssd
+              n_Y - number of elements in Y
+              ssd_A - pointer to the matrix where the result is return
+  RETURN: none
+*/
+
+int*    global_xtab;
+
+int
+indirect_int_cmp(const void *a, const void *b) {
+  return ( global_xtab[*(int*)a] - global_xtab[*(int*)b] );
+}
+
+void
+ssd_A(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
+      double* ssd_A) {
+  int*    obs_idx;
+  int     i,j;
+
+  if (n_I == 0) {
+    ssd(X, p, n, Y, n_Y, NULL, n, FALSE, ssd_A);
+
+    return;
+  }
+
+  global_xtab = Calloc(n, int);
+  calculate_xtab(X, p, n, I, n_I, n_levels, global_xtab);
+
+  obs_idx = Calloc(n, int);
+  for (i=0; i < n; i++)
+    obs_idx[i] = i;
+
+  qsort(obs_idx, n, sizeof(int), indirect_int_cmp);
+
+  i = 0;
+  while (i < n) {
+    j = i;
+    while (j < n && global_xtab[obs_idx[i]] == global_xtab[obs_idx[j]])
+      j++;
+
+    ssd(X, p, n, Y, n_Y, obs_idx+i, j-i, FALSE, ssd_A);
+
+    i = j;
+  }
+
+  Free(obs_idx);
+  Free(global_xtab);
+
+  return;
 }

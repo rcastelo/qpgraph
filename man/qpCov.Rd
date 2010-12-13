@@ -16,17 +16,22 @@ qpCov(X)
   \item{X}{data set from where to calculate the sample covariance matrix.
            As the \code{cov()} function, it assumes the columns correspond
            to random variables and the rows to multivariate observations.}
+  \item{corrected}{flag set to \code{TRUE} when calculating the sample
+                   covariance matrix (default; and set to \code{FALSE} when
+                   calculating the uncorrected sum of squares and deviations.}
 }
 \details{
-The calculations made by this function are the same as the ones made for
-a single pair of variables by the function \code{\link{cor.test}} but for
-all the pairs of variables in the data set.
+This function makes the same calculation as the \code{\link{cov}} function
+but returns a sample covariance matrix stored in the space-efficient class
+\code{\link{dspMatrix-class}} and, moreover, allows one for calculating
+the uncorrected sum of squares and deviations which equals
+\code{(n-1) * cov()}.
 }
 \value{
 A sample covariance matrix stored as a \code{\link{dspMatrix-class}} object.
 See the \code{Matrix} package for full details on this object class.
 }
-\author{R. Castelo and A. Roverato}
+\author{R. Castelo}
 \seealso{
   \code{\link{qpPCC}}
 }
