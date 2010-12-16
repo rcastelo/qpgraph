@@ -12,23 +12,24 @@ Performs a conditional independence test between two variables given
 a conditioning set.
 }
 \usage{
-\S4method{qpCItest}{ExpressionSet}(X, i=1, j=2, Q=c(), R.code.only=FALSE)
-\S4method{qpCItest}{data.frame}(X, i=1, j=2, Q=c(),
+\S4method{qpCItest}{ExpressionSet}(X, i=1, j=2, Q=c(), I=NULL, R.code.only=FALSE)
+\S4method{qpCItest}{data.frame}(X, i=1, j=2, Q=c(), I=NULL,
                                 long.dim.are.variables=TRUE, R.code.only=FALSE)
-\S4method{qpCItest}{matrix}(X, N=NULL, i=1, j=2, Q=c(),
+\S4method{qpCItest}{matrix}(X, i=1, j=2, Q=c(), I=NULL, n=NULL,
                             long.dim.are.variables=TRUE, R.code.only=FALSE)
 }
 \arguments{
   \item{X}{data set where the test should be performed. It can be either an
        \code{ExpressionSet} object, a data frame, or a matrix. If it is a matrix
-       and the matrix is squared then this function assumes the matrix is the
-       sample covariance matrix of the data and the sample size parameter
-       \code{N} should be provided.}
-  \item{N}{number of observations in the data set. Only necessary when the
+       and the matrix is squared then this function assumes the matrix corresponds
+       to the sample covariance matrix of the data and the sample size parameter
+       \code{n} should be provided.}
+  \item{i}{index or name of one of the two variables in \code{X} to test.}
+  \item{j}{index or name of the other variable in \code{X} to test.}
+  \item{Q}{indexes or names of the variables in \code{X} forming the conditioning set.}
+  \item{I}{indexes or names of the variables in \code{X} that are discrete.}
+  \item{n}{number of observations in the data set. Only necessary when the
        sample covariance matrix is provided through the \code{X} parameter.}
-  \item{i}{index or name of one of the two variables.}
-  \item{j}{index or name of the other variable.}
-  \item{Q}{indexes or names of the variables forming the conditioning set.}
   \item{long.dim.are.variables}{logical; if TRUE it is assumed
        that when data are in a data frame or in a matrix, the longer dimension
        is the one defining the random variables (default); if FALSE, then random
@@ -43,8 +44,8 @@ the number of observations. The computational cost increases linearly with
 the number of variables in \code{Q}.
 }
 \value{
-A list with two members, the t-statistic value and the p-value on rejecting
-the null hypothesis of independence.
+A list with two members, the value of the statistic and its corresponding
+P-value of rejecting the null hypothesis of conditional independence.
 }
 \references{
 Castelo, R. and Roverato, A. A robust procedure for

@@ -11,15 +11,15 @@ Non-rejection rate estimation
 Estimates non-rejection rates for every pair of variables.
 }
 \usage{
-\S4method{qpNrr}{ExpressionSet}(X, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
+\S4method{qpNrr}{ExpressionSet}(X, q=1, I=NULL, nTests=100, alpha=0.05, pairup.i=NULL,
                                 pairup.j=NULL, verbose=TRUE, identicalQs=TRUE,
                                 R.code.only=FALSE, clusterSize=1, estimateTime=FALSE,
                                 nAdj2estimateTime=10)
-\S4method{qpNrr}{data.frame}(X, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
+\S4method{qpNrr}{data.frame}(X, q=1, I=NULL, nTests=100, alpha=0.05, pairup.i=NULL,
                              pairup.j=NULL, long.dim.are.variables=TRUE, verbose=TRUE,
                              identicalQs=TRUE, R.code.only=FALSE, clusterSize=1,
                              estimateTime=FALSE, nAdj2estimateTime=10)
-\S4method{qpNrr}{matrix}(X, q=1, nTests=100, alpha=0.05, pairup.i=NULL,
+\S4method{qpNrr}{matrix}(X, q=1, I=NULL, nTests=100, alpha=0.05, pairup.i=NULL,
                          pairup.j=NULL, long.dim.are.variables=TRUE, verbose=TRUE,
                          identicalQs=TRUE, R.code.only=FALSE, clusterSize=1,
                          estimateTime=FALSE, nAdj2estimateTime=10)
@@ -28,6 +28,7 @@ Estimates non-rejection rates for every pair of variables.
   \item{X}{data set from where to estimate the non-rejection rates.
        It can be an ExpressionSet object, a data frame or a matrix.}
   \item{q}{partial-correlation order to be employed.}
+  \item{I}{indexes or names of the variables in \code{X} that are discrete.}
   \item{nTests}{number of tests to perform for each pair for variables.}
   \item{alpha}{significance level of each test.}
   \item{pairup.i}{subset of vertices to pair up with subset \code{pairup.j}}
