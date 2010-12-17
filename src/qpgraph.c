@@ -1875,7 +1875,7 @@ qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
   int*    Y;
   int*    Q;
   int*    mapX2ssd;
-  double  p_value;
+  double  p_value = R_NaReal;
   double  lr_value;
   SEXP    result;
   SEXP    result_names;
@@ -1909,7 +1909,9 @@ qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
 
   lr_value = qp_ci_test_hmgm(REAL(XR), p, n, I, n_I, INTEGER(n_levelsR), Y, n_Y,
                              REAL(ssdR), mapX2ssd, i, j, Q, q);
-  p_value = 1.0 - pchisq(lr_value, 1, TRUE, FALSE);
+
+  if (!ISNAN(lr_value))
+    p_value = 1.0 - pchisq(lr_value, 1, TRUE, FALSE);
 
   PROTECT(result = allocVector(VECSXP,2));
   SET_VECTOR_ELT(result,0,result_lr_val = allocVector(REALSXP,1));
@@ -1953,7 +1955,9 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
   int     total_n_Y;
   int     sign;
   int     final_sign = 1;
+  int     flag_zero = 0;
   double* ssd_mat;
+  double  x;
   double  lr = 0.0;
 
   /* I <- intersect(I, c(i, Q)) */
@@ -2058,7 +2062,9 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
   }
 */
 
-  lr = symmatlogdet(ssd_mat, n_Y, &sign);
+  lr = x = symmatlogdet(ssd_mat, n_Y, &sign);
+  if (x < -DBL_DIG)
+    flag_zero = TRUE;
   final_sign *= sign;
 
 /*
@@ -2093,7 +2099,7 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
       Y[n_Y-1] = i;
       n_Y_i = n_Y - 1;
     } else
-      error("qp_ci_test_hmgm: i does not form part of neither I nor Y\n");
+      error("qp_ci_test_hmgm(): i does not form part of neither I nor Y\n");
   }
 
   if (n_I > 0 || ucond_ssd == NULL) {
@@ -2123,7 +2129,10 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
   }
 */
 
-  lr -= symmatlogdet(ssd_mat, n_Y_i, &sign);
+  x = symmatlogdet(ssd_mat, n_Y_i, &sign);
+  lr -= x;
+  if (x < -DBL_DIG)
+    flag_zero = TRUE;
   final_sign *= sign;
 /*
   Rprintf("log(det(ssd_A))=%.5f\n", symmatlogdet(ssd_mat, n_Y_i, &sign));
@@ -2169,7 +2178,10 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
     }
     */
 
-    lr -= symmatlogdet(ssd_mat, n_Y_j, &sign);
+    x = symmatlogdet(ssd_mat, n_Y_j, &sign);
+    lr -= x;
+    if (x < -DBL_DIG)
+      flag_zero = TRUE;
     final_sign *= sign;
 
     /*
@@ -2216,7 +2228,10 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
       }
       */
 
-      lr += symmatlogdet(ssd_mat, n_Y_ij, &sign);
+      x = symmatlogdet(ssd_mat, n_Y_ij, &sign);
+      lr += x;
+      if (x < -DBL_DIG)
+        flag_zero = TRUE;
       final_sign *= sign;
 
       /*
@@ -2227,10 +2242,12 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
 
   }
 
-  if (final_sign == -1)
-    error("something wrong with the signs of the determinants in the likelihood ratio\n");
+  if (flag_zero || final_sign == -1)
+    lr = R_NaN;
+  else
+    lr = lr * ((double) -n);
 
-  return ((double) -n) * lr;
+  return lr;
 }
 
 
@@ -2332,6 +2349,8 @@ qp_edge_nrr_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y
   int*   q_by_T_samples;
   int    k;
   int    nAcceptedTests = 0;
+  int    nActualTests = 0;
+  int*   problematicQ = NULL;
 
   thr = qchisq(1.0-alpha, 1, TRUE, FALSE);
 
@@ -2357,13 +2376,37 @@ qp_edge_nrr_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y
     lambda = qp_ci_test_hmgm(X, p, n, I, n_I, n_levels, Y, n_Y, ucond_ssd,
                              mapX2ucond_ssd, i, j, (int*) (q_by_T_samples+k*q), q);
 
-    if (lambda < thr)
-      nAcceptedTests++;
+    if (!ISNAN(lambda)) {
+      if (lambda < thr)
+        nAcceptedTests++;
+      nActualTests++;
+    } else
+      problematicQ = (int*) (q_by_T_samples+k*q);
+  }
+
+  if (nActualTests < nTests) {
+    char buf[4096];
+
+    sprintf(buf, "Non-rejection rate estimation between i=%d and j=%d with q=%d was based on %d out of %d requested tests.\n"
+                 "For instance, the CI test between i=%d and j=%d given Q={",
+            i+1, j+1, q, nActualTests, nTests, i+1, j+1);
+    for (k=0; k < q; k++) {
+      char tmp[256];
+
+      if (k == 0)
+        sprintf(tmp, " %d", problematicQ[k]+1);
+      else
+        sprintf(tmp, ", %d", problematicQ[k]+1);
+      strcat(buf, tmp);
+    }
+    strcat(buf, " }, could not be calculated. Try with smaller Q subsets or increase n if you can.\n");
+
+    warning(buf);
   }
 
   Free(q_by_T_samples);
 
-  return (double) ( ((double) nAcceptedTests) / ((double) nTests) );
+  return (double) ( ((double) nAcceptedTests) / ((double) nActualTests) );
 }
 
 

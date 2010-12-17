@@ -1378,17 +1378,33 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
 
   pop <- V[-match(c(i, j), V)]
 
+  problematicQ <- NA
+  nActualTests <- 0
   thr <- qchisq(p=(1-alpha), df=1, lower.tail=TRUE)
   lambda <- rep(NA, times=nTests)
   for (k in 1:nTests) {
     Q <- sample(pop, q, rep=FALSE)
     cit <- qpgraph:::.qpCItestHMGM(X, I, Y, ssdMat, mapX2ssdMat, i, j, Q, R.code.only=TRUE)
-    lambda[k] <- cit$lr
+    if (!is.nan(cit$lr)) {
+      lambda[k] <- cit$lr
+      nActualTests <- nActualTests + 1
+    } else
+      problematicQ <- Q
   }
 
-  nAcceptedTests <- sum(lambda < thr)
+  nAcceptedTests <- sum(lambda < thr, na.rm=TRUE)
 
-  return(nAcceptedTests / nTests)
+  if (nActualTests < nTests) {
+    warning(paste(sprintf("Non-rejection rate estimation between i=%s and j=%s with q=%d was based on %d out of %d requested tests.\n",
+                          colnames(X)[i], colnames(X)[j], q, nActualTests, nTests),
+                  sprintf("For instance, the CI test between i=%s and j=%s given Q={",
+                          colnames(X)[i], colnames(X)[j]),
+                  paste(colnames(X)[problematicQ], collapse=", "),
+                        "}, could not be calculated. Try with smaller Q subsets or increase n if you can.\n",
+                  sep=""))
+  }
+
+  return(nAcceptedTests / nActualTests)
 }
 
 .qpEdgeNrrIdenticalQs <- function(S, Qs, S22invs, N, i=1, j=2, q=1, nTests=100, alpha=0.05,
@@ -1500,7 +1516,13 @@ setMethod("qpCItest", signature(X="data.frame"),
               mapX2ssd <- match(colnames(X), colnames(ssd))
               names(mapX2ssd) <- colnames(X)
 
-              qpgraph:::.qpCItestHMGM(X, I, Y, ssd, mapX2ssd, i, j, Q, R.code.only)
+              cit <- qpgraph:::.qpCItestHMGM(X, I, Y, ssd, mapX2ssd, i, j, Q, R.code.only)
+              if (is.nan(cit$lr))
+                warning(paste(sprintf("CI test unavailable for i=%s, j=%s and Q={",
+                                      colnames(X)[i], colnames(X)[j]),
+                              paste(colnames(X)[Q], collapse=", "),
+                                    "}. Try a smaller Q or increase n if you can\n"))
+              cit
             }
           })
 
@@ -1544,7 +1566,13 @@ setMethod("qpCItest", signature(X="matrix"),
                 mapX2ssd <- match(colnames(X), colnames(ssd))
                 names(mapX2ssd) <- colnames(X)
 
-                qpgraph:::.qpCItestHMGM(X, I, Y, ssd, mapX2ssd, i, j, Q, R.code.only)
+                cit <- qpgraph:::.qpCItestHMGM(X, I, Y, ssd, mapX2ssd, i, j, Q, R.code.only)
+                if (is.nan(cit$lr))
+                  warning(paste(sprintf("CI test unavailable for i=%s, j=%s and Q={",
+                                        colnames(X)[i], colnames(X)[j]),
+                                paste(colnames(X)[Q], collapse=", "),
+                                      "}. Try a smaller Q or increase n if you can\n"))
+                cit
               }
 
             } else {
@@ -1618,7 +1646,8 @@ setMethod("qpCItest", signature(X="matrix"),
   ni <- sapply(lapply(xtab, dim), "[", 1)
   ssd <- Reduce("+",
                 lapply(as.list(1:length(xtab)),
-                       function(i, x, ni, n) (ni[i]-1)*cov(x[[i]]), xtab, ni, n))
+                       function(i, x) qpCov(as.matrix(x[[i]]), corrected=FALSE), xtab))
+               ##function(i, x, ni, n) (ni[i]-1)*cov(x[[i]]), xtab, ni, n))
   ssd
 }
 
@@ -1715,11 +1744,27 @@ setMethod("qpCItest", signature(X="matrix"),
       }
     }
   }
+ 
+  ssd <- determinant(ssd, logarithm=TRUE)
+  ssd_ij <- determinant(ssd_ij, logarithm=TRUE)
+  ssd_j <- determinant(ssd_j, logarithm=TRUE)
+  ssd_i <- determinant(ssd_i, logarithm=TRUE)
+  final_sign <- ssd$sign * ssd_ij$sign * ssd_j$sign *ssd_i$sign
 
-  lr <- -n * log((det(ssd) * det(ssd_ij)) / 
-                 (det(ssd_j) * det(ssd_i)))
+  ## lr <- -n * log((det(ssd) * det(ssd_ij)) / 
+  ##               (det(ssd_j) * det(ssd_i)))
 
-  p.value <- 1 - pchisq(lr, df=1, lower.tail=TRUE)
+  lr <- NaN
+  p.value <- NA
+
+  zero_boundary <- log(.Machine$double.eps)
+  if (ssd$modulus > zero_boundary && ssd_ij$modulus > zero_boundary &&
+      ssd_j$modulus > zero_boundary && ssd_i$modulus > zero_boundary &&
+      final_sign == 1) {
+    lr <- -n * (ssd$modulus[1]+ssd_ij$modulus[1]-ssd_j$modulus[1]-ssd_i$modulus[1])
+    p.value <- 1 - pchisq(lr, df=1, lower.tail=TRUE)
+  }
+
 
   list(lr=lr, p.value=p.value)
 }
@@ -4110,7 +4155,7 @@ clPrCall <- function(cl, fun, n.adj, ...) {
 qpCov <- function(X, corrected=TRUE) {
   return(new("dspMatrix", Dim=c(ncol(X), ncol(X)),
              Dimnames=list(colnames(X), colnames(X)),
-             x = .Call("qp_cov_upper_triangular",X,corrected)))
+             x = .Call("qp_cov_upper_triangular",X,as.integer(corrected))))
 }
 
 
