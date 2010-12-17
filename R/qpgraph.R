@@ -1165,6 +1165,8 @@ setMethod("qpGenNrr", signature(X="matrix"),
 ##             j - index in S (row or column) matching the other variable
 ##             q - partial-correlation order
 ##             I - indexes or names of the variables in X that are discrete
+##             I.restrict - indexes or names of the discrete variables that may
+##                          be sampled as part of conditioning subsets
 ##             nTests - number of tests to perform
 ##             alpha - significance level of each test (Type-I error probability)
 ##             long.dim.are.variables - if TRUE it assumes that when the data is
@@ -1180,7 +1182,7 @@ setGeneric("qpEdgeNrr", function(X, ...) standardGeneric("qpEdgeNrr"))
 
 # X comes as an ExpressionSet object
 setMethod("qpEdgeNrr", signature(X="ExpressionSet"),
-          function(X, i=1, j=2, q=1, I=NULL, nTests=100,
+          function(X, i=1, j=2, q=1, I=NULL, I.restrict=NULL, nTests=100,
                    alpha=0.05, R.code.only=FALSE) {
             X <- t(Biobase::exprs(X))
             S <- qpCov(X)
@@ -1190,7 +1192,7 @@ setMethod("qpEdgeNrr", signature(X="ExpressionSet"),
 
 # X comes as a data frame
 setMethod("qpEdgeNrr", signature(X="data.frame"),
-          function(X, i=1, j=2, q=1, I=NULL, nTests=100,
+          function(X, i=1, j=2, q=1, I=NULL, I.restrict=NULL, nTests=100,
                    alpha=0.05, long.dim.are.variables=TRUE,
                    R.code.only=FALSE) {
             X <- as.matrix(X)
@@ -1222,16 +1224,16 @@ setMethod("qpEdgeNrr", signature(X="data.frame"),
               mapX2ssd <- match(colnames(X), colnames(ssd))
               names(mapX2ssd) <- colnames(X)
 
-              qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i, j, q, nTests,
-                                       alpha, R.code.only)
+              qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i, j, q,
+                                       I.restrict, nTests, alpha, R.code.only)
             }
           })
 
           
 # X comes as a matrix
 setMethod("qpEdgeNrr", signature(X="matrix"),
-          function(X, i=1, j=2, q=1, I=NULL, n=NULL, nTests=100,
-                   alpha=0.05, long.dim.are.variables=TRUE,
+          function(X, i=1, j=2, q=1, I=NULL, I.restrict=NULL, n=NULL,
+                   nTests=100, alpha=0.05, long.dim.are.variables=TRUE,
                    R.code.only=FALSE) {
             if (long.dim.are.variables &&
               sort(dim(X),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
@@ -1266,7 +1268,7 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
                 names(mapX2ssd) <- colnames(X)
 
                 qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i, j, q,
-                                         nTests, alpha, R.code.only)
+                                         I.restrict, nTests, alpha, R.code.only)
               }
             } else {
               if (!is.null(I))
@@ -1325,7 +1327,8 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
 }
 
 .qpEdgeNrrHMGM <- function(X, I, Y, ssdMat, mapX2ssdMat, i=1, j=2, q=1,
-                           nTests=100, alpha=0.05, R.code.only=FALSE) {
+                           I.restrict=NULL, nTests=100, alpha=0.05,
+                           R.code.only=FALSE) {
   if (is.character(i)) {
     if (is.na(match(i, colnames(X))))
       stop(sprintf("i=%s does not form part of the variable names of the data\n",i))
@@ -1353,6 +1356,15 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
   if (all(!is.na(match(c(i,j), I))))
     stop("i and j cannot be both discrete at the moment\n")
 
+  if (is.character(I.restrict)) {
+    if (any(is.na(match(I.restrict, colnames(X)))))
+      stop("Some variables in I.restrict do not form part of the variable names of the data\n")
+    I.restrict <- match(I.restrict, colnames(X))
+  }
+
+  if (any(is.na(match(I.restrict, I)))) {
+    stop("Some variables in I.restrict do not appear in I\n")
+
   V <- c(I, Y)
   n.var  <- length(V)
   n <- dim(X)[1]
@@ -1376,7 +1388,7 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
     return(qpgraph:::.qpFastEdgeNrrHMGM(X, I, Y, ssdMat, mapX2ssdMat, i, j, q, nTests, alpha))
   }
 
-  pop <- V[-match(c(i, j), V)]
+  pop <- V[-match(c(i, j, setdiff(I, I.restrict)), V)]
 
   problematicQ <- NA
   nActualTests <- 0

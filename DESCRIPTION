@@ -1,6 +1,6 @@
 Package: qpgraph
 Title: Reverse engineering of molecular regulatory networks with qp-graphs
-Version: 1.7.5
+Version: 1.7.6
 Author: R. Castelo and A. Roverato
 Description: q-order partial correlation graphs, or qp-graphs for short, are
              undirected Gaussian graphical Markov models built from q-order
