@@ -1356,14 +1356,18 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
   if (all(!is.na(match(c(i,j), I))))
     stop("i and j cannot be both discrete at the moment\n")
 
-  if (is.character(I.restrict)) {
-    if (any(is.na(match(I.restrict, colnames(X)))))
-      stop("Some variables in I.restrict do not form part of the variable names of the data\n")
-    I.restrict <- match(I.restrict, colnames(X))
-  }
+  if (is.null(I.restrict))
+    I.restrict <- I
+  else {
+    if (is.character(I.restrict)) {
+      if (any(is.na(match(I.restrict, colnames(X)))))
+        stop("Some variables in I.restrict do not form part of the variable names of the data\n")
+      I.restrict <- match(I.restrict, colnames(X))
+    }
 
-  if (any(is.na(match(I.restrict, I)))) {
-    stop("Some variables in I.restrict do not appear in I\n")
+    if (any(is.na(match(I.restrict, I))))
+      stop("Some variables in I.restrict do not appear in I\n")
+  }
 
   V <- c(I, Y)
   n.var  <- length(V)
@@ -1406,15 +1410,14 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
 
   nAcceptedTests <- sum(lambda < thr, na.rm=TRUE)
 
-  if (nActualTests < nTests) {
+  if (nActualTests < nTests)
     warning(paste(sprintf("Non-rejection rate estimation between i=%s and j=%s with q=%d was based on %d out of %d requested tests.\n",
                           colnames(X)[i], colnames(X)[j], q, nActualTests, nTests),
                   sprintf("For instance, the CI test between i=%s and j=%s given Q={",
                           colnames(X)[i], colnames(X)[j]),
                   paste(colnames(X)[problematicQ], collapse=", "),
-                        "}, could not be calculated. Try with smaller Q subsets or increase n if you can.\n",
+                  "}, could not be calculated. Try with smaller Q subsets or increase n if you can.\n",
                   sep=""))
-  }
 
   return(nAcceptedTests / nActualTests)
 }
@@ -4169,5 +4172,3 @@ qpCov <- function(X, corrected=TRUE) {
              Dimnames=list(colnames(X), colnames(X)),
              x = .Call("qp_cov_upper_triangular",X,as.integer(corrected))))
 }
-
-
