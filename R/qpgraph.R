@@ -26,6 +26,8 @@
 ## parameters: X - data set from where to estimate the non-rejection rates
 ##             q - partial-correlation order to be employed
 ##             I - indexes or names of the variables in X that are discrete
+##             restrict.Q - indexes or names of variables to which the conditioning
+##                          subsets Q should be restricted
 ##             nTests - number of tests for each pair of variables
 ##             alpha - significance level of each test (Type-I error probability)
 ##             pairup.i - subset of vertices to pair up with subset pairup.j
@@ -47,9 +49,10 @@ setGeneric("qpNrr", function(X, ...) standardGeneric("qpNrr"))
 
 ## X comes as an ExpressionSet object
 setMethod("qpNrr", signature(X="ExpressionSet"),
-          function(X, q=1, I=NULL, nTests=100, alpha=0.05, pairup.i=NULL, pairup.j=NULL,
-                   verbose=TRUE, identicalQs=TRUE, R.code.only=FALSE, clusterSize=1,
-                   estimateTime=FALSE, nAdj2estimateTime=10) {
+          function(X, q=1, I=NULL, restrict.Q=NULL, nTests=100, alpha=0.05,
+                   pairup.i=NULL, pairup.j=NULL, verbose=TRUE, identicalQs=TRUE,
+                   R.code.only=FALSE, clusterSize=1, estimateTime=FALSE,
+                   nAdj2estimateTime=10) {
 
             startTime <- c(user.self=0, sys.self=0, elapsed=0, user.child=0, sys.child=0)
             class(startTime) <- "proc_time"
@@ -64,14 +67,15 @@ setMethod("qpNrr", signature(X="ExpressionSet"),
               stop("Using a cluster (clusterSize > 1) requires first loading packages 'snow' and 'rlecuyer'\n")
               
             X <- t(Biobase::exprs(X))
-            qpgraph:::.qpNrr(X, q, I, nTests, alpha, pairup.i, pairup.j, verbose, identicalQs,
-                             R.code.only, clusterSize, startTime, nAdj2estimateTime)
+            qpgraph:::.qpNrr(X, q, I, restrict.Q, nTests, alpha, pairup.i,
+                             pairup.j, verbose, identicalQs, R.code.only,
+                             clusterSize, startTime, nAdj2estimateTime)
           })
 
 ## X comes as a data frame
 setMethod("qpNrr", signature(X="data.frame"),
-          function(X, q=1, I=NULL, nTests=100, alpha=0.05, pairup.i=NULL,
-                   pairup.j=NULL, long.dim.are.variables=TRUE,
+          function(X, q=1, I=NULL, restrict.Q=NULL, nTests=100, alpha=0.05,
+                   pairup.i=NULL, pairup.j=NULL, long.dim.are.variables=TRUE,
                    verbose=TRUE, identicalQs=TRUE, R.code.only=FALSE,
                    clusterSize=1, estimateTime=FALSE, nAdj2estimateTime=10) {
 
@@ -98,15 +102,16 @@ setMethod("qpNrr", signature(X="data.frame"),
             if (is.null(colnames(m)))
               colnames(X) <- 1:ncol(X)
 
-            qpgraph:::.qpNrr(X, q, I, nTests, alpha, pairup.i, pairup.j, verbose, identicalQs,
-                             R.code.only, clusterSize, startTime, nAdj2estimateTime)
+            qpgraph:::.qpNrr(X, q, I, restrict.Q, nTests, alpha, pairup.i,
+                             pairup.j, verbose, identicalQs, R.code.only,
+                             clusterSize, startTime, nAdj2estimateTime)
           })
 
           
 ## X comes as a matrix
 setMethod("qpNrr", signature(X="matrix"),
-          function(X, q=1, I=NULL, nTests=100, alpha=0.05, pairup.i=NULL,
-                   pairup.j=NULL, long.dim.are.variables=TRUE,
+          function(X, q=1, I=NULL, restrict.Q=NULL, nTests=100, alpha=0.05,
+                   pairup.i=NULL, pairup.j=NULL, long.dim.are.variables=TRUE,
                    verbose=TRUE, identicalQs=TRUE, R.code.only=FALSE,
                    clusterSize=1, estimateTime=FALSE, nAdj2estimateTime=10) {
 
@@ -129,12 +134,14 @@ setMethod("qpNrr", signature(X="matrix"),
             if (is.null(colnames(X))) 
               colnames(X) <- 1:ncol(X)
 
-            qpgraph:::.qpNrr(X, q, I, nTests, alpha, pairup.i, pairup.j, verbose, identicalQs,
-                             R.code.only, clusterSize, startTime, nAdj2estimateTime)
+            qpgraph:::.qpNrr(X, q, I, restrict.Q, nTests, alpha, pairup.i,
+                             pairup.j, verbose, identicalQs, R.code.only,
+                             clusterSize, startTime, nAdj2estimateTime)
           })
 
-.qpNrr <- function(X, q=1, I=NULL, nTests=100, alpha=0.05, pairup.i=NULL, pairup.j=NULL, verbose=TRUE,
-                   identicalQs=TRUE, R.code.only=FALSE, clusterSize=1, startTime, nAdj2estimateTime=10) {
+.qpNrr <- function(X, q=1, I=NULL, restrict.Q=NULL, nTests=100, alpha=0.05,
+                   pairup.i=NULL, pairup.j=NULL, verbose=TRUE, identicalQs=TRUE,
+                   R.code.only=FALSE, clusterSize=1, startTime, nAdj2estimateTime=10) {
 
   cl <- NULL
  
@@ -192,6 +199,20 @@ setMethod("qpNrr", signature(X="matrix"),
       I <- match(I, var.names)
     }
     Y <- (1:n.var)[-I]
+  }
+
+  if (!is.null(restrict.Q)) {
+    if (!is.matrix(restrict.Q))
+      stop("restrict.Q should be a matrix\n")
+
+    if (rownames(restrict.Q) != colnames(X) || colnames(restrict.Q) != colnames(X))
+      stop("row and column names in restrict.Q should coincide to the column names in X\n")
+
+    if (q > length(restrict.Q)-2)
+      stop("The number of variables implied by restrict.Q to use as Q subsets is < (q+2)\n")
+
+    if (is.null(I))
+      stop("restrict.Q not implemented yet when I=NULL\n")
   }
 
   ## check that the parameters have proper values
@@ -275,8 +296,10 @@ setMethod("qpNrr", signature(X="matrix"),
                                                      pairup.j.noint, pairup.ij.int, verbose,
                                                      startTime["elapsed"], nAdj2estimateTime)
       else
-        nrrMatrix <- qpgraph:::.qpFastNrr(X, I, Y, q, nTests, alpha, pairup.i.noint, pairup.j.noint,
-                                          pairup.ij.int, verbose, startTime["elapsed"], nAdj2estimateTime)
+        nrrMatrix <- qpgraph:::.qpFastNrr(X, I, Y, q, restrict.Q, nTests, alpha,
+                                          pairup.i.noint, pairup.j.noint,
+                                          pairup.ij.int, verbose,
+                                          startTime["elapsed"], nAdj2estimateTime)
 
       if (startTime["elapsed"] == 0)
         nrrMatrix <- new("dspMatrix", Dim=as.integer(c(n.var, n.var)),
@@ -287,18 +310,24 @@ setMethod("qpNrr", signature(X="matrix"),
       nrrIdx <- list()
       if (verbose && startTime["elapsed"] == 0) { ## no cluster progress-call when only estimating time
         if (identicalQs && is.null(I))
-          nrrIdx <- clPrCall(cl, qpgraph:::.qpFastNrrIdenticalQsPar, n.adj, X, q, nTests, alpha,
-                             pairup.i.noint, pairup.j.noint, pairup.ij.int, verbose, FALSE, nAdj2estimateTime)
+          nrrIdx <- clPrCall(cl, qpgraph:::.qpFastNrrIdenticalQsPar, n.adj, X,
+                             q, nTests, alpha, pairup.i.noint, pairup.j.noint,
+                             pairup.ij.int, verbose, FALSE, nAdj2estimateTime)
         else
-          nrrIdx <- clPrCall(cl, qpgraph:::.qpFastNrrPar, n.adj, X, I, Y, q, nTests, alpha,
-                             pairup.i.noint, pairup.j.noint, pairup.ij.int, verbose, FALSE, nAdj2estimateTime)
+          nrrIdx <- clPrCall(cl, qpgraph:::.qpFastNrrPar, n.adj, X, I, Y, q,
+                             restrict.Q, nTests, alpha, pairup.i.noint,
+                             pairup.j.noint, pairup.ij.int, verbose, FALSE,
+                             nAdj2estimateTime)
       } else {
         if (identicalQs && is.null(I))
-          nrrIdx <- clCall(cl, qpgraph:::.qpFastNrrIdenticalQsPar, X, q, nTests, alpha, pairup.i.noint,
-                           pairup.j.noint, pairup.ij.int, verbose, startTime["elapsed"] > 0, nAdj2estimateTime)
+          nrrIdx <- clCall(cl, qpgraph:::.qpFastNrrIdenticalQsPar, X, q, nTests,
+                           alpha, pairup.i.noint, pairup.j.noint, pairup.ij.int,
+                           verbose, startTime["elapsed"] > 0, nAdj2estimateTime)
         else
-          nrrIdx <- clCall(cl, qpgraph:::.qpFastNrrPar, X, I, Y, q, nTests, alpha, pairup.i.noint, pairup.j.noint,
-                           pairup.ij.int, verbose, startTime["elapsed"] > 0, nAdj2estimateTime)
+          nrrIdx <- clCall(cl, qpgraph:::.qpFastNrrPar, X, I, Y, q, restrict.Q,
+                           nTests, alpha, pairup.i.noint, pairup.j.noint,
+                           pairup.ij.int, verbose, startTime["elapsed"] > 0,
+                           nAdj2estimateTime)
       }
 
       if (startTime["elapsed"] > 0) {
@@ -363,6 +392,7 @@ setMethod("qpNrr", signature(X="matrix"),
   pb <- NULL
   if (verbose && elapsedTime == 0)
     pb <- txtProgressBar(style=3)
+  rQs <- NULL
   nrr <- NA
 
   ## intersection variables against ij-exclusive variables
@@ -371,9 +401,13 @@ setMethod("qpNrr", signature(X="matrix"),
 
       if (is.null(I))
         nrr <- qpgraph:::.qpEdgeNrr(S, N, i, j, q, nTests, alpha, R.code.only=TRUE)
-      else
-        nrr <- qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i, j, q, nTests,
-                                        alpha, R.code.only=TRUE)
+      else {
+        if (!is.null(restrict.Q))
+          rQs <- union(which(restrict.Q[i, ]), which(restrict.Q[j, ]))
+
+        nrr <- qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i, j, q, rQs,
+                                        nTests, alpha, R.code.only=TRUE)
+      }
 
       nrrMatrix[j,i] <- nrrMatrix[i,j] <- nrr
       k <- k + 1
@@ -396,9 +430,13 @@ setMethod("qpNrr", signature(X="matrix"),
 
         if (is.null(I))
           nrr <- qpgraph:::.qpEdgeNrr(S, N, i, j, q, nTests, alpha, R.code.only=TRUE)
-        else
-          nrr <- qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i, j, q, nTests,
-                                          alpha, R.code.only=TRUE)
+        else {
+          if (!is.null(restrict.Q))
+            rQs <- union(which(restrict.Q[i, ]), which(restrict.Q[j, ]))
+
+          nrr <- qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i, j, q, rQs,
+                                          nTests, alpha, R.code.only=TRUE)
+        }
 
         nrrMatrix[j,i] <- nrrMatrix[i,j] <- nrr
         k <- k + 1
@@ -425,9 +463,13 @@ setMethod("qpNrr", signature(X="matrix"),
 
         if (is.null(I))
           nrr <- qpgraph:::.qpEdgeNrr(S, N, i2, j2, q, nTests, alpha, R.code.only=TRUE)
-        else
-          nrr <- qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i2, j2, q, nTests,
-                                          alpha, R.code.only=TRUE)
+        else {
+          if (!is.null(restrict.Q))
+            rQs <- union(which(restrict.Q[i2, ]), which(restrict.Q[j2, ]))
+
+          nrr <- qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i2, j2, q, rQs,
+                                          nTests, alpha, R.code.only=TRUE)
+        }
 
         nrrMatrix[j2,i2] <- nrrMatrix[i2,j2] <- nrr
         k <- k + 1
@@ -1165,8 +1207,8 @@ setMethod("qpGenNrr", signature(X="matrix"),
 ##             j - index in S (row or column) matching the other variable
 ##             q - partial-correlation order
 ##             I - indexes or names of the variables in X that are discrete
-##             I.restrict - indexes or names of the discrete variables that may
-##                          be sampled as part of conditioning subsets
+##             restrict.Q - indexes or names of variables to which the conditioning
+##                          subsets Q should be restricted
 ##             nTests - number of tests to perform
 ##             alpha - significance level of each test (Type-I error probability)
 ##             long.dim.are.variables - if TRUE it assumes that when the data is
@@ -1182,7 +1224,7 @@ setGeneric("qpEdgeNrr", function(X, ...) standardGeneric("qpEdgeNrr"))
 
 # X comes as an ExpressionSet object
 setMethod("qpEdgeNrr", signature(X="ExpressionSet"),
-          function(X, i=1, j=2, q=1, I=NULL, I.restrict=NULL, nTests=100,
+          function(X, i=1, j=2, q=1, I=NULL, restrict.Q=NULL, nTests=100,
                    alpha=0.05, R.code.only=FALSE) {
             X <- t(Biobase::exprs(X))
             S <- qpCov(X)
@@ -1192,7 +1234,7 @@ setMethod("qpEdgeNrr", signature(X="ExpressionSet"),
 
 # X comes as a data frame
 setMethod("qpEdgeNrr", signature(X="data.frame"),
-          function(X, i=1, j=2, q=1, I=NULL, I.restrict=NULL, nTests=100,
+          function(X, i=1, j=2, q=1, I=NULL, restrict.Q=NULL, nTests=100,
                    alpha=0.05, long.dim.are.variables=TRUE,
                    R.code.only=FALSE) {
             X <- as.matrix(X)
@@ -1225,14 +1267,14 @@ setMethod("qpEdgeNrr", signature(X="data.frame"),
               names(mapX2ssd) <- colnames(X)
 
               qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i, j, q,
-                                       I.restrict, nTests, alpha, R.code.only)
+                                       restrict.Q, nTests, alpha, R.code.only)
             }
           })
 
           
 # X comes as a matrix
 setMethod("qpEdgeNrr", signature(X="matrix"),
-          function(X, i=1, j=2, q=1, I=NULL, I.restrict=NULL, n=NULL,
+          function(X, i=1, j=2, q=1, I=NULL, restrict.Q=NULL, n=NULL,
                    nTests=100, alpha=0.05, long.dim.are.variables=TRUE,
                    R.code.only=FALSE) {
             if (long.dim.are.variables &&
@@ -1268,7 +1310,7 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
                 names(mapX2ssd) <- colnames(X)
 
                 qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i, j, q,
-                                         I.restrict, nTests, alpha, R.code.only)
+                                         restrict.Q, nTests, alpha, R.code.only)
               }
             } else {
               if (!is.null(I))
@@ -1327,7 +1369,7 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
 }
 
 .qpEdgeNrrHMGM <- function(X, I, Y, ssdMat, mapX2ssdMat, i=1, j=2, q=1,
-                           I.restrict=NULL, nTests=100, alpha=0.05,
+                           restrict.Q=NULL, nTests=100, alpha=0.05,
                            R.code.only=FALSE) {
   if (is.character(i)) {
     if (is.na(match(i, colnames(X))))
@@ -1356,22 +1398,22 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
   if (all(!is.na(match(c(i,j), I))))
     stop("i and j cannot be both discrete at the moment\n")
 
-  if (is.null(I.restrict))
-    I.restrict <- I
-  else {
-    if (is.character(I.restrict)) {
-      if (any(is.na(match(I.restrict, colnames(X)))))
-        stop("Some variables in I.restrict do not form part of the variable names of the data\n")
-      I.restrict <- match(I.restrict, colnames(X))
-    }
-
-    if (any(is.na(match(I.restrict, I))))
-      stop("Some variables in I.restrict do not appear in I\n")
-  }
-
   V <- c(I, Y)
   n.var  <- length(V)
   n <- dim(X)[1]
+
+  if (!is.null(restrict.Q)) {
+    if (is.character(restrict.Q)) {
+      if (any(is.na(match(restrict.Q, colnames(X)))))
+        stop("Some variables in restrict.Q do not form part of the variable names of the data\n")
+      restrict.Q <- match(restrict.Q, colnames(X))
+    }
+
+    V <- restrict.Q
+
+    if (q > length(V)-2)
+      stop("The number of variables implied by restrict.Q to use as Q subsets is < (q+2)\n")
+  }
 
   if (q > n.var-2)
     stop(paste("q=", q, " > n.var-2=", n.var-2))
@@ -1389,17 +1431,21 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
   }
 
   if (!R.code.only) {
-    return(qpgraph:::.qpFastEdgeNrrHMGM(X, I, Y, ssdMat, mapX2ssdMat, i, j, q, nTests, alpha))
+    return(qpgraph:::.qpFastEdgeNrrHMGM(X, I, Y, ssdMat, mapX2ssdMat, i, j, q,
+                                        restrict.Q, nTests, alpha))
   }
 
-  pop <- V[-match(c(i, j, setdiff(I, I.restrict)), V)]
+  mt <- match(c(i, j), V)
+  mt <- mt[!is.na(mt)]
+  if (length(mt) > 0)
+    V <- V[-mt]
 
   problematicQ <- NA
   nActualTests <- 0
   thr <- qchisq(p=(1-alpha), df=1, lower.tail=TRUE)
   lambda <- rep(NA, times=nTests)
   for (k in 1:nTests) {
-    Q <- sample(pop, q, rep=FALSE)
+    Q <- sample(V, q, rep=FALSE)
     cit <- qpgraph:::.qpCItestHMGM(X, I, Y, ssdMat, mapX2ssdMat, i, j, Q, R.code.only=TRUE)
     if (!is.nan(cit$lr)) {
       lambda[k] <- cit$lr
@@ -4056,29 +4102,30 @@ clPrCall <- function(cl, fun, n.adj, ...) {
 ## PRIVATE FUNCTIONS THAT ARE ENTRY POINTS TO THE C CODE OF THE PACKAGE ##
 ##########################################################################
 
-.qpFastNrr <- function(X, I, Y, q, nTests, alpha, pairup.i.noint, pairup.j.noint,
-                       pairup.ij.int, verbose, startTime, nAdj2estimateTime) {
+.qpFastNrr <- function(X, I, Y, q, restrict.Q, nTests, alpha, pairup.i.noint,
+                       pairup.j.noint, pairup.ij.int, verbose, startTime,
+                       nAdj2estimateTime) {
   nLevels <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
-  return(.Call("qp_fast_nrr",X,as.integer(I),as.integer(nLevels),as.integer(Y),
-                             as.integer(q), as.integer(nTests),as.double(alpha),
-                             as.integer(pairup.i.noint),
-                             as.integer(pairup.j.noint),
-                             as.integer(pairup.ij.int),
+  return(.Call("qp_fast_nrr", X, as.integer(I), as.integer(nLevels), as.integer(Y),
+                             as.integer(q), restrict.Q, as.integer(nTests),
+                             as.double(alpha), as.integer(pairup.i.noint),
+                             as.integer(pairup.j.noint), as.integer(pairup.ij.int),
                              as.integer(verbose), as.double(startTime),
                              as.integer(nAdj2estimateTime), .GlobalEnv))
 }
 
 .qpFastNrrIdenticalQs <- function(X, q, nTests, alpha, pairup.i.noint, pairup.j.noint,
                                   pairup.ij.int, verbose, startTime, nAdj2estimateTime) {
-  return(.Call("qp_fast_nrr_identicalQs",X,as.integer(q),as.integer(nTests),
-                                         as.double(alpha),as.integer(pairup.i.noint),
-                                         as.integer(pairup.j.noint),as.integer(pairup.ij.int),
+  return(.Call("qp_fast_nrr_identicalQs", X, as.integer(q), as.integer(nTests),
+                                         as.double(alpha), as.integer(pairup.i.noint),
+                                         as.integer(pairup.j.noint), as.integer(pairup.ij.int),
                                          as.integer(verbose), as.double(startTime),
                                          as.integer(nAdj2estimateTime), .GlobalEnv))
 }
 
-.qpFastNrrPar <- function(X, I, Y, q, nTests, alpha, pairup.i.noint, pairup.j.noint,
-                          pairup.ij.int, verbose, estimateTime, nAdj2estimateTime) {
+.qpFastNrrPar <- function(X, I, Y, q, restrict.Q, nTests, alpha, pairup.i.noint,
+                          pairup.j.noint, pairup.ij.int, verbose, estimateTime,
+                          nAdj2estimateTime) {
   myMaster <- get("master", sys.frame(-7))
 
   startTime <- 0
@@ -4088,11 +4135,10 @@ clPrCall <- function(cl, fun, n.adj, ...) {
   nLevels <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
 
   ## clusterRank and clusterSize should have been defined by the master node
-  return(.Call("qp_fast_nrr_par",X,as.integer(I),as.integer(nLevels),as.integer(Y),
-                                 as.integer(q),as.integer(nTests),as.double(alpha),
-                                 as.integer(pairup.i.noint),
-                                 as.integer(pairup.j.noint),
-                                 as.integer(pairup.ij.int),
+  return(.Call("qp_fast_nrr_par", X, as.integer(I), as.integer(nLevels), as.integer(Y),
+                                 restrict.Q, as.integer(q), as.integer(nTests),
+                                 as.double(alpha), as.integer(pairup.i.noint),
+                                 as.integer(pairup.j.noint), as.integer(pairup.ij.int),
                                  as.integer(verbose), as.double(startTime),
                                  as.integer(nAdj2estimateTime), as.integer(get("clusterRank")),
                                  as.integer(get("clusterSize")), myMaster, .GlobalEnv))
@@ -4120,12 +4166,14 @@ clPrCall <- function(cl, fun, n.adj, ...) {
                                   as.integer(q),as.integer(nTests), as.double(alpha)))
 }
 
-.qpFastEdgeNrrHMGM <- function(X, I, Y, ssd, mapX2ssd, i, j, q, nTests, alpha) {
+.qpFastEdgeNrrHMGM <- function(X, I, Y, ssd, mapX2ssd, i, j, q, restrict.Q,
+                               nTests, alpha) {
   nLevels <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
   return(.Call("qp_fast_edge_nrr_hmgm",X, as.integer(I), as.integer(nLevels),
                                        as.integer(Y), ssd@x, as.integer(mapX2ssd),
                                        as.integer(i),as.integer(j), as.integer(q),
-                                       as.integer(nTests), as.double(alpha)))
+                                       as.integer(restrict.Q), as.integer(nTests),
+                                       as.double(alpha)))
 }
 
 .qpFastCItest <- function(S, N, i, j, Q=c()) {

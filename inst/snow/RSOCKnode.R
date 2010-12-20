@@ -21,8 +21,7 @@ local({
     .libPaths(c(snowlib, .libPaths()))
     library(methods) ## because Rscript as of R 2.7.0 doesn't load methods
     library(snow, warn.conflicts=FALSE)
-    library(qpraph)
-    ## store who the master is 
+    ## library(qpgraph) ## store who the master is ##
 
     if (port == "") port <- getClusterOption("port")
 
