@@ -201,18 +201,28 @@ setMethod("qpNrr", signature(X="matrix"),
     Y <- (1:n.var)[-I]
   }
 
+  ## should the following error messages stop the cluster if it has been started ??
+
   if (!is.null(restrict.Q)) {
-    if (!is.matrix(restrict.Q))
-      stop("restrict.Q should be a matrix\n")
-
-    if (rownames(restrict.Q) != colnames(X) || colnames(restrict.Q) != colnames(X))
-      stop("row and column names in restrict.Q should coincide to the column names in X\n")
-
-    if (q > length(restrict.Q)-2)
-      stop("The number of variables implied by restrict.Q to use as Q subsets is < (q+2)\n")
-
     if (is.null(I))
       stop("restrict.Q not implemented yet when I=NULL\n")
+
+    if (!is.matrix(restrict.Q) && !is.integer(restrict.Q) && !is.character(restrict.Q))
+      stop("restrict.Q should be either a matrix or a vector of indexes or variables names\n")
+
+    if (is.matrix(restrict.Q)) {
+      if (rownames(restrict.Q) != colnames(X) || colnames(restrict.Q) != colnames(X))
+        stop("row and column names in restrict.Q should coincide to the column names in X\n")
+
+        if (q > min(rowSums(restrict.Q))-2)
+          stop("The number of variables implied by the minimum number of variables in restrict.Q to use as Q subsets is < (q+2)\n")
+    } else {
+      if (is.character(restrict.Q)) {
+        if (any(is.na(match(restrict.Q, var.names))))
+          stop("Some variables in restrict.Q do not form part of the variable names of the data in X\n")
+        restrict.Q <- match(restrict.Q, var.names)
+      }
+    }
   }
 
   ## check that the parameters have proper values
@@ -393,6 +403,9 @@ setMethod("qpNrr", signature(X="matrix"),
   if (verbose && elapsedTime == 0)
     pb <- txtProgressBar(style=3)
   rQs <- NULL
+  if (!is.null(restrict.Q) && !is.matrix(restrict.Q))
+    rQs <- restrict.Q
+
   nrr <- NA
 
   ## intersection variables against ij-exclusive variables
@@ -402,8 +415,8 @@ setMethod("qpNrr", signature(X="matrix"),
       if (is.null(I))
         nrr <- qpgraph:::.qpEdgeNrr(S, N, i, j, q, nTests, alpha, R.code.only=TRUE)
       else {
-        if (!is.null(restrict.Q))
-          rQs <- union(which(restrict.Q[i, ]), which(restrict.Q[j, ]))
+        if (!is.null(restrict.Q) && is.matrix(restrict.Q))
+            rQs <- union(which(restrict.Q[i, ]), which(restrict.Q[j, ]))
 
         nrr <- qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i, j, q, rQs,
                                         nTests, alpha, R.code.only=TRUE)
@@ -431,7 +444,7 @@ setMethod("qpNrr", signature(X="matrix"),
         if (is.null(I))
           nrr <- qpgraph:::.qpEdgeNrr(S, N, i, j, q, nTests, alpha, R.code.only=TRUE)
         else {
-          if (!is.null(restrict.Q))
+          if (!is.null(restrict.Q) && is.matrix(restrict.Q))
             rQs <- union(which(restrict.Q[i, ]), which(restrict.Q[j, ]))
 
           nrr <- qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i, j, q, rQs,
@@ -464,7 +477,7 @@ setMethod("qpNrr", signature(X="matrix"),
         if (is.null(I))
           nrr <- qpgraph:::.qpEdgeNrr(S, N, i2, j2, q, nTests, alpha, R.code.only=TRUE)
         else {
-          if (!is.null(restrict.Q))
+          if (!is.null(restrict.Q) && is.matrix(restrict.Q))
             rQs <- union(which(restrict.Q[i2, ]), which(restrict.Q[j2, ]))
 
           nrr <- qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i2, j2, q, rQs,
@@ -4136,7 +4149,7 @@ clPrCall <- function(cl, fun, n.adj, ...) {
 
   ## clusterRank and clusterSize should have been defined by the master node
   return(.Call("qp_fast_nrr_par", X, as.integer(I), as.integer(nLevels), as.integer(Y),
-                                 restrict.Q, as.integer(q), as.integer(nTests),
+                                 as.integer(q), restrict.Q, as.integer(nTests),
                                  as.double(alpha), as.integer(pairup.i.noint),
                                  as.integer(pairup.j.noint), as.integer(pairup.ij.int),
                                  as.integer(verbose), as.double(startTime),

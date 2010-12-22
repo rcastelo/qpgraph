@@ -295,6 +295,7 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
   int     n_Y = length(YR);
   int*    restrictQ = NULL;
   int     n_rQ = 0;
+  int     isMatrix_restrictQ = FALSE;
   int     l_ini = length(pairup_i_nointR);
   int     l_jni = length(pairup_j_nointR);
   int     l_int = length(pairup_ij_intR);
@@ -346,7 +347,7 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
     mapX2ssd = Calloc(n_var, int);
     for (i=0; i < n_var; i++) {
       j = 0;
-      while (i != Y[j] && j < n_var)
+      while (j < n_Y && i != Y[j])
         j++;
 
       mapX2ssd[i] = j;
@@ -355,8 +356,17 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
     S = ssdMat = Calloc((n_Y*(n_Y+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
     ssd(REAL(XR), n_var, N, Y, n_Y, NULL, N, 1, ssdMat);
 
-    if (restrictQR != R_NilValue)
-      restrictQ = Calloc(n_var, int);
+    if (restrictQR != R_NilValue) {
+      if (isMatrix(restrictQR)) {
+        isMatrix_restrictQ = TRUE;
+        restrictQ = Calloc(n_var, int);
+      } else {
+        n_rQ = length(restrictQR);
+        restrictQ = Calloc(n_rQ, int);
+        for (i=0; i < n_rQ; i++)
+          restrictQ[i] = INTEGER(restrictQR)[i] - 1;
+      }
+    }
   }
 
   if (l_ini + l_jni > 0) {
@@ -408,12 +418,14 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
       int j2 = pairup_ij_noint[j] - 1;
 
       if (restrictQ != NULL) {
-        int l;
+        if (isMatrix_restrictQ) {
+          int l;
 
-        n_rQ = 0;
-        for (l=0; l < n_var; l++)
-          if (INTEGER(restrictQR)[i2 + l*n_var] || INTEGER(restrictQR)[j2 + l*n_var])
-            restrictQ[n_rQ++] = l;
+          n_rQ = 0;
+          for (l=0; l < n_var; l++)
+            if (INTEGER(restrictQR)[i2 + l*n_var] || INTEGER(restrictQR)[j2 + l*n_var])
+              restrictQ[n_rQ++] = l;
+        }
       }
 
       nrr[UTE2I(i2, j2)] = n_I == 0 ? qp_edge_nrr(S, n_var, N, i2, j2, q, nTests, alpha) :
@@ -464,12 +476,14 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
         int j2 = pairup_j_noint[j] - 1;
 
         if (restrictQ != NULL) {
-          int l;
+          if (isMatrix_restrictQ) {
+            int l;
 
-          n_rQ = 0;
-          for (l=0; l < n_var; l++)
-            if (INTEGER(restrictQR)[i2 + l*n_var] || INTEGER(restrictQR)[j2 + l*n_var])
-              restrictQ[n_rQ++] = l;
+            n_rQ = 0;
+            for (l=0; l < n_var; l++)
+              if (INTEGER(restrictQR)[i2 + l*n_var] || INTEGER(restrictQR)[j2 + l*n_var])
+                restrictQ[n_rQ++] = l;
+          }
         }
 
         nrr[UTE2I(i2, j2)] = n_I == 0 ? qp_edge_nrr(S, n_var, N, i2, j2, q, nTests, alpha) :
@@ -518,12 +532,14 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
         int j2 = pairup_ij_int[j] - 1;
 
         if (restrictQ != NULL) {
-          int l;
+          if (isMatrix_restrictQ) {
+            int l;
 
-          n_rQ = 0;
-          for (l=0; l < n_var; l++)
-            if (INTEGER(restrictQR)[i2 + l*n_var] || INTEGER(restrictQR)[j2 + l*n_var])
-              restrictQ[n_rQ++] = l;
+            n_rQ = 0;
+            for (l=0; l < n_var; l++)
+              if (INTEGER(restrictQR)[i2 + l*n_var] || INTEGER(restrictQR)[j2 + l*n_var])
+                restrictQ[n_rQ++] = l;
+          }
         }
 
         nrr[UTE2I(i2, j2)] = n_I == 0 ? qp_edge_nrr(S, n_var, N, i2, j2, q, nTests, alpha) :
@@ -964,6 +980,7 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
   int     n_Y = length(YR);
   int*    restrictQ = NULL;
   int     n_rQ = 0;
+  int     isMatrix_restrictQ = FALSE;
   int     l_ini = length(pairup_i_nointR);
   int     l_jni = length(pairup_j_nointR);
   int     l_int = length(pairup_ij_intR);
@@ -1040,7 +1057,7 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
     mapX2ssd = Calloc(n_var, int);
     for (i=0; i < n_var; i++) {
       j = 0;
-      while (i != Y[j] && j < n_var)
+      while (j < n_Y && i != Y[j])
         j++;
 
       mapX2ssd[i] = j;
@@ -1049,8 +1066,17 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
     S = ssdMat = Calloc((n_Y*(n_Y+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
     ssd(REAL(XR), n_var, N, Y, n_Y, NULL, N, 1, ssdMat);
 
-    if (restrictQR != R_NilValue)
-      restrictQ = Calloc(n_var, int);
+    if (restrictQR != R_NilValue) {
+      if (isMatrix(restrictQR)) {
+        isMatrix_restrictQ = TRUE;
+        restrictQ = Calloc(n_var, int);
+      } else {
+        n_rQ = length(restrictQR);
+        restrictQ = Calloc(n_rQ, int);
+        for (i=0; i < n_rQ; i++)
+          restrictQ[i] = INTEGER(restrictQR)[i] - 1;
+      }
+    }
   }
 
   n_adj = l_int * (l_jni + l_ini) + l_ini * l_jni + l_int * (l_int - 1) / 2;
@@ -1114,12 +1140,14 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
         int j2 = pairup_ij_noint[j] - 1;
 
         if (restrictQ != NULL) {
-          int m;
+          if (isMatrix_restrictQ) {
+            int m;
 
-          n_rQ = 0;
-          for (m=0; m < n_var; m++)
-            if (INTEGER(restrictQR)[i2 + m*n_var] || INTEGER(restrictQR)[j2 + m*n_var])
-              restrictQ[n_rQ++] = m;
+            n_rQ = 0;
+            for (m=0; m < n_var; m++)
+              if (INTEGER(restrictQR)[i2 + m*n_var] || INTEGER(restrictQR)[j2 + m*n_var])
+                restrictQ[n_rQ++] = m;
+          }
         }
 
         nrr[k-firstAdj] = n_I == 0 ? qp_edge_nrr(S, n_var, N, i2, j2, q, nTests, alpha) :
@@ -1171,12 +1199,14 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
         int j2 = pairup_j_noint[j] - 1;
 
         if (restrictQ != NULL) {
-          int m;
+          if (isMatrix_restrictQ) {
+            int m;
 
-          n_rQ = 0;
-          for (m=0; m < n_var; m++)
-            if (INTEGER(restrictQR)[i2 + m*n_var] || INTEGER(restrictQR)[j2 + m*n_var])
-              restrictQ[n_rQ++] = m;
+            n_rQ = 0;
+            for (m=0; m < n_var; m++)
+              if (INTEGER(restrictQR)[i2 + m*n_var] || INTEGER(restrictQR)[j2 + m*n_var])
+                restrictQ[n_rQ++] = m;
+          }
         }
 
         nrr[k-firstAdj] = n_I == 0 ? qp_edge_nrr(S, n_var, N, i2, j2, q, nTests, alpha) :
@@ -1225,12 +1255,14 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
       j2 = pairup_ij_int[j] - 1;
 
       if (restrictQ != NULL) {
-        int m;
+        if (isMatrix_restrictQ) {
+          int m;
 
-        n_rQ = 0;
-        for (m=0; m < n_var; m++)
-          if (INTEGER(restrictQR)[i2 + m*n_var] || INTEGER(restrictQR)[j2 + m*n_var])
-            restrictQ[n_rQ++] = m;
+          n_rQ = 0;
+          for (m=0; m < n_var; m++)
+            if (INTEGER(restrictQR)[i2 + m*n_var] || INTEGER(restrictQR)[j2 + m*n_var])
+              restrictQ[n_rQ++] = m;
+        }
       }
 
       nrr[k-firstAdj] = n_I == 0 ?  qp_edge_nrr(S, n_var, N, i2, j2, q, nTests, alpha) :
@@ -2324,6 +2356,8 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
 
   }
 
+  Free(ssd_mat);
+
   if (flag_zero || final_sign == -1)
     lr = R_NaN;
   else
@@ -2445,7 +2479,7 @@ qp_edge_nrr_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y
 
   if (n_I > 0) {
     k = 0;
-    while (I[k] != j && k < n_I)
+    while (k < n_I && I[k] != j)
       k++;
 
     if (k < n_I) {  /* for a mixed edge i should be always the discrete variable */
