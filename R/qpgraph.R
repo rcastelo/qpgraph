@@ -40,6 +40,7 @@
 ##             verbose - show progress on the calculations
 ##             identicalQs - use identical conditioning subsets for all pairs
 ##                           of variables
+##             exact.test - employ an exact test when working with HMGMs
 ##             R.code.only - flag set to FALSE when using the C implementation
 ##             clusterSize - size of the cluster of processors to do calculations
 ##                           in parallel via 'snow' and 'rlecuyer'
@@ -50,9 +51,9 @@ setGeneric("qpNrr", function(X, ...) standardGeneric("qpNrr"))
 ## X comes as an ExpressionSet object
 setMethod("qpNrr", signature(X="ExpressionSet"),
           function(X, q=1, I=NULL, restrict.Q=NULL, nTests=100, alpha=0.05,
-                   pairup.i=NULL, pairup.j=NULL, verbose=TRUE, identicalQs=TRUE,
-                   R.code.only=FALSE, clusterSize=1, estimateTime=FALSE,
-                   nAdj2estimateTime=10) {
+                   pairup.i=NULL, pairup.j=NULL, verbose=TRUE, exact.test=FALSE,
+                   identicalQs=TRUE, R.code.only=FALSE, clusterSize=1,
+                   estimateTime=FALSE, nAdj2estimateTime=10) {
 
             startTime <- c(user.self=0, sys.self=0, elapsed=0, user.child=0, sys.child=0)
             class(startTime) <- "proc_time"
@@ -68,15 +69,16 @@ setMethod("qpNrr", signature(X="ExpressionSet"),
               
             X <- t(Biobase::exprs(X))
             qpgraph:::.qpNrr(X, q, I, restrict.Q, nTests, alpha, pairup.i,
-                             pairup.j, verbose, identicalQs, R.code.only,
-                             clusterSize, startTime, nAdj2estimateTime)
+                             pairup.j, verbose, identicalQs, exact.test,
+                             R.code.only, clusterSize, startTime,
+                             nAdj2estimateTime)
           })
 
 ## X comes as a data frame
 setMethod("qpNrr", signature(X="data.frame"),
           function(X, q=1, I=NULL, restrict.Q=NULL, nTests=100, alpha=0.05,
                    pairup.i=NULL, pairup.j=NULL, long.dim.are.variables=TRUE,
-                   verbose=TRUE, identicalQs=TRUE, R.code.only=FALSE,
+                   verbose=TRUE, identicalQs=TRUE, exact.test=FALSE, R.code.only=FALSE,
                    clusterSize=1, estimateTime=FALSE, nAdj2estimateTime=10) {
 
             startTime <- c(user.self=0, sys.self=0, elapsed=0, user.child=0, sys.child=0)
@@ -103,8 +105,9 @@ setMethod("qpNrr", signature(X="data.frame"),
               colnames(X) <- 1:ncol(X)
 
             qpgraph:::.qpNrr(X, q, I, restrict.Q, nTests, alpha, pairup.i,
-                             pairup.j, verbose, identicalQs, R.code.only,
-                             clusterSize, startTime, nAdj2estimateTime)
+                             pairup.j, verbose, identicalQs, exact.test,
+                             R.code.only, clusterSize, startTime,
+                             nAdj2estimateTime)
           })
 
           
@@ -112,7 +115,7 @@ setMethod("qpNrr", signature(X="data.frame"),
 setMethod("qpNrr", signature(X="matrix"),
           function(X, q=1, I=NULL, restrict.Q=NULL, nTests=100, alpha=0.05,
                    pairup.i=NULL, pairup.j=NULL, long.dim.are.variables=TRUE,
-                   verbose=TRUE, identicalQs=TRUE, R.code.only=FALSE,
+                   verbose=TRUE, identicalQs=TRUE, exact.test=FALSE, R.code.only=FALSE,
                    clusterSize=1, estimateTime=FALSE, nAdj2estimateTime=10) {
 
             startTime <- c(user.self=0, sys.self=0, elapsed=0, user.child=0, sys.child=0)
@@ -135,13 +138,15 @@ setMethod("qpNrr", signature(X="matrix"),
               colnames(X) <- 1:ncol(X)
 
             qpgraph:::.qpNrr(X, q, I, restrict.Q, nTests, alpha, pairup.i,
-                             pairup.j, verbose, identicalQs, R.code.only,
-                             clusterSize, startTime, nAdj2estimateTime)
+                             pairup.j, verbose, identicalQs, exact.test,
+                             R.code.only, clusterSize, startTime,
+                             nAdj2estimateTime)
           })
 
 .qpNrr <- function(X, q=1, I=NULL, restrict.Q=NULL, nTests=100, alpha=0.05,
                    pairup.i=NULL, pairup.j=NULL, verbose=TRUE, identicalQs=TRUE,
-                   R.code.only=FALSE, clusterSize=1, startTime, nAdj2estimateTime=10) {
+                   exact.test=FALSE, R.code.only=FALSE, clusterSize=1, startTime,
+                   nAdj2estimateTime=10) {
 
   cl <- NULL
  
@@ -308,7 +313,7 @@ setMethod("qpNrr", signature(X="matrix"),
       else
         nrrMatrix <- qpgraph:::.qpFastNrr(X, I, Y, q, restrict.Q, nTests, alpha,
                                           pairup.i.noint, pairup.j.noint,
-                                          pairup.ij.int, verbose,
+                                          pairup.ij.int, exact.test, verbose,
                                           startTime["elapsed"], nAdj2estimateTime)
 
       if (startTime["elapsed"] == 0)
@@ -326,8 +331,8 @@ setMethod("qpNrr", signature(X="matrix"),
         else
           nrrIdx <- clPrCall(cl, qpgraph:::.qpFastNrrPar, n.adj, X, I, Y, q,
                              restrict.Q, nTests, alpha, pairup.i.noint,
-                             pairup.j.noint, pairup.ij.int, verbose, FALSE,
-                             nAdj2estimateTime)
+                             pairup.j.noint, pairup.ij.int, exact.test, verbose,
+                             FALSE, nAdj2estimateTime)
       } else {
         if (identicalQs && is.null(I))
           nrrIdx <- clCall(cl, qpgraph:::.qpFastNrrIdenticalQsPar, X, q, nTests,
@@ -336,8 +341,8 @@ setMethod("qpNrr", signature(X="matrix"),
         else
           nrrIdx <- clCall(cl, qpgraph:::.qpFastNrrPar, X, I, Y, q, restrict.Q,
                            nTests, alpha, pairup.i.noint, pairup.j.noint,
-                           pairup.ij.int, verbose, startTime["elapsed"] > 0,
-                           nAdj2estimateTime)
+                           pairup.ij.int, exact.test, verbose,
+                           startTime["elapsed"] > 0, nAdj2estimateTime)
       }
 
       if (startTime["elapsed"] > 0) {
@@ -419,7 +424,7 @@ setMethod("qpNrr", signature(X="matrix"),
             rQs <- union(which(restrict.Q[i, ]), which(restrict.Q[j, ]))
 
         nrr <- qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i, j, q, rQs,
-                                        nTests, alpha, R.code.only=TRUE)
+                                        nTests, alpha, exact.test, R.code.only=TRUE)
       }
 
       nrrMatrix[j,i] <- nrrMatrix[i,j] <- nrr
@@ -448,7 +453,7 @@ setMethod("qpNrr", signature(X="matrix"),
             rQs <- union(which(restrict.Q[i, ]), which(restrict.Q[j, ]))
 
           nrr <- qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i, j, q, rQs,
-                                          nTests, alpha, R.code.only=TRUE)
+                                          nTests, alpha, exact.test, R.code.only=TRUE)
         }
 
         nrrMatrix[j,i] <- nrrMatrix[i,j] <- nrr
@@ -481,7 +486,7 @@ setMethod("qpNrr", signature(X="matrix"),
             rQs <- union(which(restrict.Q[i2, ]), which(restrict.Q[j2, ]))
 
           nrr <- qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i2, j2, q, rQs,
-                                          nTests, alpha, R.code.only=TRUE)
+                                          nTests, alpha, exact.test, R.code.only=TRUE)
         }
 
         nrrMatrix[j2,i2] <- nrrMatrix[i2,j2] <- nrr
@@ -1229,6 +1234,7 @@ setMethod("qpGenNrr", signature(X="matrix"),
 ##                                      dimension is the one defining the random
 ##                                      variables, if FALSE then random variables
 ##                                      are assumed to be at the columns
+##             exact.test - employ an exact test when working with HMGMs
 ##             R.code.only - flag set to FALSE when using the C implementation
 ## return: an estimate of the non-rejection rate for the particular given pair of
 ##         variables
@@ -1249,7 +1255,7 @@ setMethod("qpEdgeNrr", signature(X="ExpressionSet"),
 setMethod("qpEdgeNrr", signature(X="data.frame"),
           function(X, i=1, j=2, q=1, I=NULL, restrict.Q=NULL, nTests=100,
                    alpha=0.05, long.dim.are.variables=TRUE,
-                   R.code.only=FALSE) {
+                   exact.test=FALSE, R.code.only=FALSE) {
             X <- as.matrix(X)
             if (!is.double(X))
               stop("X should be double-precision real numbers\n")
@@ -1280,7 +1286,8 @@ setMethod("qpEdgeNrr", signature(X="data.frame"),
               names(mapX2ssd) <- colnames(X)
 
               qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i, j, q,
-                                       restrict.Q, nTests, alpha, R.code.only)
+                                       restrict.Q, nTests, alpha, exact.test,
+                                       R.code.only)
             }
           })
 
@@ -1289,7 +1296,7 @@ setMethod("qpEdgeNrr", signature(X="data.frame"),
 setMethod("qpEdgeNrr", signature(X="matrix"),
           function(X, i=1, j=2, q=1, I=NULL, restrict.Q=NULL, n=NULL,
                    nTests=100, alpha=0.05, long.dim.are.variables=TRUE,
-                   R.code.only=FALSE) {
+                   exact.test=FALSE, R.code.only=FALSE) {
             if (long.dim.are.variables &&
               sort(dim(X),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
               X <- t(X)
@@ -1323,7 +1330,8 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
                 names(mapX2ssd) <- colnames(X)
 
                 qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i, j, q,
-                                         restrict.Q, nTests, alpha, R.code.only)
+                                         restrict.Q, nTests, alpha, exact.test,
+                                         R.code.only)
               }
             } else {
               if (!is.null(I))
@@ -1383,7 +1391,7 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
 
 .qpEdgeNrrHMGM <- function(X, I, Y, ssdMat, mapX2ssdMat, i=1, j=2, q=1,
                            restrict.Q=NULL, nTests=100, alpha=0.05,
-                           R.code.only=FALSE) {
+                           exact.test=FALSE, R.code.only=FALSE) {
   if (is.character(i)) {
     if (is.na(match(i, colnames(X))))
       stop(sprintf("i=%s does not form part of the variable names of the data\n",i))
@@ -1445,7 +1453,7 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
 
   if (!R.code.only) {
     return(qpgraph:::.qpFastEdgeNrrHMGM(X, I, Y, ssdMat, mapX2ssdMat, i, j, q,
-                                        restrict.Q, nTests, alpha))
+                                        restrict.Q, nTests, alpha, exact.test))
   }
 
   mt <- match(c(i, j), V)
@@ -1455,19 +1463,39 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
 
   problematicQ <- NA
   nActualTests <- 0
-  thr <- qchisq(p=(1-alpha), df=1, lower.tail=TRUE)
-  lambda <- rep(NA, times=nTests)
+  lambda <- a <- b <- thr <- rep(NA, times=nTests)
   for (k in 1:nTests) {
     Q <- sample(V, q, rep=FALSE)
-    cit <- qpgraph:::.qpCItestHMGM(X, I, Y, ssdMat, mapX2ssdMat, i, j, Q, R.code.only=TRUE)
+    cit <- qpgraph:::.qpCItestHMGM(X, I, Y, ssdMat, mapX2ssdMat, i, j, Q, exact.test, R.code.only=TRUE)
     if (!is.nan(cit$lr)) {
       lambda[k] <- cit$lr
+      if (exact.test) {
+        nGamma <- sum(!is.na(match(c(i, j, Q), Y)))
+        Delta <- intersect(I, c(i, j, Q))
+        DeltaStar <- setdiff(Delta, c(i, j))
+        a[k] <- cit$a
+        b[k] <- cit$b
+        if (k > 1 && a[k] == a[k-1] && b[k] == b[k-1])
+          thr[k] <- thr[k-1]
+        else
+          thr[k] <- qbeta(p=alpha, shape1=a[k], shape2=b[k], lower.tail=TRUE)
+      }
       nActualTests <- nActualTests + 1
     } else
       problematicQ <- Q
   }
 
-  nAcceptedTests <- sum(lambda < thr, na.rm=TRUE)
+  nAcceptedTests <- thr <- NA
+  if (exact.test) {
+    thr <- sapply(1:nTests,
+                  function(k, alpha, a, b) qbeta(p=alpha, shape1=a[k], shape2=b[k], lower.tail=TRUE),
+                  alpha, a, b)
+    nAcceptedTests <- sum(lambda > thr, na.rm=TRUE)
+  } else {
+    thr <- qchisq(p=(1-alpha), df=1, lower.tail=TRUE)
+    nAcceptedTests <- sum(lambda < thr, na.rm=TRUE)
+  }
+
 
   if (nActualTests < nTests)
     warning(paste(sprintf("Non-rejection rate estimation between i=%s and j=%s with q=%d was based on %d out of %d requested tests.\n",
@@ -1559,7 +1587,7 @@ setMethod("qpCItest", signature(X="ExpressionSet"),
 # X comes as a data frame
 setMethod("qpCItest", signature(X="data.frame"),
           function(X, i=1, j=2, Q=c(), I=NULL,
-                   long.dim.are.variables=TRUE, R.code.only=FALSE) {
+                   long.dim.are.variables=TRUE, exact.test=FALSE, R.code.only=FALSE) {
             X <- as.matrix(X)
             if (!is.double(X))
               stop("X should be double-precision real numbers\n")
@@ -1590,13 +1618,13 @@ setMethod("qpCItest", signature(X="data.frame"),
               mapX2ssd <- match(colnames(X), colnames(ssd))
               names(mapX2ssd) <- colnames(X)
 
-              cit <- qpgraph:::.qpCItestHMGM(X, I, Y, ssd, mapX2ssd, i, j, Q, R.code.only)
+              cit <- qpgraph:::.qpCItestHMGM(X, I, Y, ssd, mapX2ssd, i, j, Q, exact.test, R.code.only)
               if (is.nan(cit$lr))
                 warning(paste(sprintf("CI test unavailable for i=%s, j=%s and Q={",
                                       colnames(X)[i], colnames(X)[j]),
                               paste(colnames(X)[Q], collapse=", "),
                                     "}. Try a smaller Q or increase n if you can\n"))
-              cit
+              list(lr=cit$lr, p.value=cit$p.value)
             }
           })
 
@@ -1604,7 +1632,7 @@ setMethod("qpCItest", signature(X="data.frame"),
 # X comes as a matrix
 setMethod("qpCItest", signature(X="matrix"),
           function(X, i=1, j=2, Q=c(), I=NULL, n=NULL,
-                   long.dim.are.variables=TRUE, R.code.only=FALSE) {
+                   long.dim.are.variables=TRUE, exact.test=FALSE, R.code.only=FALSE) {
             if (!is.double(X))
               stop("X should be double-precision real numbers\n")
 
@@ -1640,13 +1668,13 @@ setMethod("qpCItest", signature(X="matrix"),
                 mapX2ssd <- match(colnames(X), colnames(ssd))
                 names(mapX2ssd) <- colnames(X)
 
-                cit <- qpgraph:::.qpCItestHMGM(X, I, Y, ssd, mapX2ssd, i, j, Q, R.code.only)
+                cit <- qpgraph:::.qpCItestHMGM(X, I, Y, ssd, mapX2ssd, i, j, Q, exact.test, R.code.only)
                 if (is.nan(cit$lr))
                   warning(paste(sprintf("CI test unavailable for i=%s, j=%s and Q={",
                                         colnames(X)[i], colnames(X)[j]),
                                 paste(colnames(X)[Q], collapse=", "),
                                       "}. Try a smaller Q or increase n if you can\n"))
-                cit
+                list(lr=cit$lr, p.value=cit$p.value)
               }
 
             } else {
@@ -1714,8 +1742,12 @@ setMethod("qpCItest", signature(X="matrix"),
   if (length(I) == 0)
     return((n-1) * cov(X[, Y, drop=FALSE]))
 
+  missingMask <- apply(X[, I, drop=FALSE], 1, function(x) any(is.na(x)))
+
   xtab <- tapply(1:n, as.data.frame(X[, I, drop=FALSE]))
+  xtab[missingMask] <- -1 ## label missing observations
   xtab <- split(as.data.frame(X[, Y, drop=FALSE]), xtab)
+  xtab <- xtab[as.integer(names(xtab)) > 0] ## remove missing observations
   xtab <- xtab[which(sapply(lapply(xtab, dim), "[", 1) > 0)]
   ni <- sapply(lapply(xtab, dim), "[", 1)
   ssd <- Reduce("+",
@@ -1725,7 +1757,7 @@ setMethod("qpCItest", signature(X="matrix"),
   ssd
 }
 
-.qpCItestHMGM <- function(X, I, Y, ssdMat, mapX2ssdMat, i, j, Q, R.code.only=FALSE ) {
+.qpCItestHMGM <- function(X, I, Y, ssdMat, mapX2ssdMat, i, j, Q, exact.test=FALSE, R.code.only=FALSE ) {
   if (all(!is.na(match(c(i,j), I))))
     stop("i and j cannot be both discrete at the moment")
 
@@ -1781,9 +1813,10 @@ setMethod("qpCItest", signature(X="matrix"),
   }
 
   if (!R.code.only) {
-    return(qpgraph:::.qpFastCItestHMGM(X, I, Y, ssdMat, mapX2ssdMat, i, j, Q))
+    return(qpgraph:::.qpFastCItestHMGM(X, I, Y, ssdMat, mapX2ssdMat, i, j, Q, exact.test))
   }
 
+  nLevels <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
   I <- intersect(I, c(i,Q))
   Y <- intersect(Y, c(i,j,Q))
 
@@ -1829,18 +1862,36 @@ setMethod("qpCItest", signature(X="matrix"),
   ##               (det(ssd_j) * det(ssd_i)))
 
   lr <- NaN
-  p.value <- NA
+  p.value <- a <- b <- NA
 
   zero_boundary <- log(.Machine$double.eps)
   if (ssd$modulus > zero_boundary && ssd_ij$modulus > zero_boundary &&
       ssd_j$modulus > zero_boundary && ssd_i$modulus > zero_boundary &&
       final_sign == 1) {
-    lr <- -n * (ssd$modulus[1]+ssd_ij$modulus[1]-ssd_j$modulus[1]-ssd_i$modulus[1])
-    p.value <- 1 - pchisq(lr, df=1, lower.tail=TRUE)
+    if (exact.test) {
+      lr <- exp(ssd$modulus[1]+ssd_ij$modulus[1]-ssd_j$modulus[1]-ssd_i$modulus[1])
+      nGamma <- length(Y)
+      mixedEdge <- sum(!is.na(match(c(i, j), I))) > 0
+      Delta <- I
+      DeltaStar <- setdiff(I, c(i, j))
+      a <- ifelse(mixedEdge,
+                 (n-nGamma*prod(nLevels[Delta]))/2,
+                 (n-nGamma-prod(nLevels[Delta])+1)/2)
+      b <- ifelse(mixedEdge,
+                  prod(nLevels[DeltaStar])*(nLevels[intersect(Delta, c(i,j))]-1)/2, ## OUR FIX !! STILL TO BE DOUBLE CHECKED WITH S.L.
+                  0.5)
+      if (a > 0 && b > 0)
+        p.value <- pbeta(q=lr, shape1=a, shape2=b, lower.tail=TRUE)
+      else
+        p.value <- a <- b <- NA
+    } else {
+      lr <- -n * (ssd$modulus[1]+ssd_ij$modulus[1]-ssd_j$modulus[1]-ssd_i$modulus[1])
+      p.value <- 1 - pchisq(lr, df=1, lower.tail=TRUE)
+    }
   }
 
 
-  list(lr=lr, p.value=p.value)
+  list(lr=lr, p.value=p.value, a=a, b=b)
 }
 
 
@@ -4116,15 +4167,16 @@ clPrCall <- function(cl, fun, n.adj, ...) {
 ##########################################################################
 
 .qpFastNrr <- function(X, I, Y, q, restrict.Q, nTests, alpha, pairup.i.noint,
-                       pairup.j.noint, pairup.ij.int, verbose, startTime,
-                       nAdj2estimateTime) {
+                       pairup.j.noint, pairup.ij.int, exact.test, verbose,
+                       startTime, nAdj2estimateTime) {
   nLevels <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
   return(.Call("qp_fast_nrr", X, as.integer(I), as.integer(nLevels), as.integer(Y),
                              as.integer(q), restrict.Q, as.integer(nTests),
                              as.double(alpha), as.integer(pairup.i.noint),
                              as.integer(pairup.j.noint), as.integer(pairup.ij.int),
-                             as.integer(verbose), as.double(startTime),
-                             as.integer(nAdj2estimateTime), .GlobalEnv))
+                             as.integer(exact.test), as.integer(verbose),
+                             as.double(startTime), as.integer(nAdj2estimateTime),
+                             .GlobalEnv))
 }
 
 .qpFastNrrIdenticalQs <- function(X, q, nTests, alpha, pairup.i.noint, pairup.j.noint,
@@ -4137,8 +4189,8 @@ clPrCall <- function(cl, fun, n.adj, ...) {
 }
 
 .qpFastNrrPar <- function(X, I, Y, q, restrict.Q, nTests, alpha, pairup.i.noint,
-                          pairup.j.noint, pairup.ij.int, verbose, estimateTime,
-                          nAdj2estimateTime) {
+                          pairup.j.noint, pairup.ij.int, exact.test, verbose,
+                          estimateTime, nAdj2estimateTime) {
   myMaster <- get("master", sys.frame(-7))
 
   startTime <- 0
@@ -4152,7 +4204,7 @@ clPrCall <- function(cl, fun, n.adj, ...) {
                                  as.integer(q), restrict.Q, as.integer(nTests),
                                  as.double(alpha), as.integer(pairup.i.noint),
                                  as.integer(pairup.j.noint), as.integer(pairup.ij.int),
-                                 as.integer(verbose), as.double(startTime),
+                                 as.integer(exact.test), as.integer(verbose), as.double(startTime),
                                  as.integer(nAdj2estimateTime), as.integer(get("clusterRank")),
                                  as.integer(get("clusterSize")), myMaster, .GlobalEnv))
 }
@@ -4180,13 +4232,13 @@ clPrCall <- function(cl, fun, n.adj, ...) {
 }
 
 .qpFastEdgeNrrHMGM <- function(X, I, Y, ssd, mapX2ssd, i, j, q, restrict.Q,
-                               nTests, alpha) {
+                               nTests, alpha, exact.test) {
   nLevels <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
   return(.Call("qp_fast_edge_nrr_hmgm",X, as.integer(I), as.integer(nLevels),
                                        as.integer(Y), ssd@x, as.integer(mapX2ssd),
                                        as.integer(i),as.integer(j), as.integer(q),
                                        as.integer(restrict.Q), as.integer(nTests),
-                                       as.double(alpha)))
+                                       as.double(alpha), as.integer(exact.test)))
 }
 
 .qpFastCItest <- function(S, N, i, j, Q=c()) {
@@ -4198,10 +4250,11 @@ clPrCall <- function(cl, fun, n.adj, ...) {
                as.integer(Q)))
 }
 
-.qpFastCItestHMGM <- function(X, I, Y, ssd, mapX2ssd, i, j, Q) {
+.qpFastCItestHMGM <- function(X, I, Y, ssd, mapX2ssd, i, j, Q, exact.test) {
   nLevels <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
   return(.Call("qp_fast_ci_test_hmgm", X, I, nLevels, Y, ssd@x,
-               as.integer(mapX2ssd), as.integer(i), as.integer(j), as.integer(Q)))
+               as.integer(mapX2ssd), as.integer(i), as.integer(j), as.integer(Q),
+               as.integer(exact.test)))
 }
 
 .qpFastCliquerGetCliques <- function(A, clqspervtx, verbose) {
@@ -4232,4 +4285,86 @@ qpCov <- function(X, corrected=TRUE) {
   return(new("dspMatrix", Dim=c(ncol(X), ncol(X)),
              Dimnames=list(colnames(X), colnames(X)),
              x = .Call("qp_cov_upper_triangular",X,as.integer(corrected))))
+}
+
+qpRndHMGM <- function(nDiscrete=1, nContinuous=3, n.bd=2, diffBySD=5) {
+  require(qpgraph)
+
+  Delta <- paste("D", 1:nDiscrete, sep="")
+  Gamma <- paste("C", 1:nContinuous, sep="")
+  V <- c(Delta, Gamma)
+  G <- qpRndGraph(n.vtx=length(V), n.bd=n.bd)
+  rownames(G) <- colnames(G) <- V
+  G[Delta, Delta] <- FALSE
+  discreteLevels <- rep(2, nDiscrete)
+  nDiscreteLevels <- prod(discreteLevels)
+
+  ## p(i)
+  pDelta <- rep(1/prod(discreteLevels), times=nDiscreteLevels)
+
+  ## Sigma
+  Sigma <- qpG2Sigma(G[Gamma, Gamma], rho=0.5)
+  rownames(Sigma) <- colnames(Sigma) <- Gamma
+
+  ## h(i)
+  h <- matrix(0, nrow=nContinuous, ncol=nDiscreteLevels)
+  rownames(h) <- Gamma
+  colnames(h) <- 1:nDiscreteLevels
+  ## edL <- apply(matrix(as.matrix(G[Delta, Gamma]), nrow=length(Delta),
+  ##                    ncol=length(Gamma), dimnames=list(Delta, Gamma)),
+  ##             2, which)
+  edL <- apply(G[Delta, Gamma, drop=FALSE], 2, which)
+  edL <- edL[which(sapply(edL, length) > 0)]
+
+  levelsDelta <- do.call("expand.grid", rep(list(1:2), nDiscrete))
+  colnames(levelsDelta) <- Delta
+
+  h[names(edL), ] <- 
+    t(sapply(edL,
+             function(whichDiscreteVars, levelsDelta) {
+               if (length(whichDiscreteVars) > 1) {
+                 whichLevelsDiffer <- lapply(lapply(split(levelsDelta[, whichDiscreteVars],
+                                                          levelsDelta[, whichDiscreteVars]),
+                                                    rownames),
+                                             as.integer)
+               } else {
+                 whichLevelsDiffer <- split(1:nDiscreteLevels, levelsDelta[, whichDiscreteVars])
+               }
+               x <- rep(rnorm(length(whichLevelsDiffer), sd=diffBySD),
+                        times=sapply(whichLevelsDiffer, length))
+               x[sort(unlist(whichLevelsDiffer, use.names=FALSE), index.return=TRUE)$ix]
+             }, levelsDelta))
+
+  ## mu
+  mu <- Sigma %*% h
+
+  list(Delta=Delta, Gamma=Gamma, G=G, dLevels=discreteLevels, h=h, p_i=pDelta,
+       Sigma=Sigma, mean_i=mu)
+}
+
+
+qpSampleFromHMGM <- function(n=10, hmgm=qpRndHMGM()) {
+  require(mvtnorm)
+
+  nDiscreteLevels <- prod(hmgm$dLevels)
+  nDiscrete <- length(hmgm$Delta)
+  nContinuous <- length(hmgm$Gamma)
+  levelsDelta <- do.call("expand.grid", rep(list(1:2), nDiscrete))
+  colnames(levelsDelta) <- hmgm$Delta
+
+  sampleData <- matrix(0, nrow = n, ncol = (nDiscrete + nContinuous),
+                       dimnames = list((1:n), c(hmgm$Delta, hmgm$Gamma)))
+  discreteValues <- sample(1:nDiscreteLevels, size=n, prob=hmgm$p_i, replace=TRUE)
+  whatLevels <- split(1:n, discreteValues)
+
+  continuousObs <- do.call("rbind",
+                           lapply(as.list(names(whatLevels)),
+                                  function(x) rmvnorm(length(whatLevels[[x]]),
+                                                      mean=hmgm$mean_i[, as.integer(x)],
+                                                      sigma=as.matrix(hmgm$Sigma))))
+
+  sampleData[, hmgm$Delta] <- as.matrix(levelsDelta[discreteValues, ])
+  sampleData[unlist(whatLevels, use.names=FALSE), hmgm$Gamma] <- continuousObs
+
+  sampleData
 }

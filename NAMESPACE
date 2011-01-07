@@ -42,4 +42,6 @@ export(qpHist,
        qpImportNrr,
        qpTopPairs,
        qpPlotNetwork,
-       qpCov)
+       qpCov,
+       qpRndHMGM,
+       qpSampleFromHMGM)
