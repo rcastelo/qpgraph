@@ -2,30 +2,38 @@
 \alias{qpRndGraph}
 
 \title{
-Random undirected graphs with maximum connectivity degree
+Undirected random d-regular graphs
 }
 \description{
-Builds a random undirected graph with a bounded maximum connectivity degree
-(boundary) on every vertex.
+Samples an undirected d-regular graph approximately uniformly at random.
 }
 \usage{
-qpRndGraph(n.vtx, n.bd)
+qpRndGraph(p=6, d=2)
 }
 \arguments{
-  \item{n.vtx}{number of vertices.}
-  \item{n.bd}{maximum boundary for every vertex.}
+  \item{p}{number of vertices.}
+  \item{d}{degree of every vertex.}
 }
 \details{
-This is a very simple function to generate random undirected graphs where
-we impose a maximum order of correlation between disconnected vertices
-when using it to sample multivariate normal data reflecting the conditional
-independencies encoded in this graph. Note that the maximum order of
-correlation between two disconnected vertices is bounded by the minimum
-degree of connectivity of the two vertices.
+This function implements the algorithm from Steger and Wormald (1999) for
+sampling undirected d-regular graphs from a probability distribution of
+all d-regular graphs on p vertices which is approximately uniform. More
+concretely, for all vertex degree values d that grow as a small power of
+p, all d-regular graphs on p vertices will have in the limit the same
+probability as p grows large. Steger and Wormald (1999, pg. 396) believe
+that for d >> sqrt(p) the resulting probability distribution will no
+longer be approximately uniform.
 
-The algorithm employed is not designed to ensure a uniform probability
-distribution on the set of graphs with the given maximum boundary that may be
-sampled with positive probability.
+This function is provided in order to generate a random undirected graph
+as input to the function \code{\link{qpG2Sigma}} which samples a random
+covariance matrix whose inverse (aka, precision matrix) has zeroes on those
+cells corresponding to the missing edges in the input graph. d-regular
+graphs are useful for working with synthetic graphical models for two
+reasons: one is that d-regular graph density is a linear function of d and
+the other is that the minimum connectivity degree of two disconnected vertices
+is an upper bound of their outer connectivity (see Castelo and Roverato,
+2006, pg. 2646).
+
 }
 \value{
 The adjacency matrix of the resulting graph.
@@ -34,6 +42,9 @@ The adjacency matrix of the resulting graph.
 Castelo, R. and Roverato, A. A robust procedure for
 Gaussian graphical model search from microarray data with p larger than n,
 \emph{J. Mach. Learn. Res.}, 7:2621-2650, 2006.
+
+Steger, A. and Wormald, N.C. Generating random regular graphs quickly,
+\emph{Combinatorics, Probab. and Comput.}, 8:377-396.
 }
 \author{R. Castelo and A. Roverato}
 \seealso{
@@ -45,7 +56,7 @@ maxCon <- 5 ## maximum connectivity per vertex
 
 set.seed(123)
 
-A <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
+A <- qpRndGraph(p=nVar, d=maxCon)
 
 summary(apply(A, 1, sum))
 }

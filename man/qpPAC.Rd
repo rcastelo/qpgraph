@@ -43,7 +43,7 @@ condition for the existence of MLEs that the sample size \code{n} is larger
 than the clique number \code{w(G)} of the graph \code{G}.
 
 The PAC estimation is done by first obtaining a MLE of the covariance matrix
-using the \code{\{link{qpIPF}} function and the P-values are calculated based on
+using the \code{\link{qpIPF}} function and the P-values are calculated based on
 the estimation of the standard errors (see Roverato and Whittaker, 1996).
 }
 \value{

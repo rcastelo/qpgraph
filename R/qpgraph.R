@@ -3,7 +3,7 @@
 ##                   to interact with microarray data in order to build network
 ##                   models of molecular regulation
 ##
-## Copyright (C) 2010 R. Castelo and A. Roverato
+## Copyright (C) 2011 R. Castelo and A. Roverato
 ## This program is free software; you can redistribute it and/or
 ## modify it under the terms of the GNU General Public License
 ## as published by the Free Software Foundation; either version 2
@@ -1804,7 +1804,7 @@ setMethod("qpCItest", signature(X="matrix"),
   }
 
   if (all(!is.na(match(c(i,j), I))))
-    error("i and j cannot be both discrete at the moment")
+    stop("i and j cannot be both discrete at the moment")
 
   if (!is.na(match(j, I))) { ## if any of (i,j) is discrete, it should be i
     tmp <- i
@@ -2931,70 +2931,40 @@ setMethod("qpPCC", signature(X="matrix"),
 ##             n.bd - maximum boundary for every vertex
 ## return: the adjacency matrix of the resulting graph
 
-qpRndGraph <- function(n.vtx, n.bd){
-  #
-  # function to remove the zeros at the end of a vector.
-  #
-  ext.vec <- function(v){v=v[0:sum(v!=0)]}
-  G <- matrix(0, n.vtx, n.bd)
-  vtx.list <- 1:n.vtx
-  full.bd  <- c() 
-  for(i in 1:n.vtx){
-    #
-    # computes n.sam the number of vertices to add to 
-    # the boundary of i and the the population vtx.pop 
-    # of candidate vertices to be in the boundary of i
-    #
-    bd.i  <- ext.vec(G[i,])
-    n.sam <- n.bd-length(bd.i)
-    vtx.pop <- vtx.list[-c(i, bd.i, full.bd)]
-    #
-    # update the boundary. Note that sample() works 
-    # in a different way if l.vp==1
-    #
-    l.vp=length(vtx.pop)
-    if(l.vp>1 & l.vp>=n.sam){
-        new.bd  <- sample(x=vtx.pop, size=n.sam, rep=F) 
-        G[i,] <- c(bd.i, new.bd)
-    } else {
-        if(n.sam>0) {new.bd<- vtx.pop}else{new.bd<-c()}
-        G[i,] <- c(bd.i, new.bd, rep(0, length=(n.bd-length(c(bd.i, new.bd)))))
-    }
-    #
-    # updates the list of vertices with full boundary
-    #
-    full.bd <- c(full.bd, i)
-    #
-    # add the vertex i to the boundary of vertex added to the boundary of i
-    #
-    for (j in new.bd){
-      e <- ext.vec(G[j,])
-      if (length(e)==(n.bd-1)){
-        full.bd <- c(full.bd, j)
-        G[j, ] <- c(e, i)
-      }else{
-        G[j, ] <- c(e, i, rep(0, length=(n.bd-length(e)-1)) )
-      }
+qpRndGraph <- function(p=6, d=2) {
 
+  if (p*d % 2 != 0)
+    stop("The number of vertices p times the degree d of each vertex, i.e., the product p x d, should be even in order to sample a d-regular graph on p vertices uniformly at random\n")
+
+  if (d > sqrt(p))
+    warning("Steger and Wormald (1999, see help page of this function) believe that when d >> sqrt(p) the resulting d-regular graph on p vertices may no longer be sampled from a approximately uniform probability distribution.\n")
+
+  G <- matrix(FALSE, nrow=p, ncol=p)
+  
+  while (any(rowSums(A) != d)) {
+    G <- matrix(FALSE, nrow=p, ncol=p, dimnames=list(1:p, 1:p))
+    S <- TRUE
+    
+    while (!all(is.na(S))) {
+      dG <- rowSums(G)
+      dG[dG > d-1] <- NA ## select pairs where both vertices have
+                         ## degree at most d-1
+      S <- (d - dG) %o% (d - dG)
+      S[G] <- NA ## exclude adjacent pairs of vertices
+
+      if (!all(is.na(S))) {
+        S <- S / sum(S[upper.tri(S)], na.rm=TRUE)
+        ridx <- row(S)[upper.tri(S) & !is.na(S)]
+        cidx <- col(S)[upper.tri(S) & !is.na(S)]
+        S <- S[upper.tri(S) & !is.na(S)]
+        cdf <- sort(S, decreasing=TRUE, index.return=TRUE)
+        i <- cdf$ix[sum(runif(1, min=0, max=1) > cumsum(cdf$x))+1]
+        G[ridx[i], cidx[i]] <- G[cidx[i], ridx[i]] <- TRUE
+      }
     }
   }
-  #
-  # denotes by n.vtx+1 all the non-assigned boundary locations.  
-  #
-  G[G==0] <- n.vtx+1
 
-  # get the corresponding adjacency matrix
-  A <- matrix(FALSE, nrow=n.vtx, ncol=n.vtx)
-
-  for (i in 1:n.vtx){
-      for(j in 1:n.bd){
-          if(G[i, j]!=(n.vtx+1)){
-              A[i, G[i, j]] <- A[G[i, j], i]<- TRUE
-          }             
-      }
-  }
-
-  return(Matrix(A))
+  return(Matrix(G))
 }
 
 
@@ -3676,7 +3646,7 @@ qpTopPairs <- function(measurementsMatrix=NULL, refGraph=NULL, n=6L, file=NULL,
       stop("'refGraph' should be provided either as an adjacency matrix, a graphNEL object, or a graphAM object\n")
 
     if (class(refGraph) == "graphNEL" || class(refGraph) == "graphAM")
-      refGraph <- ugraph(refGraph)
+      refGraph <- graph::ugraph(refGraph)
 
     refGraph <- as(refGraph, "matrix")
 
@@ -4293,7 +4263,7 @@ qpRndHMGM <- function(nDiscrete=1, nContinuous=3, n.bd=2, diffBySD=5) {
   Delta <- paste("D", 1:nDiscrete, sep="")
   Gamma <- paste("C", 1:nContinuous, sep="")
   V <- c(Delta, Gamma)
-  G <- qpRndGraph(n.vtx=length(V), n.bd=n.bd)
+  G <- qpRndGraph(p=length(V), d=n.bd)
   rownames(G) <- colnames(G) <- V
   G[Delta, Delta] <- FALSE
   discreteLevels <- rep(2, nDiscrete)

@@ -2092,7 +2092,7 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
 
   /* I <- intersect(I, c(i, Q)) */
   k = 0;
-  while (i != I[k] && k < n_I)
+  while (k < n_I && i != I[k])
     k++;
 
   if (k < n_I) {
@@ -2112,7 +2112,7 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
 
   for (k=0; k < q; k++) {
     l = 0;
-    while (Q[k] != I[l] && l < n_I)
+    while (l < n_I && Q[k] != I[l])
       l++;
 
     if (l < n_I) {
@@ -2137,7 +2137,7 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
   if (n_I > 0) {
     if (I[0] != i) {  /* i is continuous */
       k = 0;
-      while (i != Y[k] && k < n_Y)
+      while (k < n_Y && i != Y[k])
         k++;
 
       if (k < n_Y) {
@@ -2148,7 +2148,7 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
     }
   } else { /* no discrete variables, then i is continuous */
     k = 0;
-    while (i != Y[k] && k < n_Y)
+    while (k < n_Y && i != Y[k])
       k++;
 
     if (k < n_Y) {
@@ -2159,7 +2159,7 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
   }
 
   k = 0;
-  while (j != Y[k] && k < n_Y)
+  while (k < n_Y && j != Y[k])
     k++;
 
   if (k < n_Y) {
@@ -2171,7 +2171,7 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
 
   for (k=0; k < q; k++) {
     l = 0;
-    while (Q[k] != Y[l] && l < n_Y)
+    while (l < n_Y && Q[k] != Y[l])
       l++;
 
     if (l < n_Y) {
@@ -3745,6 +3745,7 @@ is_maximal_clique(int* I, int n, int* clq, int cs, set_t noclq) {
                   diagonal is set to either 0s or FALSE truth values since there
                   should be no loops
   RETURNS: a matrix with the standard errors of the edges
+  TODO: optimize!!!
 */
 
 static SEXP
@@ -4682,7 +4683,7 @@ void
 ssd_A(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
       double* ssd_A) {
   int*    obs_idx;
-  int     i,j;
+  int     i,j,k;
 
   if (n_I == 0) {
     ssd(X, p, n, Y, n_Y, NULL, n, FALSE, ssd_A);
@@ -4697,8 +4698,8 @@ ssd_A(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
   for (i=0; i < n; i++)
     obs_idx[i] = i;
 
-  /* cluster together observations from the same joint discrete level putting the *
-   * observations from missing discrete levels at the beginning                   */
+  /* group together observations from the same joint discrete level putting the *
+   * observations from missing discrete levels at the beginning                 */
   qsort(obs_idx, n, sizeof(int), indirect_int_cmp);
 
   i = 0;
