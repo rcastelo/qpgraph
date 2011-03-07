@@ -2933,7 +2933,7 @@ setMethod("qpPCC", signature(X="matrix"),
 
 qpRndGraph <- function(p=6, d=2) {
 
-  if (p*d % 2 != 0)
+  if ((p*d) %% 2 != 0)
     stop("The number of vertices p times the degree d of each vertex, i.e., the product p x d, should be even in order to sample a d-regular graph on p vertices uniformly at random\n")
 
   if (d > sqrt(p))
@@ -2941,7 +2941,7 @@ qpRndGraph <- function(p=6, d=2) {
 
   G <- matrix(FALSE, nrow=p, ncol=p)
   
-  while (any(rowSums(A) != d)) {
+  while (any(rowSums(G) != d)) {
     G <- matrix(FALSE, nrow=p, ncol=p, dimnames=list(1:p, 1:p))
     S <- TRUE
     

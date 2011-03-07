@@ -16,7 +16,8 @@ qpG2Sigma(g, rho=0, verbose=FALSE, R.code.only=FALSE)
 \arguments{
   \item{g}{undirected graph specified either as a \code{graphNEL} object or as
            an adjacency matrix.}
-  \item{rho}{real number between -1/(n.var-1) and 1.}
+  \item{rho}{real number between -1/(n.var-1) and 1 corresponding to the mean
+             marginal correlation}
   \item{verbose}{show progress on the calculations.}
   \item{R.code.only}{logical; if FALSE then the faster C implementation is used
        in the internal call to the IPF algorithm (default); if TRUE then only R code is executed.}
@@ -37,23 +38,21 @@ inference and simulation with the R package qpgraph, submitted.
 }
 \author{A. Roverato}
 \seealso{
+  \code{\link{qpRndGraph}}
   \code{\link{qpGetCliques}}
   \code{\link{qpIPF}}
   \code{\link{qpRndWishart}}
   \code{\link[mvtnorm]{rmvnorm}}
 }
 \examples{
-require(graph)
-
-n.var <- 5 # number of variables
 set.seed(123)
-g <- randomEGraph(as.character(1:n.var), p=0.15)
+G <- qpRndGraph(p=5, d=2)
 
-Sigma <- qpG2Sigma(g, rho=0.5)
+Sigma <- qpG2Sigma(G, rho=0.5)
 
 round(solve(Sigma), digits=2)
 
-as(g, "matrix")
+as(G, "matrix")
 }
 \keyword{models}
 \keyword{multivariate}

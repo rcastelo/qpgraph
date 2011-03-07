@@ -48,7 +48,7 @@ Steger, A. and Wormald, N.C. Generating random regular graphs quickly,
 }
 \author{R. Castelo and A. Roverato}
 \seealso{
-  \code{\link{qpNrr}}
+  \code{\link{qpG2Sigma}}
 }
 \examples{
 nVar <- 50  ## number of vertices
