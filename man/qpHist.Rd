@@ -48,7 +48,7 @@ nVar <- 50  ## number of variables
 maxCon <- 5 ## maximum connectivity per variable
 nObs <- 30  ## number of observations to simulate
 
-A <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
+A <- qpRndGraph(p=nVar, d=maxCon)
 Sigma <- qpG2Sigma(A, rho=0.5)
 X <- rmvnorm(nObs, sigma=as.matrix(Sigma))
 

@@ -11,13 +11,13 @@ Non-rejection rate estimation for a pair of variables
 Estimates the non-rejection rate for one pair of variables.
 }
 \usage{
-\S4method{qpEdgeNrr}{ExpressionSet}(X, i=1, j=2, q=1, I=NULL, nTests=100,
-                                    alpha=0.05, R.code.only=FALSE)
-\S4method{qpEdgeNrr}{data.frame}(X, i=1, j=2, q=1, I=NULL, nTests=100,
-                                 alpha=0.05, long.dim.are.variables=TRUE,
+\S4method{qpEdgeNrr}{ExpressionSet}(X, i=1, j=2, q=1, I=NULL, restrict.Q=NULL, nTests=100,
+                                    alpha=0.05, exact.test=FALSE, R.code.only=FALSE)
+\S4method{qpEdgeNrr}{data.frame}(X, i=1, j=2, q=1, I=NULL, restrict.Q=NULL, nTests=100,
+                                 alpha=0.05, long.dim.are.variables=TRUE, exact.test=FALSE,
                                  R.code.only=FALSE)
-\S4method{qpEdgeNrr}{matrix}(X, i=1, j=2, q=1, I=NULL, n=NULL, nTests=100,
-                             alpha=0.05, long.dim.are.variables=TRUE,
+\S4method{qpEdgeNrr}{matrix}(X, i=1, j=2, q=1, I=NULL, restrict.Q=NULL, n=NULL, nTests=100,
+                             alpha=0.05, long.dim.are.variables=TRUE, exact.test=FALSE,
                              R.code.only=FALSE)
 }
 \arguments{
@@ -30,6 +30,8 @@ Estimates the non-rejection rate for one pair of variables.
   \item{j}{index or name of the other variable in \code{X} to test.}
   \item{q}{order of the conditioning subsets employed in the calculation.}
   \item{I}{indexes or names of the variables in \code{X} that are discrete.}
+  \item{restrict.Q}{indexes or names of the variables in \code{X} that
+       restrict the sample space of conditioning subsets Q.}
   \item{n}{number of observations in the data set. Only necessary when the
        sample covariance matrix is provided through the \code{X} parameter.}
   \item{nTests}{number of tests to perform for each pair for variables.}
@@ -38,6 +40,10 @@ Estimates the non-rejection rate for one pair of variables.
        that when data are in a data frame or in a matrix, the longer dimension
        is the one defining the random variables (default); if FALSE, then random
        variables are assumed to be at the columns of the data frame or matrix.}
+  \item{exact.test}{logical; if \code{FALSE} an asymptotic conditional independence
+       test is employed with mixed (i.e., continuous and discrete) data (default);
+       if \code{TRUE} then an exact conditional independence test with mixed data
+       is employed.}
   \item{R.code.only}{logical; if FALSE then the faster C implementation is used
        (default); if TRUE then only R code is executed.}
 }

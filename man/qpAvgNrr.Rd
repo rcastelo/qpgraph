@@ -11,30 +11,34 @@ Average non-rejection rate estimation
 Estimates average non-rejection rates for every pair of variables.
 }
 \usage{
-\S4method{qpAvgNrr}{ExpressionSet}(X, qOrders=4, nTests=100, alpha=0.05,
-                                   pairup.i=NULL, pairup.j=NULL,
-                                   type=c("arith.mean"), verbose=TRUE,
-                                   identicalQs=TRUE, R.code.only=FALSE,
+\S4method{qpAvgNrr}{ExpressionSet}(X, qOrders=4, I=NULL, restrict.Q=NULL,
+                                   nTests=100, alpha=0.05, pairup.i=NULL,
+                                   pairup.j=NULL, type=c("arith.mean"),
+                                   verbose=TRUE, identicalQs=TRUE,
+                                   exact.test=FALSE, R.code.only=FALSE,
                                    clusterSize=1, estimateTime=FALSE,
                                    nAdj2estimateTime=10)
-\S4method{qpAvgNrr}{data.frame}(X, qOrders=4, nTests=100, alpha=0.05,
-                                pairup.i=NULL, pairup.j=NULL,
-                                long.dim.are.variables=TRUE,
+\S4method{qpAvgNrr}{data.frame}(X, qOrders=4, I=NULL, restrict.Q=NULL,
+                                nTests=100, alpha=0.05, pairup.i=NULL,
+                                pairup.j=NULL, long.dim.are.variables=TRUE,
                                 type=c("arith.mean"), verbose=TRUE,
-                                identicalQs=TRUE, R.code.only=FALSE,
-                                clusterSize=1, estimateTime=FALSE,
-                                nAdj2estimateTime=10)
-\S4method{qpAvgNrr}{matrix}(X, qOrders=4, nTests=100, alpha=0.05,
-                            pairup.i=NULL, pairup.j=NULL,
-                            long.dim.are.variables=TRUE,
+                                identicalQs=TRUE, exact.test=FALSE,
+                                R.code.only=FALSE, clusterSize=1,
+                                estimateTime=FALSE, nAdj2estimateTime=10)
+\S4method{qpAvgNrr}{matrix}(X, qOrders=4, I=NULL, restrict.Q=NULL,
+                            nTests=100, alpha=0.05, pairup.i=NULL,
+                            pairup.j=NULL, long.dim.are.variables=TRUE,
                             type=c("arith.mean"), verbose=TRUE,
-                            identicalQs=TRUE, R.code.only=FALSE,
-                            clusterSize=1, estimateTime=FALSE,
-                            nAdj2estimateTime=10)
+                            identicalQs=TRUE, exact.test=FALSE,
+                            R.code.only=FALSE, clusterSize=1,
+                            estimateTime=FALSE, nAdj2estimateTime=10)
 }
 \arguments{
   \item{X}{data set from where to estimate the average non-rejection rates.
        It can be an ExpressionSet object, a data frame or a matrix.}
+  \item{I}{indexes or names of the variables in \code{X} that are discrete.}
+  \item{restrict.Q}{indexes or names of the variables in \code{X} that
+       restrict the sample space of conditioning subsets Q.}
   \item{qOrders}{either a number of partial-correlation orders or a vector of
        vector of particular orders to be employed in the calculation.}
   \item{nTests}{number of tests to perform for each pair for variables.}
@@ -50,6 +54,10 @@ Estimates average non-rejection rates for every pair of variables.
   \item{identicalQs}{use identical conditioning subsets for every pair of vertices
        (default), otherwise sample a new collection of \code{nTests} subsets for
        each pair of vertices.}
+  \item{exact.test}{logical; if \code{FALSE} an asymptotic conditional independence
+       test is employed with mixed (i.e., continuous and discrete) data (default);
+       if \code{TRUE} then an exact conditional independence test with mixed data
+       is employed.}
   \item{R.code.only}{logical; if \code{FALSE} then the faster C implementation is used
        (default); if \code{TRUE} then only R code is executed.}
   \item{clusterSize}{size of the cluster of processors to employ if we wish to
@@ -104,13 +112,13 @@ networks from microarray data with qp-graphs. \emph{J. Comp. Biol.},
 \examples{
 require(mvtnorm)
 
-nVar <- 75  ## number of variables
+nVar <- 50  ## number of variables
 maxCon <- 3 ## maximum connectivity per variable
 nObs <- 30  ## number of observations to simulate
 
 set.seed(123)
 
-A <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
+A <- qpRndGraph(p=nVar, d=maxCon)
 Sigma <- qpG2Sigma(A, rho=0.5)
 X <- rmvnorm(nObs, sigma=as.matrix(Sigma))
 
@@ -131,7 +139,7 @@ library(rlecuyer)
 
 nVar <- 500
 maxCon <- 3
-A <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
+A <- qpRndGraph(p=nVar, d=maxCon)
 Sigma <- qpG2Sigma(A, rho=0.5)
 X <- rmvnorm(nObs, sigma=as.matrix(Sigma))
 

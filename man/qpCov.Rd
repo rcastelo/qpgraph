@@ -10,7 +10,7 @@ but returning a \code{\link{dspMatrix-class}} object which efficiently
 stores such a dense symmetric matrix.
 }
 \usage{
-qpCov(X)
+qpCov(X, corrected=TRUE)
 }
 \arguments{
   \item{X}{data set from where to calculate the sample covariance matrix.

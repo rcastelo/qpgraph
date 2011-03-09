@@ -123,8 +123,8 @@ nObs <- 30  ## number of observations to simulate
 
 set.seed(123)
 
-A1 <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
-A2 <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
+A1 <- qpRndGraph(p=nVar, d=maxCon)
+A2 <- qpRndGraph(p=nVar, d=maxCon)
 Sigma1 <- qpG2Sigma(A1, rho=0.5)
 Sigma2 <- qpG2Sigma(A2, rho=0.5)
 X1 <- rmvnorm(nObs, sigma=as.matrix(Sigma1))

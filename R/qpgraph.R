@@ -51,8 +51,8 @@ setGeneric("qpNrr", function(X, ...) standardGeneric("qpNrr"))
 ## X comes as an ExpressionSet object
 setMethod("qpNrr", signature(X="ExpressionSet"),
           function(X, q=1, I=NULL, restrict.Q=NULL, nTests=100, alpha=0.05,
-                   pairup.i=NULL, pairup.j=NULL, verbose=TRUE, exact.test=FALSE,
-                   identicalQs=TRUE, R.code.only=FALSE, clusterSize=1,
+                   pairup.i=NULL, pairup.j=NULL, verbose=TRUE, identicalQs=TRUE,
+                   exact.test=FALSE, R.code.only=FALSE, clusterSize=1,
                    estimateTime=FALSE, nAdj2estimateTime=10) {
 
             startTime <- c(user.self=0, sys.self=0, elapsed=0, user.child=0, sys.child=0)
@@ -687,10 +687,10 @@ setGeneric("qpAvgNrr", function(X, ...) standardGeneric("qpAvgNrr"))
 
 ## X comes as an ExpressionSet object
 setMethod("qpAvgNrr", signature(X="ExpressionSet"),
-            function(X, qOrders=4, nTests=100, alpha=0.05, pairup.i=NULL,
-                     pairup.j=NULL, type=c("arith.mean"), verbose=TRUE,
-                     identicalQs=TRUE, R.code.only=FALSE, clusterSize=1,
-                     estimateTime=FALSE, nAdj2estimateTime=10) {
+          function(X, qOrders=4, I=NULL, restrict.Q=NULL, nTests=100, alpha=0.05,
+                   pairup.i=NULL, pairup.j=NULL, type=c("arith.mean"), verbose=TRUE,
+                   identicalQs=TRUE, exact.test=FALSE, R.code.only=FALSE, clusterSize=1,
+                   estimateTime=FALSE, nAdj2estimateTime=10) {
 
             startTime <- c(user.self=0, sys.self=0, elapsed=0, user.child=0, sys.child=0)
             class(startTime) <- "proc_time"
@@ -705,18 +705,19 @@ setMethod("qpAvgNrr", signature(X="ExpressionSet"),
               stop("Using a cluster (clusterSize > 1) requires first loading packages 'snow' and 'rlecuyer'\n")
 
             X <- t(Biobase::exprs(X))
-            qpgraph:::.qpAvgNrr(X, qOrders, nTests, alpha, pairup.i, pairup.j,
-                                type, verbose, identicalQs, R.code.only, clusterSize,
-                                startTime, nAdj2estimateTime)
+            qpgraph:::.qpAvgNrr(X, qOrders, I, restrict.Q, nTests, alpha, pairup.i,
+                                pairup.j, type, verbose, identicalQs, exact.test,
+                                R.code.only, clusterSize, startTime,
+                                nAdj2estimateTime)
           })
 
 ## X comes as a data frame
 setMethod("qpAvgNrr", signature(X="data.frame"),
-          function(X, qOrders=4, nTests=100, alpha=0.05, pairup.i=NULL,
-                   pairup.j=NULL, long.dim.are.variables=TRUE,
+          function(X, qOrders=4, I=NULL, restrict.Q=NULL, nTests=100, alpha=0.05,
+                   pairup.i=NULL, pairup.j=NULL, long.dim.are.variables=TRUE,
                    type=c("arith.mean"), verbose=TRUE, identicalQs=TRUE,
-                   R.code.only=FALSE, clusterSize=1, estimateTime=FALSE,
-                   nAdj2estimateTime=10) {
+                   exact.test=FALSE, R.code.only=FALSE, clusterSize=1,
+                   estimateTime=FALSE, nAdj2estimateTime=10) {
 
             startTime <- c(user.self=0, sys.self=0, elapsed=0, user.child=0, sys.child=0)
             class(startTime) <- "proc_time"
@@ -739,19 +740,19 @@ setMethod("qpAvgNrr", signature(X="data.frame"),
               X <- t(X)
             if (is.null(colnames(X)))
               colnames(X) <- 1:ncol(X)
-            qpgraph:::.qpAvgNrr(X, qOrders, nTests, alpha, pairup.i, pairup.j,
-                                type, verbose, identicalQs, R.code.only, clusterSize,
-                                startTime, nAdj2estimateTime)
+            qpgraph:::.qpAvgNrr(X, qOrders, I, restrict.Q, nTests, alpha, pairup.i,
+                                pairup.j, type, verbose, identicalQs, exact.test,
+                                R.code.only, clusterSize, startTime,
+                                nAdj2estimateTime)
           })
-
           
 ## X comes as a matrix
 setMethod("qpAvgNrr", signature(X="matrix"),
-          function(X, qOrders=4, nTests=100, alpha=0.05, pairup.i=NULL,
-                   pairup.j=NULL, long.dim.are.variables=TRUE,
+          function(X, qOrders=4, I=NULL, restrict.Q=NULL, nTests=100, alpha=0.05,
+                   pairup.i=NULL, pairup.j=NULL, long.dim.are.variables=TRUE,
                    type=c("arith.mean"), verbose=TRUE, identicalQs=TRUE,
-                   R.code.only=FALSE, clusterSize=1, estimateTime=FALSE,
-                   nAdj2estimateTime=10) {
+                   exact.test=FALSE, R.code.only=FALSE, clusterSize=1,
+                   estimateTime=FALSE, nAdj2estimateTime=10) {
 
             startTime <- c(user.self=0, sys.self=0, elapsed=0, user.child=0, sys.child=0)
             class(startTime) <- "proc_time"
@@ -771,14 +772,16 @@ setMethod("qpAvgNrr", signature(X="matrix"),
 
             if (is.null(colnames(X))) 
               colnames(X) <- 1:ncol(X)
-            qpgraph:::.qpAvgNrr(X, qOrders, nTests, alpha, pairup.i, pairup.j,
-                                type, verbose, identicalQs, R.code.only, clusterSize,
-                                startTime, nAdj2estimateTime)
+            qpgraph:::.qpAvgNrr(X, qOrders, I, restrict.Q, nTests, alpha, pairup.i,
+                                pairup.j, type, verbose, identicalQs, exact.test,
+                                R.code.only, clusterSize, startTime,
+                                nAdj2estimateTime)
           })
 
-.qpAvgNrr <- function(X, qOrders=4, nTests=100, alpha=0.05, pairup.i=NULL,
-                      pairup.j=NULL, type=c("arith.mean"), verbose=TRUE,
-                      identicalQs=TRUE, R.code.only=FALSE, clusterSize=1,
+.qpAvgNrr <- function(X, qOrders=4, I=NULL, restrict.Q=NULL, nTests=100,
+                      alpha=0.05, pairup.i=NULL, pairup.j=NULL,
+                      type=c("arith.mean"), verbose=TRUE, identicalQs=TRUE,
+                      exact.test=FALSE, R.code.only=FALSE, clusterSize=1,
                       startTime, nAdj2estimateTime) {
 
   type <- match.arg(type)
@@ -834,9 +837,9 @@ setMethod("qpAvgNrr", signature(X="matrix"),
                                     by=(min(n.var, N) - 3) / qOrders), digits=0))
   } else {
     qOrders <- as.integer(qOrders)
-    if (min(qOrders) < 1 || max(qOrders) > min(n.var,N))
+    if (min(qOrders) < 1 || max(qOrders) > min(n.var-3, N-3))
       stop(sprintf("for the given data set q-orders should lie in the range [1,%d]\n",
-                   bmin(n.var,N)))
+                   min(n.var-3, N-3)))
   }
 
   w <- 1 / length(qOrders)
@@ -851,8 +854,9 @@ setMethod("qpAvgNrr", signature(X="matrix"),
     if (verbose && startTime["elapsed"] == 0)
       cat(sprintf("q=%d\n",q))
 
-    thisNrr <- qpgraph:::.qpNrr(X, q, nTests, alpha, pairup.i, pairup.j, verbose,
-                                identicalQs, R.code.only, cl, startTime, nAdj2estimateTime)
+    thisNrr <- qpgraph:::.qpNrr(X, q, I, restrict.Q, nTests, alpha, pairup.i,
+                                pairup.j, verbose, identicalQs, exact.test,
+                                R.code.only, cl, startTime, nAdj2estimateTime)
 
     if (startTime["elapsed"] > 0) {
       elapsedTime <- elapsedTime + thisNrr["days"]*24*3600 + thisNrr["hours"]*3600 +
@@ -1180,8 +1184,8 @@ setMethod("qpGenNrr", signature(X="matrix"),
     if (verbose && startTime["elapsed"] == 0)
       cat(sprintf("Data set %s\n", as.character(idx)))
 
-    thisNrr <- qpgraph:::.qpNrr(X[datasetIdx == idx, ], qOrders[idx], nTests,
-                                alpha, pairup.i, pairup.j, verbose, identicalQs,
+    thisNrr <- qpgraph:::.qpNrr(X[datasetIdx == idx, ], qOrders[idx], I=NULL, restrict.Q=NULL, nTests,
+                                alpha, pairup.i, pairup.j, verbose, identicalQs, exact.test=FALSE,
                                 R.code.only, cl, startTime, nAdj2estimateTime)
 
     if (startTime["elapsed"] > 0) {
@@ -1244,7 +1248,7 @@ setGeneric("qpEdgeNrr", function(X, ...) standardGeneric("qpEdgeNrr"))
 # X comes as an ExpressionSet object
 setMethod("qpEdgeNrr", signature(X="ExpressionSet"),
           function(X, i=1, j=2, q=1, I=NULL, restrict.Q=NULL, nTests=100,
-                   alpha=0.05, R.code.only=FALSE) {
+                   alpha=0.05, exact.test=FALSE, R.code.only=FALSE) {
             X <- t(Biobase::exprs(X))
             S <- qpCov(X)
             N <- nrow(X)
@@ -4257,15 +4261,20 @@ qpCov <- function(X, corrected=TRUE) {
              x = .Call("qp_cov_upper_triangular",X,as.integer(corrected))))
 }
 
-qpRndHMGM <- function(nDiscrete=1, nContinuous=3, n.bd=2, diffBySD=5) {
+qpRndHMGM <- function(nDiscrete=1, nContinuous=3, n.bd=2, diffBySD=5, rho=0.5, G=NULL) {
   require(qpgraph)
 
-  Delta <- paste("D", 1:nDiscrete, sep="")
-  Gamma <- paste("C", 1:nContinuous, sep="")
-  V <- c(Delta, Gamma)
-  G <- qpRndGraph(p=length(V), d=n.bd)
-  rownames(G) <- colnames(G) <- V
-  G[Delta, Delta] <- FALSE
+  if (is.null(G)) {
+    Delta <- paste("D", 1:nDiscrete, sep="")
+    Gamma <- paste("C", 1:nContinuous, sep="")
+    V <- c(Delta, Gamma)
+    G <- qpRndGraph(p=length(V), d=n.bd)
+    rownames(G) <- colnames(G) <- V
+    G[Delta, Delta] <- FALSE
+  } else {
+    Delta <- colnames(G)[1:nDiscrete]
+    Gamma <- colnames(G)[(nDiscrete+1):(nDiscrete+nContinuous)]
+  }
   discreteLevels <- rep(2, nDiscrete)
   nDiscreteLevels <- prod(discreteLevels)
 
@@ -4273,7 +4282,7 @@ qpRndHMGM <- function(nDiscrete=1, nContinuous=3, n.bd=2, diffBySD=5) {
   pDelta <- rep(1/prod(discreteLevels), times=nDiscreteLevels)
 
   ## Sigma
-  Sigma <- qpG2Sigma(G[Gamma, Gamma], rho=0.5)
+  Sigma <- qpG2Sigma(G[Gamma, Gamma], rho=rho)
   rownames(Sigma) <- colnames(Sigma) <- Gamma
 
   ## h(i)

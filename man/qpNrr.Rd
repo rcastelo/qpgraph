@@ -11,24 +11,29 @@ Non-rejection rate estimation
 Estimates non-rejection rates for every pair of variables.
 }
 \usage{
-\S4method{qpNrr}{ExpressionSet}(X, q=1, I=NULL, nTests=100, alpha=0.05, pairup.i=NULL,
-                                pairup.j=NULL, verbose=TRUE, identicalQs=TRUE,
+\S4method{qpNrr}{ExpressionSet}(X, q=1, I=NULL, restrict.Q=NULL, nTests=100,
+                                alpha=0.05, pairup.i=NULL, pairup.j=NULL,
+                                verbose=TRUE, identicalQs=TRUE, exact.test=FALSE,
                                 R.code.only=FALSE, clusterSize=1, estimateTime=FALSE,
                                 nAdj2estimateTime=10)
-\S4method{qpNrr}{data.frame}(X, q=1, I=NULL, nTests=100, alpha=0.05, pairup.i=NULL,
-                             pairup.j=NULL, long.dim.are.variables=TRUE, verbose=TRUE,
-                             identicalQs=TRUE, R.code.only=FALSE, clusterSize=1,
-                             estimateTime=FALSE, nAdj2estimateTime=10)
-\S4method{qpNrr}{matrix}(X, q=1, I=NULL, nTests=100, alpha=0.05, pairup.i=NULL,
-                         pairup.j=NULL, long.dim.are.variables=TRUE, verbose=TRUE,
-                         identicalQs=TRUE, R.code.only=FALSE, clusterSize=1,
-                         estimateTime=FALSE, nAdj2estimateTime=10)
+\S4method{qpNrr}{data.frame}(X, q=1, I=NULL, restrict.Q=NULL, nTests=100,
+                             alpha=0.05, pairup.i=NULL, pairup.j=NULL,
+                             long.dim.are.variables=TRUE, verbose=TRUE,
+                             identicalQs=TRUE, exact.test=FALSE, R.code.only=FALSE,
+                             clusterSize=1, estimateTime=FALSE, nAdj2estimateTime=10)
+\S4method{qpNrr}{matrix}(X, q=1, I=NULL, restrict.Q=NULL, nTests=100, alpha=0.05,
+                         pairup.i=NULL, pairup.j=NULL, long.dim.are.variables=TRUE,
+                         verbose=TRUE, identicalQs=TRUE, exact.test=FALSE,
+                         R.code.only=FALSE, clusterSize=1, estimateTime=FALSE,
+                         nAdj2estimateTime=10)
 }
 \arguments{
   \item{X}{data set from where to estimate the non-rejection rates.
        It can be an ExpressionSet object, a data frame or a matrix.}
   \item{q}{partial-correlation order to be employed.}
   \item{I}{indexes or names of the variables in \code{X} that are discrete.}
+  \item{restrict.Q}{indexes or names of the variables in \code{X} that
+       restrict the sample space of conditioning subsets Q.}
   \item{nTests}{number of tests to perform for each pair for variables.}
   \item{alpha}{significance level of each test.}
   \item{pairup.i}{subset of vertices to pair up with subset \code{pairup.j}}
@@ -41,6 +46,10 @@ Estimates non-rejection rates for every pair of variables.
   \item{identicalQs}{use identical conditioning subsets for every pair of vertices
        (default), otherwise sample a new collection of \code{nTests} subsets for
        each pair of vertices.}
+  \item{exact.test}{logical; if \code{FALSE} an asymptotic conditional independence
+       test is employed with mixed (i.e., continuous and discrete) data (default);
+       if \code{TRUE} then an exact conditional independence test with mixed data
+       is employed.}
   \item{R.code.only}{logical; if \code{FALSE} then the faster C implementation is used
        (default); if \code{TRUE} then only R code is executed.}
   \item{clusterSize}{size of the cluster of processors to employ if we wish to
@@ -93,13 +102,13 @@ Gaussian graphical model search from microarray data with p larger than n,
 \examples{
 library(mvtnorm)
 
-nVar <- 75  ## number of variables
+nVar <- 50  ## number of variables
 maxCon <- 3 ## maximum connectivity per variable
 nObs <- 30  ## number of observations to simulate
 
 set.seed(123)
 
-A <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
+A <- qpRndGraph(p=nVar, d=maxCon)
 Sigma <- qpG2Sigma(A, rho=0.5)
 X <- rmvnorm(nObs, sigma=as.matrix(Sigma))
 
@@ -123,7 +132,7 @@ library(rlecuyer)
 
 nVar <- 500
 maxCon <- 3
-A <- qpRndGraph(n.vtx=nVar, n.bd=maxCon)
+A <- qpRndGraph(p=nVar, d=maxCon)
 Sigma <- qpG2Sigma(A, rho=0.5)
 X <- rmvnorm(nObs, sigma=as.matrix(Sigma))
 
