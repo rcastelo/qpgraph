@@ -2397,13 +2397,12 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
   else
     lr = lr * ((double) -n);
 
+  /* OUF FIX !! STILL TO BE DOULBE CHECKED WITH S.L. */
+  *a = ((double) (n - n_Y - n_joint_levels + 1)) / 2.0;
   if (mixed_edge) {
-    *a = ((double) (n - n_Y * n_joint_levels)) / 2.0;
-    *b = ((double) (n_joint_levels_i * (n_levels_i - 1))) / 2.0; /* OUR FIX !! STILL TO BE DOUBLE CHECKED WITH S.L. */
-  } else {
-    *a = ((double) (n - n_Y - n_joint_levels + 1)) / 2.0;
+    *b = ((double) (n_joint_levels_i * (n_levels_i - 1))) / 2.0;
+  } else
     *b = 0.5;
-  }
 
   return lr;
 }
@@ -2586,7 +2585,7 @@ qp_edge_nrr_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y
     }
     strcat(buf, " }, could not be calculated. Try with smaller Q subsets or increase n if you can.\n");
 
-    warning(buf);
+    /* warning(buf); */
   }
 
   Free(q_by_T_samples);

@@ -1474,9 +1474,9 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
     if (!is.nan(cit$lr)) {
       lambda[k] <- cit$lr
       if (exact.test) {
-        nGamma <- sum(!is.na(match(c(i, j, Q), Y)))
-        Delta <- intersect(I, c(i, j, Q))
-        DeltaStar <- setdiff(Delta, c(i, j))
+        nGamma <- sum(!is.na(match(c(i, j, Q), Y)))   #### REMOVE ??
+        Delta <- intersect(I, c(i, j, Q))             #### REMOVE ??
+        DeltaStar <- setdiff(Delta, c(i, j))          #### REMOVE ??
         a[k] <- cit$a
         b[k] <- cit$b
         if (k > 1 && a[k] == a[k-1] && b[k] == b[k-1])
@@ -1491,9 +1491,9 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
 
   nAcceptedTests <- thr <- NA
   if (exact.test) {
-    thr <- sapply(1:nTests,
-                  function(k, alpha, a, b) qbeta(p=alpha, shape1=a[k], shape2=b[k], lower.tail=TRUE),
-                  alpha, a, b)
+    thr <- sapply(1:nTests,                                                                            ### REMOVE ??
+                  function(k, alpha, a, b) qbeta(p=alpha, shape1=a[k], shape2=b[k], lower.tail=TRUE),  ### REMOVE ??
+                  alpha, a, b)                                                                         ### REMOVE ??
     nAcceptedTests <- sum(lambda > thr, na.rm=TRUE)
   } else {
     thr <- qchisq(p=(1-alpha), df=1, lower.tail=TRUE)
@@ -1878,11 +1878,16 @@ setMethod("qpCItest", signature(X="matrix"),
       mixedEdge <- sum(!is.na(match(c(i, j), I))) > 0
       Delta <- I
       DeltaStar <- setdiff(I, c(i, j))
-      a <- ifelse(mixedEdge,
-                 (n-nGamma*prod(nLevels[Delta]))/2,
-                 (n-nGamma-prod(nLevels[Delta])+1)/2)
+      ## OUR FIX!! STILL TO BE DOUBLE CHECKED WITH S.L.
+      ## a <- ifelse(mixedEdge,
+      ##           (n-nGamma*prod(nLevels[Delta]))/2,
+      ##           (n-nGamma-prod(nLevels[Delta])+1)/2)
+      ## b <- ifelse(mixedEdge,
+      ##             n*Gamma*prod(nLevels[DeltaStar])*(nLevels[intersect(Delta, c(i,j))]-1)/2,
+      ##             0.5)
+      a <- (n-nGamma-prod(nLevels[Delta])+1)/2
       b <- ifelse(mixedEdge,
-                  prod(nLevels[DeltaStar])*(nLevels[intersect(Delta, c(i,j))]-1)/2, ## OUR FIX !! STILL TO BE DOUBLE CHECKED WITH S.L.
+                  prod(nLevels[DeltaStar])*(nLevels[intersect(Delta, c(i,j))]-1)/2,
                   0.5)
       if (a > 0 && b > 0)
         p.value <- pbeta(q=lr, shape1=a, shape2=b, lower.tail=TRUE)
@@ -4262,7 +4267,6 @@ qpCov <- function(X, corrected=TRUE) {
 }
 
 qpRndHMGM <- function(nDiscrete=1, nContinuous=3, n.bd=2, diffBySD=5, rho=0.5, G=NULL) {
-  require(qpgraph)
 
   if (is.null(G)) {
     Delta <- paste("D", 1:nDiscrete, sep="")
