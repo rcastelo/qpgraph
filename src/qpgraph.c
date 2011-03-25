@@ -127,7 +127,7 @@ qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
 static double
 qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
                 int n_Y, double* ucond_ssd, int* mapX2ucond_ssd, int i, int j,
-                int* Q, int q, double* a, double* b);
+                int* Q, int q, double* df, double* a, double* b);
 
 boolean
 cliquer_cb_add_clique_to_list(set_t clique, graph_t* g, clique_options* opts);
@@ -1997,10 +1997,13 @@ qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
   int*    mapX2ssd;
   double  p_value = R_NaReal;
   double  lr_value;
-  double  a, b;
+  double  df, a, b;
   SEXP    result;
   SEXP    result_names;
-  SEXP    result_lr_val;
+  SEXP    result_lr;
+  SEXP    result_df;
+  SEXP    result_a;
+  SEXP    result_b;
   SEXP    result_p_val;
 
   PROTECT_INDEX ssd_pi;
@@ -2029,25 +2032,34 @@ qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
     mapX2ssd[k] = INTEGER(mapX2ssdR)[k]-1;
 
   lr_value = qp_ci_test_hmgm(REAL(XR), p, n, I, n_I, INTEGER(n_levelsR), Y, n_Y,
-                             REAL(ssdR), mapX2ssd, i, j, Q, q, &a, &b);
+                             REAL(ssdR), mapX2ssd, i, j, Q, q, &df, &a, &b);
 
   if (!ISNAN(lr_value)) {
     if (INTEGER(exactTest)[0]) {
       lr_value = exp(lr_value / ((double) -n));
       p_value = pbeta(lr_value, a, b, TRUE, FALSE);
     } else
-      p_value = 1.0 - pchisq(lr_value, 1, TRUE, FALSE);
+      p_value = 1.0 - pchisq(lr_value, df, TRUE, FALSE);
   }
 
-  PROTECT(result = allocVector(VECSXP,2));
-  SET_VECTOR_ELT(result,0,result_lr_val = allocVector(REALSXP,1));
-  SET_VECTOR_ELT(result,1,result_p_val = allocVector(REALSXP,1));
-  PROTECT(result_names = allocVector(STRSXP,2));
+  PROTECT(result = allocVector(VECSXP,5));
+  SET_VECTOR_ELT(result,0,result_lr = allocVector(REALSXP,1));
+  SET_VECTOR_ELT(result,1,result_df = allocVector(REALSXP,1));
+  SET_VECTOR_ELT(result,2,result_a = allocVector(REALSXP,1));
+  SET_VECTOR_ELT(result,3,result_b = allocVector(REALSXP,1));
+  SET_VECTOR_ELT(result,4,result_p_val = allocVector(REALSXP,1));
+  PROTECT(result_names = allocVector(STRSXP,5));
   SET_STRING_ELT(result_names,0,mkChar("lr"));
-  SET_STRING_ELT(result_names,1,mkChar("p.value"));
+  SET_STRING_ELT(result_names,1,mkChar("df"));
+  SET_STRING_ELT(result_names,2,mkChar("a"));
+  SET_STRING_ELT(result_names,3,mkChar("b"));
+  SET_STRING_ELT(result_names,4,mkChar("p.value"));
   setAttrib(result,R_NamesSymbol,result_names);
   REAL(VECTOR_ELT(result,0))[0] = lr_value;
-  REAL(VECTOR_ELT(result,1))[0] = p_value;
+  REAL(VECTOR_ELT(result,1))[0] = df;
+  REAL(VECTOR_ELT(result,2))[0] = a;
+  REAL(VECTOR_ELT(result,3))[0] = b;
+  REAL(VECTOR_ELT(result,4))[0] = p_value;
 
   UNPROTECT(3); /* ssdR result result_names */
 
@@ -2073,7 +2085,7 @@ qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
 static double
 qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
                 int n_Y, double* ucond_ssd, int* mapX2ucond_ssd, int i, int j,
-                int* Q, int q, double* a, double* b) {
+                int* Q, int q, double* df, double* a, double* b) {
   int     k, l, m;
   int     n_I_int = 0;
   int     n_Y_int = 0;
@@ -2398,9 +2410,11 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
     lr = lr * ((double) -n);
 
   /* OUF FIX !! STILL TO BE DOULBE CHECKED WITH S.L. */
+  *df = 1.0;
   *a = ((double) (n - n_Y - n_joint_levels + 1)) / 2.0;
   if (mixed_edge) {
-    *b = ((double) (n_joint_levels_i * (n_levels_i - 1))) / 2.0;
+    *df = ((double) (n_joint_levels_i * (n_levels_i - 1)));
+    *b = *df / 2.0;
   } else
     *b = 0.5;
 
@@ -2503,7 +2517,7 @@ qp_edge_nrr_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y
                  int n_Y, double* ucond_ssd, int* mapX2ucond_ssd, int i, int j,
                  int q, int* restrictQ, int n_rQ, int nTests, double alpha, int exactTest) {
   double thr=-1.0;
-  double prev_thr, prev_a, prev_b;
+  double prev_thr, prev_df, prev_a, prev_b;
   int*   q_by_T_samples;
   int    k;
   int    nAcceptedTests = 0;
@@ -2529,12 +2543,10 @@ qp_edge_nrr_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y
     }
   }
 
-  if (!exactTest)
-    thr = qchisq(1.0-alpha, 1, TRUE, FALSE);
-  prev_thr = prev_a = prev_b = -1;
+  prev_thr = prev_df = prev_a = prev_b = -1;
 
   for (k = 0; k < nTests; k++) {
-    double lambda, a, b;
+    double lambda, df, a, b;
 /*
     int l;
 
@@ -2545,7 +2557,7 @@ qp_edge_nrr_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y
 */
     lambda = qp_ci_test_hmgm(X, p, n, I, n_I, n_levels, Y, n_Y, ucond_ssd,
                              mapX2ucond_ssd, i, j, (int*) (q_by_T_samples+k*q),
-                             q, &a, &b);
+                             q, &df, &a, &b);
 
     if (!ISNAN(lambda) && a > 0.0 && b > 0.0) {
       if (exactTest) {
@@ -2560,6 +2572,12 @@ qp_edge_nrr_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y
         if (lambda > thr)
           nAcceptedTests++;
       } else {
+        if (df == prev_df)
+          thr = prev_thr;
+        else
+          thr = qchisq(1.0-alpha, df, TRUE, FALSE);
+        prev_df = df;
+        prev_thr = thr;
         if (lambda < thr)
           nAcceptedTests++;
       }

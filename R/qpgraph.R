@@ -1628,7 +1628,7 @@ setMethod("qpCItest", signature(X="data.frame"),
                                       colnames(X)[i], colnames(X)[j]),
                               paste(colnames(X)[Q], collapse=", "),
                                     "}. Try a smaller Q or increase n if you can\n"))
-              list(lr=cit$lr, p.value=cit$p.value)
+              cit
             }
           })
 
@@ -1678,7 +1678,7 @@ setMethod("qpCItest", signature(X="matrix"),
                                         colnames(X)[i], colnames(X)[j]),
                                 paste(colnames(X)[Q], collapse=", "),
                                       "}. Try a smaller Q or increase n if you can\n"))
-                list(lr=cit$lr, p.value=cit$p.value)
+                cit
               }
 
             } else {
@@ -1866,18 +1866,18 @@ setMethod("qpCItest", signature(X="matrix"),
   ##               (det(ssd_j) * det(ssd_i)))
 
   lr <- NaN
-  p.value <- a <- b <- NA
+  p.value <- df <- a <- b <- NA
 
   zero_boundary <- log(.Machine$double.eps)
   if (ssd$modulus > zero_boundary && ssd_ij$modulus > zero_boundary &&
       ssd_j$modulus > zero_boundary && ssd_i$modulus > zero_boundary &&
       final_sign == 1) {
+    mixedEdge <- sum(!is.na(match(c(i, j), I))) > 0
+    nGamma <- length(Y)
+    Delta <- I
+    DeltaStar <- setdiff(I, c(i, j))
     if (exact.test) {
       lr <- exp(ssd$modulus[1]+ssd_ij$modulus[1]-ssd_j$modulus[1]-ssd_i$modulus[1])
-      nGamma <- length(Y)
-      mixedEdge <- sum(!is.na(match(c(i, j), I))) > 0
-      Delta <- I
-      DeltaStar <- setdiff(I, c(i, j))
       ## OUR FIX!! STILL TO BE DOUBLE CHECKED WITH S.L.
       ## a <- ifelse(mixedEdge,
       ##           (n-nGamma*prod(nLevels[Delta]))/2,
@@ -1895,12 +1895,15 @@ setMethod("qpCItest", signature(X="matrix"),
         p.value <- a <- b <- NA
     } else {
       lr <- -n * (ssd$modulus[1]+ssd_ij$modulus[1]-ssd_j$modulus[1]-ssd_i$modulus[1])
-      p.value <- 1 - pchisq(lr, df=1, lower.tail=TRUE)
+      df <- 1
+      if (mixedEdge)
+        df <- prod(nLevels[DeltaStar])*(nLevels[intersect(Delta, c(i, j))]-1)
+      p.value <- 1 - pchisq(lr, df=df, lower.tail=TRUE)
     }
   }
 
 
-  list(lr=lr, p.value=p.value, a=a, b=b)
+  list(lr=lr, p.value=p.value, df=df, a=a, b=b)
 }
 
 
@@ -2199,12 +2202,12 @@ qpAnyGraph <- function(measurementsMatrix, threshold=NULL, remove=c("below", "ab
     colnames(m) <- c("i","j")
     return(m)
   } else if (return.type == "graphNEL") {
-    ## require(graph)
-    edL <- vector("list",length=n.var)
-    names(edL) <- vertex.labels
-    for (i in 1:n.var)
-      edL[[i]] <- list(edges=(1:n.var)[A[i,]],weights=rep(1,sum(A[i,])))
-    g <- new("graphNEL", nodes=vertex.labels, edgeL=edL, edgemode="undirected")
+    vertices <- unique(c(vertex.labels[row(A)[upper.tri(A) & A]], vertex.labels[col(A)[upper.tri(A) & A]]))
+    edL <- vector("list", length=length(vertices))
+    names(edL) <- vertices
+    for (v in vertices)
+      edL[[v]] <- list(edges=vertex.labels[A[v, ]], weights=rep(1, sum(A[v, ])))
+    g <- new("graphNEL",nodes=vertices, edgeL=edL, edgemode="undirected")
     return(g)
   } else if (return.type == "graphAM") {
     ## require(graph)
@@ -2935,9 +2938,9 @@ setMethod("qpPCC", signature(X="matrix"),
 
 ## function: qpRndGraph
 ## purpose: builds a random undirected graph with n.vtx vertices
-##          and for every vertex its boundary <= n.bd
-## parameters: n.vtx - number of vertices
-##             n.bd - maximum boundary for every vertex
+##          and for every vertex its boundary <= d
+## parameters: p - number of vertices
+##             d - maximum boundary for every vertex
 ## return: the adjacency matrix of the resulting graph
 
 qpRndGraph <- function(p=6, d=2) {
@@ -3430,6 +3433,7 @@ setMethod("qpFunctionalCoherence",
     cat(sprintf("qpFunctionalCoherence: calculating GO enrichment in %d target gene sets\n",
         length(TFgenes[regModuleSize >= minRMsize])))
 
+  ## WARNING: THIS IS REALLY NECESSARY ONLY WHEN THE TF HAS GO ANNOTATIONS !!!!
   if (clusterSize > 1) {
     ## copying ShortRead's strategy, 'get()' are to quieten R CMD check, and for no other reason
     makeCl <- get("makeCluster", mode="function")
@@ -4266,13 +4270,24 @@ qpCov <- function(X, corrected=TRUE) {
              x = .Call("qp_cov_upper_triangular",X,as.integer(corrected))))
 }
 
-qpRndHMGM <- function(nDiscrete=1, nContinuous=3, n.bd=2, diffBySD=5, rho=0.5, G=NULL) {
+## function: qpRndHMGM
+## purpose: builds a random homogeneous mixed graphical Markov model
+##          and for every vertex its boundary <= d
+## parameters: nDiscrete - number of discrete variables
+##             nContinuous - number of continuous variables
+##             d - degree of every vertex
+##             mixedIntStrength - strength of the mixed interactions
+##             rho - marginal correlation of the quadratic interactions
+##             G - input graph, if given
+## return: a list with the HMGM
+
+qpRndHMGM <- function(nDiscrete=1, nContinuous=3, d=2, mixedIntStrength=5, rho=0.5, G=NULL) {
 
   if (is.null(G)) {
     Delta <- paste("D", 1:nDiscrete, sep="")
     Gamma <- paste("C", 1:nContinuous, sep="")
     V <- c(Delta, Gamma)
-    G <- qpRndGraph(p=length(V), d=n.bd)
+    G <- qpRndGraph(p=length(V), d=d)
     rownames(G) <- colnames(G) <- V
     G[Delta, Delta] <- FALSE
   } else {
@@ -4313,7 +4328,7 @@ qpRndHMGM <- function(nDiscrete=1, nContinuous=3, n.bd=2, diffBySD=5, rho=0.5, G
                } else {
                  whichLevelsDiffer <- split(1:nDiscreteLevels, levelsDelta[, whichDiscreteVars])
                }
-               x <- rep(rnorm(length(whichLevelsDiffer), sd=diffBySD),
+               x <- rep(rnorm(length(whichLevelsDiffer), sd=mixedIntStrength),
                         times=sapply(whichLevelsDiffer, length))
                x[sort(unlist(whichLevelsDiffer, use.names=FALSE), index.return=TRUE)$ix]
              }, levelsDelta))
@@ -4325,6 +4340,12 @@ qpRndHMGM <- function(nDiscrete=1, nContinuous=3, n.bd=2, diffBySD=5, rho=0.5, G
        Sigma=Sigma, mean_i=mu)
 }
 
+
+## function: qpSampleFromHMGM
+## purpose: samples synthetic data from a homogeneous mixed graphical Markov model
+## parameters: n - number of observations
+##             hmgm - model as generated by the function qpRndHMGM()
+## return: the sampled synthetic data
 
 qpSampleFromHMGM <- function(n=10, hmgm=qpRndHMGM()) {
   require(mvtnorm)
