@@ -8,7 +8,7 @@ Random homogeneous mixed graphical Markov model
 Builds a random homogeneous mixed graphical Markov model (experimental feature).
 }
 \usage{
-qpRndHMGM(nDiscrete=1, nContinuous=3, n.bd=2, diffBySD=5, rho=0.5, G=NULL)
+qpRndHMGM(nDiscrete=1, nContinuous=3, d=2, mixedIntStrength=5, rho=0.5, G=NULL)
 }
 \arguments{
   \item{nDiscrete}{number of discrete variables.}

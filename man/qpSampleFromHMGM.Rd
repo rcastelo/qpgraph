@@ -8,7 +8,7 @@ Sample from homogeneous mixed graphical Markov models
 Samples synthetic data from homogeneous mixed graphical Markov models (experimental feature).
 }
 \usage{
-qpSampleFromHMGM <- function(n=10, hmgm=qpRndHMGM())
+qpSampleFromHMGM(n=10, hmgm=qpRndHMGM())
 }
 \arguments{
   \item{n}{number of observations to sample.}
