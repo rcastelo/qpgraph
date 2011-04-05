@@ -2,7 +2,7 @@
   qpgraph package - this C code implements functions to learn qp-graphs from
                     data and utilities for GGM model inference and simulation
  
-  Copyright (C) 2009 R. Castelo and A. Roverato
+  Copyright (C) 2011 R. Castelo and A. Roverato
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License
   as published by the Free Software Foundation; either version 2

@@ -12,12 +12,12 @@ Estimates the non-rejection rate for one pair of variables.
 }
 \usage{
 \S4method{qpEdgeNrr}{ExpressionSet}(X, i=1, j=2, q=1, I=NULL, restrict.Q=NULL, nTests=100,
-                                    alpha=0.05, exact.test=FALSE, R.code.only=FALSE)
+                                    alpha=0.05, exact.test=TRUE, R.code.only=FALSE)
 \S4method{qpEdgeNrr}{data.frame}(X, i=1, j=2, q=1, I=NULL, restrict.Q=NULL, nTests=100,
-                                 alpha=0.05, long.dim.are.variables=TRUE, exact.test=FALSE,
+                                 alpha=0.05, long.dim.are.variables=TRUE, exact.test=TRUE,
                                  R.code.only=FALSE)
 \S4method{qpEdgeNrr}{matrix}(X, i=1, j=2, q=1, I=NULL, restrict.Q=NULL, n=NULL, nTests=100,
-                             alpha=0.05, long.dim.are.variables=TRUE, exact.test=FALSE,
+                             alpha=0.05, long.dim.are.variables=TRUE, exact.test=TRUE,
                              R.code.only=FALSE)
 }
 \arguments{
@@ -41,9 +41,9 @@ Estimates the non-rejection rate for one pair of variables.
        is the one defining the random variables (default); if FALSE, then random
        variables are assumed to be at the columns of the data frame or matrix.}
   \item{exact.test}{logical; if \code{FALSE} an asymptotic conditional independence
-       test is employed with mixed (i.e., continuous and discrete) data (default);
-       if \code{TRUE} then an exact conditional independence test with mixed data
-       is employed.}
+       test is employed with mixed (i.e., continuous and discrete) data;
+       if \code{TRUE} (default) then an exact conditional independence test with
+       mixed data is employed.}
   \item{R.code.only}{logical; if FALSE then the faster C implementation is used
        (default); if TRUE then only R code is executed.}
 }

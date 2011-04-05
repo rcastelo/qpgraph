@@ -13,17 +13,17 @@ Estimates non-rejection rates for every pair of variables.
 \usage{
 \S4method{qpNrr}{ExpressionSet}(X, q=1, I=NULL, restrict.Q=NULL, nTests=100,
                                 alpha=0.05, pairup.i=NULL, pairup.j=NULL,
-                                verbose=TRUE, identicalQs=TRUE, exact.test=FALSE,
+                                verbose=TRUE, identicalQs=TRUE, exact.test=TRUE,
                                 R.code.only=FALSE, clusterSize=1, estimateTime=FALSE,
                                 nAdj2estimateTime=10)
 \S4method{qpNrr}{data.frame}(X, q=1, I=NULL, restrict.Q=NULL, nTests=100,
                              alpha=0.05, pairup.i=NULL, pairup.j=NULL,
                              long.dim.are.variables=TRUE, verbose=TRUE,
-                             identicalQs=TRUE, exact.test=FALSE, R.code.only=FALSE,
+                             identicalQs=TRUE, exact.test=TRUE, R.code.only=FALSE,
                              clusterSize=1, estimateTime=FALSE, nAdj2estimateTime=10)
 \S4method{qpNrr}{matrix}(X, q=1, I=NULL, restrict.Q=NULL, nTests=100, alpha=0.05,
                          pairup.i=NULL, pairup.j=NULL, long.dim.are.variables=TRUE,
-                         verbose=TRUE, identicalQs=TRUE, exact.test=FALSE,
+                         verbose=TRUE, identicalQs=TRUE, exact.test=TRUE,
                          R.code.only=FALSE, clusterSize=1, estimateTime=FALSE,
                          nAdj2estimateTime=10)
 }
@@ -31,7 +31,9 @@ Estimates non-rejection rates for every pair of variables.
   \item{X}{data set from where to estimate the non-rejection rates.
        It can be an ExpressionSet object, a data frame or a matrix.}
   \item{q}{partial-correlation order to be employed.}
-  \item{I}{indexes or names of the variables in \code{X} that are discrete.}
+  \item{I}{indexes or names of the variables in \code{X} that are discrete.
+       When \code{X} is an \code{ExpressionSet} then \code{I} may contain
+       only names of the phenotypic variables in \code{X}.}
   \item{restrict.Q}{indexes or names of the variables in \code{X} that
        restrict the sample space of conditioning subsets Q.}
   \item{nTests}{number of tests to perform for each pair for variables.}
@@ -47,9 +49,9 @@ Estimates non-rejection rates for every pair of variables.
        (default), otherwise sample a new collection of \code{nTests} subsets for
        each pair of vertices.}
   \item{exact.test}{logical; if \code{FALSE} an asymptotic conditional independence
-       test is employed with mixed (i.e., continuous and discrete) data (default);
-       if \code{TRUE} then an exact conditional independence test with mixed data
-       is employed.}
+       test is employed with mixed (i.e., continuous and discrete) data;
+       if \code{TRUE} (default) then an exact conditional independence test with
+       mixed data is employed.}
   \item{R.code.only}{logical; if \code{FALSE} then the faster C implementation is used
        (default); if \code{TRUE} then only R code is executed.}
   \item{clusterSize}{size of the cluster of processors to employ if we wish to
@@ -91,7 +93,7 @@ Castelo, R. and Roverato, A. A robust procedure for
 Gaussian graphical model search from microarray data with p larger than n,
 \emph{J. Mach. Learn. Res.}, 7:2621-2650, 2006.
 }
-\author{R. Castelo and A. Roverato}
+\author{R. Castelo, A. Roverato and I. Tur}
 \seealso{
   \code{\link{qpAvgNrr}}
   \code{\link{qpEdgeNrr}}

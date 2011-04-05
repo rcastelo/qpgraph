@@ -14,9 +14,9 @@ a conditioning set.
 \usage{
 \S4method{qpCItest}{ExpressionSet}(X, i=1, j=2, Q=c(), I=NULL, R.code.only=FALSE)
 \S4method{qpCItest}{data.frame}(X, i=1, j=2, Q=c(), I=NULL, long.dim.are.variables=TRUE,
-                                exact.test=FALSE, R.code.only=FALSE)
+                                exact.test=TRUE, R.code.only=FALSE)
 \S4method{qpCItest}{matrix}(X, i=1, j=2, Q=c(), I=NULL, n=NULL, long.dim.are.variables=TRUE,
-                            exact.test=FALSE, R.code.only=FALSE)
+                            exact.test=TRUE, R.code.only=FALSE)
 }
 \arguments{
   \item{X}{data set where the test should be performed. It can be either an
@@ -35,9 +35,9 @@ a conditioning set.
        is the one defining the random variables (default); if FALSE, then random
        variables are assumed to be at the columns of the data frame or matrix.}
   \item{exact.test}{logical; if \code{FALSE} an asymptotic conditional independence
-       test is employed with mixed (i.e., continuous and discrete) data (default);
-       if \code{TRUE} then an exact conditional independence test with mixed data
-       is employed.}
+       test is employed with mixed (i.e., continuous and discrete) data;
+       if \code{TRUE} (default) then an exact conditional independence test with
+       mixed data is employed.}
   \item{R.code.only}{logical; if FALSE then the faster C implementation is used
        (default); if TRUE then only R code is executed.}
 }

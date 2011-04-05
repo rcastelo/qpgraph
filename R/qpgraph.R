@@ -52,7 +52,7 @@ setGeneric("qpNrr", function(X, ...) standardGeneric("qpNrr"))
 setMethod("qpNrr", signature(X="ExpressionSet"),
           function(X, q=1, I=NULL, restrict.Q=NULL, nTests=100, alpha=0.05,
                    pairup.i=NULL, pairup.j=NULL, verbose=TRUE, identicalQs=TRUE,
-                   exact.test=FALSE, R.code.only=FALSE, clusterSize=1,
+                   exact.test=TRUE, R.code.only=FALSE, clusterSize=1,
                    estimateTime=FALSE, nAdj2estimateTime=10) {
 
             startTime <- c(user.self=0, sys.self=0, elapsed=0, user.child=0, sys.child=0)
@@ -67,7 +67,19 @@ setMethod("qpNrr", signature(X="ExpressionSet"),
                (!qpgraph:::.qpIsPackageLoaded("rlecuyer") || !qpgraph:::.qpIsPackageLoaded("snow")))
               stop("Using a cluster (clusterSize > 1) requires first loading packages 'snow' and 'rlecuyer'\n")
               
-            X <- t(Biobase::exprs(X))
+            X_I <- NULL
+            if (!is.null(I)) {
+              if (!is.character(I))
+                stop("When X is an ExpressionSet, I can only contain variable names from the associated phenotypic data.")
+              if (any(is.na(match(I, Biobase::varLabels(X)))))
+                stop(sprintf("%s do(es) not form part of the phenotypic data in the ExpressionSet object X.",
+                             I[is.na(match(I, Biobase::varLabels(X)))]))
+
+              X_I <- apply(Biobase::pData(gds680.eset)[, I, drop=FALSE], 2,
+                           function(x) as.double(as.factor(as.character(x))))
+            }
+
+            X <- cbind(t(Biobase::exprs(X)), X_I)
             qpgraph:::.qpNrr(X, q, I, restrict.Q, nTests, alpha, pairup.i,
                              pairup.j, verbose, identicalQs, exact.test,
                              R.code.only, clusterSize, startTime,
@@ -78,7 +90,7 @@ setMethod("qpNrr", signature(X="ExpressionSet"),
 setMethod("qpNrr", signature(X="data.frame"),
           function(X, q=1, I=NULL, restrict.Q=NULL, nTests=100, alpha=0.05,
                    pairup.i=NULL, pairup.j=NULL, long.dim.are.variables=TRUE,
-                   verbose=TRUE, identicalQs=TRUE, exact.test=FALSE, R.code.only=FALSE,
+                   verbose=TRUE, identicalQs=TRUE, exact.test=TRUE, R.code.only=FALSE,
                    clusterSize=1, estimateTime=FALSE, nAdj2estimateTime=10) {
 
             startTime <- c(user.self=0, sys.self=0, elapsed=0, user.child=0, sys.child=0)
@@ -115,7 +127,7 @@ setMethod("qpNrr", signature(X="data.frame"),
 setMethod("qpNrr", signature(X="matrix"),
           function(X, q=1, I=NULL, restrict.Q=NULL, nTests=100, alpha=0.05,
                    pairup.i=NULL, pairup.j=NULL, long.dim.are.variables=TRUE,
-                   verbose=TRUE, identicalQs=TRUE, exact.test=FALSE, R.code.only=FALSE,
+                   verbose=TRUE, identicalQs=TRUE, exact.test=TRUE, R.code.only=FALSE,
                    clusterSize=1, estimateTime=FALSE, nAdj2estimateTime=10) {
 
             startTime <- c(user.self=0, sys.self=0, elapsed=0, user.child=0, sys.child=0)
@@ -145,7 +157,7 @@ setMethod("qpNrr", signature(X="matrix"),
 
 .qpNrr <- function(X, q=1, I=NULL, restrict.Q=NULL, nTests=100, alpha=0.05,
                    pairup.i=NULL, pairup.j=NULL, verbose=TRUE, identicalQs=TRUE,
-                   exact.test=FALSE, R.code.only=FALSE, clusterSize=1, startTime,
+                   exact.test=TRUE, R.code.only=FALSE, clusterSize=1, startTime,
                    nAdj2estimateTime=10) {
 
   cl <- NULL
@@ -256,9 +268,11 @@ setMethod("qpNrr", signature(X="matrix"),
   if (is.null(pairup.i))
     pairup.i <- 1:n.var
   else {
-    pairup.i <- match(pairup.i, var.names)
-    if (sum(is.na(pairup.i)) > 0)
-      stop("pairup.i is not a subset of the variables forming the data\n")
+    if (is.character(pairup.i)) {
+      if (any(is.na(match(pairup.i, var.names))))
+        stop("Some variables in pairup.i do not form part of the variable names of the data in X\n")
+      pairup.i <- match(pairup.i, var.names)
+    }
   }
 
   if (is.null(pairup.j)) {
@@ -267,9 +281,11 @@ setMethod("qpNrr", signature(X="matrix"),
         pairup.j <- (1:n.var)[-I]
     }
   } else {
-    pairup.j <- match(pairup.j, var.names)
-    if (sum(is.na(pairup.j)) > 0)
-      stop("pairup.j is not a subset of the variables forming the data\n")
+    if (is.character(pairup.j)) {
+      if (any(is.na(match(pairup.j, var.names))))
+        stop("Some variables in pairup.j do not form part of the variable names of the data in X\n")
+      pairup.j <- match(pairup.j, var.names)
+    }
   }
 
   ## pair the two sets pairup.i and pairup.j without pairing the same variable
@@ -689,7 +705,7 @@ setGeneric("qpAvgNrr", function(X, ...) standardGeneric("qpAvgNrr"))
 setMethod("qpAvgNrr", signature(X="ExpressionSet"),
           function(X, qOrders=4, I=NULL, restrict.Q=NULL, nTests=100, alpha=0.05,
                    pairup.i=NULL, pairup.j=NULL, type=c("arith.mean"), verbose=TRUE,
-                   identicalQs=TRUE, exact.test=FALSE, R.code.only=FALSE, clusterSize=1,
+                   identicalQs=TRUE, exact.test=TRUE, R.code.only=FALSE, clusterSize=1,
                    estimateTime=FALSE, nAdj2estimateTime=10) {
 
             startTime <- c(user.self=0, sys.self=0, elapsed=0, user.child=0, sys.child=0)
@@ -704,7 +720,19 @@ setMethod("qpAvgNrr", signature(X="ExpressionSet"),
                (!qpgraph:::.qpIsPackageLoaded("rlecuyer") || !qpgraph:::.qpIsPackageLoaded("snow")))
               stop("Using a cluster (clusterSize > 1) requires first loading packages 'snow' and 'rlecuyer'\n")
 
-            X <- t(Biobase::exprs(X))
+            X_I <- NULL
+            if (!is.null(I)) {
+              if (!is.character(I))
+                stop("When X is an ExpressionSet, I can only contain variable names from the associated phenotypic data.")
+              if (any(is.na(match(I, Biobase::varLabels(X)))))
+                stop(sprintf("%s do(es) not form part of the phenotypic data in the ExpressionSet object X.",
+                             I[is.na(match(I, Biobase::varLabels(X)))]))
+
+              X_I <- apply(Biobase::pData(gds680.eset)[, I, drop=FALSE], 2,
+                           function(x) as.double(as.factor(as.character(x))))
+            }
+
+            X <- cbind(t(Biobase::exprs(X)), X_I)
             qpgraph:::.qpAvgNrr(X, qOrders, I, restrict.Q, nTests, alpha, pairup.i,
                                 pairup.j, type, verbose, identicalQs, exact.test,
                                 R.code.only, clusterSize, startTime,
@@ -716,7 +744,7 @@ setMethod("qpAvgNrr", signature(X="data.frame"),
           function(X, qOrders=4, I=NULL, restrict.Q=NULL, nTests=100, alpha=0.05,
                    pairup.i=NULL, pairup.j=NULL, long.dim.are.variables=TRUE,
                    type=c("arith.mean"), verbose=TRUE, identicalQs=TRUE,
-                   exact.test=FALSE, R.code.only=FALSE, clusterSize=1,
+                   exact.test=TRUE, R.code.only=FALSE, clusterSize=1,
                    estimateTime=FALSE, nAdj2estimateTime=10) {
 
             startTime <- c(user.self=0, sys.self=0, elapsed=0, user.child=0, sys.child=0)
@@ -751,7 +779,7 @@ setMethod("qpAvgNrr", signature(X="matrix"),
           function(X, qOrders=4, I=NULL, restrict.Q=NULL, nTests=100, alpha=0.05,
                    pairup.i=NULL, pairup.j=NULL, long.dim.are.variables=TRUE,
                    type=c("arith.mean"), verbose=TRUE, identicalQs=TRUE,
-                   exact.test=FALSE, R.code.only=FALSE, clusterSize=1,
+                   exact.test=TRUE, R.code.only=FALSE, clusterSize=1,
                    estimateTime=FALSE, nAdj2estimateTime=10) {
 
             startTime <- c(user.self=0, sys.self=0, elapsed=0, user.child=0, sys.child=0)
@@ -781,7 +809,7 @@ setMethod("qpAvgNrr", signature(X="matrix"),
 .qpAvgNrr <- function(X, qOrders=4, I=NULL, restrict.Q=NULL, nTests=100,
                       alpha=0.05, pairup.i=NULL, pairup.j=NULL,
                       type=c("arith.mean"), verbose=TRUE, identicalQs=TRUE,
-                      exact.test=FALSE, R.code.only=FALSE, clusterSize=1,
+                      exact.test=TRUE, R.code.only=FALSE, clusterSize=1,
                       startTime, nAdj2estimateTime) {
 
   type <- match.arg(type)
@@ -1185,7 +1213,7 @@ setMethod("qpGenNrr", signature(X="matrix"),
       cat(sprintf("Data set %s\n", as.character(idx)))
 
     thisNrr <- qpgraph:::.qpNrr(X[datasetIdx == idx, ], qOrders[idx], I=NULL, restrict.Q=NULL, nTests,
-                                alpha, pairup.i, pairup.j, verbose, identicalQs, exact.test=FALSE,
+                                alpha, pairup.i, pairup.j, verbose, identicalQs, exact.test=TRUE,
                                 R.code.only, cl, startTime, nAdj2estimateTime)
 
     if (startTime["elapsed"] > 0) {
@@ -1248,7 +1276,7 @@ setGeneric("qpEdgeNrr", function(X, ...) standardGeneric("qpEdgeNrr"))
 # X comes as an ExpressionSet object
 setMethod("qpEdgeNrr", signature(X="ExpressionSet"),
           function(X, i=1, j=2, q=1, I=NULL, restrict.Q=NULL, nTests=100,
-                   alpha=0.05, exact.test=FALSE, R.code.only=FALSE) {
+                   alpha=0.05, exact.test=TRUE, R.code.only=FALSE) {
             X <- t(Biobase::exprs(X))
             S <- qpCov(X)
             N <- nrow(X)
@@ -1259,7 +1287,7 @@ setMethod("qpEdgeNrr", signature(X="ExpressionSet"),
 setMethod("qpEdgeNrr", signature(X="data.frame"),
           function(X, i=1, j=2, q=1, I=NULL, restrict.Q=NULL, nTests=100,
                    alpha=0.05, long.dim.are.variables=TRUE,
-                   exact.test=FALSE, R.code.only=FALSE) {
+                   exact.test=TRUE, R.code.only=FALSE) {
             X <- as.matrix(X)
             if (!is.double(X))
               stop("X should be double-precision real numbers\n")
@@ -1300,7 +1328,7 @@ setMethod("qpEdgeNrr", signature(X="data.frame"),
 setMethod("qpEdgeNrr", signature(X="matrix"),
           function(X, i=1, j=2, q=1, I=NULL, restrict.Q=NULL, n=NULL,
                    nTests=100, alpha=0.05, long.dim.are.variables=TRUE,
-                   exact.test=FALSE, R.code.only=FALSE) {
+                   exact.test=TRUE, R.code.only=FALSE) {
             if (long.dim.are.variables &&
               sort(dim(X),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
               X <- t(X)
@@ -1395,7 +1423,7 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
 
 .qpEdgeNrrHMGM <- function(X, I, Y, ssdMat, mapX2ssdMat, i=1, j=2, q=1,
                            restrict.Q=NULL, nTests=100, alpha=0.05,
-                           exact.test=FALSE, R.code.only=FALSE) {
+                           exact.test=TRUE, R.code.only=FALSE) {
   if (is.character(i)) {
     if (is.na(match(i, colnames(X))))
       stop(sprintf("i=%s does not form part of the variable names of the data\n",i))
@@ -1590,8 +1618,8 @@ setMethod("qpCItest", signature(X="ExpressionSet"),
 
 # X comes as a data frame
 setMethod("qpCItest", signature(X="data.frame"),
-          function(X, i=1, j=2, Q=c(), I=NULL,
-                   long.dim.are.variables=TRUE, exact.test=FALSE, R.code.only=FALSE) {
+          function(X, i=1, j=2, Q=c(), I=NULL, long.dim.are.variables=TRUE,
+                   exact.test=TRUE, R.code.only=FALSE) {
             X <- as.matrix(X)
             if (!is.double(X))
               stop("X should be double-precision real numbers\n")
@@ -1636,7 +1664,8 @@ setMethod("qpCItest", signature(X="data.frame"),
 # X comes as a matrix
 setMethod("qpCItest", signature(X="matrix"),
           function(X, i=1, j=2, Q=c(), I=NULL, n=NULL,
-                   long.dim.are.variables=TRUE, exact.test=FALSE, R.code.only=FALSE) {
+                   long.dim.are.variables=TRUE, exact.test=TRUE,
+                   R.code.only=FALSE) {
             if (!is.double(X))
               stop("X should be double-precision real numbers\n")
 
@@ -1761,7 +1790,7 @@ setMethod("qpCItest", signature(X="matrix"),
   ssd
 }
 
-.qpCItestHMGM <- function(X, I, Y, ssdMat, mapX2ssdMat, i, j, Q, exact.test=FALSE, R.code.only=FALSE ) {
+.qpCItestHMGM <- function(X, I, Y, ssdMat, mapX2ssdMat, i, j, Q, exact.test=TRUE, R.code.only=FALSE ) {
   if (all(!is.na(match(c(i,j), I))))
     stop("i and j cannot be both discrete at the moment")
 

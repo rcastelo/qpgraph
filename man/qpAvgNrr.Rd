@@ -15,32 +15,34 @@ Estimates average non-rejection rates for every pair of variables.
                                    nTests=100, alpha=0.05, pairup.i=NULL,
                                    pairup.j=NULL, type=c("arith.mean"),
                                    verbose=TRUE, identicalQs=TRUE,
-                                   exact.test=FALSE, R.code.only=FALSE,
+                                   exact.test=TRUE, R.code.only=FALSE,
                                    clusterSize=1, estimateTime=FALSE,
                                    nAdj2estimateTime=10)
 \S4method{qpAvgNrr}{data.frame}(X, qOrders=4, I=NULL, restrict.Q=NULL,
                                 nTests=100, alpha=0.05, pairup.i=NULL,
                                 pairup.j=NULL, long.dim.are.variables=TRUE,
                                 type=c("arith.mean"), verbose=TRUE,
-                                identicalQs=TRUE, exact.test=FALSE,
+                                identicalQs=TRUE, exact.test=TRUE,
                                 R.code.only=FALSE, clusterSize=1,
                                 estimateTime=FALSE, nAdj2estimateTime=10)
 \S4method{qpAvgNrr}{matrix}(X, qOrders=4, I=NULL, restrict.Q=NULL,
                             nTests=100, alpha=0.05, pairup.i=NULL,
                             pairup.j=NULL, long.dim.are.variables=TRUE,
                             type=c("arith.mean"), verbose=TRUE,
-                            identicalQs=TRUE, exact.test=FALSE,
+                            identicalQs=TRUE, exact.test=TRUE,
                             R.code.only=FALSE, clusterSize=1,
                             estimateTime=FALSE, nAdj2estimateTime=10)
 }
 \arguments{
   \item{X}{data set from where to estimate the average non-rejection rates.
        It can be an ExpressionSet object, a data frame or a matrix.}
-  \item{I}{indexes or names of the variables in \code{X} that are discrete.}
-  \item{restrict.Q}{indexes or names of the variables in \code{X} that
-       restrict the sample space of conditioning subsets Q.}
   \item{qOrders}{either a number of partial-correlation orders or a vector of
        vector of particular orders to be employed in the calculation.}
+  \item{I}{indexes or names of the variables in \code{X} that are discrete.
+       When \code{X} is an \code{ExpressionSet} then \code{I} may contain
+       only names of the phenotypic variables in \code{X}.}
+  \item{restrict.Q}{indexes or names of the variables in \code{X} that
+       restrict the sample space of conditioning subsets Q.}
   \item{nTests}{number of tests to perform for each pair for variables.}
   \item{alpha}{significance level of each test.}
   \item{pairup.i}{subset of vertices to pair up with subset \code{pairup.j}}
@@ -55,9 +57,9 @@ Estimates average non-rejection rates for every pair of variables.
        (default), otherwise sample a new collection of \code{nTests} subsets for
        each pair of vertices.}
   \item{exact.test}{logical; if \code{FALSE} an asymptotic conditional independence
-       test is employed with mixed (i.e., continuous and discrete) data (default);
-       if \code{TRUE} then an exact conditional independence test with mixed data
-       is employed.}
+       test is employed with mixed (i.e., continuous and discrete) data;
+       if \code{TRUE} (default) then an exact conditional independence test with
+       mixed data is employed.}
   \item{R.code.only}{logical; if \code{FALSE} then the faster C implementation is used
        (default); if \code{TRUE} then only R code is executed.}
   \item{clusterSize}{size of the cluster of processors to employ if we wish to
