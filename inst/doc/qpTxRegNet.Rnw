@@ -276,7 +276,7 @@ defined as a transcription factor (TF) and its set of target genes.}
 
 Now we will show how can we use qp-graphs to tackle such a challenging
 situation. We should start by estimating avgNRRs with the function
-\verb+qpAvgNrr+ but before we do that, and for the sake of reproducibility of
+\verb+qpAvgNrr()+ but before we do that, and for the sake of reproducibility of
 the results of this vignette, we should take into account that because the
 non-rejection rate is estimated by a random sampling procedure
 \citep[see][]{Castelo:2006yu}, its value may vary slightly from run to run and
@@ -299,7 +299,7 @@ avgnrr.estimates <- qpAvgNrr(subset.gds680.eset,
                              pairup.i=largestIQRgenesO2netTFs,
                              pairup.j=largestIQRgenesO2net, verbose=FALSE)
 @
-The function \verb+qpAvgNrr+ uses by default four equidistant q-values along the
+The function \verb+qpAvgNrr()+ uses by default four equidistant q-values along the
 available range and returns a matrix with the estimates for all gene pairs except
 when, as in this case, we restrict the genes allowed to pair with each other. In
 order to assess the accuracy of the PCC and qp-graph methods we will use the

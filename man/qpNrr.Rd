@@ -33,7 +33,7 @@ Estimates non-rejection rates for every pair of variables.
   \item{q}{partial-correlation order to be employed.}
   \item{I}{indexes or names of the variables in \code{X} that are discrete.
        When \code{X} is an \code{ExpressionSet} then \code{I} may contain
-       only names of the phenotypic variables in \code{X}.}
+       only names of the phenotypic variables in \code{X} (experimental feature).}
   \item{restrict.Q}{indexes or names of the variables in \code{X} that
        restrict the sample space of conditioning subsets Q.}
   \item{nTests}{number of tests to perform for each pair for variables.}

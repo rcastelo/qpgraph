@@ -27,7 +27,7 @@ a conditioning set.
   \item{i}{index or name of one of the two variables in \code{X} to test.}
   \item{j}{index or name of the other variable in \code{X} to test.}
   \item{Q}{indexes or names of the variables in \code{X} forming the conditioning set.}
-  \item{I}{indexes or names of the variables in \code{X} that are discrete.}
+  \item{I}{indexes or names of the variables in \code{X} that are discrete (experimental feature).}
   \item{n}{number of observations in the data set. Only necessary when the
        sample covariance matrix is provided through the \code{X} parameter.}
   \item{long.dim.are.variables}{logical; if TRUE it is assumed
