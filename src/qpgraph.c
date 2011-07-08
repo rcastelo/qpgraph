@@ -171,6 +171,9 @@ qp_fast_pac_se(SEXP Shat, SEXP I);
 static SEXP
 qp_fast_ipf(SEXP vv, SEXP cliq, SEXP tol, SEXP verbose);
 
+static SEXP
+qp_fast_htf(SEXP S, SEXP A, SEXP tol, SEXP verbose);
+
 static void
 fast_ipf_step(int n, double* Vf, double* Vn, int* a, int csze);
 
@@ -181,7 +184,7 @@ static void
 matprod(double *x, int nrx, int ncx, double *y, int nry, int ncy, double *z);
  
 static void
-matinv(double* inv, double* M, int n);
+matinv(double* inv, double* M, int n, int p);
 
 static double
 symmatlogdet(double* M, int n, int* sign);
@@ -255,6 +258,7 @@ callMethods[] = {
   {"qp_clique_number_os", (DL_FUNC) &qp_clique_number_os, 3},
   {"qp_fast_pac_se", (DL_FUNC) &qp_fast_pac_se, 2},
   {"qp_fast_ipf", (DL_FUNC) &qp_fast_ipf, 4},
+  {"qp_fast_htf", (DL_FUNC) &qp_fast_htf, 4},
   {"qp_cov_upper_triangular", (DL_FUNC) &qp_cov_upper_triangular, 2},
   {NULL}
 };
@@ -731,7 +735,7 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup
         Qmat[j + k*q] = Qmat[k + j*q] = S[UTE2I(Q[j], Q[k])];
       Qmat[j + j*q] = S[UTE2I(Q[j], Q[j])];
     }
-    matinv((double*) (Qinv+i*q*q), Qmat, q);
+    matinv((double*) (Qinv+i*q*q), Qmat, q, 0);
   }
   Free(Qmat);
   
@@ -1450,7 +1454,7 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pa
         Qmat[j + k*q] = Qmat[k + j*q] = S[UTE2I(Q[j], Q[k])];
       Qmat[j + j*q] = S[UTE2I(Q[j], Q[j])];
     }
-    matinv((double*) (Qinv+i*q*q), Qmat, q);
+    matinv((double*) (Qinv+i*q*q), Qmat, q, 0);
   }
   Free(Qmat);
   
@@ -1829,7 +1833,7 @@ qp_ci_test(double* S, int n_var, int N, int i, int j, int* Q, int q) {
   S11 = Mmar[0];
 
   /* S22inv  <- solve(S22) */
-  matinv(S22inv,S22,subn-1);
+  matinv(S22inv,S22,subn-1, 0);
 
   /* betahat <- S12 %*% S22inv[,1] */
   Memcpy(S22inv1col,S22inv,(size_t) (subn-1));
@@ -1936,7 +1940,7 @@ qp_ci_test2(double* S, int n_var, int N, int i, int j, int* Q, int q, double* Qi
       Qmat[i + i*q] = S[UTE2I(Q[i], Q[i])];
     }
     if (q > 1)
-      matinv(Qinv,Qmat,q);
+      matinv(Qinv,Qmat,q, 0);
     else
       Qinv[0] = 1.0 / Qmat[0];
     Free(Qmat);
@@ -3841,7 +3845,7 @@ qp_fast_pac_se(SEXP Shat, SEXP I) {
   Free(Iss1); Free(Iss2);
 
   Issinv = Calloc(rnz*cnz,double);
-  matinv(Issinv,Iss,rnz);
+  matinv(Issinv, Iss, rnz, 0);
   Free(Iss);
 
   PROTECT(SER = allocMatrix(REALSXP,n_var,n_var));
@@ -3879,9 +3883,7 @@ qp_fast_pac_se(SEXP Shat, SEXP I) {
   PARAMETERS: vvR - input matrix (usually the sample variance-covariance matrix)
               clqlstR - list of (maximal) cliques
               tolR - tolerance under which the main loop stops
-              binary - when set to TRUE the faster C code is used instead
-              verbose - when set to TRUE the algorithm shows the successive precision
-                        achieve at each iteration
+              verbose - when set to TRUE the algorithm shows progression
   RETURNS: the input matrix adjusted to the constraints of the list of cliques
 */
 
@@ -3894,7 +3896,7 @@ qp_fast_ipf(SEXP vvR, SEXP clqlstR, SEXP tolR, SEXP verbose) {
   double*       vv;
   double*       tmp;
   double        tol;
-  double        diff;
+  double        precision;
   SEXP          VR;
   Rboolean      clqspervtx;
   int           fstclq = 0;
@@ -3932,13 +3934,13 @@ qp_fast_ipf(SEXP vvR, SEXP clqlstR, SEXP tolR, SEXP verbose) {
       vv[i+j*n] = REAL(vvR)[i+j*n];
       V[i+j*n] = i == j ? 1.0 : 0.0;
     }
-  UNPROTECT(1); /* vv */
+  UNPROTECT(1); /* vvR */
 
   if (INTEGER(verbose)[0])
     Rprintf("qpIPF: %d cliques\n",nclqlst-fstclq);
 
-  diff = 1.0;
-  while (diff > tol) {
+  precision = 1.0;
+  while (precision > tol) {
     /* Vold <- V */
     for (i=0;i<n;i++)
       for (j=0;j<n;j++)
@@ -3988,9 +3990,9 @@ qp_fast_ipf(SEXP vvR, SEXP clqlstR, SEXP tolR, SEXP verbose) {
       Rprintf("\n");
 
     matsumf(tmp,n,n,V,Vold,-1.0);
-    diff = matmxab(tmp,n,n);
+    precision = matmxab(tmp,n,n);
     if (INTEGER(verbose)[0])
-      Rprintf("Precision: %.10f\n",diff);
+      Rprintf("Precision: %.10f\n", precision);
   }
 
   PROTECT(VR = allocMatrix(REALSXP,n,n));
@@ -4052,7 +4054,7 @@ fast_ipf_step(int n, double* Vf, double* Vn, int* a, int csze) {
 
   /* Vni <- solve(Vn[a, a]) */
   matsubm(Vnaa,Vn,n,a,csze,a,csze);
-  matinv(Vni,Vnaa,csze);
+  matinv(Vni,Vnaa,csze,0);
 
   /* Bnba <- Vn[b, a] %*% Vni */
   Vnba = Calloc((n-csze)*csze,double);
@@ -4115,6 +4117,156 @@ fast_ipf_step(int n, double* Vf, double* Vn, int* a, int csze) {
   Free(Bnba);
   Free(Vnbba);
   Free(b);
+}
+
+
+
+/*
+  FUNCTION: qp_fast_htf
+  PURPOSE: implement the algorithm of Hastie, Tibshirani and Friedman to perform
+           maximum likelihood estimation of the sample covariance matrix given the
+           independence constraints from an input undirected graph. Part of the
+           R code below has been borrowed from an implementation by Giovanni Marchetti
+           in the 'ggm' package (thanks Giovanni!!)
+  PARAMETERS: SR - sample variance-covariance matrix
+              AR - adjacency matrix of the undirected graph encoding independence constraints
+              tolR - tolerance under which the main loop stops
+              verbose - when set to TRUE the algorithm shows progression
+  RETURNS: the input matrix adjusted to the constraints of the list of cliques
+*/
+
+static SEXP
+qp_fast_htf(SEXP SR, SEXP AR, SEXP tolR, SEXP verbose) {
+  int           n_var = INTEGER(getAttrib(SR,R_DimSymbol))[0];
+  int*          vtc_wo_i;
+  int*          A;
+  int*          Ai;
+  double*       W11;
+  double*       W11Ai;
+  double*       S;
+  double*       W;
+  double*       w;
+  double*       s12Ai;
+  double*       beta;
+  double*       Wprev;
+  double*       tmp;
+  double        tol;
+  double        precision;
+  double        prev_precision;
+  SEXP          WR;
+  int           pct,ppct;
+  int           i,j,k;
+
+  S   = REAL(SR);
+  A   = INTEGER(AR);
+  tol = REAL(tolR)[0];
+
+  vtc_wo_i = Calloc(n_var, int);
+  Ai       = Calloc(n_var, int);
+  beta     = Calloc(n_var-1, double);
+  w        = Calloc(n_var-1, double);
+  W11      = Calloc((n_var-1)*(n_var-1), double);
+  s12Ai    = Calloc(n_var-1, double);
+  Wprev    = Calloc(n_var*n_var, double);
+  tmp      = Calloc(n_var*n_var, double);
+
+  for (i=0; i < n_var; i++)
+    vtc_wo_i[i] = i;
+
+  PROTECT(WR = allocMatrix(REALSXP, n_var, n_var));
+  W = REAL(WR);
+  /* W <- Wprev <- S */
+  Memcpy(W, REAL(SR), (size_t) (n_var * n_var));
+
+  precision = DBL_MAX;
+  while (precision > tol) {
+    prev_precision = precision;
+    Memcpy(Wprev, W, (size_t) (n_var * n_var));
+
+    ppct = -1;
+    for (i=0; i < n_var; i++) { /* i is the vertex currently adjusted */
+
+      vtc_wo_i[i] = n_var-1;
+
+      /* W11 <- W[-i, -i, drop=FALSE] */
+      matsubm(W11, W, n_var, vtc_wo_i, n_var-1, vtc_wo_i, n_var-1);
+
+      /* s12 <- S[-i, i, drop=FALSE] */
+      /* Ai <- A[i, ] */
+      /* Ai <- Ai[-i] */
+      k = 0;
+      for (j=0; j < n_var-1; j++) {
+        if (A[i*n_var+vtc_wo_i[j]]) {
+          Ai[k] = j;
+          s12Ai[k] = S[i*n_var + vtc_wo_i[j]];
+          k++;
+        }
+      }
+
+      /* beta <- rep(0, n.var-1) */
+      memset(beta, 0, (n_var-1) * sizeof(double));
+
+      /* beta[Ai] <- solve(W11[Ai, Ai], s12[Ai, ]) */
+      if (k > 0) {
+        W11Ai = Calloc(k*k, double);
+        matsubm(W11Ai, W11, n_var-1, Ai, k, Ai, k);
+        matinv(s12Ai, W11Ai, k, 1);
+        Free(W11Ai);
+        for (j=0; j < k; j++)
+          beta[Ai[j]] = s12Ai[j];
+      }
+
+      /* w <- W11 %*% beta */
+      matprod(W11, n_var-1, n_var-1, beta, n_var-1, 1, w);
+
+      /* W[-i, i] <- W[i, -i] <- w */
+      for (j=0; j < n_var-1; j++)
+        W[i*n_var + vtc_wo_i[j]] = W[vtc_wo_i[j]*n_var + i] = w[j];
+      vtc_wo_i[i] = i;
+
+      pct = (int) (((double) (i*100))/((double) n_var));
+      if (pct != ppct) {
+        if (INTEGER(verbose)[0]) {
+          if (pct % 10 == 0)
+            Rprintf("%d",pct);
+          else
+            Rprintf(".",pct);
+          R_FlushConsole();
+        }
+
+        R_CheckUserInterrupt();
+#ifdef Win32
+        R_ProcessEvents();
+#endif
+#ifdef HAVE_AQUA
+        R_ProcessEvents();
+#endif
+        ppct = pct;
+      }
+    }
+    if (INTEGER(verbose)[0])
+      Rprintf("\n");
+
+    matsumf(tmp, n_var, n_var, W, Wprev,-1.0);
+    precision = matmxab(tmp, n_var, n_var);
+    if (INTEGER(verbose)[0])
+      Rprintf("Precision: %.10f\n", precision);
+    if (precision > prev_precision)
+      error("HTF is not converging, probably the input sample covariance matrix is calculated from too few observations\n");
+  }
+
+  Free(vtc_wo_i);
+  Free(Ai);
+  Free(beta);
+  Free(w);
+  Free(W11);
+  Free(s12Ai);
+  Free(Wprev);
+  Free(tmp);
+
+  UNPROTECT(1); /* WR */
+
+  return WR;
 }
 
 
@@ -4198,7 +4350,7 @@ matprod(double *x, int nrx, int ncx, double *y, int nry, int ncy, double *z) {
 */
 
 static void
-matinv(double* inv, double* M, int n) {
+matinv(double* inv, double* M, int n, int p) {
   int     i;
   int     info;
   int*    ipiv;
@@ -4208,20 +4360,18 @@ matinv(double* inv, double* M, int n) {
   double  rcond;
   double  tol = DBL_MIN;
 
-  /*
-  for (i=0;i<n;i++)
-    for (j=0;j<n;j++)
-      inv[i+j*n] = i == j ? 1.0 : 0.0; 
-  */
-  memset(inv, 0, n * n * sizeof(double));
-  for (i=0; i < n; i++)
-    inv[i+i*n] = 1.0;
+  if (p == 0) {
+    memset(inv, 0, n * n * sizeof(double));
+    for (i=0; i < n; i++)
+      inv[i+i*n] = 1.0;
+    p = n;
+  }
 
-  ipiv = (int *) Calloc(n,double);
-  avals = (double *) Calloc(n*n,double);
-  Memcpy(avals,M,(size_t) (n*n));
+  ipiv = (int *) Calloc(n, int);
+  avals = (double *) Calloc(n*n, double);
+  Memcpy(avals, M, (size_t) (n*n));
 
-  F77_CALL(dgesv)(&n,&n,avals,&n,ipiv,inv,&n,&info);
+  F77_CALL(dgesv)(&n, &p, avals, &n, ipiv, inv, &n, &info);
   if (info < 0)
     error("argument %d of Lapack routine %s had invalid value",-info, "dgesv");
   if (info > 0)
@@ -4229,7 +4379,7 @@ matinv(double* inv, double* M, int n) {
 
   anorm = F77_CALL(dlange)("1", &n, &n, M, &n, (double*) NULL);
 
-  work = (double *) Calloc(4*n,double);
+  work = (double *) Calloc(4*n, double);
 
   F77_CALL(dgecon)("1", &n, avals, &n, &anorm, &rcond, work, ipiv, &info);
   if (rcond < tol)
@@ -4352,7 +4502,7 @@ mattran(double* T, double* M, int nrow, int ncol) {
 
 /*
   FUNCTION: matsubm
-  PURPOSE: extracts a submatrix of a matrix
+  PURPOSE: extracts a square submatrix from a square matrix
   RETURNS: none
 */
 
@@ -4398,7 +4548,8 @@ matmxab(double* M, int nrow, int ncol) {
 
   for (i=0;i<nrow;i++)
     for (j=0;j<ncol;j++) {
-      double abs = M[i+nrow*j] > 0 ? M[i+nrow*j] : -1.0*M[i+nrow*j];
+      /* double abs = M[i+nrow*j] > 0 ? M[i+nrow*j] : -1.0*M[i+nrow*j]; */
+      double abs = fabs(M[i+nrow*j]);
       maxabs = maxabs < abs ? abs : maxabs;
     }
 

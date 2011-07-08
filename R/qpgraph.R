@@ -2509,6 +2509,8 @@ qpClique <- function(nrrMatrix, N=NA, threshold.lim=c(0,1), breaks=5, plot=TRUE,
                      logscale.clqsize=FALSE,
                      titleclq="maximum clique size as function of threshold",
                      verbose=FALSE) {
+  n.var <- nrow(nrrMatrix)
+  n.adj <- n.var*(n.var-1)/2
 
   if (is.null(qpCliqueOutput)) {
 
@@ -2524,8 +2526,6 @@ qpClique <- function(nrrMatrix, N=NA, threshold.lim=c(0,1), breaks=5, plot=TRUE,
     thrmaxclqszeunderN <- 0
     mpctedclqsze <- matrix(rep(0,length(br)*3),nrow=length(br),ncol=3)
     colnames(mpctedclqsze) <- c("density","clqsize","threshold")
-    n.var <- nrow(nrrMatrix)
-    n.adj <- n.var*(n.var-1)/2
 
     ## by now we coerce this to a regular matrix
     nrrMatrix <- as(nrrMatrix, "matrix")
@@ -2595,6 +2595,119 @@ qpClique <- function(nrrMatrix, N=NA, threshold.lim=c(0,1), breaks=5, plot=TRUE,
 
   invisible(list(data=mpctedclqsze,complexity=area$value,threshold=thrmaxclqszeunderN,
                  clqsizeunderN=maxclqszeunderN,N=N,exact.calculation=exact.calculation))
+}
+
+
+
+## function: qpBoundary
+## purpose: calculate and plot the maximum clique size as function of the
+##          non-rejection rate
+## parameters: nrrMatrix - matrix of non-rejection rates
+##             N - sample size
+##             threshold.lim - range of threshold values
+##             breaks - either a number of threshold bins or a vector of
+##                      threshold breakpoints
+##             plot - flag that when set it makes a plot of the result
+##             qpBoundaryOutput - output from a previous call to qpClique, this
+##                              allows one to plot the result changing some of
+##                              the plotting parameters without having to do
+##                              the calculation again
+##             density.digits - number of digits in the reported graph densities
+##             logscale.bdsize - whether the boundary size in the y-axis
+##                               should be plotted in logarithmic scale
+##             titlebd - title to be shown in the plot
+##             verbose - show progress when doing the calculation
+## return: a list with the maximum boundary and the graph density as function
+##         of the threshold, an estimate of the complexity of the resulting
+##         qp-graphs across the thresholds, the threshold on the non-rejection
+##         rate that provides a maximum clique size strictly smaller than the
+##         sample size N, and the resulting maximum clique size
+
+qpBoundary <- function(nrrMatrix, N=NA, threshold.lim=c(0,1), breaks=5, plot=TRUE,
+                       qpBoundaryOutput=NULL, density.digits=0,
+                       logscale.bdsize=FALSE,
+                       titlebd="Maximum boundary size as function of threshold",
+                       verbose=FALSE) {
+  n.var <- nrow(nrrMatrix)
+  n.adj <- n.var*(n.var-1)/2
+
+  if (is.null(qpBoundaryOutput)) {
+
+    if (length(breaks) == 1) {
+      len <- threshold.lim[2] - threshold.lim[1]
+      br <- seq(threshold.lim[1],threshold.lim[2],by=len/breaks)
+    } else {
+      br <- breaks
+      threshold.lim <- range(br)
+    }
+
+    maxbdszeunderN <- 0
+    thrmaxbdszeunderN <- 0
+    mpctedbdsze <- matrix(rep(0,length(br)*3),nrow=length(br),ncol=3)
+    colnames(mpctedbdsze) <- c("density","bdsize","threshold")
+
+    ## by now we coerce this to a regular matrix
+    nrrMatrix <- as(nrrMatrix, "matrix")
+
+    for (i in 1:length(br)) {
+      if (verbose) {
+        cat(paste("break: ",i,sep=""))
+        cat("\n")
+      }
+      threshold <- br[i]
+      nrrMatrix[is.na(nrrMatrix)] <- 1.0 # non-available NRRs imply no edges
+      A <- nrrMatrix <= threshold
+      diag(A) <- FALSE # if the threshold is 1.0 the resulting qp-graph
+                       # will be the complete undirected graph but
+                       # still it should have no loops
+      n.edg <- sum(A) / 2
+      dimnames(A) <- list(1:length(A[,1]), 1:length(A[1,]))
+      maxsize <- max(rowSums(A))
+      mpctedbdsze[i,] <- c((n.edg / n.adj) * 100, maxsize, threshold)
+      if (!is.na(N)) {
+        if (maxsize > maxbdszeunderN && maxsize < N) {
+          maxbdszeunderN <- maxsize
+          thrmaxbdszeunderN <- threshold
+        }
+      }
+    }
+
+    if (is.na(N))
+      maxbdszeunderN <- thrmaxbdszunderN <- NA
+
+  } else {
+    br <- qpBoundaryOutput$data[,3]
+    mpctedbdsze <- qpBoundaryOutput$data
+    thrmaxbdszeunderN <- qpBoundaryOutput$threshold
+    maxbdszeunderN <- qpBoundaryOutput$bdsizeunderN
+    N <- qpBoundaryOutput$N
+  }
+
+  linetype <- 1
+  label <- "Maximum boundary size"
+
+  if (plot == TRUE) {
+    logscale <- ""
+    if (logscale.bdsize == TRUE) {
+      logscale <- "y"
+    }
+    plot(br,mpctedbdsze[,2],type="o",xlim=threshold.lim,
+         ylim=range(1,N,mpctedbdsze[,2],na.rm=TRUE),lwd=2,lty=linetype,
+         xlab="threshold",ylab="Maximum boundary size",main=titlebd,log=logscale)
+    if (!is.na(N))
+      abline(h=N,col="red",lwd=2)
+    pct <- round(mpctedbdsze[,1],digits=density.digits)
+    text(br,mpctedbdsze[,2],lab=paste(pct,"%",sep=""),pos=1,cex=.7)
+    legend(min(threshold.lim),max(N,mpctedbdsze[,2],na.rm=TRUE),label,lty=linetype,lwd=2,pch=1)
+  }
+
+  m <- mpctedbdsze[,c(3,2)]
+  m[,2] <- m[,2] / n.var
+  f <- approxfun(m)
+  area <- integrate(f,min(m[,1]),max(m[,1]))
+
+  invisible(list(data=mpctedbdsze,complexity=area$value,threshold=thrmaxbdszeunderN,
+                 bdsizeunderN=maxbdszeunderN,N=N))
 }
 
 
@@ -2733,7 +2846,7 @@ qpIPF <- function(vv, clqlst, tol = 0.001, verbose = FALSE,
   vv <- as(vv, "matrix")
 
   if (!R.code.only) {
-    return(qpgraph:::.qpFastIPF(vv,clqlst,tol,verbose))
+    return(qpgraph:::.qpFastIPF(vv, clqlst, tol, verbose))
   }
 
   if (verbose) {
@@ -2745,15 +2858,104 @@ qpIPF <- function(vv, clqlst, tol = 0.001, verbose = FALSE,
   }
 
   V <- diag(length(vv[, 1]))
-  Vold <-  - V
-  while(max(abs(V - Vold)) > tol) {
+  precision <- 1
+  while(precision > tol) {
     Vold <- V
     V <- qpgraph:::.qpIPFpass(vv, V, clqlst)
+    precision <- max(abs(V - Vold))
     if (verbose)
-      cat("qpIPF: precision =", max(abs(V - Vold)), "\n")
+      cat("qpIPF: precision =", precision, "\n")
   }
 
   return(as(V, "dspMatrix"))
+}
+
+
+
+## function: qpHTF
+## purpose: implement the algorithm of Hastie, Tibshirani and Friedman to
+##          perform maximum likelihood estimation of the sample covariance
+##          matrix given the independence constraints from an input
+##          undirected graph
+##          Part of the R code below has been borrowed from an implementation
+##          by Giovanni Machetti in the 'ggm' package (thanks Giovanni!!)
+## parameters: S - sample variance-covariance matrix
+##             g - input undirected graph
+##             tol - tolerance under which the main loop stops
+##             verbose - when set to TRUE the algorithm shows the successive
+##                       precision achieved at each iteration
+##             R.code.only - flag set to FALSE when using the C implementation
+## return: the input matrix adjusted to the constraints of the list of cliques
+
+qpHTF <- function(S, g, tol = 0.001, verbose = FALSE,
+                  R.code.only = FALSE) {
+
+  ## this should be changed so that the rest of the algorithm deals with dspMatrix matrices
+  S <- as(S, "matrix")
+
+  A <- NULL
+  n.var <- NULL
+  var.names <- NULL
+  if (class(g) == "matrix" || length(grep("Matrix", class(g))) > 0) {
+    n.var <- nrow(g)
+    var.names <- rownames(g)
+    if (is.null(rownames(var.names)))
+      var.names <- 1:n.var
+    A <- g
+    if (class(A[1, 1]) != "logical")
+      A <- A == 1 ## get a logical adjacency matrix
+    ## by now we have to coerce the adjacency matrix to a regular matrix
+    ## but in the future this should be working with the more memory-efficient dspMatrix class
+    A <- as.matrix(A)
+  }
+  if (class(g) == "graphNEL" || class(g) == "graphAM") {
+    n.var <- length(graph::nodes(g))
+    var.names <- nodes(g)
+    A <- as(g, "matrix") == 1 ## get a logical adjacency matrix
+  }
+
+  if (is.null(n.var))
+    stop("'g' is neither an adjacency matrix, nor a graphNEL, nor graphAM object.\n")
+
+  if (verbose)
+    cat("qpHTF: maximum boundary =", max(rowSums(A)), "\n") 
+
+
+  if (!R.code.only) {
+    return(qpgraph:::.qpFastHTF(S, A, tol, verbose))
+  }
+
+  ppct <- -1
+  pb <- NULL
+  if (verbose)
+    pb <- txtProgressBar(style=3)
+
+  W <- Wprev <- S
+  precision <- 1
+  while (precision > tol) {
+    Wprev <- W
+    for (i in 1:n.var) {
+      W11 <- W[-i, -i, drop=FALSE]
+      s12 <- S[-i, i, drop=FALSE]
+      Ai <- A[i, ]
+      Ai <- Ai[-i]
+      beta <- rep(0, n.var-1)
+      beta[Ai] <- solve(W11[Ai, Ai, drop=FALSE], s12[Ai, , drop=FALSE])
+      w <- W11 %*% beta
+      W[-i, i] <- W[i, -i] <- w
+
+      pct <- floor((i * 100) / n.var)
+      if (pct != ppct && verbose) {
+        setTxtProgressBar(pb, pct/100)
+        ppct <- pct
+      }
+    }
+    precision <- max(abs(W - Wprev))
+    if (verbose)
+      cat("\nqpHTF: precision =", precision, "\n")
+  }
+
+  return(as(W, "dspMatrix"))
 }
 
 
@@ -2773,6 +2975,7 @@ qpIPF <- function(vv, clqlst, tol = 0.001, verbose = FALSE,
 ##                        the concentration matrix K; if FALSE (default) does not
 ##                        return K
 ##             tol - maximum tolerance in the application of the IPF algorithm
+##             matrix.completion - algorithm to perform matrix completion operations
 ##             verbose - flag that when set to TRUE the IPF algorithm
 ##                       shows the convergence progression
 ##             R.code.only - flag set to FALSE when using the C implementation
@@ -2783,16 +2986,17 @@ setGeneric("qpPAC", function(X, ...) standardGeneric("qpPAC"))
 
 # X comes as an ExpressionSet object
 setMethod("qpPAC", signature(X="ExpressionSet"),
-          function(X, g, return.K=FALSE, tol=0.001,
+          function(X, g, return.K=FALSE, tol=0.001, matrix.completion=c("HTF", "IPF"),
                    verbose=TRUE, R.code.only=FALSE) {
             X <- t(Biobase::exprs(X))
-            qpgraph:::.qpPAC(X, g, return.K, tol, verbose, R.code.only)
+            qpgraph:::.qpPAC(X, g, return.K, tol, matrix.completion, verbose, R.code.only)
           })
 
 # X comes as a data frame
 setMethod("qpPAC", signature(X="data.frame"),
           function(X, g, return.K=FALSE, long.dim.are.variables=TRUE,
-                   tol=0.001, verbose=TRUE, R.code.only=FALSE) {
+                   tol=0.001, matrix.completion=c("HTF", "IPF"), verbose=TRUE,
+                   R.code.only=FALSE) {
             X <- as.matrix(X)
             if (!is.double(X))
               stop("X should be double-precision real numbers\n")
@@ -2802,14 +3006,14 @@ setMethod("qpPAC", signature(X="data.frame"),
               X <- t(X)
             if (is.null(colnames(X)))
               colnames(X) <- 1:ncol(X)
-            qpgraph:::.qpPAC(X, g, return.K, tol, verbose, R.code.only)
+            qpgraph:::.qpPAC(X, g, return.K, tol, matrix.completion, verbose, R.code.only)
           })
 
           
 # data comes as a matrix
 setMethod("qpPAC", signature(X="matrix"),
           function(X, g, return.K=FALSE, long.dim.are.variables=TRUE,
-                   tol=0.001, verbose=TRUE,
+                   tol=0.001, matrix.completion=c("HTF", "IPF"), verbose=TRUE,
                    R.code.only=FALSE) {
             if (long.dim.are.variables &&
               sort(dim(X),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
@@ -2817,10 +3021,12 @@ setMethod("qpPAC", signature(X="matrix"),
 
             if (is.null(colnames(X))) 
               colnames(X) <- 1:ncol(X)
-            qpgraph:::.qpPAC(X, g, return.K, tol, verbose, R.code.only)
+            qpgraph:::.qpPAC(X, g, return.K, tol, matrix.completion, verbose, R.code.only)
           })
 
-.qpPAC <- function(X, g, return.K=FALSE, tol=0.001, verbose=TRUE, R.code.only=FALSE) {
+.qpPAC <- function(X, g, return.K=FALSE, tol=0.001, matrix.completion=c("HTF", "IPF"),
+                   verbose=TRUE, R.code.only=FALSE) {
+  matrix.completion <- match.arg(matrix.completion)
 
   A <- matrix(FALSE, nrow=ncol(X), ncol=ncol(X), dimnames=list(colnames(X), colnames(X)))
   if (class(g) == "graphNEL" || class(g) == "graphAM") {
@@ -2854,14 +3060,15 @@ setMethod("qpPAC", signature(X="matrix"),
   ## ensure rows and columns follow the same order
   A <- A[rownames(S), colnames(S)]
 
-  ## get the cliques
+  if (matrix.completion == "IPF") {
+    ## get the list of maximal cliques
+    clqlst <- qpGetCliques(A, verbose=verbose)
 
-  clqlst <- qpGetCliques(A, verbose=verbose)
-
-  ## get a maximum likelihood estimate of the sample covariance matrix
-  ## using the clique list
-
-  Shat <- qpIPF(S, clqlst, tol=tol, verbose=verbose, R.code.only=R.code.only)
+    ## get a maximum likelihood estimate of the sample covariance matrix
+    ## using the clique list and the IPF algorithm
+    Shat <- qpIPF(S, clqlst, tol=tol, verbose=verbose, R.code.only=R.code.only)
+  } else
+    Shat <- qpHTF(S, A, verbose=verbose, R.code.only=R.code.only)
 
   ## estimate partial correlation coefficients and their standard errors
 
@@ -3065,13 +3272,15 @@ qpRndWishart <- function(delta=1, P=0, df=NULL, n.var=NULL) {
 ## purpose: builds a random covariance matrix from an undirected graph
 ## parameters: G - undirected graph (either adjacency matrix or graphNEL object)
 ##             rho - real number between 1/(n.var-1) and 1
+##             matrix.completion - algorithm to perform matrix completion operations
 ##             verbose - output progress
 ##             R.code.only - flag set to FALSE when using the C implementation
 ## return: a random covariance matrix whose inverse contains zeroes at the
 ##         missing edges in G
 
-qpG2Sigma <- function (g, rho=0, verbose = FALSE,
+qpG2Sigma <- function (g, rho=0, matrix.completion=c("HTF", "IPF"), verbose=FALSE,
                        R.code.only = FALSE) {
+  matrix.completion <- match.arg(matrix.completion)
   n.var <- NULL
   var.names <- NULL
   if (class(g) == "matrix" || length(grep("Matrix", class(g))) > 0) {
@@ -3088,9 +3297,15 @@ qpG2Sigma <- function (g, rho=0, verbose = FALSE,
   if (is.null(n.var))
     stop("'g' is neither an adjacency matrix, nor a graphNEL, nor graphAM object.\n")
 
-  clqlst <- qpGetCliques(g, verbose = verbose)
   W <- qpRndWishart(delta=sqrt(1 / n.var), P=rho, n.var=n.var)$rW
-  Sigma <- qpIPF(W, clqlst, verbose=verbose, R.code.only=R.code.only)
+
+  Sigma <- NULL
+  if (matrix.completion == "IPF") {
+    clqlst <- qpGetCliques(g, verbose=verbose)
+    Sigma <- qpIPF(W, clqlst, verbose=verbose, R.code.only=R.code.only)
+  } else
+    Sigma <- qpHTF(W, g, verbose=verbose, R.code.only=R.code.only)
+
   rownames(Sigma) <- colnames(Sigma) <- var.names
 
   return(as(Sigma, "dspMatrix"))
@@ -4282,7 +4497,11 @@ clPrCall <- function(cl, fun, n.adj, ...) {
 }
 
 .qpFastIPF <- function(vv, clqlst, tol = 0.001, verbose = FALSE) {
-  return(.Call("qp_fast_ipf",vv,clqlst,tol,verbose))
+  return(.Call("qp_fast_ipf", vv, clqlst, tol, verbose))
+}
+
+.qpFastHTF <- function(S, A, tol = 0.001, verbose = FALSE) {
+  return(.Call("qp_fast_htf", S, A, tol, verbose))
 }
 
 .qpCliqueNumberLowerBound <- function(A, return.vertices, approx.iter, verbose) {

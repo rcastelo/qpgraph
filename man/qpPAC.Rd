@@ -14,11 +14,14 @@ hypothesis of zero partial correlations.
 }
 \usage{
 \S4method{qpPAC}{ExpressionSet}(X, g, return.K=FALSE, tol=0.001,
-                                verbose=TRUE, R.code.only=FALSE)
+                                matrix.completion=c("HTF", "IPF"), verbose=TRUE,
+                                R.code.only=FALSE)
 \S4method{qpPAC}{data.frame}(X, g, return.K=FALSE, long.dim.are.variables=TRUE,
-                             tol=0.001, verbose=TRUE, R.code.only=FALSE)
+                             tol=0.001, matrix.completion=c("HTF", "IPF"),
+                             verbose=TRUE, R.code.only=FALSE)
 \S4method{qpPAC}{matrix}(X, g, return.K=FALSE, long.dim.are.variables=TRUE,
-                         tol=0.001, verbose=TRUE, R.code.only=FALSE)
+                         tol=0.001, matrix.completion=c("HTF", "IPF"),
+                         verbose=TRUE, R.code.only=FALSE)
 }
 \arguments{
   \item{X}{data set from where to estimate the partial correlation
@@ -33,6 +36,9 @@ hypothesis of zero partial correlations.
        is the one defining the random variables (default); if FALSE, then random
        variables are assumed to be at the columns of the data frame or matrix.}
   \item{tol}{maximum tolerance in the application of the IPF algorithm.}
+  \item{matrix.completion}{algorithm to employ in the matrix completion operations
+                           employed to construct a positive definite matrix with the
+                           zero pattern specified in \code{g}}
   \item{verbose}{show progress on the calculations.}
   \item{R.code.only}{logical; if FALSE then the faster C implementation is used
        (default); if TRUE then only R code is executed.}

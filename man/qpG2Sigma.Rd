@@ -11,13 +11,16 @@ graph G. The inverse of the resulting matrix contains zeroes at the missing
 edges of the given undirected graph G.
 }
 \usage{
-qpG2Sigma(g, rho=0, verbose=FALSE, R.code.only=FALSE)
+qpG2Sigma(g, rho=0, matrix.completion=c("HTF", "IPF"), verbose=FALSE, R.code.only=FALSE)
 }
 \arguments{
   \item{g}{undirected graph specified either as a \code{graphNEL} object or as
            an adjacency matrix.}
   \item{rho}{real number between -1/(n.var-1) and 1 corresponding to the mean
              marginal correlation}
+  \item{matrix.completion}{algorithm to employ in the matrix completion operations
+                           employed to construct a positive definite matrix with the
+                           zero pattern specified in \code{g}}
   \item{verbose}{show progress on the calculations.}
   \item{R.code.only}{logical; if FALSE then the faster C implementation is used
        in the internal call to the IPF algorithm (default); if TRUE then only R code is executed.}
