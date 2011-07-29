@@ -71,7 +71,7 @@ Estimates non-rejection rates for every pair of variables.
        accurate estimates. This might be relevant when using a cluster facility.}
 }
 \details{
-Note that pure continuous data the possible values of \code{q} should be in the
+Note that for pure continuous data the possible values of \code{q} should be in the
 range 1 to \code{min(p, n-3)}, where \code{p} is the number of variables and
 \code{n} the number of observations. The computational cost increases linearly
 with \code{q} and quadratically in \code{p}. When setting \code{identicalQs}

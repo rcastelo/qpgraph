@@ -65,38 +65,42 @@ extern void R_ProcessEvents(void);
 
 static SEXP
 qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
-            SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR, SEXP pairup_j_nointR,
-            SEXP pairup_ij_intR, SEXP exactTest, SEXP verboseR, SEXP startTimeR,
-            SEXP nAdj2estimateTimeR, SEXP env);
+            SEXP fixQR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
+            SEXP pairup_j_nointR, SEXP pairup_ij_intR, SEXP exactTest,
+            SEXP verboseR, SEXP startTimeR, SEXP nAdj2estimateTimeR, SEXP env);
 
 static SEXP
-qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP nTests, SEXP alpha, SEXP pairup_i_noint,
-                        SEXP pairup_j_noint, SEXP pairup_ij_int, SEXP verbose,
-                        SEXP startTimeR, SEXP nAdj2estimateTimeR, SEXP env);
+qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR, SEXP nTests,
+                        SEXP alpha, SEXP pairup_i_noint, SEXP pairup_j_noint,
+                        SEXP pairup_ij_int, SEXP verbose, SEXP startTimeR,
+                        SEXP nAdj2estimateTimeR, SEXP env);
 
 static SEXP
 qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
-                SEXP restrictQR, SEXP nTestsR, SEXP alphaR,
+                SEXP restrictQR, SEXP fixQR, SEXP nTestsR, SEXP alphaR,
                 SEXP pairup_i_nointR, SEXP pairup_j_nointR,
                 SEXP pairup_ij_intR, SEXP exactTest, SEXP verboseR,
                 SEXP startTimeR, SEXP nAdj2estimateTimeR, SEXP myRankR,
                 SEXP clSzeR, SEXP masterNode, SEXP env);
 
 static SEXP
-qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
+qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR,
+                            SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
                             SEXP pairup_j_nointR, SEXP pairup_ij_intR, SEXP verboseR,
                             SEXP startTimeR, SEXP nAdj2estimateTimeR, SEXP myRankR, SEXP clSzeR,
                             SEXP masterNode, SEXP env);
 
 static SEXP
-qp_fast_edge_nrr(SEXP S, SEXP n_varR, SEXP NR, SEXP iR, SEXP jR, SEXP qR, SEXP TR, SEXP sigR);
+qp_fast_edge_nrr(SEXP S, SEXP n_varR, SEXP nR, SEXP iR, SEXP jR, SEXP qR,
+                 SEXP restrictQR, SEXP fixQR, SEXP nTestsR, SEXP alphaR);
 
 static SEXP
 qp_fast_edge_nrr_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
                       SEXP mapX2ssdR, SEXP iR, SEXP jR, SEXP qR, SEXP restrictQR,
                       SEXP nTestsR, SEXP alphaR, SEXP exactTest);
 static double
-qp_edge_nrr(double* S, int n_var, int N, int i, int j, int q, int nTests, double alpha);
+qp_edge_nrr(double* S, int p, int n, int i, int j, int q, int* restrictQ, int n_rQ,
+            int* fixQ, int n_fQ, int nTests, double alpha);
 
 static double
 qp_edge_nrr_identicalQs(double* S, int n_var, int* Qs, double* Qinvs, int N, int i,
@@ -108,7 +112,8 @@ qp_edge_nrr_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y
                  int q, int* restrictQ, int n_rQ, int nTests, double alpha, int exactTest);
 
 static void
-sampleQs(int T, int q, int v_i, int v_j, int p, int* restrictQ, int* y);
+sampleQs(int T, int q, int v_i, int v_j, int p, int* restrictQ, int* fixQ,
+         int n_fQ, int* y);
 
 static SEXP
 qp_fast_ci_test(SEXP SR, SEXP n_varR, SEXP NR, SEXP iR, SEXP jR, SEXP C);
@@ -232,6 +237,9 @@ ssd(double* X, int p, int n, int* Y, int n_Y, int* idx_obs, int n_idx_obs,
 static SEXP
 qp_cov_upper_triangular(SEXP XR, SEXP corrected);
 
+static SEXP
+qp_fast_rnd_graph(SEXP pR, SEXP dR);
+
 void
 calculate_xtab(double* X, int p, int n, int* I, int n_I, int* n_levels, int* xtab);
 
@@ -243,11 +251,11 @@ ssd_A(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
 
 static R_CallMethodDef
 callMethods[] = {
-  {"qp_fast_nrr", (DL_FUNC) &qp_fast_nrr, 16},
-  {"qp_fast_nrr_identicalQs", (DL_FUNC) &qp_fast_nrr_identicalQs, 11},
-  {"qp_fast_nrr_par", (DL_FUNC) &qp_fast_nrr_par, 19},
-  {"qp_fast_nrr_identicalQs_par", (DL_FUNC) &qp_fast_nrr_identicalQs_par, 14},
-  {"qp_fast_edge_nrr", (DL_FUNC) &qp_fast_edge_nrr, 8},
+  {"qp_fast_nrr", (DL_FUNC) &qp_fast_nrr, 17},
+  {"qp_fast_nrr_identicalQs", (DL_FUNC) &qp_fast_nrr_identicalQs, 13},
+  {"qp_fast_nrr_par", (DL_FUNC) &qp_fast_nrr_par, 20},
+  {"qp_fast_nrr_identicalQs_par", (DL_FUNC) &qp_fast_nrr_identicalQs_par, 16},
+  {"qp_fast_edge_nrr", (DL_FUNC) &qp_fast_edge_nrr, 10},
   {"qp_fast_edge_nrr_hmgm", (DL_FUNC) &qp_fast_edge_nrr_hmgm, 13},
   {"qp_fast_ci_test", (DL_FUNC) &qp_fast_ci_test, 6},
   {"qp_fast_ci_test2", (DL_FUNC) &qp_fast_ci_test2, 6},
@@ -260,6 +268,7 @@ callMethods[] = {
   {"qp_fast_ipf", (DL_FUNC) &qp_fast_ipf, 4},
   {"qp_fast_htf", (DL_FUNC) &qp_fast_htf, 4},
   {"qp_cov_upper_triangular", (DL_FUNC) &qp_cov_upper_triangular, 2},
+  {"qp_fast_rnd_graph", (DL_FUNC) &qp_fast_rnd_graph, 2},
   {NULL}
 };
 
@@ -285,9 +294,9 @@ R_init_qpgraph(DllInfo* info) {
 
 static SEXP
 qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
-            SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR, SEXP pairup_j_nointR,
-            SEXP pairup_ij_intR, SEXP exactTest, SEXP verboseR, SEXP startTimeR,
-            SEXP nAdj2estimateTimeR, SEXP env) {
+            SEXP fixQR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
+            SEXP pairup_j_nointR, SEXP pairup_ij_intR, SEXP exactTest,
+            SEXP verboseR, SEXP startTimeR, SEXP nAdj2estimateTimeR, SEXP env) {
   int     N;
   int     n_var;
   int     q;
@@ -299,6 +308,8 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
   int     n_Y = length(YR);
   int*    restrictQ = NULL;
   int     n_rQ = 0;
+  int*    fixQ = NULL;
+  int     n_fQ = 0;
   int     isMatrix_restrictQ = FALSE;
   int     l_ini = length(pairup_i_nointR);
   int     l_jni = length(pairup_j_nointR);
@@ -310,7 +321,8 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
   int*    pairup_j_noint = INTEGER(pairup_j_nointR);
   int*    pairup_ij_int = INTEGER(pairup_ij_intR);
   int*    pairup_ij_noint = NULL;
-  int     i,j,k,n_adj,pct,ppct;
+  int     i,j,k;
+  int     n_adj, pct, ppct;
   SEXP    nrrR;
   double* nrr;
   int     verbose;
@@ -336,6 +348,12 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
   if (q > N-3)
     error("q=%d > n-3=%d", q, N-3);
 
+  if (nTests < 1)
+    error("nTests=%d < 1", nTests);
+
+  if (alpha < 0.0 || alpha > 1.0)
+    error("significance level alpha is %.2f and it should lie in the interval [0, 1]\n", alpha);
+
   if (n_I == 0) {
     S = ssdMat = Calloc((n_var*(n_var+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
     ssd(REAL(XR), n_var, N, NULL, n_var, NULL, N, 1, S);
@@ -360,17 +378,27 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
     S = ssdMat = Calloc((n_Y*(n_Y+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
     ssd(REAL(XR), n_var, N, Y, n_Y, NULL, N, 1, ssdMat);
 
-    if (restrictQR != R_NilValue) {
-      if (isMatrix(restrictQR)) {
-        isMatrix_restrictQ = TRUE;
-        restrictQ = Calloc(n_var, int);
-      } else {
-        n_rQ = length(restrictQR);
-        restrictQ = Calloc(n_rQ, int);
-        for (i=0; i < n_rQ; i++)
-          restrictQ[i] = INTEGER(restrictQR)[i] - 1;
-      }
+  }
+
+  if (restrictQR != R_NilValue) {
+    if (isMatrix(restrictQR)) {
+      if (n_I == 0)
+        error("restrict.Q as a matrix can only be employed for restricting conditioning of discrete variables\n");
+      isMatrix_restrictQ = TRUE;
+      restrictQ = Calloc(n_var, int);
+    } else {
+      n_rQ = length(restrictQR);
+      restrictQ = Calloc(n_rQ, int);
+      for (i=0; i < n_rQ; i++)
+        restrictQ[i] = INTEGER(restrictQR)[i] - 1;
     }
+  }
+
+  if (fixQR != R_NilValue) {
+    n_fQ = length(fixQR);
+    fixQ = Calloc(n_fQ, int);
+    for (i=0; i < n_fQ; i++)
+      fixQ[i] = INTEGER(fixQR)[i] - 1;
   }
 
   if (l_ini + l_jni > 0) {
@@ -432,7 +460,8 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
         }
       }
 
-      nrr[UTE2I(i2, j2)] = n_I == 0 ? qp_edge_nrr(S, n_var, N, i2, j2, q, nTests, alpha) :
+      nrr[UTE2I(i2, j2)] = n_I == 0 ? qp_edge_nrr(S, n_var, N, i2, j2, q, restrictQ,
+                                                  n_rQ, fixQ, n_fQ, nTests, alpha) :
                                       qp_edge_nrr_hmgm(REAL(XR), n_var, N, I, n_I,
                                                        INTEGER(n_levelsR), Y, n_Y,
                                                        ssdMat, mapX2ssd, i2, j2, q,
@@ -491,7 +520,8 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
           }
         }
 
-        nrr[UTE2I(i2, j2)] = n_I == 0 ? qp_edge_nrr(S, n_var, N, i2, j2, q, nTests, alpha) :
+        nrr[UTE2I(i2, j2)] = n_I == 0 ? qp_edge_nrr(S, n_var, N, i2, j2, q, restrictQ,
+                                                    n_rQ, fixQ, n_fQ, nTests, alpha) :
                                         qp_edge_nrr_hmgm(REAL(XR), n_var, N, I, n_I,
                                                          INTEGER(n_levelsR), Y, n_Y,
                                                          ssdMat, mapX2ssd, i2, j2, q,
@@ -548,7 +578,8 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
           }
         }
 
-        nrr[UTE2I(i2, j2)] = n_I == 0 ? qp_edge_nrr(S, n_var, N, i2, j2, q, nTests, alpha) :
+        nrr[UTE2I(i2, j2)] = n_I == 0 ? qp_edge_nrr(S, n_var, N, i2, j2, q, restrictQ,
+                                                    n_rQ, fixQ, n_fQ, nTests, alpha) :
                                         qp_edge_nrr_hmgm(REAL(XR), n_var, N, I, n_I,
                                                          INTEGER(n_levelsR), Y, n_Y,
                                                          ssdMat, mapX2ssd, i2, j2, q,
@@ -589,12 +620,16 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
   Free(S); /* = Free(ssdMat) */
 
   if (n_I > 0) {
-    if (restrictQR != R_NilValue)
-      Free(restrictQ);
     Free(mapX2ssd);
     Free(Y);
     Free(I);
   }
+
+  if (restrictQR != R_NilValue)
+    Free(restrictQ);
+
+  if (fixQR != R_NilValue)
+    Free(fixQ);
 
   if (verbose && startTime == 0) {
     SEXP s, t;
@@ -655,9 +690,10 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
 */
 
 static SEXP
-qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
-                        SEXP pairup_j_nointR, SEXP pairup_ij_intR, SEXP verboseR,
-                        SEXP startTimeR, SEXP nAdj2estimateTimeR, SEXP env) {
+qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR, SEXP nTestsR,
+                        SEXP alphaR, SEXP pairup_i_nointR, SEXP pairup_j_nointR,
+                        SEXP pairup_ij_intR, SEXP verboseR, SEXP startTimeR,
+                        SEXP nAdj2estimateTimeR, SEXP env) {
   int     N;
   int     n_var;
   int     q;
@@ -665,6 +701,10 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup
   double  alpha;
   SEXP    SR;
   double* S;
+  int*    restrictQ = NULL;
+  int     n_rQ = length(restrictQR);
+  int*    fixQ = NULL;
+  int     n_fQ = length(fixQR);
   int     l_ini = length(pairup_i_nointR);
   int     l_jni = length(pairup_j_nointR);
   int     l_int = length(pairup_ij_intR);
@@ -672,7 +712,8 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup
   int*    pairup_j_noint = INTEGER(pairup_j_nointR);
   int*    pairup_ij_int = INTEGER(pairup_ij_intR);
   int*    pairup_ij_noint = NULL;
-  int     i,j,k,n_adj,pct,ppct;
+  int     i,j,k;
+  int     n_adj,pct,ppct;
   int*    q_by_T_samples;
   int*    Q;
   double* Qmat;
@@ -704,20 +745,47 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup
   if (q > N-3)
     error("q=%d > N-3=%d", q, N-3);
 
+  if (nTests < 1)
+    error("nTests=%d < 1", nTests);
+
+  if (alpha < 0.0 || alpha > 1.0)
+    error("significance level alpha is %.2f and it should lie in the interval [0, 1]\n", alpha);
+
   SR = qp_cov_upper_triangular(XR, ScalarInteger(TRUE));
   PROTECT_WITH_INDEX(SR, &Spi);
   S = REAL(SR);
+
+  if (n_rQ > 0) {
+    restrictQ = Calloc(n_rQ, int);
+    for (i=0; i < n_rQ; i++)
+      restrictQ[i] = INTEGER(restrictQR)[i] - 1;
+  }
+
+  if (n_fQ > 0) {
+    fixQ = Calloc(n_fQ, int);
+    for (i=0; i < n_fQ; i++)
+      fixQ[i] = INTEGER(fixQR)[i] - 1;
+  }
+
+  if (l_ini + l_jni > 0) {
+    pairup_ij_noint = Calloc(l_ini + l_jni, int);
+    Memcpy(pairup_ij_noint, pairup_i_noint, (size_t) l_ini);
+    Memcpy(pairup_ij_noint + l_ini, pairup_j_noint, (size_t) l_jni);
+  }
 
   /* sample the Q sets and pre-calculate the inverse matrices */
 
   q_by_T_samples = Calloc(q * nTests, int);
 
-  sampleQs(nTests, q, -1, -1, n_var, NULL, q_by_T_samples);
+  if (n_rQ == 0)
+    sampleQs(nTests, q, -1, -1, n_var, NULL, fixQ, n_fQ, q_by_T_samples);
+  else
+    sampleQs(nTests, q, -1, -1, n_rQ, restrictQ, fixQ, n_fQ, q_by_T_samples);
 
   Qmat = Calloc(q*q, double);
   Qinv = Calloc(q*q*nTests, double);
 
-  /*
+  /* ** DEPRECATED NON-TRIANGULAR COVARIANCE MATRIX MANIPULATION **
   for (i=0; i < nTests; i++) {
     Q = (int*) (q_by_T_samples+i*q);
     for (j=0; j < q; j++) {
@@ -728,6 +796,7 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup
     matinv((double*) (Qinv+i*q*q), Qmat, q);
   }
   */
+
   for (i=0; i < nTests; i++) {
     Q = (int*) (q_by_T_samples+i*q);
     for (j=0; j < q; j++) {
@@ -909,6 +978,12 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup
 
   Free(Qinv);
 
+  if (restrictQR != R_NilValue)
+    Free(restrictQ);
+
+  if (fixQR != R_NilValue)
+    Free(fixQ);
+
   if (verbose && startTime == 0) {
     SEXP s, t;
     PROTECT(t = s = allocList(2));
@@ -971,7 +1046,7 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup
 
 static SEXP
 qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
-                SEXP restrictQR, SEXP nTestsR, SEXP alphaR,
+                SEXP restrictQR, SEXP fixQR, SEXP nTestsR, SEXP alphaR,
                 SEXP pairup_i_nointR, SEXP pairup_j_nointR,
                 SEXP pairup_ij_intR, SEXP exactTest, SEXP verboseR,
                 SEXP startTimeR, SEXP nAdj2estimateTimeR, SEXP myRankR,
@@ -987,6 +1062,8 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
   int     n_Y = length(YR);
   int*    restrictQ = NULL;
   int     n_rQ = 0;
+  int*    fixQ = NULL;
+  int     n_fQ = 0;
   int     isMatrix_restrictQ = FALSE;
   int     l_ini = length(pairup_i_nointR);
   int     l_jni = length(pairup_j_nointR);
@@ -1049,6 +1126,12 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
   if (q > N-3)
     error("q=%d > n-3=%d", q, N-3);
 
+  if (nTests < 1)
+    error("nTests=%d < 1", nTests);
+
+  if (alpha < 0.0 || alpha > 1.0)
+    error("significance level alpha is %.2f and it should lie in the interval [0, 1]\n", alpha);
+
   if (n_I == 0) {
     S = ssdMat = Calloc((n_var*(n_var+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
     ssd(REAL(XR), n_var, N, NULL, n_var, NULL, N, 1, S);
@@ -1073,26 +1156,34 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
     S = ssdMat = Calloc((n_Y*(n_Y+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
     ssd(REAL(XR), n_var, N, Y, n_Y, NULL, N, 1, ssdMat);
 
-    if (restrictQR != R_NilValue) {
-      if (isMatrix(restrictQR)) {
-        isMatrix_restrictQ = TRUE;
-        restrictQ = Calloc(n_var, int);
-      } else {
-        n_rQ = length(restrictQR);
-        restrictQ = Calloc(n_rQ, int);
-        for (i=0; i < n_rQ; i++)
-          restrictQ[i] = INTEGER(restrictQR)[i] - 1;
-      }
+  }
+
+  if (restrictQR != R_NilValue) {
+    if (isMatrix(restrictQR)) {
+      isMatrix_restrictQ = TRUE;
+      restrictQ = Calloc(n_var, int);
+    } else {
+      n_rQ = length(restrictQR);
+      restrictQ = Calloc(n_rQ, int);
+      for (i=0; i < n_rQ; i++)
+        restrictQ[i] = INTEGER(restrictQR)[i] - 1;
     }
   }
 
-  n_adj = l_int * (l_jni + l_ini) + l_ini * l_jni + l_int * (l_int - 1) / 2;
+  if (fixQR != R_NilValue) {
+    n_fQ = length(fixQR);
+    fixQ = Calloc(n_fQ, int);
+    for (i=0; i < n_fQ; i++)
+      fixQ[i] = INTEGER(fixQR)[i] - 1;
+  }
 
   if (l_ini + l_jni > 0) {
     pairup_ij_noint = Calloc(l_ini + l_jni, int);
     Memcpy(pairup_ij_noint, pairup_i_noint, (size_t) l_ini);
     Memcpy(pairup_ij_noint + l_ini, pairup_j_noint, (size_t) l_jni);
   }
+
+  n_adj = l_int * (l_jni + l_ini) + l_ini * l_jni + l_int * (l_int - 1) / 2;
 
   firstAdj = (myrank-1) * (n_adj / clsze);
   lastAdj  = myrank * (n_adj / clsze);
@@ -1157,7 +1248,8 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
           }
         }
 
-        nrr[k-firstAdj] = n_I == 0 ? qp_edge_nrr(S, n_var, N, i2, j2, q, nTests, alpha) :
+        nrr[k-firstAdj] = n_I == 0 ? qp_edge_nrr(S, n_var, N, i2, j2, q, restrictQ,
+                                                 n_rQ, fixQ, n_fQ, nTests, alpha) :
                                      qp_edge_nrr_hmgm(REAL(XR), n_var, N, I, n_I,
                                                       INTEGER(n_levelsR), Y, n_Y,
                                                       ssdMat, mapX2ssd, i2, j2, q,
@@ -1217,7 +1309,8 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
           }
         }
 
-        nrr[k-firstAdj] = n_I == 0 ? qp_edge_nrr(S, n_var, N, i2, j2, q, nTests, alpha) :
+        nrr[k-firstAdj] = n_I == 0 ? qp_edge_nrr(S, n_var, N, i2, j2, q, restrictQ,
+                                                 n_rQ, fixQ, n_fQ, nTests, alpha) :
                                      qp_edge_nrr_hmgm(REAL(XR), n_var, N, I, n_I,
                                                       INTEGER(n_levelsR), Y, n_Y,
                                                       ssdMat, mapX2ssd, i2, j2, q,
@@ -1274,7 +1367,8 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
         }
       }
 
-      nrr[k-firstAdj] = n_I == 0 ?  qp_edge_nrr(S, n_var, N, i2, j2, q, nTests, alpha) :
+      nrr[k-firstAdj] = n_I == 0 ?  qp_edge_nrr(S, n_var, N, i2, j2, q, restrictQ,
+                                                n_rQ, fixQ, n_fQ, nTests, alpha) :
                                     qp_edge_nrr_hmgm(REAL(XR), n_var, N, I, n_I,
                                                      INTEGER(n_levelsR), Y, n_Y,
                                                      ssdMat, mapX2ssd, i2, j2, q,
@@ -1314,6 +1408,12 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
     Free(I);
   }
 
+  if (restrictQR != R_NilValue)
+    Free(restrictQ);
+
+  if (fixQR != R_NilValue)
+    Free(fixQ);
+
   if (startTime > 0) {
     SEXP procTimeR;
     double* procTime;
@@ -1346,10 +1446,11 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
 */
 
 static SEXP
-qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
-                            SEXP pairup_j_nointR, SEXP pairup_ij_intR, SEXP verboseR,
-                            SEXP startTimeR, SEXP nAdj2estimateTimeR, SEXP myRankR, SEXP clSzeR,
-                            SEXP masterNode, SEXP env) {
+qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR,
+                            SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
+                            SEXP pairup_j_nointR, SEXP pairup_ij_intR,
+                            SEXP verboseR, SEXP startTimeR, SEXP nAdj2estimateTimeR,
+                            SEXP myRankR, SEXP clSzeR, SEXP masterNode, SEXP env) {
   int     N;
   int     n_var;
   int     q;
@@ -1357,6 +1458,10 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pa
   double  alpha;
   SEXP    SR;
   double* S;
+  int*    restrictQ = NULL;
+  int     n_rQ = length(restrictQR);
+  int*    fixQ = NULL;
+  int     n_fQ = length(fixQR);
   int     l_ini = length(pairup_i_nointR);
   int     l_jni = length(pairup_j_nointR);
   int     l_int = length(pairup_ij_intR);
@@ -1425,18 +1530,32 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pa
   PROTECT_WITH_INDEX(SR, &Spi);
   S = REAL(SR);
 
-  n_adj = l_int * (l_jni + l_ini) + l_ini * l_jni + l_int * (l_int - 1) / 2;
+  if (n_rQ > 0) {
+    restrictQ = Calloc(n_rQ, int);
+    for (i=0; i < n_rQ; i++)
+      restrictQ[i] = INTEGER(restrictQR)[i] - 1;
+  }
+
+  if (n_fQ > 0) {
+    fixQ = Calloc(n_fQ, int);
+    for (i=0; i < n_fQ; i++)
+      fixQ[i] = INTEGER(fixQR)[i] - 1;
+  }
 
   /* sample the Q sets and pre-calculate the inverse matrices */
 
   q_by_T_samples = Calloc(q * nTests, int);
 
-  sampleQs(nTests, q, -1, -1, n_var, NULL, q_by_T_samples);
+  if (n_rQ == 0)
+    sampleQs(nTests, q, -1, -1, n_var, NULL, fixQ, n_fQ, q_by_T_samples);
+  else
+    sampleQs(nTests, q, -1, -1, n_rQ, restrictQ, fixQ, n_fQ, q_by_T_samples);
+
 
   Qmat = Calloc(q*q, double);
   Qinv = Calloc(q*q*nTests, double);
 
-  /*
+  /* ** DEPRECATED NON-TRIANGULAR COVARIANCE MATRIX MANIPULATION **
   for (i=0; i < nTests; i++) {
     Q = (int*) (q_by_T_samples+i*q);
     for (j=0; j < q; j++) {
@@ -1463,6 +1582,8 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pa
     Memcpy(pairup_ij_noint, pairup_i_noint, (size_t) l_ini);
     Memcpy(pairup_ij_noint + l_ini, pairup_j_noint, (size_t) l_jni);
   }
+
+  n_adj = l_int * (l_jni + l_ini) + l_ini * l_jni + l_int * (l_int - 1) / 2;
 
   firstAdj = (myrank-1) * (n_adj / clsze);
   lastAdj  = myrank * (n_adj / clsze);
@@ -1630,6 +1751,12 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP nTestsR, SEXP alphaR, SEXP pa
   }
 
   Free(Qinv);
+
+  if (restrictQR != R_NilValue)
+    Free(restrictQ);
+
+  if (fixQR != R_NilValue)
+    Free(fixQ);
 
   if (startTime > 0) {
     SEXP procTimeR;
@@ -2090,7 +2217,7 @@ static double
 qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
                 int n_Y, double* ucond_ssd, int* mapX2ucond_ssd, int i, int j,
                 int* Q, int q, double* df, double* a, double* b) {
-  int     k, l, m;
+  int     k,l;
   int     n_I_int = 0;
   int     n_Y_int = 0;
   int     n_I_i, n_Y_i, n_Y_j, n_Y_ij;
@@ -2413,7 +2540,6 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
   else
     lr = lr * ((double) -n);
 
-  /* OUF FIX !! STILL TO BE DOULBE CHECKED WITH S.L. */
   *df = 1.0;
   *a = ((double) (n - n_Y - n_joint_levels + 1)) / 2.0;
   if (mixed_edge) {
@@ -2436,23 +2562,26 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
 */
 
 static double
-qp_edge_nrr(double* S, int n_var, int N, int i, int j, int q, int nTests,
-            double alpha) {
+qp_edge_nrr(double* S, int p, int n, int i, int j, int q, int* restrictQ, int n_rQ,
+            int* fixQ, int n_fQ, int nTests, double alpha) {
   double thr;
   int*   q_by_T_samples;
-  int    k;
+  int    k,l;
   int    nAcceptedTests = 0;
-
-  thr = qt(1.0-(alpha/2.0), N-q-2, 1, 0);
 
   q_by_T_samples = Calloc(q * nTests, int);
 
-  sampleQs(nTests, q, i, j, n_var, NULL, q_by_T_samples);
+  if (n_rQ == 0)
+    sampleQs(nTests, q, i, j, p, NULL, fixQ, n_fQ, q_by_T_samples);
+  else
+    sampleQs(nTests, q, i, j, n_rQ, restrictQ, fixQ, n_fQ, q_by_T_samples);
+
+  thr = qt(1.0-(alpha/2.0), n-q-2, 1, 0);
 
   for (k = 0; k < nTests; k++) {
     double t_value;
 
-    t_value = qp_ci_test(S, n_var, N, i, j, (int*) (q_by_T_samples+k*q), q);
+    t_value = qp_ci_test(S, p, n, i, j, (int*) (q_by_T_samples+k*q), q);
 
     if (fabs(t_value) < thr)
       nAcceptedTests++;
@@ -2492,6 +2621,9 @@ qp_edge_nrr_identicalQs(double* S, int n_var, int* Qs, double* Qinvs, int N, int
       l++;
 
     if (l >= q) {
+      int m;
+      int* Q;
+      Q=Qs+k*q;
       t_value = qp_ci_test2(S, n_var, N, i, j, (int*) (Qs+k*q), q, (double*) (Qinvs+k*q*q));
 
       if (fabs(t_value) < thr)
@@ -2531,9 +2663,9 @@ qp_edge_nrr_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y
   q_by_T_samples = Calloc(q * nTests, int);
 
   if (n_rQ == 0)
-    sampleQs(nTests, q, i, j, p, NULL, q_by_T_samples);
+    sampleQs(nTests, q, i, j, p, NULL, NULL, 0, q_by_T_samples);
   else
-    sampleQs(nTests, q, i, j, n_rQ, restrictQ, q_by_T_samples);
+    sampleQs(nTests, q, i, j, n_rQ, restrictQ, NULL, 0, q_by_T_samples);
 
   if (n_I > 0) {
     k = 0;
@@ -2621,19 +2753,25 @@ qp_edge_nrr_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y
   FUNCTION: qp_fast_edge_nrr
   PURPOSE: wrapper to the C function that estimates the non-rejection
            rate of the edge as the number of tests that accept the null
-           hypothesis of independence given the q-order conditionals
+           hypothesis of independence given the q-order conditionals.
+           It assumes that restrict.Q and fix.Q form a disjoint partition
+           of all variables when fix.Q is set to something different from NULL
   RETURNS: the estimate of the non-rejection rate for the particular given edge
 */
 
 static SEXP
-qp_fast_edge_nrr(SEXP S, SEXP n_varR, SEXP NR, SEXP iR, SEXP jR, SEXP qR,
-                 SEXP nTestsR, SEXP alphaR) {
-  int    i,j;
+qp_fast_edge_nrr(SEXP S, SEXP n_varR, SEXP nR, SEXP iR, SEXP jR, SEXP qR,
+                 SEXP restrictQR, SEXP fixQR, SEXP nTestsR, SEXP alphaR) {
+  int    i,j,k;
   int    n_var = INTEGER(n_varR)[0];
-  int    N;
+  int    n;
   int    q;
   int    nTests;
   double alpha;
+  int*   restrictQ=NULL;
+  int    n_rQ=length(restrictQR);
+  int*   fixQ=NULL;
+  int    n_fQ=length(fixQR);
   SEXP   nrr;
 
   PROTECT_INDEX Spi;
@@ -2645,12 +2783,24 @@ qp_fast_edge_nrr(SEXP S, SEXP n_varR, SEXP NR, SEXP iR, SEXP jR, SEXP qR,
   i = INTEGER(iR)[0] - 1;
   j = INTEGER(jR)[0] - 1;
 
-  N = INTEGER(NR)[0];
+  n = INTEGER(nR)[0];
   q = INTEGER(qR)[0];
 
   nTests = INTEGER(nTestsR)[0];
 
   alpha = REAL(alphaR)[0];
+
+  if (n_rQ > 0) {
+    restrictQ = Calloc(n_rQ, int);
+    for (k=0; k < n_rQ; k++)
+      restrictQ[k] = INTEGER(restrictQR)[k]-1;
+  }
+
+  if (n_fQ > 0) {
+    fixQ = Calloc(n_rQ, int);
+    for (k=0; k < n_rQ; k++)
+      fixQ[k] = INTEGER(fixQR)[k]-1;
+  }
 
   if (i < 0 || i > n_var-1 || j < 0 || j > n_var-1)
     error("vertices of the selected edge (i,j) should lie in the range [1,n.var=%d]", n_var);
@@ -2661,12 +2811,19 @@ qp_fast_edge_nrr(SEXP S, SEXP n_varR, SEXP NR, SEXP iR, SEXP jR, SEXP qR,
   if (q < 0)
     error("q=%d < 0",q);
 
-  if (q > N-3)
-    error("q=%d > N-3=%d",q,N-3);
+  if (q > n-3)
+    error("q=%d > n-3=%d", q, n-3);
 
   PROTECT(nrr = allocVector(REALSXP,1));
 
-  REAL(nrr)[0] = qp_edge_nrr(REAL(S),n_var,N,i,j,q,nTests,alpha);
+  REAL(nrr)[0] = qp_edge_nrr(REAL(S), n_var, n, i, j, q, restrictQ, n_rQ,
+                             fixQ, n_fQ, nTests, alpha);
+
+  if (n_rQ > 0)
+    Free(restrictQ);
+
+  if (n_fQ > 0)
+    Free(fixQ);
 
   UNPROTECT(2); /* S nrr */
 
@@ -2756,6 +2913,9 @@ qp_fast_edge_nrr_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
 
   UNPROTECT(2); /* ssd nrr */
 
+  if (n_rQ > 0)
+    Free(restrictQ);
+
   Free(I);
   Free(Y);
   Free(mapX2ssd);
@@ -2780,7 +2940,8 @@ int
 int_cmp(const void* a, const void* b);
 
 static void
-sampleQs(int T, int q, int v_i, int v_j, int p, int* restrictQ, int* y) {
+sampleQs(int T, int q, int v_i, int v_j, int p, int* restrictQ, int* fixQ,
+         int n_fQ, int* y) {
   int  i;
   int  total_j = 0;
   int* x;
@@ -2833,7 +2994,7 @@ sampleQs(int T, int q, int v_i, int v_j, int p, int* restrictQ, int* y) {
     int j;
     int m = p-2;                              /* we sample from p-2 elements */
 
-    for (j = 0; j < q ; j++) {
+    for (j = 0; j < q-n_fQ ; j++) {
       int r;
 
       r = (int) (((double) m) * unif_rand()); /* sample using R-builtin RNG */
@@ -2842,14 +3003,25 @@ sampleQs(int T, int q, int v_i, int v_j, int p, int* restrictQ, int* y) {
 
     }
 
-    for (j = total_j; j < total_j+q; j++) { /* replace again the sampled elements */
-      x[y[j]] = y[j];                       /* for the next round of T       */
-      y[j] = z[y[j]];                       /* use the mapping z to avoid choosing v_i or v_j */
+    /*Rprintf("Q:");*/
+    for (j = total_j; j < total_j+q-n_fQ; j++) { /* replace again the sampled elements */
+      x[y[j]] = y[j];                            /* for the next round of T       */
+      y[j] = z[y[j]];                            /* use the mapping z to avoid choosing v_i or v_j */
       if (restrictQ != NULL)
         y[j] = restrictQ[y[j]];
+      /*Rprintf(" %d", y[j]+1);*/
     }
 
-    total_j += q;
+    total_j += q-n_fQ;
+
+    for (j = total_j ; j < total_j+n_fQ; j++) {
+      y[j] = fixQ[j-total_j];
+      /*Rprintf(" %d", y[j]+1);*/
+    }
+    /*Rprintf("\n");*/
+
+    total_j += n_fQ;
+
   }
 
   Free(x);
@@ -2858,24 +3030,24 @@ sampleQs(int T, int q, int v_i, int v_j, int p, int* restrictQ, int* y) {
 
 
 
-  typedef struct {
-    int x;
-    int ix;
-  } IntWithIdx;
-
-  int
-  int_cmp_desc_idx(const void *a, const void *b) {
-    const IntWithIdx* ia = (const IntWithIdx *) a;
-    const IntWithIdx* ib = (const IntWithIdx *) b;
-
-    return ib->x - ia->x;
-  }
-
 /*
   FUNCTION: qp_clique_number_lb
   PURPOSE: calculate a lower bound on the clique number from the input graph
   RETURNS: a lower bound of the clique number from the input graph
 */
+
+typedef struct {
+  int x;
+  int ix;
+} IntWithIdx;
+
+int
+int_cmp_desc_idx_decr(const void *a, const void *b) {
+  const IntWithIdx* ia = (const IntWithIdx *) a;
+  const IntWithIdx* ib = (const IntWithIdx *) b;
+
+  return ib->x - ia->x;
+}
 
 static SEXP
 qp_clique_number_lb(SEXP A, SEXP return_vertices, SEXP approx_iter, SEXP verbose) {
@@ -2917,7 +3089,7 @@ qp_clique_number_lb(SEXP A, SEXP return_vertices, SEXP approx_iter, SEXP verbose
     ivec[i] = i;
     deg[i].ix = i;
   } 
-  qsort(deg, n, sizeof(IntWithIdx), int_cmp_desc_idx);
+  qsort(deg, n, sizeof(IntWithIdx), int_cmp_desc_idx_decr);
 
   if (INTEGER(verbose)[0])
     Rprintf("calculating lower bound on the maximum clique size\n");
@@ -3939,7 +4111,7 @@ qp_fast_ipf(SEXP vvR, SEXP clqlstR, SEXP tolR, SEXP verbose) {
   if (INTEGER(verbose)[0])
     Rprintf("qpIPF: %d cliques\n",nclqlst-fstclq);
 
-  precision = 1.0;
+  precision = DBL_MAX;
   while (precision > tol) {
     /* Vold <- V */
     for (i=0;i<n;i++)
@@ -4693,9 +4865,10 @@ calculate_means(double* X, int p, int n, int* Y, int n_Y, int* idx_obs,
               n - number of observations
               Y - vector containing the indices of the variables in X for which we
                   want to calculate the ssd
-              n_Y - number of elements in Y
+              n_Y - number of elements in Y, it should equal p when Y is NULL
               idx_obs - indices of the observations to employ in the calculation of the ssd
-              n_idx_obs - number of observations to employ in the calculation of the ssd
+              n_idx_obs - number of observations to employ in the calculation of the ssd, it
+                          should be n when idx_obs is NULL
               corrected - flag indicating whether the sum be corrected (=covariance)
               ssd_mat - pointer to the matrix where the result is returned
   RETURN: none
@@ -4757,7 +4930,7 @@ qp_cov_upper_triangular(SEXP XR, SEXP corrected) {
   SEXP          cov_valR;
   double*       X;
   double*       cov_val;
-  int           n_var, N, n_upper_tri;
+  int           n_var, n, n_upper_tri;
   PROTECT_INDEX Xpi;
 
   PROTECT_WITH_INDEX(XR,&Xpi);
@@ -4766,7 +4939,7 @@ qp_cov_upper_triangular(SEXP XR, SEXP corrected) {
   X = REAL(XR);
 
   /* number of observations equals number of rows */
-  N = INTEGER(getAttrib(XR,R_DimSymbol))[0];
+  n = INTEGER(getAttrib(XR,R_DimSymbol))[0];
   /* number of variables equals number of columns */
   n_var = INTEGER(getAttrib(XR,R_DimSymbol))[1];
   /* number of elements in the upper triangular matrix including diagonal */
@@ -4779,7 +4952,7 @@ qp_cov_upper_triangular(SEXP XR, SEXP corrected) {
    * to a memory chunk allocated with anything that does not set the memory to zeroes */
   memset(cov_val, 0, sizeof(double) * n_upper_tri);
 
-  ssd(X, n_var, N, NULL, n_var, NULL, N, INTEGER(corrected)[0], cov_val);
+  ssd(X, n_var, n, NULL, n_var, NULL, n, INTEGER(corrected)[0], cov_val);
 
   UNPROTECT(2); /* XR cov_valR */
 
@@ -4851,7 +5024,7 @@ void
 ssd_A(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
       double* ssd_A) {
   int*    obs_idx;
-  int     i,j,k;
+  int     i,j;
 
   if (n_I == 0) {
     ssd(X, p, n, Y, n_Y, NULL, n, FALSE, ssd_A);
@@ -4871,7 +5044,7 @@ ssd_A(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
   qsort(obs_idx, n, sizeof(int), indirect_int_cmp);
 
   i = 0;
-  while (i < n && global_xtab[obs_idx[i]] == -1) /* skip missing observations */
+  while (i < n && global_xtab[obs_idx[i]] == -1) /* skip missing discrete observations */
     i++;
 
   while (i < n) {
@@ -4888,4 +5061,158 @@ ssd_A(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
   Free(global_xtab);
 
   return;
+}
+
+/*
+  FUNCTION: qp_fast_rnd_graph
+  PURPOSE: samples a d-regular graph uniformly at random
+  PARAMETERS: pR - number of vertices
+              dR - vertex degree
+  RETURN: upper triangle in column major of the adjacency matrix of the sampled graph
+*/
+
+typedef struct {
+  double x;
+  int ix, jx;
+} DblWithIdx;
+
+int
+dbl_cmp_desc_idx_decr(const void *a, const void *b) {
+  const DblWithIdx* ia = (const DblWithIdx *) a;
+  const DblWithIdx* ib = (const DblWithIdx *) b;
+
+  return ib->x - ia->x;
+}
+
+int
+int_cmp_desc_idx_incr(const void *a, const void *b) {
+  const IntWithIdx* ia = (const IntWithIdx *) a;
+  const IntWithIdx* ib = (const IntWithIdx *) b;
+
+  return ia->x - ib->x;
+}
+
+static SEXP
+qp_fast_rnd_graph(SEXP pR, SEXP dR) {
+  int         p=INTEGER(pR)[0];
+  int         d=INTEGER(dR)[0];
+  SEXP        GR;
+  Rboolean*   G;
+  double*     deg_diff;
+  IntWithIdx* deg;
+  IntWithIdx* working_deg;
+  Rboolean    regular;
+  int         n_upper_tri;
+  int         i,j,k;
+
+  /* number of elements in the upper triangular matrix including diagonal */
+  n_upper_tri = (p * (p+1)) / 2;
+  
+  deg         = Calloc(p, IntWithIdx);
+  working_deg = Calloc(p, IntWithIdx);
+  deg_diff    = Calloc(p, double);
+
+  PROTECT(GR = allocVector(LGLSXP, n_upper_tri)); /* upper triangle includes diagonal */
+  G = LOGICAL(GR);
+
+  regular=FALSE;
+  while (!regular) {
+    int n_vtx_left=p;
+    int  missing_edges=1;
+
+    for (i=0; i < p; i++) {
+      deg[i].x = 0;
+      deg[i].ix = i;
+    } 
+    memset(G, FALSE, sizeof(Rboolean) * n_upper_tri);
+    while (n_vtx_left > 0 && missing_edges > 0) {
+      Memcpy(working_deg, deg, (size_t) p);
+      qsort(working_deg, p, sizeof(IntWithIdx), int_cmp_desc_idx_incr);
+      n_vtx_left=0;
+      while (working_deg[n_vtx_left].x < d && n_vtx_left < p) {
+        deg_diff[n_vtx_left] = (double) (d - working_deg[n_vtx_left].x);
+        n_vtx_left++;
+      }
+
+      if (n_vtx_left > 0) {
+        double* S;
+        DblWithIdx* cdf;
+        int     n_cdf;
+        double  sum_S;
+
+        S = Calloc(n_vtx_left * n_vtx_left, double);
+        cdf = Calloc((n_vtx_left * (n_vtx_left-1))/2, DblWithIdx);
+
+        /* outer product */
+        matprod(deg_diff, n_vtx_left, 1, deg_diff, 1, n_vtx_left, S);
+
+        missing_edges = 0;
+        sum_S = 0.0;
+        for (i=0; i < n_vtx_left; i++)
+          for (j=i+1; j < n_vtx_left; j++)
+            if (G[UTE2I(working_deg[i].ix, working_deg[j].ix)])
+              S[i+j*n_vtx_left] = S[j+i*n_vtx_left] = -1; /* exclude adjacent pairs of vertices */
+            else {
+              sum_S = sum_S + S[i+j*n_vtx_left];
+              missing_edges++;
+            }
+
+        if (missing_edges > 0) {
+          n_cdf = 0;
+          for (i=0; i < n_vtx_left; i++)
+            for (j=i+1; j < n_vtx_left; j++)
+              if (!G[UTE2I(working_deg[i].ix, working_deg[j].ix)]) {
+                cdf[E2I(i, j)].x = S[i+j*n_vtx_left] / sum_S;
+                cdf[E2I(i, j)].ix = i;
+                cdf[E2I(i, j)].jx = j;
+                n_cdf++;
+              } else {
+                cdf[E2I(i, j)].x = -1;
+                cdf[E2I(i, j)].ix = -1;
+                cdf[E2I(i, j)].jx = -1;
+              }
+
+          if (n_cdf > 0) {
+            double r;
+            double cumsum = 0.0;
+
+            qsort(cdf, (n_vtx_left*(n_vtx_left-1))/2, sizeof(DblWithIdx), dbl_cmp_desc_idx_decr);
+            r = unif_rand(); /* sample using R-builtin RNG */
+            k = -1;
+            while (k < n_cdf && r > cumsum) {
+              k++;
+              cumsum = cumsum + cdf[k].x;
+            }
+
+            i = cdf[k].ix;
+            j = cdf[k].jx;
+            G[UTE2I(working_deg[i].ix , working_deg[j].ix)] = TRUE;
+            deg[working_deg[i].ix].x++;
+            deg[working_deg[j].ix].x++;
+          } else
+            error("No cdf could be built\n");
+    
+          Free(cdf);
+          Free(S);
+        } else
+          n_vtx_left = 0;
+      }
+    }
+
+    regular=TRUE;
+    i=0;
+    while (i < p && regular) {
+      if (deg[i].x != d)
+        regular=FALSE;
+      i++;
+    }
+  }
+
+  Free(deg_diff);
+  Free(working_deg);
+  Free(deg);
+
+  UNPROTECT(1); /* GR */
+
+  return(GR);
 }

@@ -8,11 +8,13 @@ Undirected random d-regular graphs
 Samples an undirected d-regular graph approximately uniformly at random.
 }
 \usage{
-qpRndGraph(p=6, d=2)
+qpRndGraph(p=6, d=2, R.code.only=FALSE)
 }
 \arguments{
   \item{p}{number of vertices.}
   \item{d}{degree of every vertex.}
+  \item{R.code.only}{logical; if \code{FALSE} then the faster C implementation is used
+       (default); if \code{TRUE} then only R code is executed.}
 }
 \details{
 This function implements the algorithm from Steger and Wormald (1999) for
