@@ -967,7 +967,7 @@ setMethod("qpAvgNrr", signature(X="matrix"),
     if (verbose && startTime["elapsed"] == 0)
       cat(sprintf("q=%d\n",q))
 
-    thisNrr <- qpgraph:::.qpNrr(X, q, I, restrict.Q, nTests, alpha, pairup.i,
+    thisNrr <- qpgraph:::.qpNrr(X, q, I, restrict.Q, NULL, nTests, alpha, pairup.i, ## NULL should be fix.Q at some point
                                 pairup.j, verbose, identicalQs, exact.test,
                                 R.code.only, cl, startTime, nAdj2estimateTime)
 
@@ -1297,8 +1297,8 @@ setMethod("qpGenNrr", signature(X="matrix"),
     if (verbose && startTime["elapsed"] == 0)
       cat(sprintf("Data set %s\n", as.character(idx)))
 
-    thisNrr <- qpgraph:::.qpNrr(X[datasetIdx == idx, ], qOrders[idx], I=NULL, restrict.Q=NULL, nTests,
-                                alpha, pairup.i, pairup.j, verbose, identicalQs, exact.test=TRUE,
+    thisNrr <- qpgraph:::.qpNrr(X[datasetIdx == idx, ], qOrders[idx], I=NULL, restrict.Q=NULL, fix.Q=NULL,
+                                nTests, alpha, pairup.i, pairup.j, verbose, identicalQs, exact.test=TRUE,
                                 R.code.only, cl, startTime, nAdj2estimateTime)
 
     if (startTime["elapsed"] > 0) {
@@ -4721,6 +4721,7 @@ qpRndHMGM <- function(nDiscrete=1, nContinuous=3, d=2, mixedIntStrength=5, rho=0
     G <- qpRndGraph(p=length(V), d=d)
     rownames(G) <- colnames(G) <- V
     G[Delta, Delta] <- FALSE
+    rownames(G) <- colnames(G) <- V ## somehow Matrix drops dimnames after the previous instruction
   } else {
     Delta <- colnames(G)[1:nDiscrete]
     Gamma <- colnames(G)[(nDiscrete+1):(nDiscrete+nContinuous)]
