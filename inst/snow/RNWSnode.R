@@ -25,14 +25,16 @@ local({
     Sys.setenv(RANK = rank)
     Sys.setenv(TMPWS = tmpWsName)
 
-    .libPaths(c(snowlib, .libPaths()))
+    if (! (snowlib %in% .libPaths()))
+        .libPaths(c(snowlib, .libPaths()))
     library(methods) ## because Rscript as of R 2.7.0 doesn't load methods
-    library(nws, warn.conflicts=FALSE)
-    library(snow, warn.conflicts=FALSE)
+    library(nws, warn.conflicts=FALSE) ## added warn.conflicts=FALSE to have a silent startup
+    library(snow, warn.conflicts=FALSE) ## added warn.conflicts=FALSE to have a silent startup
 
     sinkWorkerOutput(outfile)
     master <- makeNWSmaster()
     sendData(master, "ping")
     cat("starting NWS worker\n")
+    setDefaultClusterOptions(masterNode=master)
     slaveLoop(master)
 })

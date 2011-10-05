@@ -18,14 +18,16 @@ local({
                OUT = outfile <- value)
     }
 
-    .libPaths(c(snowlib, .libPaths()))
+    if (! (snowlib %in% .libPaths()))
+        .libPaths(c(snowlib, .libPaths()))
     library(methods) ## because Rscript as of R 2.7.0 doesn't load methods
-    library(snow, warn.conflicts=FALSE)
-    ## library(qpgraph) ## store who the master is ##
+    library(snow, warn.conflicts=FALSE) ## added warn.conflicts=FALSE to have a silent startup
 
     if (port == "") port <- getClusterOption("port")
 
     sinkWorkerOutput(outfile)
     cat("starting worker for", paste(master, port, sep = ":"), "\n")
-    slaveLoop(makeSOCKmaster(master, port))
+    ## slaveLoop(makeSOCKmaster(master, port))
+    setDefaultClusterOptions(masterNode=makeSOCKmaster(master, port))
+    slaveLoop(getClusterOption("masterNode"))
 })

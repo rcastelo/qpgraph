@@ -14,14 +14,17 @@ local({
                OUT = outfile <- value)
     }
 
-    .libPaths(c(snowlib, .libPaths()))
+    if (! (snowlib %in% .libPaths()))
+        .libPaths(c(snowlib, .libPaths()))
     library(methods) ## because Rscript as of R 2.7.0 doesn't load methods
-    library(rpvm, warn.conflicts=FALSE)
-    library(snow, warn.conflicts=FALSE)
+    library(rpvm, warn.conflicts=FALSE) ## added warn.conflicts=FALSE to have a silent startup
+    library(snow, warn.conflicts=FALSE) ## added warn.conflicts=FALSE to have a silent startup
 
     sinkWorkerOutput(outfile)
     cat("starting PVM worker\n")
-    slaveLoop(makePVMmaster())
+    ## slaveLoop(makePVMmaster())
+    setDefaultClusterOptions(masterNode=makePVMmaster())
+    slaveLoop(getClusterOption("masterNode"))
     .PVM.exit()
 })
 

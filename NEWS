@@ -1,3 +1,19 @@
+CHANGES IN VERSION 2.0
+----------------------
+
+NEW FEATURES
+
+    o estimation of mixed interactions for genetical genomics data
+
+    o MLE of covariance matrices via the Hasti-Tibshirani-Friedman (HTF) algorithm
+
+    o uniform sampling of d-regular graphs with qpRndGraph()
+
+BUG FIXES
+
+    o proper handling of master node identification with snow so that parallel computations work again with snow versions > 0.3-3
+
+
 CHANGES IN VERSION 1.8
 ----------------------
 
@@ -18,27 +34,27 @@ USER VISIBLE CHANGES
 
 NEW FEATURES
 
-    o added estimation of completion time for calculations via the 'estimateTime' argument
+    o estimation of completion time for calculations via the 'estimateTime' argument
 
-    o added progress reporting to the functions using parallel support
+    o progress reporting to the functions using parallel support
 
-    o added a new function qpCov() and its man page to calculate sample covariance matrices returning them as 'dspMatrix' objects. Fixed some NAMESPACE and dependence issues
+    o a new function qpCov() and its man page to calculate sample covariance matrices returning them as 'dspMatrix' objects. Fixed some NAMESPACE and dependence issues
 
-    o added network reporting through qpPlotNetwork
+    o network reporting through qpPlotNetwork
 
-    o added network reporting through qpTopPairs
+    o network reporting through qpTopPairs
 
-    o added the calculation of the generalized non-rejection rate through the function qpGenNrr()
+    o calculation of the generalized non-rejection rate through the function qpGenNrr()
 
-    o added parallel computation of average non-rejection rates in qpAvgNrr() via snow and rlecuyer
+    o parallel computation of average non-rejection rates in qpAvgNrr() via snow and rlecuyer
 
-    o added parallel computation of non-rejection rates in qpNrr() via snow and rlecuyer
+    o parallel computation of non-rejection rates in qpNrr() via snow and rlecuyer
 
-    o added qpUpdateCliquesRemoving() to update a clique list after an edge removal
+    o qpUpdateCliquesRemoving() to update a clique list after an edge removal
 
-    o added qpUnifRndAssociation() to generate correlations between -1 and +1 uniformly at random
+    o qpUnifRndAssociation() to generate correlations between -1 and +1 uniformly at random
 
-    o added parallel computation of gene ontology enrichment calculations in qpFunctionalCoherence()
+    o parallel computation of gene ontology enrichment calculations in qpFunctionalCoherence()
 
 BUG FIXES
 
@@ -91,7 +107,7 @@ USER VISIBLE CHANGES
 
 NEW FEATURES
 
-    o added the new calculation of NRR with identical Q subsets
+    o the new calculation of NRR with identical Q subsets
 
 BUG FIXES
     o fixed a minor bug on reporting progress of calculations

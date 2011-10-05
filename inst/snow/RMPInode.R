@@ -14,12 +14,14 @@ local({
                OUT = outfile <- value)
     }
 
-    .libPaths(c(snowlib, .libPaths()))
+    if (! (snowlib %in% .libPaths()))
+        .libPaths(c(snowlib, .libPaths()))
     library(methods) ## because Rscript as of R 2.7.0 doesn't load methods
-    library(Rmpi, warn.conflicts=FALSE)
-    library(snow, warn.conflicts=FALSE)
+    library(Rmpi, warn.conflicts=FALSE) ## added warn.conflicts=FALSE to have a silent startup
+    library(snow, warn.conflicts=FALSE) ## added warn.conflicts=FALSE to have a silent startup
 
     sinkWorkerOutput(outfile)
     cat("starting MPI worker\n")
+    setDefaultClusterOptions(masterNode=makeMPImaster(1)) ## this depends on the hardcoding of runMPIslave() at /snow/R/mpi.R
     runMPIslave()
 })
