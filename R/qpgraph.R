@@ -512,7 +512,7 @@ setMethod("qpNrr", signature(X="matrix"),
         if (!is.null(restrict.Q) && is.matrix(restrict.Q))
             rQs <- union(which(restrict.Q[i, ]), which(restrict.Q[j, ]))
 
-        nrr <- qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i, j, q, rQs,
+        nrr <- qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i, j, q, rQs, fix.Q,
                                         nTests, alpha, exact.test, R.code.only=TRUE)
       }
 
@@ -542,7 +542,7 @@ setMethod("qpNrr", signature(X="matrix"),
           if (!is.null(restrict.Q) && is.matrix(restrict.Q))
             rQs <- union(which(restrict.Q[i, ]), which(restrict.Q[j, ]))
 
-          nrr <- qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i, j, q, rQs,
+          nrr <- qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i, j, q, rQs, fix.Q,
                                           nTests, alpha, exact.test, R.code.only=TRUE)
         }
 
@@ -576,7 +576,7 @@ setMethod("qpNrr", signature(X="matrix"),
           if (!is.null(restrict.Q) && is.matrix(restrict.Q))
             rQs <- union(which(restrict.Q[i2, ]), which(restrict.Q[j2, ]))
 
-          nrr <- qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i2, j2, q, rQs,
+          nrr <- qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i2, j2, q, rQs, fix.Q,
                                           nTests, alpha, exact.test, R.code.only=TRUE)
         }
 
@@ -1413,7 +1413,7 @@ setMethod("qpEdgeNrr", signature(X="ExpressionSet"),
 
               ## TODO: fix this to handle discrete data as well
               if (any(apply(pData(X)[, fix.Q, drop=FALSE], 2, class) != "numeric"))
-                stop("Variables specified in fix.Q can at the moment only be continuous data.")
+                stop("Phenotypic variables specified in fix.Q can at the moment only be continuous data.")
 
               Y <- cbind(Y, pData(X)[, fix.Q, drop=FALSE])
               fix.Q <- (dim(X)[1]+1):(dim(X)[1]+length(fix.Q))
@@ -1460,10 +1460,9 @@ setMethod("qpEdgeNrr", signature(X="data.frame"),
               mapX2ssd <- match(colnames(X), colnames(ssd))
               names(mapX2ssd) <- colnames(X)
 
-              ## TODO: add fix.Q
               qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i, j, q,
-                                       restrict.Q, nTests, alpha, exact.test,
-                                       R.code.only)
+                                       restrict.Q, fix.Q, nTests, alpha,
+                                       exact.test, R.code.only)
             }
           })
 
@@ -1506,10 +1505,9 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
                 mapX2ssd <- match(colnames(X), colnames(ssd))
                 names(mapX2ssd) <- colnames(X)
 
-                ## TODO: add fix.Q
                 qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i, j, q,
-                                         restrict.Q, nTests, alpha, exact.test,
-                                         R.code.only)
+                                         restrict.Q, fix.Q, nTests, alpha,
+                                         exact.test, R.code.only)
               }
             } else {
               if (!is.null(I))
@@ -1609,8 +1607,8 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
 }
 
 .qpEdgeNrrHMGM <- function(X, I, Y, ssdMat, mapX2ssdMat, i=1, j=2, q=1,
-                           restrict.Q=NULL, nTests=100, alpha=0.05,
-                           exact.test=TRUE, R.code.only=FALSE) {
+                           restrict.Q=NULL, fix.Q=NULL, nTests=100,
+                           alpha=0.05, exact.test=TRUE, R.code.only=FALSE) {
   if (is.character(i)) {
     if (is.na(match(i, colnames(X))))
       stop(sprintf("i=%s does not form part of the variable names of the data\n", i))
@@ -1642,6 +1640,15 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
   n.var  <- length(V)
   n <- dim(X)[1]
 
+  if (q > n.var-2)
+    stop(paste("q=", q, " > n.var-2=", n.var-2))
+
+  if (q < 0)
+    stop(paste("q=", q, " < 0"))
+
+  if (q > n-3)
+    stop(paste("q=", q, " > n-3=", n-3))
+
   if (!is.null(restrict.Q)) {
     if (is.character(restrict.Q)) {
       if (any(is.na(match(restrict.Q, colnames(X)))))
@@ -1652,14 +1659,26 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
     V <- restrict.Q
   }
 
-  if (q > n.var-2)
-    stop(paste("q=", q, " > n.var-2=", n.var-2))
+  if (!is.null(fix.Q)) {
+    if (is.character(fix.Q)) {
+      if (any(is.na(match(fix.Q, colnames(X)))))
+        stop("Some variables in restrict.Q do not form part of the variable names of the data\n")
+      fix.Q <- match(fix.Q, colnames(X))
+    }
 
-  if (q < 0)
-    stop(paste("q=", q, " < 0"))
+    if (any(!is.na(match(c(i, j), fix.Q))))
+      stop("The subset fix.Q cannot include any of the (i, j) variables.\n")
 
-  if (q > n-3)
-    stop(paste("q=", q, " > n-3=", n-3))
+    if (q <= length(fix.Q))
+      stop("q should be larger than the number of variables in fix.Q\n")
+
+    if (is.null(restrict.Q))
+      restrict.Q <- setdiff(V, fix.Q)
+    else {
+      if (length(intersect(restrict.Q, fix.Q)) > 0)
+        stop("The subsets restrict.Q and fix.Q should be disjoint.\n")
+    }
+  }
 
   if (!is.na(match(j, I))) { ## if any of (i,j) is discrete, it should be i
     tmp <- i
@@ -1669,9 +1688,11 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
 
   if (!R.code.only) {
     return(qpgraph:::.qpFastEdgeNrrHMGM(X, I, Y, ssdMat, mapX2ssdMat, i, j, q,
-                                        restrict.Q, nTests, alpha, exact.test))
+                                        restrict.Q, fix.Q, nTests, alpha, exact.test))
   }
 
+  V <- setdiff(V, fix.Q)
+  q.fix <- length(fix.Q)
   mt <- match(c(i, j), V)
   mt <- mt[!is.na(mt)]
   if (length(mt) > 0)
@@ -1684,14 +1705,11 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
   nActualTests <- 0
   lambda <- a <- b <- thr <- rep(NA, times=nTests)
   for (k in 1:nTests) {
-    Q <- sample(V, q, rep=FALSE)
+    Q <- c(sample(V, q-q.fix, rep=FALSE), fix.Q)
     cit <- qpgraph:::.qpCItestHMGM(X, I, Y, ssdMat, mapX2ssdMat, i, j, Q, exact.test, R.code.only=TRUE)
     if (!is.nan(cit$lr)) {
       lambda[k] <- cit$lr
       if (exact.test) {
-        nGamma <- sum(!is.na(match(c(i, j, Q), Y)))   #### REMOVE ??
-        Delta <- intersect(I, c(i, j, Q))             #### REMOVE ??
-        DeltaStar <- setdiff(Delta, c(i, j))          #### REMOVE ??
         a[k] <- cit$a
         b[k] <- cit$b
         if (k > 1 && a[k] == a[k-1] && b[k] == b[k-1])
@@ -1706,9 +1724,6 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
 
   nAcceptedTests <- thr <- NA
   if (exact.test) {
-    thr <- sapply(1:nTests,                                                                            ### REMOVE ??
-                  function(k, alpha, a, b) qbeta(p=alpha, shape1=a[k], shape2=b[k], lower.tail=TRUE),  ### REMOVE ??
-                  alpha, a, b)                                                                         ### REMOVE ??
     nAcceptedTests <- sum(lambda > thr, na.rm=TRUE)
   } else {
     thr <- qchisq(p=(1-alpha), df=1, lower.tail=TRUE)
@@ -1973,7 +1988,7 @@ setMethod("qpCItest", signature(X="matrix"),
   ssd <- Reduce("+",
                 lapply(as.list(1:length(xtab)),
                        function(i, x) qpCov(as.matrix(x[[i]]), corrected=FALSE), xtab))
-               ##function(i, x, ni, n) (ni[i]-1)*cov(x[[i]]), xtab, ni, n))
+                       ##function(i, x, ni, n) (ni[i]-1)*cov(x[[i]]), xtab, ni, n))
   ssd
 }
 
@@ -2094,13 +2109,6 @@ setMethod("qpCItest", signature(X="matrix"),
     DeltaStar <- setdiff(I, c(i, j))
     if (exact.test) {
       lr <- exp(ssd$modulus[1]+ssd_ij$modulus[1]-ssd_j$modulus[1]-ssd_i$modulus[1])
-      ## OUR FIX!! STILL TO BE DOUBLE CHECKED WITH S.L.
-      ## a <- ifelse(mixedEdge,
-      ##           (n-nGamma*prod(nLevels[Delta]))/2,
-      ##           (n-nGamma-prod(nLevels[Delta])+1)/2)
-      ## b <- ifelse(mixedEdge,
-      ##             n*Gamma*prod(nLevels[DeltaStar])*(nLevels[intersect(Delta, c(i,j))]-1)/2,
-      ##             0.5)
       a <- (n-nGamma-prod(nLevels[Delta])+1)/2
       b <- ifelse(mixedEdge,
                   prod(nLevels[DeltaStar])*(nLevels[intersect(Delta, c(i,j))]-1)/2,
@@ -4670,13 +4678,13 @@ clPrCall <- function(cl, fun, n.adj, ...) {
 }
 
 .qpFastEdgeNrrHMGM <- function(X, I, Y, ssd, mapX2ssd, i, j, q, restrict.Q,
-                               nTests, alpha, exact.test) {
+                               fix.Q, nTests, alpha, exact.test) {
   nLevels <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
   return(.Call("qp_fast_edge_nrr_hmgm",X, as.integer(I), as.integer(nLevels),
                                        as.integer(Y), ssd@x, as.integer(mapX2ssd),
                                        as.integer(i),as.integer(j), as.integer(q),
-                                       as.integer(restrict.Q), as.integer(nTests),
-                                       as.double(alpha), as.integer(exact.test)))
+                                       as.integer(restrict.Q), as.integer(fix.Q),
+                                       as.integer(nTests), as.double(alpha), as.integer(exact.test)))
 }
 
 .qpFastCItest <- function(S, N, i, j, Q=c()) {

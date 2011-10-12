@@ -243,7 +243,7 @@ postscript(file="qpPCCdistbyTF.eps", onefile=FALSE, paper="a4",
            pointsize=12, horizontal=FALSE, height=6, width=6)
 @
 
-<<getthenet, echo=TRUE, results=verbatim>>=
+<<PCCdistByTF, fig=TRUE, include=FALSE, echo=TRUE, results=verbatim, height=6, width=6>>=
 par(mar=c(5,4,5,2))
 pccsbyTF <- list()
 for (TFi in subset.filtered.regulon6.1[,"idx_TF"])
@@ -266,7 +266,7 @@ fact probably leads to weak correlations of the expression level with its target
 genes.
 
 \begin{figure}
-\centerline{\includegraphics[width=0.5\textwidth]{qpPCCdistbyTF}}
+\centerline{\includegraphics[width=0.5\textwidth]{qpTxRegNet-PCCdistByTF}}
 \caption{Distribution of Pearson correlation coefficients (PCCs) calculated from
 the \cite{Covert:2004fx} oxygen deprivation data between genes forming RegulonDB
 interactions. Distributed values are shown separately by each regulatory module
