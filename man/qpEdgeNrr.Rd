@@ -11,14 +11,15 @@ Non-rejection rate estimation for a pair of variables
 Estimates the non-rejection rate for one pair of variables.
 }
 \usage{
-\S4method{qpEdgeNrr}{ExpressionSet}(X, i=1, j=2, q=1, I=NULL, restrict.Q=NULL, nTests=100,
-                                    alpha=0.05, exact.test=TRUE, R.code.only=FALSE)
-\S4method{qpEdgeNrr}{data.frame}(X, i=1, j=2, q=1, I=NULL, restrict.Q=NULL, nTests=100,
-                                 alpha=0.05, long.dim.are.variables=TRUE, exact.test=TRUE,
-                                 R.code.only=FALSE)
-\S4method{qpEdgeNrr}{matrix}(X, i=1, j=2, q=1, I=NULL, restrict.Q=NULL, n=NULL, nTests=100,
-                             alpha=0.05, long.dim.are.variables=TRUE, exact.test=TRUE,
-                             R.code.only=FALSE)
+\S4method{qpEdgeNrr}{ExpressionSet}(X, i=1, j=2, q=1, I=NULL, restrict.Q=NULL, fix.Q=NULL,
+                                    nTests=100, alpha=0.05, exact.test=TRUE,
+                                    R.code.only=FALSE)
+\S4method{qpEdgeNrr}{data.frame}(X, i=1, j=2, q=1, I=NULL, restrict.Q=NULL, fix.Q=NULL,
+                                 nTests=100, alpha=0.05, long.dim.are.variables=TRUE,
+                                 exact.test=TRUE, R.code.only=FALSE)
+\S4method{qpEdgeNrr}{matrix}(X, i=1, j=2, q=1, I=NULL, restrict.Q=NULL, fix.Q=NULL,
+                             n=NULL, nTests=100, alpha=0.05, long.dim.are.variables=TRUE,
+                             exact.test=TRUE, R.code.only=FALSE)
 }
 \arguments{
   \item{X}{data set from where the non-rejection rate should be estimated. It
@@ -32,6 +33,8 @@ Estimates the non-rejection rate for one pair of variables.
   \item{I}{indexes or names of the variables in \code{X} that are discrete.}
   \item{restrict.Q}{indexes or names of the variables in \code{X} that
        restrict the sample space of conditioning subsets Q.}
+  \item{fix.Q}{indexes or names of the variables in \code{X} that should be
+       fixed within every conditioning conditioning subsets Q.}
   \item{n}{number of observations in the data set. Only necessary when the
        sample covariance matrix is provided through the \code{X} parameter.}
   \item{nTests}{number of tests to perform for each pair for variables.}

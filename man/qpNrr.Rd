@@ -11,21 +11,21 @@ Non-rejection rate estimation
 Estimates non-rejection rates for every pair of variables.
 }
 \usage{
-\S4method{qpNrr}{ExpressionSet}(X, q=1, I=NULL, restrict.Q=NULL, nTests=100,
+\S4method{qpNrr}{ExpressionSet}(X, q=1, I=NULL, restrict.Q=NULL, fix.Q=NULL, nTests=100,
                                 alpha=0.05, pairup.i=NULL, pairup.j=NULL,
                                 verbose=TRUE, identicalQs=TRUE, exact.test=TRUE,
                                 R.code.only=FALSE, clusterSize=1, estimateTime=FALSE,
                                 nAdj2estimateTime=10)
-\S4method{qpNrr}{data.frame}(X, q=1, I=NULL, restrict.Q=NULL, nTests=100,
+\S4method{qpNrr}{data.frame}(X, q=1, I=NULL, restrict.Q=NULL, fix.Q=NULL, nTests=100,
                              alpha=0.05, pairup.i=NULL, pairup.j=NULL,
                              long.dim.are.variables=TRUE, verbose=TRUE,
                              identicalQs=TRUE, exact.test=TRUE, R.code.only=FALSE,
                              clusterSize=1, estimateTime=FALSE, nAdj2estimateTime=10)
-\S4method{qpNrr}{matrix}(X, q=1, I=NULL, restrict.Q=NULL, nTests=100, alpha=0.05,
-                         pairup.i=NULL, pairup.j=NULL, long.dim.are.variables=TRUE,
-                         verbose=TRUE, identicalQs=TRUE, exact.test=TRUE,
-                         R.code.only=FALSE, clusterSize=1, estimateTime=FALSE,
-                         nAdj2estimateTime=10)
+\S4method{qpNrr}{matrix}(X, q=1, I=NULL, restrict.Q=NULL, fix.Q=NULL, nTests=100,
+                         alpha=0.05, pairup.i=NULL, pairup.j=NULL,
+                         long.dim.are.variables=TRUE, verbose=TRUE, identicalQs=TRUE,
+                         exact.test=TRUE, R.code.only=FALSE, clusterSize=1,
+                         estimateTime=FALSE, nAdj2estimateTime=10)
 }
 \arguments{
   \item{X}{data set from where to estimate the non-rejection rates.
@@ -37,6 +37,8 @@ Estimates non-rejection rates for every pair of variables.
        regarding this argument.}
   \item{restrict.Q}{indexes or names of the variables in \code{X} that
        restrict the sample space of conditioning subsets Q.}
+  \item{fix.Q}{indexes or names of the variables in \code{X} that should be
+       fixed within every conditioning conditioning subsets Q.}
   \item{nTests}{number of tests to perform for each pair for variables.}
   \item{alpha}{significance level of each test.}
   \item{pairup.i}{subset of vertices to pair up with subset \code{pairup.j}}
