@@ -13,21 +13,21 @@ Estimates generalized non-rejection rates for every pair of variables from
 two or more data sets.
 }
 \usage{
-\S4method{qpGenNrr}{ExpressionSet}(X, datasetIdx=1, qOrders=NULL, return.all=FALSE,
-                                   nTests=100, alpha=0.05, pairup.i=NULL,
-                                   pairup.j=NULL, verbose=TRUE, identicalQs=TRUE,
-                                   R.code.only=FALSE, clusterSize=1, estimateTime=FALSE,
-                                   nAdj2estimateTime=10)
-\S4method{qpGenNrr}{data.frame}(X, datasetIdx=1, qOrders=NULL, return.all=FALSE,
-                                nTests=100, alpha=0.05, pairup.i=NULL,
-                                pairup.j=NULL, long.dim.are.variables=TRUE,
-                                verbose=TRUE, identicalQs=TRUE, R.code.only=FALSE,
+\S4method{qpGenNrr}{ExpressionSet}(X, datasetIdx=1, qOrders=NULL, I=NULL, restrict.Q=NULL,
+                                   fix.Q=NULL, return.all=FALSE, nTests=100, alpha=0.05,
+                                   pairup.i=NULL, pairup.j=NULL, verbose=TRUE, identicalQs=TRUE,
+                                   exact.test=TRUE, R.code.only=FALSE, clusterSize=1,
+                                   estimateTime=FALSE, nAdj2estimateTime=10)
+\S4method{qpGenNrr}{data.frame}(X, datasetIdx=1, qOrders=NULL, I=NULL, restrict.Q=NULL,
+                                fix.Q=NULL, return.all=FALSE, nTests=100, alpha=0.05,
+                                pairup.i=NULL, pairup.j=NULL, long.dim.are.variables=TRUE,
+                                verbose=TRUE, identicalQs=TRUE, exact.test=TRUE, R.code.only=FALSE,
                                 clusterSize=1, estimateTime=FALSE, nAdj2estimateTime=10)
-\S4method{qpGenNrr}{matrix}(X, datasetIdx=1, qOrders=NULL, return.all=FALSE,
-                            nTests=100, alpha=0.05, pairup.i=NULL, pairup.j=NULL,
-                            long.dim.are.variables=TRUE, verbose=TRUE,
-                            identicalQs=TRUE, R.code.only=FALSE, clusterSize=1,
-                            estimateTime=FALSE, nAdj2estimateTime=10)
+\S4method{qpGenNrr}{matrix}(X, datasetIdx=1, qOrders=NULL, I=NULL, restrict.Q=NULL,
+                            fix.Q=NULL, return.all=FALSE, nTests=100, alpha=0.05,
+                            pairup.i=NULL, pairup.j=NULL, long.dim.are.variables=TRUE,
+                            verbose=TRUE, identicalQs=TRUE, exact.test=TRUE, R.code.only=FALSE,
+                            clusterSize=1, estimateTime=FALSE, nAdj2estimateTime=10)
 }
 \arguments{
   \item{X}{data set from where to estimate the average non-rejection rates.
@@ -41,6 +41,14 @@ two or more data sets.
        on the q-order will be employed for each data set or a vector of particular
        orders with one for each data set. The default guess corresponds to
        the floor of the median value among the valid q orders of the data set.}
+  \item{I}{indexes or names of the variables in \code{X} that are discrete.
+       When \code{X} is an \code{ExpressionSet} then \code{I} may contain
+       only names of the phenotypic variables in \code{X}. See details below
+       regarding this argument.}
+  \item{restrict.Q}{indexes or names of the variables in \code{X} that
+       restrict the sample space of conditioning subsets Q.}
+  \item{fix.Q}{indexes or names of the variables in \code{X} that should be
+       fixed within every conditioning conditioning subsets Q.}
   \item{return.all}{logical; if TRUE all intervining non-rejection rates will be
        return in a matrix per dataset within a list; FALSE (default) if only
        generalized non-rejection rates should be returned.}
@@ -56,6 +64,10 @@ two or more data sets.
   \item{identicalQs}{use identical conditioning subsets for every pair of vertices
        (default), otherwise sample a new collection of \code{nTests} subsets for
        each pair of vertices.}
+  \item{exact.test}{logical; if \code{FALSE} an asymptotic conditional independence
+       test is employed with mixed (i.e., continuous and discrete) data;
+       if \code{TRUE} (default) then an exact conditional independence test with
+       mixed data is employed.}
   \item{R.code.only}{logical; if FALSE then the faster C implementation is used
        (default); if TRUE then only R code is executed.}
   \item{clusterSize}{size of the cluster of processors to employ if we wish to
@@ -82,6 +94,16 @@ quadratically in \code{p}.  When setting \code{identicalQs} to \code{FALSE} the
 computational cost may increase between 2 times and one order of magnitude
 (depending on \code{p} and \code{q}) while asymptotically the estimation of the
 non-rejection rate converges to the same value.
+
+When \code{I} is set different to \code{NULL} then mixed graphical model theory
+is employed and, concretely, it is assumed that the data comes from an homogeneous
+conditional Gaussian distribution. In this setting further restrictions to the
+maximum value of \code{q} apply, concretely, it cannot be smaller than
+\code{p} plus the number of levels of the discrete variables involved in the
+marginal distributions employed by the algorithm. By default, with
+\code{exact.test=TRUE}, an exact test for conditional independence is employed,
+otherwise an asymptotic one will be used. Full details on these features can
+be found in Tur and Castelo (2011).
 }
 \value{
 A list containing the following two or more entries: a first one with name
@@ -104,6 +126,11 @@ calculations is returned.
 Castelo, R. and Roverato, A. Reverse engineering molecular regulatory
 networks from microarray data with qp-graphs. \emph{J. Comp. Biol.},
 16(2):213-227, 2009.
+
+Tur, I. and Castelo, R. Learning mixed graphical models from data with p larger than n,
+In \emph{Proc. 27th Conference on Uncertainty in Artificial Intelligence},
+F.G. Cozman and A. Pfeffer eds., pp. 689-697, AUAI Press, ISBN 978-0-9749039-7-2,
+Barcelona, 2011.
 }
 \author{R. Castelo and A. Roverato}
 \seealso{

@@ -44,7 +44,7 @@
 ##             verbose - show progress on the calculations
 ##             identicalQs - use identical conditioning subsets for all pairs
 ##                           of variables
-##             exact.test - employ an exact test when working with HMGMs
+##             exact.test - employ an exact test when I!=NULL
 ##             R.code.only - flag set to FALSE when using the C implementation
 ##             clusterSize - size of the cluster of processors to do calculations
 ##                           in parallel via 'snow' and 'rlecuyer'
@@ -765,6 +765,13 @@ setMethod("qpNrr", signature(X="matrix"),
 ##             qOrders - either a number of partial-correlation orders or a
 ##                       vector of particular orders to be employed in the
 ##                       calculation
+##             I - indexes or names of the variables in X that are discrete
+##             restrict.Q - indexes or names of variables to which the conditioning
+##                          subsets Q should be restricted. this can be a logical
+##                          squared matrix indicating differerent restriction subsets
+##                          per variable row-wise
+##             fix.Q - indexes or names of variables that should be fixed within
+##                     every conditioning subset Q
 ##             nTests - number of tests to perform for each pair of variables
 ##             alpha - significance level of each test (Type-I error probability)
 ##             pairup.i - subset of vertices to pair up with subset pairup.j
@@ -779,6 +786,7 @@ setMethod("qpNrr", signature(X="matrix"),
 ##             verbose - show progress of the calculations
 ##             identicalQs - use identical conditioning subsets for all pairs
 ##                           of variables
+##             exact.test - employ an exact test when I!=NULL
 ##             R.code.only - flag set to FALSE when using the C implementation
 ##             clusterSize - size of the cluster of processors to do calculations
 ##                           in parallel via 'snow' and 'rlecuyer'
@@ -788,10 +796,10 @@ setGeneric("qpAvgNrr", function(X, ...) standardGeneric("qpAvgNrr"))
 
 ## X comes as an ExpressionSet object
 setMethod("qpAvgNrr", signature(X="ExpressionSet"),
-          function(X, qOrders=4, I=NULL, restrict.Q=NULL, nTests=100, alpha=0.05,
-                   pairup.i=NULL, pairup.j=NULL, type=c("arith.mean"), verbose=TRUE,
-                   identicalQs=TRUE, exact.test=TRUE, R.code.only=FALSE, clusterSize=1,
-                   estimateTime=FALSE, nAdj2estimateTime=10) {
+          function(X, qOrders=4, I=NULL, restrict.Q=NULL, fix.Q=NULL, nTests=100,
+                   alpha=0.05, pairup.i=NULL, pairup.j=NULL, type=c("arith.mean"),
+                   verbose=TRUE, identicalQs=TRUE, exact.test=TRUE, R.code.only=FALSE,
+                   clusterSize=1, estimateTime=FALSE, nAdj2estimateTime=10) {
 
             startTime <- c(user.self=0, sys.self=0, elapsed=0, user.child=0, sys.child=0)
             class(startTime) <- "proc_time"
@@ -813,12 +821,12 @@ setMethod("qpAvgNrr", signature(X="ExpressionSet"),
                 stop(sprintf("%s do(es) not form part of the phenotypic data in the ExpressionSet object X.",
                              I[is.na(match(I, Biobase::varLabels(X)))]))
 
-              X_I <- apply(Biobase::pData(gds680.eset)[, I, drop=FALSE], 2,
+              X_I <- apply(Biobase::pData(X)[, I, drop=FALSE], 2,
                            function(x) as.double(as.factor(as.character(x))))
             }
 
             X <- cbind(t(Biobase::exprs(X)), X_I)
-            qpgraph:::.qpAvgNrr(X, qOrders, I, restrict.Q, nTests, alpha, pairup.i,
+            qpgraph:::.qpAvgNrr(X, qOrders, I, restrict.Q, fix.Q, nTests, alpha, pairup.i,
                                 pairup.j, type, verbose, identicalQs, exact.test,
                                 R.code.only, clusterSize, startTime,
                                 nAdj2estimateTime)
@@ -826,8 +834,8 @@ setMethod("qpAvgNrr", signature(X="ExpressionSet"),
 
 ## X comes as a data frame
 setMethod("qpAvgNrr", signature(X="data.frame"),
-          function(X, qOrders=4, I=NULL, restrict.Q=NULL, nTests=100, alpha=0.05,
-                   pairup.i=NULL, pairup.j=NULL, long.dim.are.variables=TRUE,
+          function(X, qOrders=4, I=NULL, restrict.Q=NULL, fix.Q=NULL, nTests=100,
+                   alpha=0.05, pairup.i=NULL, pairup.j=NULL, long.dim.are.variables=TRUE,
                    type=c("arith.mean"), verbose=TRUE, identicalQs=TRUE,
                    exact.test=TRUE, R.code.only=FALSE, clusterSize=1,
                    estimateTime=FALSE, nAdj2estimateTime=10) {
@@ -853,7 +861,7 @@ setMethod("qpAvgNrr", signature(X="data.frame"),
               X <- t(X)
             if (is.null(colnames(X)))
               colnames(X) <- 1:ncol(X)
-            qpgraph:::.qpAvgNrr(X, qOrders, I, restrict.Q, nTests, alpha, pairup.i,
+            qpgraph:::.qpAvgNrr(X, qOrders, I, restrict.Q, fix.Q, nTests, alpha, pairup.i,
                                 pairup.j, type, verbose, identicalQs, exact.test,
                                 R.code.only, clusterSize, startTime,
                                 nAdj2estimateTime)
@@ -861,8 +869,8 @@ setMethod("qpAvgNrr", signature(X="data.frame"),
           
 ## X comes as a matrix
 setMethod("qpAvgNrr", signature(X="matrix"),
-          function(X, qOrders=4, I=NULL, restrict.Q=NULL, nTests=100, alpha=0.05,
-                   pairup.i=NULL, pairup.j=NULL, long.dim.are.variables=TRUE,
+          function(X, qOrders=4, I=NULL, restrict.Q=NULL, fix.Q=NULL, nTests=100,
+                   alpha=0.05, pairup.i=NULL, pairup.j=NULL, long.dim.are.variables=TRUE,
                    type=c("arith.mean"), verbose=TRUE, identicalQs=TRUE,
                    exact.test=TRUE, R.code.only=FALSE, clusterSize=1,
                    estimateTime=FALSE, nAdj2estimateTime=10) {
@@ -885,14 +893,14 @@ setMethod("qpAvgNrr", signature(X="matrix"),
 
             if (is.null(colnames(X))) 
               colnames(X) <- 1:ncol(X)
-            qpgraph:::.qpAvgNrr(X, qOrders, I, restrict.Q, nTests, alpha, pairup.i,
+            qpgraph:::.qpAvgNrr(X, qOrders, I, restrict.Q, fix.Q, nTests, alpha, pairup.i,
                                 pairup.j, type, verbose, identicalQs, exact.test,
                                 R.code.only, clusterSize, startTime,
                                 nAdj2estimateTime)
           })
 
-.qpAvgNrr <- function(X, qOrders=4, I=NULL, restrict.Q=NULL, nTests=100,
-                      alpha=0.05, pairup.i=NULL, pairup.j=NULL,
+.qpAvgNrr <- function(X, qOrders=4, I=NULL, restrict.Q=NULL, fix.Q=NULL,
+                      nTests=100, alpha=0.05, pairup.i=NULL, pairup.j=NULL,
                       type=c("arith.mean"), verbose=TRUE, identicalQs=TRUE,
                       exact.test=TRUE, R.code.only=FALSE, clusterSize=1,
                       startTime, nAdj2estimateTime) {
@@ -967,7 +975,7 @@ setMethod("qpAvgNrr", signature(X="matrix"),
     if (verbose && startTime["elapsed"] == 0)
       cat(sprintf("q=%d\n",q))
 
-    thisNrr <- qpgraph:::.qpNrr(X, q, I, restrict.Q, NULL, nTests, alpha, pairup.i, ## NULL should be fix.Q at some point
+    thisNrr <- qpgraph:::.qpNrr(X, q, I, restrict.Q, fix.Q, nTests, alpha, pairup.i,
                                 pairup.j, verbose, identicalQs, exact.test,
                                 R.code.only, cl, startTime, nAdj2estimateTime)
 
@@ -1017,6 +1025,13 @@ setMethod("qpAvgNrr", signature(X="matrix"),
 ##                       order will be performed for each data set or a
 ##                       vector of particular orders to be employed in the
 ##                       calculation
+##             I - indexes or names of the variables in X that are discrete
+##             restrict.Q - indexes or names of variables to which the conditioning
+##                          subsets Q should be restricted. this can be a logical
+##                          squared matrix indicating differerent restriction subsets
+##                          per variable row-wise
+##             fix.Q - indexes or names of variables that should be fixed within
+##                     every conditioning subset Q
 ##             return.all - logical; set to TRUE if all intervining non-rejection
 ##                          rates should be return in a list; FALSE (default) if
 ##                          only generalized non-rejection rates should be returned
@@ -1032,6 +1047,7 @@ setMethod("qpAvgNrr", signature(X="matrix"),
 ##             verbose - show progress of the calculations
 ##             identicalQs - use identical conditioning subsets for all pairs
 ##                           of variables
+##             exact.test - employ an exact test when I!=NULL
 ##             R.code.only - flag set to FALSE when using the C implementation
 ##             clusterSize - size of the cluster of processors to do calculations
 ##                           in parallel via 'snow' and 'rlecuyer'
@@ -1044,10 +1060,10 @@ setGeneric("qpGenNrr", function(X, ...) standardGeneric("qpGenNrr"))
 
 ## X comes as an ExpressionSet object
 setMethod("qpGenNrr", signature(X="ExpressionSet"),
-            function(X, datasetIdx=1, qOrders=NULL, return.all=FALSE, nTests=100,
-                     alpha=0.05, pairup.i=NULL, pairup.j=NULL, verbose=TRUE,
-                     identicalQs=TRUE, R.code.only=FALSE, clusterSize=1,
-                     estimateTime=FALSE, nAdj2estimateTime=10) {
+            function(X, datasetIdx=1, qOrders=NULL, I=NULL, restrict.Q=NULL, fix.Q=NULL,
+                     return.all=FALSE, nTests=100, alpha=0.05, pairup.i=NULL,
+                     pairup.j=NULL, verbose=TRUE, identicalQs=TRUE, exact.test=TRUE,
+                     R.code.only=FALSE, clusterSize=1, estimateTime=FALSE, nAdj2estimateTime=10) {
 
             startTime <- c(user.self=0, sys.self=0, elapsed=0, user.child=0, sys.child=0)
             class(startTime) <- "proc_time"
@@ -1088,19 +1104,32 @@ setMethod("qpGenNrr", signature(X="ExpressionSet"),
             if (!is.null(qOrders) && is.null(names(qOrders)))
               stop("When they are specified, values in 'qOrders' should have names matching the data sets index names\n")
 
-            X <- t(Biobase::exprs(X))
+            X_I <- NULL
+            if (!is.null(I)) {
+              if (!is.character(I))
+                stop("When X is an ExpressionSet, I can only contain variable names from the associated phenotypic data.")
+              if (any(is.na(match(I, Biobase::varLabels(X)))))
+                stop(sprintf("%s do(es) not form part of the phenotypic data in the ExpressionSet object X.",
+                             I[is.na(match(I, Biobase::varLabels(X)))]))
 
-            qpgraph:::.qpGenNrr(X, datasetIdx, qOrders, return.all, nTests, alpha,
-                                pairup.i, pairup.j, verbose, identicalQs, R.code.only,
+              X_I <- apply(Biobase::pData(X)[, I, drop=FALSE], 2,
+                           function(x) as.double(as.factor(as.character(x))))
+            }
+
+            X <- cbind(t(Biobase::exprs(X)), X_I)
+
+            qpgraph:::.qpGenNrr(X, datasetIdx, qOrders, I, restrict.Q, fix.Q,
+                                return.all, nTests, alpha, pairup.i, pairup.j,
+                                verbose, identicalQs, exact.test, R.code.only,
                                 clusterSize, startTime, nAdj2estimateTime)
           })
 
 ## X comes as a data frame
 setMethod("qpGenNrr", signature(X="data.frame"),
-          function(X, datasetIdx=1, qOrders=NULL, return.all=FALSE, nTests=100,
-                   alpha=0.05, pairup.i=NULL, pairup.j=NULL, long.dim.are.variables=TRUE,
-                   verbose=TRUE, identicalQs=TRUE, R.code.only=FALSE, clusterSize=1,
-                   estimateTime=FALSE, nAdj2estimateTime=10) {
+          function(X, datasetIdx=1, qOrders=NULL, I=NULL, restrict.Q=NULL, fix.Q=NULL,
+                   return.all=FALSE, nTests=100, alpha=0.05, pairup.i=NULL, pairup.j=NULL,
+                   long.dim.are.variables=TRUE, verbose=TRUE, identicalQs=TRUE, exact.test=TRUE,
+                   R.code.only=FALSE, clusterSize=1, estimateTime=FALSE, nAdj2estimateTime=10) {
 
             startTime <- c(user.self=0, sys.self=0, elapsed=0, user.child=0, sys.child=0)
             class(startTime) <- "proc_time"
@@ -1153,18 +1182,19 @@ setMethod("qpGenNrr", signature(X="data.frame"),
             if (!is.null(qOrders) && is.null(names(qOrders)))
               stop("When they are specified, values in 'qOrders' should have names matching the data sets index names\n")
 
-            qpgraph:::.qpGenNrr(X, datasetIdx, qOrders, return.all, nTests, alpha,
-                                pairup.i, pairup.j, verbose, identicalQs, R.code.only,
+            qpgraph:::.qpGenNrr(X, datasetIdx, qOrders, I, restrict.Q, fix.Q,
+                                return.all, nTests, alpha, pairup.i, pairup.j,
+                                verbose, identicalQs, exact.test, R.code.only,
                                 clusterSize, startTime, nAdj2estimateTime)
           })
 
           
 ## X comes as a matrix
 setMethod("qpGenNrr", signature(X="matrix"),
-          function(X, datasetIdx=1, qOrders=NULL, return.all=FALSE, nTests=100,
-                   alpha=0.05, pairup.i=NULL, pairup.j=NULL, long.dim.are.variables=TRUE,
-                   verbose=TRUE, identicalQs=TRUE, R.code.only=FALSE, clusterSize=1,
-                   estimateTime=FALSE, nAdj2estimateTime=10) {
+          function(X, datasetIdx=1, qOrders=NULL, I=NULL, restrict.Q=NULL, fix.Q=NULL,
+                   return.all=FALSE, nTests=100, alpha=0.05, pairup.i=NULL, pairup.j=NULL,
+                   long.dim.are.variables=TRUE, verbose=TRUE, identicalQs=TRUE, exact.test=TRUE,
+                   R.code.only=FALSE, clusterSize=1, estimateTime=FALSE, nAdj2estimateTime=10) {
 
             startTime <- c(user.self=0, sys.self=0, elapsed=0, user.child=0, sys.child=0)
             class(startTime) <- "proc_time"
@@ -1213,16 +1243,17 @@ setMethod("qpGenNrr", signature(X="matrix"),
             if (!is.null(qOrders) && is.null(names(qOrders)))
               stop("When they are specified, values in 'qOrders' should have names matching the data sets index names\n")
 
-            qpgraph:::.qpGenNrr(X, datasetIdx, qOrders, return.all, nTests, alpha,
-                                pairup.i, pairup.j, verbose, identicalQs, R.code.only,
+            qpgraph:::.qpGenNrr(X, datasetIdx, qOrders, I, restrict.Q, fix.Q,
+                                return.all, nTests, alpha, pairup.i, pairup.j,
+                                verbose, identicalQs, exact.test, R.code.only,
                                 clusterSize, startTime, nAdj2estimateTime)
           })
 
 
-.qpGenNrr <- function(X, datasetIdx, qOrders=NULL, return.all=FALSE, nTests=100,
-                      alpha=0.05, pairup.i=NULL, pairup.j=NULL, verbose=TRUE,
-                      identicalQs=TRUE, R.code.only=FALSE, clusterSize=1,
-                      startTime, nAdj2estimateTime) {
+.qpGenNrr <- function(X, datasetIdx, qOrders=NULL, I=NULL, restrict.Q=NULL, fix.Q=NULL,
+                      return.all=FALSE, nTests=100, alpha=0.05, pairup.i=NULL,
+                      pairup.j=NULL, verbose=TRUE, identicalQs=TRUE, exact.test=TRUE,
+                      R.code.only=FALSE, clusterSize=1, startTime, nAdj2estimateTime) {
 
   cl <- 1
  
@@ -1264,6 +1295,7 @@ setMethod("qpGenNrr", signature(X="matrix"),
       (is.null(pairup.i) && !is.null(pairup.j)))
     stop("pairup.i and pairup.j should both either be set to NULL or contain subsets of variables\n")
 
+  datasetIdx <- as.character(datasetIdx)
   N <- table(datasetIdx)
 
   if (any(N < 3))
@@ -1297,9 +1329,9 @@ setMethod("qpGenNrr", signature(X="matrix"),
     if (verbose && startTime["elapsed"] == 0)
       cat(sprintf("Data set %s\n", as.character(idx)))
 
-    thisNrr <- qpgraph:::.qpNrr(X[datasetIdx == idx, ], qOrders[idx], I=NULL, restrict.Q=NULL, fix.Q=NULL,
-                                nTests, alpha, pairup.i, pairup.j, verbose, identicalQs, exact.test=TRUE,
-                                R.code.only, cl, startTime, nAdj2estimateTime)
+    thisNrr <- qpgraph:::.qpNrr(X[datasetIdx == idx, ], qOrders[idx], I, restrict.Q,
+                                fix.Q, nTests, alpha, pairup.i, pairup.j, verbose, identicalQs,
+                                exact.test, R.code.only, cl, startTime, nAdj2estimateTime)
 
     if (startTime["elapsed"] > 0) {
       elapsedTime <- elapsedTime + thisNrr["days"]*24*3600 + thisNrr["hours"]*3600 +

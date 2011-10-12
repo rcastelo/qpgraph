@@ -12,20 +12,20 @@ Estimates average non-rejection rates for every pair of variables.
 }
 \usage{
 \S4method{qpAvgNrr}{ExpressionSet}(X, qOrders=4, I=NULL, restrict.Q=NULL,
-                                   nTests=100, alpha=0.05, pairup.i=NULL,
-                                   pairup.j=NULL, type=c("arith.mean"),
+                                   fix.Q=NULL, nTests=100, alpha=0.05,
+                                   pairup.i=NULL, pairup.j=NULL, type=c("arith.mean"),
                                    verbose=TRUE, identicalQs=TRUE,
                                    exact.test=TRUE, R.code.only=FALSE,
                                    clusterSize=1, estimateTime=FALSE,
                                    nAdj2estimateTime=10)
 \S4method{qpAvgNrr}{data.frame}(X, qOrders=4, I=NULL, restrict.Q=NULL,
-                                nTests=100, alpha=0.05, pairup.i=NULL,
+                                fix.Q=NULL, nTests=100, alpha=0.05, pairup.i=NULL,
                                 pairup.j=NULL, long.dim.are.variables=TRUE,
                                 type=c("arith.mean"), verbose=TRUE,
                                 identicalQs=TRUE, exact.test=TRUE,
                                 R.code.only=FALSE, clusterSize=1,
                                 estimateTime=FALSE, nAdj2estimateTime=10)
-\S4method{qpAvgNrr}{matrix}(X, qOrders=4, I=NULL, restrict.Q=NULL,
+\S4method{qpAvgNrr}{matrix}(X, qOrders=4, I=NULL, restrict.Q=NULL, fix.Q=NULL,
                             nTests=100, alpha=0.05, pairup.i=NULL,
                             pairup.j=NULL, long.dim.are.variables=TRUE,
                             type=c("arith.mean"), verbose=TRUE,
@@ -40,9 +40,12 @@ Estimates average non-rejection rates for every pair of variables.
        vector of particular orders to be employed in the calculation.}
   \item{I}{indexes or names of the variables in \code{X} that are discrete.
        When \code{X} is an \code{ExpressionSet} then \code{I} may contain
-       only names of the phenotypic variables in \code{X} (experimental feature).}
+       only names of the phenotypic variables in \code{X}. See details below
+       regarding this argument.}
   \item{restrict.Q}{indexes or names of the variables in \code{X} that
        restrict the sample space of conditioning subsets Q.}
+  \item{fix.Q}{indexes or names of the variables in \code{X} that should be
+       fixed within every conditioning conditioning subsets Q.}
   \item{nTests}{number of tests to perform for each pair for variables.}
   \item{alpha}{significance level of each test.}
   \item{pairup.i}{subset of vertices to pair up with subset \code{pairup.j}}
@@ -86,6 +89,16 @@ When setting \code{identicalQs} to \code{FALSE} the computational cost may
 increase between 2 times and one order of magnitude (depending on \code{p} and
 \code{q}) while asymptotically the estimation of the non-rejection rate
 converges to the same value.
+
+When \code{I} is set different to \code{NULL} then mixed graphical model theory
+is employed and, concretely, it is assumed that the data comes from an homogeneous
+conditional Gaussian distribution. In this setting further restrictions to the
+maximum value of \code{q} apply, concretely, it cannot be smaller than
+\code{p} plus the number of levels of the discrete variables involved in the
+marginal distributions employed by the algorithm. By default, with
+\code{exact.test=TRUE}, an exact test for conditional independence is employed,
+otherwise an asymptotic one will be used. Full details on these features can
+be found in Tur and Castelo (2011).
 }
 \value{
 A \code{\link{dspMatrix-class}} symmetric matrix of estimated average
@@ -102,6 +115,11 @@ is returned.
 Castelo, R. and Roverato, A. Reverse engineering molecular regulatory
 networks from microarray data with qp-graphs. \emph{J. Comp. Biol.},
 16(2):213-227, 2009.
+
+Tur, I. and Castelo, R. Learning mixed graphical models from data with p larger than n,
+In \emph{Proc. 27th Conference on Uncertainty in Artificial Intelligence},
+F.G. Cozman and A. Pfeffer eds., pp. 689-697, AUAI Press, ISBN 978-0-9749039-7-2,
+Barcelona, 2011.
 }
 \author{R. Castelo and A. Roverato}
 \seealso{

@@ -108,8 +108,10 @@ Castelo, R. and Roverato, A. A robust procedure for
 Gaussian graphical model search from microarray data with p larger than n,
 \emph{J. Mach. Learn. Res.}, 7:2621-2650, 2006.
 
-Tur, I. and Castelo, R. Learning mixed grpahical models from data with p larger than n,
-In \emph{Proc. 27th Conference on Uncertainty in Artificial Intelligence}, Barcelona, 2011.
+Tur, I. and Castelo, R. Learning mixed graphical models from data with p larger than n,
+In \emph{Proc. 27th Conference on Uncertainty in Artificial Intelligence},
+F.G. Cozman and A. Pfeffer eds., pp. 689-697, AUAI Press, ISBN 978-0-9749039-7-2,
+Barcelona, 2011.
 }
 \author{R. Castelo, A. Roverato and I. Tur}
 \seealso{
