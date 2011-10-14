@@ -238,16 +238,12 @@ see that {\it fnr} is one of the responsibles for having low PCCs in a large
 fraction of this subset of RegulonDB. We have used the R code below to produce
 Figure~1 where this is shown.
 
-<<getthenet, eval=FALSE, echo=FALSE, results=hide>>=
-postscript(file="qpPCCdistbyTF.eps", onefile=FALSE, paper="a4",
-           pointsize=12, horizontal=FALSE, height=6, width=6)
-@
-
 <<PCCdistByTF, fig=TRUE, include=FALSE, echo=TRUE, results=verbatim, height=6, width=6>>=
 par(mar=c(5,4,5,2))
 pccsbyTF <- list()
 for (TFi in subset.filtered.regulon6.1[,"idx_TF"])
-  pccsbyTF[[featureNames(subset.gds680.eset)[TFi]]] <- abs(pcc.estimates$R[TFi, subset.filtered.regulon6.1.I[TFi,]])
+  pccsbyTF[[featureNames(subset.gds680.eset)[TFi]]] <-
+    abs(pcc.estimates$R[TFi, subset.filtered.regulon6.1.I[TFi,]])
 bp <- boxplot(pccsbyTF,names=sprintf("%s",mget(names(pccsbyTF),org.EcK12.egSYMBOL)),
               ylab="Pearson correlation coefficient (PCC)",
               main=paste("Distribution of PCCs in each RegulonDB",
@@ -256,9 +252,6 @@ nint <- sprintf("(%d)",sapply(names(pccsbyTF), function(x)
                        sum(subset.filtered.regulon6.1.I[x,])))
 mtext(nint, at=seq(bp$n), line=+2, side=1)
 mtext("Transcription factor (# RegulonDB interactions)", side=1, line=+4)
-@
-<<getthenet, eval=FALSE, echo=FALSE, results=hide>>=
-dev.off()
 @
 As observed by \cite{Covert:2004fx} when {\it fnr} becomes active under anaerobic
 conditions its mRNA level is significantly reduced and we hypothesize that this
@@ -377,11 +370,7 @@ and this yields, for this particular data set, a performance that is worse than
 random at regions of high-precision. We may see this situation depicted in
 Figure~2 whose left panel has been produced with the following R code:
 
-<<getthenet, eval=FALSE, echo=FALSE, results=hide>>=
-postscript(file="qpPreRecComparison.eps", onefile=FALSE, paper="a4",
-           pointsize=12, horizontal=FALSE, height=6, width=6)
-@
-<<getthenet, echo=TRUE, results=hide>>=
+<<preRecComparison, fig=TRUE, include=FALSE, echo=TRUE, results=verbatim, height=6, width=6>>=
 par(mai=c(.5,.5,1,.5),mar=c(5,4,7,2)+0.1)
 plot(avgnrr.prerec[,c(1,2)], type="b", lty=1, pch=19, cex=0.65, lwd=4, col="red",
      xlim=c(0,0.1), ylim=c(0,1), axes=FALSE,
@@ -398,14 +387,8 @@ mtext("Recall (# RegulonDB interactions)", 3, line=+3)
 legend(0.06, 1.0, c("qp-graph","PCC","Random"), col=c("red","blue","black"),
        lty=c(1,1,2), pch=c(19,22,-1), lwd=3, bg="white",pt.cex=0.85)
 @
-<<getthenet, eval=FALSE, echo=FALSE, results=hide>>=
-dev.off()
-@
-<<getthenet, eval=FALSE, echo=FALSE, results=hide>>=
-postscript(file="qpPreRecComparisonFullRecall.eps", onefile=FALSE, paper="a4",
-           pointsize=12, horizontal=FALSE, height=6, width=6)
-@
-<<getthenet, eval=FALSE, echo=FALSE, results=hide>>=
+
+<<preRecComparisonFullRecall, fig=TRUE, include=FALSE, echo=TRUE, results=verbatim, height=6, width=6>>=
 par(mai=c(.5,.5,1,.5),mar=c(5,4,7,2)+0.1)
 plot(avgnrr.prerec[,c(1,2)], type="b", lty=1, pch=19, cex=0.65, lwd=4, col="red",
      xlim=c(0,1), ylim=c(0,1), axes=FALSE,
@@ -422,14 +405,11 @@ mtext("Recall (# RegulonDB interactions)", 3, line=+3)
 legend(0.6, 1.0, c("qp-graph","PCC","Random"), col=c("red","blue","black"),
        lty=c(1,1,2), pch=c(19,22,-1), lwd=3, bg="white",pt.cex=0.85)
 @
-<<getthenet, eval=FALSE, echo=FALSE, results=hide>>=
-dev.off()
-@
 \begin{figure}
 \label{fig:prerec}
 \centerline{\begin{tabular}{cc}
-\includegraphics[width=0.45\textwidth]{qpPreRecComparison} &
-\includegraphics[width=0.45\textwidth]{qpPreRecComparisonFullRecall} \\
+\includegraphics[width=0.45\textwidth]{qpTxRegNet-preRecComparison} &
+\includegraphics[width=0.45\textwidth]{qpTxRegNet-preRecComparisonFullRecall} \\
 (a) & (b)
 \end{tabular}}
 \caption{Comparison of precision-recall curves for various reverse-engineering
@@ -538,24 +518,17 @@ txregnet[sort(txregnet[["AvgNRR"]],index.return=TRUE)$ix,]
 We can plot the network with the function \verb+qpPlotNetwork+ as follows and
 obtain the result shown in Figure~3.
 
+<<txNet50pctpre, fig=TRUE, include=FALSE, echo=TRUE, results=verbatim, height=7, width=7>>=
+qpPlotNetwork(g, pairup.i=largestIQRgenesO2netTFs, pairup.j=largestIQRgenesO2net,
+              annotation="org.EcK12.eg.db")
+@
 \begin{figure}
 \label{fig:txregnet}
-\centerline{\includegraphics[width=0.6\textwidth]{qpTRnet50pctpre}}
+\centerline{\includegraphics[width=0.6\textwidth]{qpTxRegNet-txNet50pctpre}}
 \caption{Reverse-engineered transcriptional network using a qp-graph at a nominal
 50\% precision.}
 \end{figure}
 
-<<getthenet, eval=FALSE, echo=FALSE, results=hide>>=
-postscript(file="qpTRnet50pctpre.eps", onefile=FALSE, paper="a4",
-           pointsize=12, horizontal=FALSE, height=7, width=7)
-@
-<<getthenet, echo=TRUE, results=verbatim>>=
-qpPlotNetwork(g, pairup.i=largestIQRgenesO2netTFs, pairup.j=largestIQRgenesO2net,
-              annotation="org.EcK12.eg.db")
-@
-<<getthenet, eval=FALSE, echo=FALSE, results=hide>>=
-dev.off()
-@
 
 \section{Session Information}
 
