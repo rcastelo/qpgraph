@@ -18,8 +18,8 @@ employed to reverse engineer a molecular regulatory network.
 \details{
   \tabular{ll}{
   Package: \tab qpgraph\cr
-  Version: \tab 1.8.0\cr %%\Sexpr{packageDescription("qpgraph")[["Version"]]}\cr
-  Built: \tab R 2.13.0\cr %%\Sexpr{packageDescription("qpgraph")[["Built"]]}\cr
+  Version: \tab 1.10.0\cr %%\Sexpr{packageDescription("qpgraph")[["Version"]]}\cr
+  Built: \tab R 2.14.0\cr %%\Sexpr{packageDescription("qpgraph")[["Built"]]}\cr
   Depends: \tab methods\cr %%\Sexpr{packageDescription("qpgraph")[["Depends"]]}\cr
   Imports: \tab methods, annotate, Matrix, graph, Biobase, AnnotationDbi\cr %%\Sexpr{packageDescription("qpgraph")[["Imports"]]}\cr
   Enhances: \tab rlecuyer, snow, Rgraphviz\cr %%\Sexpr{packageDescription("qpgraph")[["Enhances"]]\cr
@@ -99,7 +99,7 @@ employed to reverse engineer a molecular regulatory network.
 This package provides an implementation of the procedures described in (Castelo
 and Roverato, 2006, 2009). An example of its use for reverse-engineering of
 transcriptional regulatory networks from microarray data is available in the
-vignette \code{qpTxRegNet}. This package is a contribution to the Bioconductor
+vignette \code{qpTxRegNet} and, the same directory, contains a pre-print of a book chapter describing the basic functionality of the package which serves the purpose of a basic users's guide. This package is a contribution to the Bioconductor
 (Gentleman et al., 2004) and gR (Lauritzen, 2002) projects.
 }
 
