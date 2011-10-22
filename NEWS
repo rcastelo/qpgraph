@@ -3,11 +3,13 @@ CHANGES IN VERSION 1.10
 
 NEW FEATURES
 
-    o estimation of mixed interactions for genetical genomics data
+    o estimation of mixed interactions for genetical genomics data via mixed graphical model theory.
 
-    o MLE of covariance matrices via the Hasti-Tibshirani-Friedman (HTF) algorithm
+    o qpBoundary() to explore sparsity in graphs estimated from non-rejection rates.
 
-    o uniform sampling of d-regular graphs with qpRndGraph()
+    o MLE of covariance matrices via the Hastie-Tibshirani-Friedman (HTF) algorithm (Hastie, Tibshirani and Friedman, 2009, pg. 634), which enables a much faster simulation of these matrices via qpG2Sigma() than with the previous version based on the IPF algorithm, and much faster MLE of partial correlations via qpPAC().
+
+    o uniform sampling of d-regular graphs in qpRndGraph() with the algorithm of Steger and Wormald (1990)
 
 BUG FIXES
 

@@ -2,7 +2,7 @@
 \alias{qpHTF}
 
 \title{
-Iterative proportional fitting algorithm
+Hastie Tibshirani Friedman algorithm
 }
 \description{
 Performs maximum likelihood estimation of a covariance matrix
@@ -28,9 +28,9 @@ graph. However, differently to the IPF, it works by going through each of the
 vertices fitting the marginal distribution over the corresponding vertex boundary.
 It stops when the adjusted matrix at the current iteration differs from the matrix
 at the previous iteration in less or equal than a given tolerance value. This
-algorithm was described by Hastie, Tibshirani and Friedman (2001), hence we name
-it here HTF, and it has the advantage over the IPF that it does not require the
-list of maximal cliques of the graph which may be exponentially very long. In
+algorithm is described by Hastie, Tibshirani and Friedman (2009, pg. 634), hence we
+name it here HTF, and it has the advantage over the IPF that it does not require the
+list of maximal cliques of the graph which may be exponentially large. In
 contrast, it requires that the maximum boundary size of the graph is below the
 number of samples where the input sample covariance matrix \code{S} was estimated.
 For the purpose of exploring qp-graphs that meet such a requirement, one can use
@@ -46,9 +46,9 @@ Castelo, R. and Roverato, A. A robust procedure for
 Gaussian graphical model search from microarray data with p larger than n.
 \emph{J. Mach. Learn. Res.}, 7:2621-2650, 2006.
 
-Hastie, T., Tibshirani, R. and Friedman, J. \emph{Statistical learning}, 2001.
+Hastie, T., Tibshirani, R. and Friedman, J.H. \emph{The Elements of Statistical Learning}, Springer, 2009.
 
-Whittaker, J. \emph{Graphical models in applied multivariate statistics.}
+Whittaker, J. \emph{Graphical Models in Applied Multivariate Statistics.}
 Wiley, 1990.
 
 }
