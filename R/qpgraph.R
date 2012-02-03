@@ -1597,7 +1597,8 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
   lambda <- c()
   for (k in 1:nTests) {
     Q <- c(sample(V, q-q.fix, rep=FALSE), fix.Q)
-    cit <- qpgraph:::.qpCItest(S, n, i, j, Q, R.code.only=TRUE)
+    cit <- qpgraph:::.qpCItest(S, n, as.integer(i), as.integer(j), as.integer(Q),
+                               R.code.only=TRUE)
     lambda  <- c(lambda, abs(cit$t.value))
   }
 
@@ -1706,7 +1707,8 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
   lambda <- a <- b <- thr <- rep(NA, times=nTests)
   for (k in 1:nTests) {
     Q <- c(sample(V, q-q.fix, rep=FALSE), fix.Q)
-    cit <- qpgraph:::.qpCItestHMGM(X, I, Y, ssdMat, mapX2ssdMat, i, j, Q, exact.test, R.code.only=TRUE)
+    cit <- qpgraph:::.qpCItestHMGM(X, I, Y, ssdMat, mapX2ssdMat, as.integer(i),
+                                   as.integer(j), as.integer(Q), exact.test, R.code.only=TRUE)
     if (!is.nan(cit$lr)) {
       lambda[k] <- cit$lr
       if (exact.test) {
@@ -1803,19 +1805,133 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
 ##                                      dimension is the one defining the random
 ##                                      variables, if FALSE then random variables
 ##                                      are assumed to be at the columns
+##             exact.test - employ an exact test when working with HMGMs
 ##             R.code.only - flag set to FALSE when using the C implementation
 ## return: a list with two members, the t-statistic value and the p-value
 ##         on rejecting the null hypothesis of independence
 
 setGeneric("qpCItest", function(X, ...) standardGeneric("qpCItest"))
 
+## X comes as an smlSet object
+##
+## setMethod("qpCItest", signature(X="smlSet"),
+##           function(X, i=1, j=2, Q=c(), R.code.only=FALSE) {
+##           })
+
 # X comes as an ExpressionSet object
 setMethod("qpCItest", signature(X="ExpressionSet"),
-          function(X, i=1, j=2, Q=c(), I=NULL, R.code.only=FALSE) {
-            X <- t(Biobase::exprs(X))
-            S <- qpCov(X)
-            N <- length(sampleNames(data))
-            qpgraph:::.qpCItest(S, N, i, j, Q, R.code.only)
+          function(X, i=1, j=2, Q=c(), exact.test=TRUE, R.code.only=FALSE) {
+            p <- nrow(X)
+            n <- ncol(X)
+            fNames <- Biobase::featureNames(X)
+            pNames <- colnames(Biobase::pData(X))
+            Xsub <- matrix(0, nrow=n, ncol=length(c(i, j, Q)))
+            colnames(Xsub) <- 1:length(c(i, j, Q))
+            x <- Y <- I <- c()
+
+            if (is.character(i)) {
+              if (is.na(match(i, fNames)) && is.na(match(i, pNames)))
+                stop(sprintf("i=%s does not form part of the variable names of the data\n", i))
+              if (!is.na(match(i, fNames))) ## then 'i' refers to an expression profile (cont.)
+                x <- Biobase::exprs(X)[i, ]
+              else ## then 'i' refers to a phenotypic variable (cont. or discrete)
+                x <- Biobase::pData(X)[, i]
+            } else {
+              if (i <= p) ## then 'i' refers to an expression profile (cont.)
+                x <- Biobase::exprs(X)[i, ]
+              else ## then 'i' refers to a phenotypic variable (cont. or discrete)
+                x <- Biobase::pData(X)[, i-p]
+            }
+
+            if (is.character(x) || is.factor(x)) {
+              Xsub[, 1] <- as.numeric(factor(x, levels=unique(x)))
+              I <- 1L
+            } else {
+              Xsub[, 1] <- as.numeric(x)
+              Y <- 1L
+            }
+
+            if (is.character(j)) {
+              if (is.na(match(j, fNames)) && is.na(match(j, pNames)))
+                stop(sprintf("j=%s does not form part of the variable names of the data\n", j))
+              if (!is.na(match(j, fNames))) ## then 'j' refers to an expression profile (cont.)
+                x <- Biobase::exprs(X)[j, ]
+              else ## then 'j' refers to a phenotypic variable (cont. or discrete)
+                x <- Biobase::pData(X)[, j]
+            } else {
+              if (j <= p) ## then 'j' refers to an expression profile (cont.)
+                x <- Biobase::exprs(X)[j, ]
+              else ## then 'j' refers to a phenotypic variable (cont. or discrete)
+                x <- Biobase::pData(X)[, j-p]
+            }
+
+            if (is.character(x) || is.factor(x)) {
+              Xsub[, 2] <- as.numeric(factor(x, levels=unique(x)))
+              I <- c(I, 2L)
+            } else {
+              Xsub[, 2] <- as.numeric(x)
+              Y <- c(Y, 2L)
+            }
+
+            if (is.character(Q)) {
+              Qe <- match(Q, fNames)
+              if (any(!is.na(Qe))) {
+                Xsub[, 3:(2+sum(!is.na(Qe)))] <- t(Biobase::exprs(X)[Qe[!is.na(Qe)], ])
+                Y <- c(Y, 3:(2+sum(!is.na(Qe))))
+              }
+              if (any(is.na(Qe))) { ## then some variables in Q should refer to phenotypic vars.
+                Qp <- match(Q[is.na(Qe)], pNames)
+                if (any(is.na(Qp)))
+                  stop(sprintf("Q=%s do(es) not form part of the variable names of the data\n", Q[is.na(Qe)]))
+                for (k in seq(along=Qp)) {
+                  x <- Biobase::pData(X)[, Qp[k]]
+                  if (is.character(x) || is.factor(x)) {
+                    Xsub[, (2+sum(!is.na(Qe))+k)] <- as.numeric(factor(x, levels=unique(x)))
+
+                    I <- c(I, 2L+sum(!is.na(Qe))+k)
+                  } else {
+                    Xsub[, (2+sum(!is.na(Qe))+k)] <- as.numeric(x)
+                    Y <- c(Y, 2L+sum(!is.na(Qe))+k)
+                  }
+                }
+              }
+              Q <- 3:length(c(i, j, Q))
+            } else if (!is.null(Q)) { ## if argument Q was empty, it should remain empty
+              cat("Q=", Q, "p=", p, "\n")
+              if (any(Q <= p)) { ## Q indices smaller or equal than p correspond to expression profiles
+                Xsub[, 3:(2+sum(Q <= p))] <- Biobase::exprs(X)[Q[Q <= p], ]
+                Y <- c(Y, 3:(2+sum(Q <= p)))
+              }
+              Qp <- which(Q > p) ## Q indices larger than p correspond to phenotypic variables
+              for (k in seq(along=Qp)) {
+                x <- Biobase::pData(X)[, Qp[k]]
+                if (is.character(x) || is.factor(x)) {
+                  Xsub[, (2+sum(Q <= p)+1):(2+length(c(i, j, Q)))] <- as.numeric(factor(x, levels=unique(x)))
+                  I <- c(I, 2L+sum(Q <= p)+k)
+                } else {
+                  Xsub[, (2+sum(Q <= p)+1):(2+length(c(i, j, Q)))] <- as.numeric(x)
+                  Y <- c(Y, 2L+sum(Q <= p)+k)
+                }
+              }
+              Q <- 3:length(c(i, j, Q))
+            }
+
+            if (is.null(I)) {
+              S <- qpCov(Xsub)
+              qpgraph:::.qpCItest(S, n, i=1L, j=2L, Q=as.integer(Q), R.code.only)
+            } else {
+              ssd <- qpCov(Xsub[, Y, drop=FALSE], corrected=FALSE)
+              mapX2ssd <- match(colnames(Xsub), colnames(ssd))
+              names(mapX2ssd) <- colnames(Xsub)
+
+              cit <- qpgraph:::.qpCItestHMGM(Xsub, I, Y, ssd, mapX2ssd, i=1L, j=2L,
+                                             as.integer(Q), exact.test, R.code.only)
+              if (is.nan(cit$lr))
+                warning(paste(sprintf("CI test unavailable for i=%s, j=%s and Q={",
+                                      i, j, paste(Q, collapse=", ")),
+                                      "}. Try a smaller Q or increase n if you can\n"))
+              cit
+            }
           })
 
 # X comes as a data frame
@@ -1833,11 +1949,37 @@ setMethod("qpCItest", signature(X="data.frame"),
             if (is.null(colnames(X)))
               colnames(X) <- 1:ncol(X)
 
+            if (is.character(i)) {
+              if (is.na(match(i, colnames(X))))
+                stop(sprintf("i=%s does not form part of the variable names of the data\n",i))
+              i <- match(i,colnames(X))
+            }
+
+            if (is.character(j)) {
+              if (is.na(match(j, colnames(X))))
+                stop(sprintf("j=%s does not form part of the variable names of the data\n",j))
+              j <- match(j,colnames(X))
+            }
+
+            if (is.character(Q)) {
+              if (any(is.na(match(Q, colnames(X)))))
+                stop(sprintf("%s in Q does not form part of the variable names of the data\n",
+                     Q[is.na(match(Q, colnames(X)))]))
+              Q <- match(Q, colnames(X))
+            }
+
+            if (is.character(I)) {
+              if (any(is.na(match(I, colnames(X)))))
+                stop(sprintf("%s in I does not form part of the variable names of the data\n",
+                     I[is.na(match(I, colnames(X)))]))
+              I <- match(I, colnames(X))
+            }
+
             if (is.null(I)) {
               S <- qpCov(X)
               n <- nrow(X)
 
-              qpgraph:::.qpCItest(S, n, i, j, Q, R.code.only)
+              qpgraph:::.qpCItest(S, n, as.integer(i), as.integer(j), as.integer(Q), R.code.only)
             } else {
               if (!is.character(I) && !is.numeric(I) && !is.integer(I))
                 stop("I should be either variables names or indices\n")
@@ -1848,11 +1990,19 @@ setMethod("qpCItest", signature(X="data.frame"),
               else
                 Y <- (1:ncol(X))[-I]
 
+              if (is.character(Y)) {
+                if (any(is.na(match(Y, colnames(X)))))
+                  stop(sprintf("Some variables in Y do not form part of the variable names in X\n",i))
+                Y <- match(Y, colnames(X))
+              }
+
               ssd <- qpCov(X[, Y, drop=FALSE], corrected=FALSE)
               mapX2ssd <- match(colnames(X), colnames(ssd))
               names(mapX2ssd) <- colnames(X)
 
-              cit <- qpgraph:::.qpCItestHMGM(X, I, Y, ssd, mapX2ssd, i, j, Q, exact.test, R.code.only)
+              cit <- qpgraph:::.qpCItestHMGM(X, I, Y, ssd, mapX2ssd, as.integer(i),
+                                             as.integer(j), as.integer(Q),
+                                             exact.test, R.code.only)
               if (is.nan(cit$lr))
                 warning(paste(sprintf("CI test unavailable for i=%s, j=%s and Q={",
                                       colnames(X)[i], colnames(X)[j]),
@@ -1878,6 +2028,32 @@ setMethod("qpCItest", signature(X="matrix"),
             if (is.null(colnames(X)))
               colnames(X) <- 1:ncol(X)
 
+            if (is.character(i)) {
+              if (is.na(match(i, colnames(X))))
+                stop(sprintf("i=%s does not form part of the variable names of the data\n",i))
+              i <- match(i,colnames(X))
+            }
+
+            if (is.character(j)) {
+              if (is.na(match(j, colnames(X))))
+                stop(sprintf("j=%s does not form part of the variable names of the data\n",j))
+              j <- match(j,colnames(X))
+            }
+
+            if (is.character(Q)) {
+              if (any(is.na(match(Q, colnames(X)))))
+                stop(sprintf("%s in Q does not form part of the variable names of the data\n",
+                     Q[is.na(match(Q, colnames(X)))]))
+              Q <- match(Q, colnames(X))
+            }
+
+            if (is.character(I)) {
+              if (any(is.na(match(I, colnames(X)))))
+                stop(sprintf("%s in I does not form part of the variable names of the data\n",
+                     I[is.na(match(I, colnames(X)))]))
+              I <- match(I, colnames(X))
+            }
+
             # if the matrix is squared let's assume then that it is the sample
             # covariance matrix and that the sample size is the next parameter
             if (nrow(X) != ncol(X)) {
@@ -1888,7 +2064,7 @@ setMethod("qpCItest", signature(X="matrix"),
                 S <- qpCov(X)
                 n <- nrow(X)
 
-                qpgraph:::.qpCItest(S, n, i, j, Q, R.code.only)
+                qpgraph:::.qpCItest(S, n, as.integer(i), as.integer(j), as.integer(Q), R.code.only)
               } else {
                 if (!is.character(I) && !is.numeric(I) && !is.integer(I))
                   stop("I should be either variables names or indices\n")
@@ -1899,11 +2075,19 @@ setMethod("qpCItest", signature(X="matrix"),
                 else
                   Y <- (1:ncol(X))[-I]
 
+                if (is.character(Y)) {
+                  if (any(is.na(match(Y, colnames(X)))))
+                    stop(sprintf("Some variables in Y do not form part of the variable names in X\n",i))
+                  Y <- match(Y, colnames(X))
+                }
+
                 ssd <- qpCov(X[, Y, drop=FALSE], corrected=FALSE)
                 mapX2ssd <- match(colnames(X), colnames(ssd))
                 names(mapX2ssd) <- colnames(X)
 
-                cit <- qpgraph:::.qpCItestHMGM(X, I, Y, ssd, mapX2ssd, i, j, Q, exact.test, R.code.only)
+                cit <- qpgraph:::.qpCItestHMGM(X, I, Y, ssd, mapX2ssd, as.integer(i),
+                                               as.integer(j), as.integer(Q),
+                                               exact.test, R.code.only)
                 if (is.nan(cit$lr))
                   warning(paste(sprintf("CI test unavailable for i=%s, j=%s and Q={",
                                         colnames(X)[i], colnames(X)[j]),
@@ -1920,7 +2104,7 @@ setMethod("qpCItest", signature(X="matrix"),
                 rownames(X) <- colnames(X)
 
               S <- X
-              qpgraph:::.qpCItest(S, n, i, j, Q, R.code.only)
+              qpgraph:::.qpCItest(S, n, as.integer(i), as.integer(j), as.integer(Q), R.code.only)
             }
           })
 
@@ -1930,24 +2114,8 @@ setMethod("qpCItest", signature(X="matrix"),
   if (p != d[2] || !isSymmetric(S))
     stop("S is not squared and symmetric. Is it really a covariance matrix?n")
 
-  if (is.character(i)) {
-    if (is.na(match(i, colnames(S))))
-      stop(sprintf("i=%s does not form part of the variable names of the data\n",i))
-    i <- match(i,colnames(S))
-  }
-
-  if (is.character(j)) {
-    if (is.na(match(j, colnames(S))))
-      stop(sprintf("j=%s does not form part of the variable names of the data\n",j))
-    j <- match(j,colnames(S))
-  }
-
-  if (is.character(Q)) {
-    if (any(is.na(match(Q, colnames(S)))))
-      stop(sprintf("%s in Q does not form part of the variable names of the data\n",
-           Q[is.na(match(Q, colnames(S)))]))
-    Q <- match(Q, colnames(S))
-  }
+  if (!is.integer(i) || !is.integer(j) || !is.integer(Q))
+    stop("i, j and Q should contain only integer values when calling .qpCItest()")
 
   if (!R.code.only) {
     # return(qpgraph:::.qpFastCItest(S, n, i, j, Q)); ### this should be definitively replaced at some point
@@ -1993,9 +2161,6 @@ setMethod("qpCItest", signature(X="matrix"),
 }
 
 .qpCItestHMGM <- function(X, I, Y, ssdMat, mapX2ssdMat, i, j, Q, exact.test=TRUE, R.code.only=FALSE ) {
-  if (all(!is.na(match(c(i,j), I))))
-    stop("i and j cannot be both discrete at the moment")
-
   p <- (d <- dim(ssdMat))[1]
   if (p != d[2] || !isSymmetric(ssdMat))
     stop("ssdMat is not squared and symmetric. Is it really a ssd matrix?\n")
@@ -2003,43 +2168,15 @@ setMethod("qpCItest", signature(X="matrix"),
   if (p != length(Y))
     stop("ssdMat is not the ssd matrix of the variables in Y\n")
 
-  if (is.null(rownames(ssdMat)) || is.null(colnames(ssdMat)) ||
-      any(is.na(match(colnames(ssdMat), colnames(X)))))
-    stop("ssdMat should have row and column names that match variables in X\n")
-
-  if (is.character(i)) {
-    if (is.na(match(i, colnames(X))))
-      stop(sprintf("i=%s does not form part of the variable names in X\n",i))
-    i <- match(i,colnames(X))
-  }
-
-  if (is.character(j)) {
-    if (is.na(match(j, colnames(X))))
-      stop(sprintf("j=%s does not form part of the variable names in X\n",j))
-    j <- match(j,colnames(X))
-  }
-
-  if (is.character(Q)) {
-    if (any(is.na(match(Q, colnames(X)))))
-      stop(sprintf("%s in Q does not form part of the variable names of the data\n",
-           Q[is.na(match(Q, colnames(X)))]))
-    Q <- match(Q, colnames(X))
-  }
-
-  if (is.character(I)) {
-    if (any(is.na(match(I, colnames(X)))))
-      stop(sprintf("Some variables in I do not form part of the variable names in X\n",i))
-    I <- match(I, colnames(X))
-  }
-
-  if (is.character(Y)) {
-    if (any(is.na(match(Y, colnames(X)))))
-      stop(sprintf("Some variables in Y do not form part of the variable names in X\n",i))
-    Y <- match(Y, colnames(X))
-  }
+  if (!is.integer(i) || !is.integer(j) || !is.integer(Q) || !is.integer(I) || !is.integer(Y))
+    stop("i, j, Y, I and Q should contain only integer values when calling .qpCItestHMGM()")
 
   if (all(!is.na(match(c(i,j), I))))
     stop("i and j cannot be both discrete at the moment")
+
+  if (is.null(rownames(ssdMat)) || is.null(colnames(ssdMat)) ||
+      any(is.na(match(colnames(ssdMat), colnames(X)))))
+    stop("ssdMat should have row and column names that match variables in X\n")
 
   if (!is.na(match(j, I))) { ## if any of (i,j) is discrete, it should be i
     tmp <- i
@@ -3263,7 +3400,7 @@ setMethod("qpPAC", signature(X="matrix"),
     ## using the clique list and the IPF algorithm
     Shat <- qpIPF(S, clqlst, tol=tol, verbose=verbose, R.code.only=R.code.only)
   } else
-    Shat <- qpHTF(S, A, verbose=verbose, R.code.only=R.code.only)
+    Shat <- qpHTF(S, A, tol=tol, verbose=verbose, R.code.only=R.code.only)
 
   ## estimate partial correlation coefficients and their standard errors
 

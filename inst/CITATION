@@ -22,7 +22,7 @@ citEntry(entry="Article",
   volume = "16",
   number = "2",
   pages = "213-27",
-  textVersion = paste("R Castelo and A Roverato.",
+  textVersion = paste("Castelo, R. and Roverato, A.",
                       "Reverse engineering molecular regulatory networks from microarray data with qp-graphs",
                       "J Comput Biol, 16(2):213-27, 2009.")
 )
