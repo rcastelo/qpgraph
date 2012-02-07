@@ -12,7 +12,7 @@ Performs a conditional independence test between two variables given
 a conditioning set.
 }
 \usage{
-\S4method{qpCItest}{ExpressionSet}(X, i=1, j=2, Q=c(), I=NULL, R.code.only=FALSE)
+\S4method{qpCItest}{ExpressionSet}(X, i=1, j=2, Q=c(), R.code.only=FALSE)
 \S4method{qpCItest}{data.frame}(X, i=1, j=2, Q=c(), I=NULL, long.dim.are.variables=TRUE,
                                 exact.test=TRUE, R.code.only=FALSE)
 \S4method{qpCItest}{matrix}(X, i=1, j=2, Q=c(), I=NULL, n=NULL, long.dim.are.variables=TRUE,
@@ -35,28 +35,32 @@ a conditioning set.
        that when data are in a data frame or in a matrix, the longer dimension
        is the one defining the random variables (default); if FALSE, then random
        variables are assumed to be at the columns of the data frame or matrix.}
-  \item{exact.test}{logical; if \code{FALSE} an asymptotic conditional independence
-       test is employed with mixed (i.e., continuous and discrete) data;
-       if \code{TRUE} (default) then an exact conditional independence test with
-       mixed data is employed. See details below regarding this argument.}
+  \item{exact.test}{logical; if \code{FALSE} an asymptotic likelihood ratio test of
+       conditional independence test is employed with mixed (i.e., continuous and discrete)
+       data; if \code{TRUE} (default) then an exact likelihood ratio test of conditional
+       independence with mixed data is employed. See details below regarding this argument.}
   \item{R.code.only}{logical; if FALSE then the faster C implementation is used
        (default); if TRUE then only R code is executed.}
 }
 \details{
-Note that the size of possible \code{Q} sets should be in the range 1 to
-\code{min(p,n-3)}, where \code{p} is the number of variables and \code{n}
+When variables in \code{i, j} and \code{Q} are continuous this function performs a
+conditional independence test using a t test for zero partial regression coefficient
+(Lauritzen, 1996, pg. 150). Note that the size of possible \code{Q} sets should be in
+the range 1 to \code{min(p,n-3)}, where \code{p} is the number of variables and \code{n}
 the number of observations. The computational cost increases linearly with
 the number of variables in \code{Q}.
 
-When \code{I} is set different to \code{NULL} then mixed graphical model theory
-is employed and, concretely, it is assumed that the data comes from an homogeneous
-conditional Gaussian distribution. In this setting further restrictions to the
-maximum value of \code{q} apply, concretely, it cannot be smaller than
-\code{p} plus the number of levels of the discrete variables involved in the
-marginal distributions employed by the algorithm. By default, with
-\code{exact.test=TRUE}, an exact test for conditional independence is employed,
-otherwise an asymptotic one will be used. Full details on these features can
-be found in Tur and Castelo (2011).
+When variables in \code{i, j} and \code{Q} are continuous and discrete (mixed data),
+indicated with the \code{I} argument when \code{X} is a matrix, then mixed graphical
+model theory (Lauritzen and Wermuth, 1989) is employed and, concretely, it is assumed
+that data come from an homogeneous conditional Gaussian distribution. By default, with
+\code{exact.test=TRUE}, an exact likelihood ratio test for conditional independence is
+performed (Lauritzen, 1996, pg. 192-194; Tur and Castelo, 2011), otherwise an asymptotic
+one is used.
+
+In this setting further restrictions to the maximum value of \code{q} apply, concretely,
+it cannot be smaller than \code{p} plus the number of levels of the discrete variables
+involved in the marginal distributions employed by the algorithm.
 }
 \value{
 A list with two members, the value of the statistic and its corresponding
@@ -66,6 +70,11 @@ P-value of rejecting the null hypothesis of conditional independence.
 Castelo, R. and Roverato, A. A robust procedure for
 Gaussian graphical model search from microarray data with p larger than n,
 \emph{J. Mach. Learn. Res.}, 7:2621-2650, 2006.
+
+Lauritzen, S.L. \emph{Graphical models}. Oxford University Press, 1996.
+
+Lauritzen, S.L and Wermuth, N. Graphical Models for associations between variables,
+some of which are qualitative and some quantitative. \emph{Ann. Stat.}, 17(1):31-57, 1989.
 
 Tur, I. and Castelo, R. Learning mixed graphical models from data with p larger than n,
 In \emph{Proc. 27th Conference on Uncertainty in Artificial Intelligence},
