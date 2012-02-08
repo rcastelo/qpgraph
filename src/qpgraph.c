@@ -1822,11 +1822,11 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR,
 */
 
 static SEXP
-qp_fast_ci_test_std(SEXP SR, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP C) {
+qp_fast_ci_test_std(SEXP SR, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP QR) {
   int    n = INTEGER(nR)[0];
   int    p = INTEGER(pR)[0];
   int    q;
-  int*   cond;
+  int*   Q;
   int    i,j,k;
   double t_value;
   double df;
@@ -1842,32 +1842,32 @@ qp_fast_ci_test_std(SEXP SR, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP C) {
   SEXP   class;
   SEXP   stat_name, param_name, pval_name, est_name, nullval_name;
 
-  PROTECT_INDEX Spi,Cpi;
+  PROTECT_INDEX Spi,Qpi;
 
-  PROTECT_WITH_INDEX(SR,&Spi);
-  PROTECT_WITH_INDEX(C,&Cpi);
+  PROTECT_WITH_INDEX(SR, &Spi);
+  PROTECT_WITH_INDEX(QR, &Qpi);
 
-  REPROTECT(SR = coerceVector(SR,REALSXP),Spi);
-  REPROTECT(C = coerceVector(C,INTSXP),Cpi);
+  REPROTECT(SR = coerceVector(SR, REALSXP), Spi);
+  REPROTECT(QR = coerceVector(QR, INTSXP), Qpi);
 
   i = INTEGER(iR)[0] - 1;
   j = INTEGER(jR)[0] - 1;
-  q = length(C);
+  q = length(QR);
 
   sprintf(dataname, "%s and %s given {", CHAR(STRING_ELT(getAttrib(iR, R_NamesSymbol), 0)),
           CHAR(STRING_ELT(getAttrib(jR, R_NamesSymbol), 0)));
-  cond = Calloc(q, int);
+  Q = Calloc(q, int);
   for (k=0;k<q;k++) {
-    cond[k] = INTEGER(C)[k]-1;
+    Q[k] = INTEGER(QR)[k]-1;
     if (k > 0)
       strcat(dataname, ", ");
-    strcat(dataname, CHAR(STRING_ELT(getAttrib(C, R_NamesSymbol), k)));
+    strcat(dataname, CHAR(STRING_ELT(getAttrib(QR, R_NamesSymbol), k)));
   }
   strcat(dataname, "}");
 
-  t_value = qp_ci_test_std(REAL(SR),p,n,i,j,cond,q,&beta);
+  t_value = qp_ci_test_std(REAL(SR), p, n, i, j, Q, q, &beta);
   df = n - q - 2;
-  p_value = 2.0 * (1.0 - pt(fabs(t_value),df,1,0));
+  p_value = 2.0 * (1.0 - pt(fabs(t_value), df, 1, 0));
 
   PROTECT(result = allocVector(VECSXP,8));
   SET_VECTOR_ELT(result,0,result_stat = allocVector(REALSXP,1));
@@ -1888,26 +1888,32 @@ qp_fast_ci_test_std(SEXP SR, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP C) {
   SET_STRING_ELT(result_names,6,mkChar("method"));
   SET_STRING_ELT(result_names,7,mkChar("data.name"));
   setAttrib(result,R_NamesSymbol,result_names);
+
   PROTECT(stat_name = allocVector(STRSXP,1));
   REAL(VECTOR_ELT(result,0))[0] = t_value;
   SET_STRING_ELT(stat_name,0,mkChar("t"));
   setAttrib(VECTOR_ELT(result,0),R_NamesSymbol,stat_name);
+
   PROTECT(param_name = allocVector(STRSXP,1));
   REAL(VECTOR_ELT(result,1))[0] = df;
   SET_STRING_ELT(param_name,0,mkChar("df"));
   setAttrib(VECTOR_ELT(result,1),R_NamesSymbol,param_name);
+
   PROTECT(pval_name = allocVector(STRSXP,1));
   REAL(VECTOR_ELT(result,2))[0] = p_value;
   SET_STRING_ELT(pval_name,0,mkChar("two.sided"));
   setAttrib(VECTOR_ELT(result,2),R_NamesSymbol,pval_name);
+
   PROTECT(est_name = allocVector(STRSXP,1));
   REAL(VECTOR_ELT(result,3))[0] = beta;
   SET_STRING_ELT(est_name,0,mkChar("beta"));
   setAttrib(VECTOR_ELT(result,3),R_NamesSymbol,est_name);
+
   PROTECT(nullval_name = allocVector(STRSXP,1));
   REAL(VECTOR_ELT(result,4))[0] = 0;
   SET_STRING_ELT(nullval_name,0,mkChar("partial regresion coefficient"));
   setAttrib(VECTOR_ELT(result,4),R_NamesSymbol,nullval_name);
+
   SET_STRING_ELT(VECTOR_ELT(result,5), 0, mkChar("two.sided"));
   SET_STRING_ELT(VECTOR_ELT(result,6), 0, mkChar("Conditional independence test for continuous data using a t test for zero partial regression coefficient"));
   SET_STRING_ELT(VECTOR_ELT(result,7), 0, mkChar(dataname));
@@ -1916,9 +1922,9 @@ qp_fast_ci_test_std(SEXP SR, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP C) {
   SET_STRING_ELT(class, 0, mkChar("htest"));
   installAttrib(result, R_ClassSymbol, class);
 
-  UNPROTECT(10); /* S C result result_names stat_name param_name pval_name est_name nullval_name class */
+  UNPROTECT(10); /* S QR result result_names stat_name param_name pval_name est_name nullval_name class */
 
-  Free(cond);
+  Free(Q);
 
   return result;
 }
@@ -1935,11 +1941,11 @@ qp_fast_ci_test_std(SEXP SR, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP C) {
 */
 
 static SEXP
-qp_fast_ci_test_opt(SEXP SR, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP C) {
+qp_fast_ci_test_opt(SEXP SR, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP QR) {
   int    n = INTEGER(nR)[0];
   int    p = INTEGER(pR)[0];
   int    q;
-  int*   cond;
+  int*   Q;
   int    i,j,k;
   double t_value;
   double df;
@@ -1955,32 +1961,32 @@ qp_fast_ci_test_opt(SEXP SR, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP C) {
   SEXP   class;
   SEXP   stat_name, param_name, pval_name, est_name, nullval_name;
 
-  PROTECT_INDEX Spi,Cpi;
+  PROTECT_INDEX Spi,Qpi;
 
-  PROTECT_WITH_INDEX(SR,&Spi);
-  PROTECT_WITH_INDEX(C,&Cpi);
+  PROTECT_WITH_INDEX(SR, &Spi);
+  PROTECT_WITH_INDEX(QR, &Qpi);
 
-  REPROTECT(SR = coerceVector(SR,REALSXP),Spi);
-  REPROTECT(C = coerceVector(C,INTSXP),Cpi);
+  REPROTECT(SR = coerceVector(SR, REALSXP), Spi);
+  REPROTECT(QR = coerceVector(QR, INTSXP), Qpi);
 
   i = INTEGER(iR)[0] - 1;
   j = INTEGER(jR)[0] - 1;
-  q = length(C);
+  q = length(QR);
 
   sprintf(dataname, "%s and %s given {", CHAR(STRING_ELT(getAttrib(iR, R_NamesSymbol), 0)),
           CHAR(STRING_ELT(getAttrib(jR, R_NamesSymbol), 0)));
-  cond = Calloc(q, int);
+  Q = Calloc(q, int);
   for (k=0;k<q;k++) {
-    cond[k] = INTEGER(C)[k]-1;
+    Q[k] = INTEGER(QR)[k]-1;
     if (k > 0)
       strcat(dataname, ", ");
-    strcat(dataname, CHAR(STRING_ELT(getAttrib(C, R_NamesSymbol), k)));
+    strcat(dataname, CHAR(STRING_ELT(getAttrib(QR, R_NamesSymbol), k)));
   }
   strcat(dataname, "}");
 
-  t_value = qp_ci_test_opt(REAL(SR),p,n,i,j,cond,q,NULL,&beta);
+  t_value = qp_ci_test_opt(REAL(SR), p, n, i, j, Q, q, NULL, &beta);
   df = n - q - 2;
-  p_value = 2.0 * (1.0 - pt(fabs(t_value),df,1,0));
+  p_value = 2.0 * (1.0 - pt(fabs(t_value), df, 1, 0));
 
   PROTECT(result = allocVector(VECSXP,8));
   SET_VECTOR_ELT(result,0,result_stat = allocVector(REALSXP,1));
@@ -2001,26 +2007,32 @@ qp_fast_ci_test_opt(SEXP SR, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP C) {
   SET_STRING_ELT(result_names,6,mkChar("method"));
   SET_STRING_ELT(result_names,7,mkChar("data.name"));
   setAttrib(result,R_NamesSymbol,result_names);
+
   PROTECT(stat_name = allocVector(STRSXP,1));
   REAL(VECTOR_ELT(result,0))[0] = t_value;
   SET_STRING_ELT(stat_name,0,mkChar("t"));
   setAttrib(VECTOR_ELT(result,0),R_NamesSymbol,stat_name);
+
   PROTECT(param_name = allocVector(STRSXP,1));
   REAL(VECTOR_ELT(result,1))[0] = df;
   SET_STRING_ELT(param_name,0,mkChar("df"));
   setAttrib(VECTOR_ELT(result,1),R_NamesSymbol,param_name);
+
   PROTECT(pval_name = allocVector(STRSXP,1));
   REAL(VECTOR_ELT(result,2))[0] = p_value;
   SET_STRING_ELT(pval_name,0,mkChar("two.sided"));
   setAttrib(VECTOR_ELT(result,2),R_NamesSymbol,pval_name);
+
   PROTECT(est_name = allocVector(STRSXP,1));
   REAL(VECTOR_ELT(result,3))[0] = beta;
   SET_STRING_ELT(est_name,0,mkChar("beta"));
   setAttrib(VECTOR_ELT(result,3),R_NamesSymbol,est_name);
+
   PROTECT(nullval_name = allocVector(STRSXP,1));
   REAL(VECTOR_ELT(result,4))[0] = 0;
   SET_STRING_ELT(nullval_name,0,mkChar("partial regresion coefficient"));
   setAttrib(VECTOR_ELT(result,4),R_NamesSymbol,nullval_name);
+
   SET_STRING_ELT(VECTOR_ELT(result,5), 0, mkChar("two.sided"));
   SET_STRING_ELT(VECTOR_ELT(result,6), 0, mkChar("Conditional independence test for continuous data using a t test for zero partial regression coefficient"));
   SET_STRING_ELT(VECTOR_ELT(result,7), 0, mkChar(dataname));
@@ -2029,9 +2041,9 @@ qp_fast_ci_test_opt(SEXP SR, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP C) {
   SET_STRING_ELT(class, 0, mkChar("htest"));
   installAttrib(result, R_ClassSymbol, class);
 
-  UNPROTECT(10); /* S C result result_names stat_name param_name pval_name est_name nullval_name class */
+  UNPROTECT(10); /* S QR result result_names stat_name param_name pval_name est_name nullval_name class */
 
-  Free(cond);
+  Free(Q);
 
   return result;
 }
@@ -2276,27 +2288,29 @@ qp_ci_test_opt(double* S, int n_var, int N, int i, int j, int* Q, int q,
 
 static SEXP
 qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
-                     SEXP mapX2ssdR, SEXP iR, SEXP jR, SEXP QR, SEXP exactTest) {
-  int     n = INTEGER(getAttrib(XR, R_DimSymbol))[0];
-  int     p = INTEGER(getAttrib(XR, R_DimSymbol))[1];
-  int     n_I = length(IR);
-  int     n_Y = length(YR);
-  int     q = length(QR);
-  int     i,j,k;
-  int*    I;
+                     SEXP mapX2ssdR, SEXP iR, SEXP jR, SEXP QR, SEXP exactTestR) {
+  int    n = INTEGER(getAttrib(XR, R_DimSymbol))[0];
+  int    p = INTEGER(getAttrib(XR, R_DimSymbol))[1];
+  int    n_I = length(IR);
+  int    n_Y = length(YR);
+  int    q = length(QR);
+  int    i,j,k;
+  int    exactTest = INTEGER(exactTestR)[0];
+  int*   I;
   int*    Y;
-  int*    Q;
-  int*    mapX2ssd;
-  double  p_value = R_NaReal;
-  double  lr_value;
-  double  df, a, b;
-  SEXP    result;
-  SEXP    result_names;
-  SEXP    result_lr;
-  SEXP    result_df;
-  SEXP    result_a;
-  SEXP    result_b;
-  SEXP    result_p_val;
+  int*   Q;
+  int*   mapX2ssd;
+  double lambda;
+  double df, a, b;
+  double p_value = R_NaReal;
+  char   dataname[4096];
+  SEXP   result;
+  SEXP   result_names;
+  SEXP   result_stat;
+  SEXP   result_param;
+  SEXP   result_p_val;
+  SEXP   class;
+  SEXP   stat_name, param_name, pval_name, nullval_name;
 
   PROTECT_INDEX ssd_pi;
 
@@ -2315,45 +2329,91 @@ qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
   for (k=0; k < n_Y; k++)
     Y[k] = INTEGER(YR)[k]-1;
 
+  sprintf(dataname, "%s and %s given {", CHAR(STRING_ELT(getAttrib(iR, R_NamesSymbol), 0)),
+          CHAR(STRING_ELT(getAttrib(jR, R_NamesSymbol), 0)));
   Q = Calloc(q, int);
-  for (k=0; k < q; k++)
+  for (k=0; k < q; k++) {
     Q[k] = INTEGER(QR)[k]-1;
+    if (k > 0)
+      strcat(dataname, ", ");
+    strcat(dataname, CHAR(STRING_ELT(getAttrib(QR, R_NamesSymbol), k)));
+  }
+  strcat(dataname, "}");
 
   mapX2ssd = Calloc(p, int);
   for (k=0; k < p; k++)
     mapX2ssd[k] = INTEGER(mapX2ssdR)[k]-1;
 
-  lr_value = qp_ci_test_hmgm(REAL(XR), p, n, I, n_I, INTEGER(n_levelsR), Y, n_Y,
-                             REAL(ssdR), mapX2ssd, i, j, Q, q, &df, &a, &b);
+  lambda = qp_ci_test_hmgm(REAL(XR), p, n, I, n_I, INTEGER(n_levelsR), Y, n_Y,
+                           REAL(ssdR), mapX2ssd, i, j, Q, q, &df, &a, &b);
 
-  if (!ISNAN(lr_value)) {
-    if (INTEGER(exactTest)[0]) {
-      lr_value = exp(lr_value / ((double) -n));
-      p_value = pbeta(lr_value, a, b, TRUE, FALSE);
+  if (!ISNAN(lambda)) {
+    if (exactTest) {
+      lambda = exp(lambda / ((double) -n));
+      p_value = pbeta(lambda, a, b, TRUE, FALSE);
     } else
-      p_value = 1.0 - pchisq(lr_value, df, TRUE, FALSE);
+      p_value = 1.0 - pchisq(lambda, df, TRUE, FALSE);
   }
 
-  PROTECT(result = allocVector(VECSXP,5));
-  SET_VECTOR_ELT(result,0,result_lr = allocVector(REALSXP,1));
-  SET_VECTOR_ELT(result,1,result_df = allocVector(REALSXP,1));
-  SET_VECTOR_ELT(result,2,result_a = allocVector(REALSXP,1));
-  SET_VECTOR_ELT(result,3,result_b = allocVector(REALSXP,1));
-  SET_VECTOR_ELT(result,4,result_p_val = allocVector(REALSXP,1));
-  PROTECT(result_names = allocVector(STRSXP,5));
-  SET_STRING_ELT(result_names,0,mkChar("lr"));
-  SET_STRING_ELT(result_names,1,mkChar("df"));
-  SET_STRING_ELT(result_names,2,mkChar("a"));
-  SET_STRING_ELT(result_names,3,mkChar("b"));
-  SET_STRING_ELT(result_names,4,mkChar("p.value"));
+  PROTECT(result = allocVector(VECSXP,8));
+  SET_VECTOR_ELT(result,0,result_stat = allocVector(REALSXP,1));
+  SET_VECTOR_ELT(result,1,result_param = allocVector(REALSXP,exactTest ? 2 : 1));
+  SET_VECTOR_ELT(result,2,result_p_val = allocVector(REALSXP,1));
+  SET_VECTOR_ELT(result,3,R_NilValue); /* no estimated parameter, could be h = mu x Sigma^{-1} */
+  SET_VECTOR_ELT(result,4,allocVector(REALSXP,1));
+  SET_VECTOR_ELT(result,5,allocVector(STRSXP, 1));
+  SET_VECTOR_ELT(result,6,allocVector(STRSXP, 1));
+  SET_VECTOR_ELT(result,7,allocVector(STRSXP, 1));
+  PROTECT(result_names = allocVector(STRSXP,8));
+  SET_STRING_ELT(result_names,0,mkChar("statistic"));
+  SET_STRING_ELT(result_names,1,mkChar("parameter"));
+  SET_STRING_ELT(result_names,2,mkChar("p.value"));
+  SET_STRING_ELT(result_names,3,mkChar("estimate"));
+  SET_STRING_ELT(result_names,4,mkChar("null.value"));
+  SET_STRING_ELT(result_names,5,mkChar("alternative"));
+  SET_STRING_ELT(result_names,6,mkChar("method"));
+  SET_STRING_ELT(result_names,7,mkChar("data.name"));
   setAttrib(result,R_NamesSymbol,result_names);
-  REAL(VECTOR_ELT(result,0))[0] = lr_value;
-  REAL(VECTOR_ELT(result,1))[0] = df;
-  REAL(VECTOR_ELT(result,2))[0] = a;
-  REAL(VECTOR_ELT(result,3))[0] = b;
-  REAL(VECTOR_ELT(result,4))[0] = p_value;
 
-  UNPROTECT(3); /* ssdR result result_names */
+  PROTECT(stat_name = allocVector(STRSXP,1));
+  REAL(VECTOR_ELT(result,0))[0] = lambda;
+  SET_STRING_ELT(stat_name,0,exactTest ? mkChar("Lambda") : mkChar("-n log Lambda"));
+  setAttrib(VECTOR_ELT(result,0),R_NamesSymbol,stat_name);
+
+  PROTECT(param_name = allocVector(STRSXP,exactTest ? 2 : 1));
+  if (exactTest) {
+    REAL(VECTOR_ELT(result,1))[0] = a;
+    REAL(VECTOR_ELT(result,1))[1] = b;
+    SET_STRING_ELT(param_name,0,mkChar("a"));
+    SET_STRING_ELT(param_name,1,mkChar("b"));
+    setAttrib(VECTOR_ELT(result,1),R_NamesSymbol,param_name);
+  } else {
+    REAL(VECTOR_ELT(result,1))[0] = df;
+    SET_STRING_ELT(param_name,0,mkChar("df"));
+    setAttrib(VECTOR_ELT(result,1),R_NamesSymbol,param_name);
+  }
+
+  PROTECT(pval_name = allocVector(STRSXP,1));
+  REAL(VECTOR_ELT(result,2))[0] = p_value;
+  SET_STRING_ELT(pval_name,0,exactTest ? mkChar("less") : mkChar("greater"));
+  setAttrib(VECTOR_ELT(result,2),R_NamesSymbol,pval_name);
+
+  PROTECT(nullval_name = allocVector(STRSXP,1));
+  REAL(VECTOR_ELT(result,4))[0] = exactTest ? 1 : 0;
+  SET_STRING_ELT(nullval_name,0,exactTest ? mkChar("Lambda") : mkChar("-n log Lambda"));
+  setAttrib(VECTOR_ELT(result,4),R_NamesSymbol,nullval_name);
+
+  SET_STRING_ELT(VECTOR_ELT(result,5), 0, exactTest ? mkChar("less") : mkChar("greater"));
+  SET_STRING_ELT(VECTOR_ELT(result,6), 0, exactTest ?
+                                          mkChar("Conditional independence test for homogeneous mixed data using an exact likelihood ratio test") :
+                                          mkChar("Conditional independence test for homogeneous mixed data using an asymptotic likelihood ratio test"));
+  SET_STRING_ELT(VECTOR_ELT(result,7), 0, mkChar(dataname));
+
+  PROTECT(class = allocVector(STRSXP, 1));
+  SET_STRING_ELT(class, 0, mkChar("htest"));
+  installAttrib(result, R_ClassSymbol, class);
+
+  UNPROTECT(8); /* ssdR result result_names stat_name param_name pval_name nullval_name class */
 
   Free(I);
   Free(Y);

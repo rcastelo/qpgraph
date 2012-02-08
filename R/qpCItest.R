@@ -285,6 +285,8 @@ setMethod("qpCItest", signature(X="matrix"),
               I <- match(I, colnames(X))
             }
 
+            RVAL <- NA
+
             # if the matrix is squared let's assume then that it is the sample
             # covariance matrix and that the sample size is the next parameter
             if (nrow(X) != ncol(X)) {
@@ -295,7 +297,7 @@ setMethod("qpCItest", signature(X="matrix"),
                 S <- qpCov(X)
                 n <- nrow(X)
 
-                qpgraph:::.qpCItest(S, n, i, j, Q, R.code.only)
+                RVAL <- qpgraph:::.qpCItest(S, n, i, j, Q, R.code.only)
               } else {
                 if (!is.character(I) && !is.numeric(I) && !is.integer(I))
                   stop("I should be either variables names or indices\n")
@@ -316,13 +318,12 @@ setMethod("qpCItest", signature(X="matrix"),
                 mapX2ssd <- match(colnames(X), colnames(ssd))
                 names(mapX2ssd) <- colnames(X)
 
-                cit <- qpgraph:::.qpCItestHMGM(X, I, Y, ssd, mapX2ssd, i, j, Q, exact.test, R.code.only)
-                if (is.nan(cit$statistic))
+                RVAL <- qpgraph:::.qpCItestHMGM(X, I, Y, ssd, mapX2ssd, i, j, Q, exact.test, R.code.only)
+                if (is.nan(RVAL$statistic))
                   warning(paste(sprintf("CI test unavailable for i=%s, j=%s and Q={",
                                         colnames(X)[i], colnames(X)[j]),
                                 paste(colnames(X)[Q], collapse=", "),
                                       "}. Try a smaller Q or increase n if you can\n"))
-                cit
               }
 
             } else {
@@ -333,8 +334,10 @@ setMethod("qpCItest", signature(X="matrix"),
                 rownames(X) <- colnames(X)
 
               S <- X
-              qpgraph:::.qpCItest(S, n, i, j, Q, R.code.only)
+              RVAL <- qpgraph:::.qpCItest(S, n, i, j, Q, R.code.only)
             }
+
+            return(RVAL)
           })
 
 .qpCItest <- function(S, n, i=1, j=2, Q=c(), R.code.only=FALSE) {
@@ -495,12 +498,14 @@ setMethod("qpCItest", signature(X="matrix"),
                   prod(nLevels[DeltaStar])*(nLevels[intersect(Delta, c(i,j))]-1)/2,
                   0.5)
       if (a > 0 && b > 0)
-        p.value <- pbeta(q=lr, shape1=a, shape2=b, lower.tail=TRUE)
-      else
+        p.value <- c(less = pbeta(q=lr, shape1=a, shape2=b, lower.tail=TRUE))
+      else {
         p.value <- a <- b <- NA
+        names(p.value) <- "less"
+      }
       stat <- lr
       names(stat) <- "Lambda"
-      param <- c(df=df, a=a, b=b)
+      param <- c(a=a, b=b)
       n.value <- c("Lambda" = 1)
       method  <- "Conditional independence test for homogeneous mixed data using an exact likelihood ratio test"
       alt <- "less"
@@ -512,9 +517,9 @@ setMethod("qpCItest", signature(X="matrix"),
       stat <- lr
       names(stat) <- "-n log Lambda"
       param <- c(df=df)
-      p.value <- 1 - pchisq(lr, df=df, lower.tail=TRUE)
+      p.value <- c(greater = 1 - pchisq(lr, df=df, lower.tail=TRUE))
       n.value <- c("-n log Lambda" = 0)
-      method  <- "Conditional independence test for homogeneous mixed data using an asymptotic likelihood ratio test, 1996, pg. 192-194; Tur and Castelo, 2011)"
+      method  <- "Conditional independence test for homogeneous mixed data using an asymptotic likelihood ratio test"
       alt <- "greater"
     }
   }
@@ -544,7 +549,6 @@ setMethod("qpCItest", signature(X="matrix"),
 .qpFastCItestHMGM <- function(X, I, Y, ssd, mapX2ssd, i, j, Q, exact.test) {
   nLevels <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
   return(.Call("qp_fast_ci_test_hmgm", X, I, nLevels, Y, ssd@x,
-               as.integer(mapX2ssd), as.integer(i), as.integer(j), as.integer(Q),
-               as.integer(exact.test)))
+               as.integer(mapX2ssd), i, j, Q, as.integer(exact.test)))
 }
 
