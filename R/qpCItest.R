@@ -347,8 +347,7 @@ setMethod("qpCItest", signature(X="matrix"),
     stop("i, j and Q should contain only integer values when calling .qpCItest()")
 
   if (!R.code.only) {
-    # return(qpgraph:::.qpFastCItest(S, n, i, j, Q)); ### this should be definitively replaced at some point
-    return(qpgraph:::.qpFastCItest2(S, n, i, j, Q));
+    return(qpgraph:::.qpFastCItestStd(S, n, i, j, Q));
   }
 
   q       <- length(Q)
@@ -534,12 +533,12 @@ setMethod("qpCItest", signature(X="matrix"),
 }
 
 
-.qpFastCItest <- function(S, n, i, j, Q=c()) {
-  return(.Call("qp_fast_ci_test", S@x, nrow(S), as.integer(n), as.integer(i), as.integer(j),
-               as.integer(Q)))
+.qpFastCItestStd <- function(S, n, i, j, Q=c()) {
+  return(.Call("qp_fast_ci_test_std", S@x, nrow(S), as.integer(n), i, j, Q))
 }
-.qpFastCItest2 <- function(S, n, i, j, Q=c()) {
-  return(.Call("qp_fast_ci_test2", S@x, nrow(S), as.integer(n), i, j, Q))
+
+.qpFastCItestOpt <- function(S, n, i, j, Q=c()) {
+  return(.Call("qp_fast_ci_test_opt", S@x, nrow(S), as.integer(n), i, j, Q))
 }
 
 .qpFastCItestHMGM <- function(X, I, Y, ssd, mapX2ssd, i, j, Q, exact.test) {

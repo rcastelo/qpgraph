@@ -149,15 +149,15 @@ sampleQs(int T, int q, int v_i, int v_j, int p, int* restrictQ, int* fixQ,
          int n_fQ, int* y);
 
 static SEXP
-qp_fast_ci_test(SEXP SR, SEXP n_varR, SEXP NR, SEXP iR, SEXP jR, SEXP C);
+qp_fast_ci_test_std(SEXP SR, SEXP n_varR, SEXP NR, SEXP iR, SEXP jR, SEXP C);
+static double
+qp_ci_test_std(double* S, int n_var, int N, int i, int j, int* C, int q, double*);
+
 static SEXP
-qp_fast_ci_test2(SEXP SR, SEXP n_varR, SEXP NR, SEXP iR, SEXP jR, SEXP C);
-
+qp_fast_ci_test_opt(SEXP SR, SEXP n_varR, SEXP NR, SEXP iR, SEXP jR, SEXP C);
 static double
-qp_ci_test(double* S, int n_var, int N, int i, int j, int* C, int q);
-static double
-qp_ci_test2(double* S, int n_var, int N, int i, int j, int* C, int q, double*,double*);
-
+qp_ci_test_opt(double* S, int n_var, int N, int i, int j, int* C, int q, double*,
+               double*);
 
 static SEXP
 qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
@@ -290,8 +290,8 @@ callMethods[] = {
   {"qp_fast_nrr_identicalQs_par", (DL_FUNC) &qp_fast_nrr_identicalQs_par, 16},
   {"qp_fast_edge_nrr", (DL_FUNC) &qp_fast_edge_nrr, 10},
   {"qp_fast_edge_nrr_hmgm", (DL_FUNC) &qp_fast_edge_nrr_hmgm, 14},
-  {"qp_fast_ci_test", (DL_FUNC) &qp_fast_ci_test, 6},
-  {"qp_fast_ci_test2", (DL_FUNC) &qp_fast_ci_test2, 6},
+  {"qp_fast_ci_test_std", (DL_FUNC) &qp_fast_ci_test_std, 6},
+  {"qp_fast_ci_test_opt", (DL_FUNC) &qp_fast_ci_test_opt, 6},
   {"qp_fast_ci_test_hmgm", (DL_FUNC) &qp_fast_ci_test_hmgm, 10},
   {"qp_fast_cliquer_get_cliques", (DL_FUNC) &qp_fast_cliquer_get_cliques, 3},
   {"qp_fast_update_cliques_removing", (DL_FUNC) &qp_fast_update_cliques_removing, 5},
@@ -1813,65 +1813,16 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR,
 
 
 /*
-  FUNCTION: qp_fast_ci_test
+  FUNCTION: qp_fast_ci_test_std
   PURPOSE: wrapper of the R-C interface for calling the function that performs
            a test for conditional independence between variables i and j
-           given de conditioning set C
+           given de conditioning set C using standard calculations
   RETURNS: a list with two members, the t-statistic value and the p-value
            on rejecting the null hypothesis of independence
 */
 
 static SEXP
-qp_fast_ci_test(SEXP SR, SEXP n_varR, SEXP NR, SEXP iR, SEXP jR, SEXP C) {
-  int    N = INTEGER(NR)[0];
-  int    n_var = INTEGER(n_varR)[0];
-  int    q;
-  int*   cond;
-  int    i,j,k;
-  double p_value;
-  double t_value;
-  SEXP   result;
-  SEXP   result_names;
-  SEXP   result_t_val;
-  SEXP   result_p_val;
-
-  PROTECT_INDEX Spi,Cpi;
-
-  PROTECT_WITH_INDEX(SR,&Spi);
-  PROTECT_WITH_INDEX(C,&Cpi);
-
-  REPROTECT(SR = coerceVector(SR,REALSXP),Spi);
-  REPROTECT(C = coerceVector(C,INTSXP),Cpi);
-
-  i = INTEGER(iR)[0] - 1;
-  j = INTEGER(jR)[0] - 1;
-  q = length(C);
-
-  cond = Calloc(q, int);
-  for (k=0;k<q;k++)
-    cond[k] = INTEGER(C)[k]-1;
-
-  t_value = qp_ci_test(REAL(SR),n_var,N,i,j,cond,q);
-  p_value = 2.0 * (1.0 - pt(fabs(t_value),N-q-2,1,0));
-
-  PROTECT(result = allocVector(VECSXP,2));
-  SET_VECTOR_ELT(result,0,result_t_val = allocVector(REALSXP,1));
-  SET_VECTOR_ELT(result,1,result_p_val = allocVector(REALSXP,1));
-  PROTECT(result_names = allocVector(STRSXP,2));
-  SET_STRING_ELT(result_names,0,mkChar("t.value"));
-  SET_STRING_ELT(result_names,1,mkChar("p.value"));
-  setAttrib(result,R_NamesSymbol,result_names);
-  REAL(VECTOR_ELT(result,0))[0] = t_value;
-  REAL(VECTOR_ELT(result,1))[0] = p_value;
-
-  UNPROTECT(4); /* S C result result_names */
-
-  Free(cond);
-
-  return result;
-}
-static SEXP
-qp_fast_ci_test2(SEXP SR, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP C) {
+qp_fast_ci_test_std(SEXP SR, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP C) {
   int    n = INTEGER(nR)[0];
   int    p = INTEGER(pR)[0];
   int    q;
@@ -1914,7 +1865,7 @@ qp_fast_ci_test2(SEXP SR, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP C) {
   }
   strcat(dataname, "}");
 
-  t_value = qp_ci_test2(REAL(SR),p,n,i,j,cond,q,NULL,&beta);
+  t_value = qp_ci_test_std(REAL(SR),p,n,i,j,cond,q,&beta);
   df = n - q - 2;
   p_value = 2.0 * (1.0 - pt(fabs(t_value),df,1,0));
 
@@ -1975,15 +1926,128 @@ qp_fast_ci_test2(SEXP SR, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP C) {
 
 
 /*
-  FUNCTION: qp_ci_test
+  FUNCTION: qp_fast_ci_test_opt
+  PURPOSE: wrapper of the R-C interface for calling the function that performs
+           a test for conditional independence between variables i and j
+           given de conditioning set C using optimized calculations
+  RETURNS: a list with two members, the t-statistic value and the p-value
+           on rejecting the null hypothesis of independence
+*/
+
+static SEXP
+qp_fast_ci_test_opt(SEXP SR, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP C) {
+  int    n = INTEGER(nR)[0];
+  int    p = INTEGER(pR)[0];
+  int    q;
+  int*   cond;
+  int    i,j,k;
+  double t_value;
+  double df;
+  double p_value;
+  double beta;
+  char   dataname[4096];
+  SEXP   result;
+  SEXP   result_names;
+  SEXP   result_stat;
+  SEXP   result_param;
+  SEXP   result_p_val;
+  SEXP   result_est;
+  SEXP   class;
+  SEXP   stat_name, param_name, pval_name, est_name, nullval_name;
+
+  PROTECT_INDEX Spi,Cpi;
+
+  PROTECT_WITH_INDEX(SR,&Spi);
+  PROTECT_WITH_INDEX(C,&Cpi);
+
+  REPROTECT(SR = coerceVector(SR,REALSXP),Spi);
+  REPROTECT(C = coerceVector(C,INTSXP),Cpi);
+
+  i = INTEGER(iR)[0] - 1;
+  j = INTEGER(jR)[0] - 1;
+  q = length(C);
+
+  sprintf(dataname, "%s and %s given {", CHAR(STRING_ELT(getAttrib(iR, R_NamesSymbol), 0)),
+          CHAR(STRING_ELT(getAttrib(jR, R_NamesSymbol), 0)));
+  cond = Calloc(q, int);
+  for (k=0;k<q;k++) {
+    cond[k] = INTEGER(C)[k]-1;
+    if (k > 0)
+      strcat(dataname, ", ");
+    strcat(dataname, CHAR(STRING_ELT(getAttrib(C, R_NamesSymbol), k)));
+  }
+  strcat(dataname, "}");
+
+  t_value = qp_ci_test_opt(REAL(SR),p,n,i,j,cond,q,NULL,&beta);
+  df = n - q - 2;
+  p_value = 2.0 * (1.0 - pt(fabs(t_value),df,1,0));
+
+  PROTECT(result = allocVector(VECSXP,8));
+  SET_VECTOR_ELT(result,0,result_stat = allocVector(REALSXP,1));
+  SET_VECTOR_ELT(result,1,result_param = allocVector(REALSXP,1));
+  SET_VECTOR_ELT(result,2,result_p_val = allocVector(REALSXP,1));
+  SET_VECTOR_ELT(result,3,result_est = allocVector(REALSXP,1));
+  SET_VECTOR_ELT(result,4,allocVector(REALSXP,1));
+  SET_VECTOR_ELT(result,5,allocVector(STRSXP, 1));
+  SET_VECTOR_ELT(result,6,allocVector(STRSXP, 1));
+  SET_VECTOR_ELT(result,7,allocVector(STRSXP, 1));
+  PROTECT(result_names = allocVector(STRSXP,8));
+  SET_STRING_ELT(result_names,0,mkChar("statistic"));
+  SET_STRING_ELT(result_names,1,mkChar("parameter"));
+  SET_STRING_ELT(result_names,2,mkChar("p.value"));
+  SET_STRING_ELT(result_names,3,mkChar("estimate"));
+  SET_STRING_ELT(result_names,4,mkChar("null.value"));
+  SET_STRING_ELT(result_names,5,mkChar("alternative"));
+  SET_STRING_ELT(result_names,6,mkChar("method"));
+  SET_STRING_ELT(result_names,7,mkChar("data.name"));
+  setAttrib(result,R_NamesSymbol,result_names);
+  PROTECT(stat_name = allocVector(STRSXP,1));
+  REAL(VECTOR_ELT(result,0))[0] = t_value;
+  SET_STRING_ELT(stat_name,0,mkChar("t"));
+  setAttrib(VECTOR_ELT(result,0),R_NamesSymbol,stat_name);
+  PROTECT(param_name = allocVector(STRSXP,1));
+  REAL(VECTOR_ELT(result,1))[0] = df;
+  SET_STRING_ELT(param_name,0,mkChar("df"));
+  setAttrib(VECTOR_ELT(result,1),R_NamesSymbol,param_name);
+  PROTECT(pval_name = allocVector(STRSXP,1));
+  REAL(VECTOR_ELT(result,2))[0] = p_value;
+  SET_STRING_ELT(pval_name,0,mkChar("two.sided"));
+  setAttrib(VECTOR_ELT(result,2),R_NamesSymbol,pval_name);
+  PROTECT(est_name = allocVector(STRSXP,1));
+  REAL(VECTOR_ELT(result,3))[0] = beta;
+  SET_STRING_ELT(est_name,0,mkChar("beta"));
+  setAttrib(VECTOR_ELT(result,3),R_NamesSymbol,est_name);
+  PROTECT(nullval_name = allocVector(STRSXP,1));
+  REAL(VECTOR_ELT(result,4))[0] = 0;
+  SET_STRING_ELT(nullval_name,0,mkChar("partial regresion coefficient"));
+  setAttrib(VECTOR_ELT(result,4),R_NamesSymbol,nullval_name);
+  SET_STRING_ELT(VECTOR_ELT(result,5), 0, mkChar("two.sided"));
+  SET_STRING_ELT(VECTOR_ELT(result,6), 0, mkChar("Conditional independence test for continuous data using a t test for zero partial regression coefficient"));
+  SET_STRING_ELT(VECTOR_ELT(result,7), 0, mkChar(dataname));
+
+  PROTECT(class = allocVector(STRSXP, 1));
+  SET_STRING_ELT(class, 0, mkChar("htest"));
+  installAttrib(result, R_ClassSymbol, class);
+
+  UNPROTECT(10); /* S C result result_names stat_name param_name pval_name est_name nullval_name class */
+
+  Free(cond);
+
+  return result;
+}
+
+
+
+/*
+  FUNCTION: qp_ci_test_std
   PURPOSE: perform a test for conditional independence between variables
-           indexed by i and j given the conditioning set Q
+           indexed by i and j given the conditioning set Q using standard calculations
   RETURNS: a list with two members, the t-statistic value and the p-value
            on rejecting the null hypothesis of independence
 */
 
 static double
-qp_ci_test(double* S, int n_var, int N, int i, int j, int* Q, int q) {
+qp_ci_test_std(double* S, int n_var, int N, int i, int j, int* Q, int q, double* beta) {
   int*    subvars;
   int     subn = q + 2;
   int     k,l;
@@ -2062,6 +2126,9 @@ qp_ci_test(double* S, int n_var, int N, int i, int j, int* Q, int q) {
   /* t.value <- betahat / se */
   t_value = betahat / se;
 
+  if (beta != NULL)
+    *beta = betahat;
+
   Free(S22inv1col);
   Free(S22inv);
   Free(S22);
@@ -2076,16 +2143,22 @@ qp_ci_test(double* S, int n_var, int N, int i, int j, int* Q, int q) {
 
 
 /*
-  FUNCTION: qp_ci_test2
+  FUNCTION: qp_ci_test_opt
   PURPOSE: perform a test for conditional independence between variables
-           indexed by i and j given the conditioning set Q. this version
-           is more efficient than the original one.
+           indexed by i and j given the conditioning set Q using optimized
+           calculations that allow one to use inverted sample covariance
+           matrices of the conditioning sets pre-calculated beforehand, thus
+           enabling using a common subset of conditioning sets for all pairs
+           of variables which significantly decreases the overall computational
+           cost of estimating non-rejection rates for a large number of
+           pairs of variables
   RETURNS: a list with two members, the t-statistic value and the p-value
            on rejecting the null hypothesis of independence
 */
 
 static double
-qp_ci_test2(double* S, int n_var, int N, int i, int j, int* Q, int q, double* Qinv, double* beta) {
+qp_ci_test_opt(double* S, int n_var, int N, int i, int j, int* Q, int q,
+               double* Qinv, double* beta) {
   int*    subvars;
   int     subn = q + 2;
   int     k,l;
@@ -2669,7 +2742,7 @@ qp_edge_nrr(double* S, int p, int n, int i, int j, int q, int* restrictQ, int n_
   for (k = 0; k < nTests; k++) {
     double t_value;
 
-    t_value = qp_ci_test(S, p, n, i, j, (int*) (q_by_T_samples+k*q), q);
+    t_value = qp_ci_test_std(S, p, n, i, j, (int*) (q_by_T_samples+k*q), q, NULL);
 
     if (fabs(t_value) < thr)
       nAcceptedTests++;
@@ -2712,7 +2785,8 @@ qp_edge_nrr_identicalQs(double* S, int n_var, int* Qs, double* Qinvs, int N, int
       int m;
       int* Q;
       Q=Qs+k*q;
-      t_value = qp_ci_test2(S, n_var, N, i, j, (int*) (Qs+k*q), q, (double*) (Qinvs+k*q*q), NULL);
+      t_value = qp_ci_test_opt(S, n_var, N, i, j, (int*) (Qs+k*q), q,
+                               (double*) (Qinvs+k*q*q), NULL);
 
       if (fabs(t_value) < thr)
         nAcceptedTests++;
