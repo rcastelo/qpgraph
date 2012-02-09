@@ -110,6 +110,7 @@ setMethod("qpCItest", signature(X="ExpressionSet"),
                 }
               }
               Q <- 3:length(c(i, j, Q))
+              names(Q) <- nam_Q
             } else if (!is.null(Q)) { ## if argument Q was empty, it should remain empty
               if (any(Q <= p)) { ## Q indices smaller or equal than p correspond to expression profiles
                 Xsub[, 3:(2+sum(Q <= p))] <- Biobase::exprs(X)[Q[Q <= p], ]
@@ -117,34 +118,42 @@ setMethod("qpCItest", signature(X="ExpressionSet"),
               }
               Qp <- which(Q > p) ## Q indices larger than p correspond to phenotypic variables
               for (k in seq(along=Qp)) {
-                x <- Biobase::pData(X)[, Qp[k]]
+                x <- Biobase::pData(X)[, Q[Qp[k]]-p]
                 if (is.character(x) || is.factor(x)) {
-                  Xsub[, (2+sum(Q <= p)+1):(2+length(c(i, j, Q)))] <- as.numeric(factor(x, levels=unique(x)))
+                  Xsub[, 2L+sum(Q <= p)+k] <- as.numeric(factor(x, levels=unique(x)))
                   I <- c(I, 2L+sum(Q <= p)+k)
                 } else {
-                  Xsub[, (2+sum(Q <= p)+1):(2+length(c(i, j, Q)))] <- as.numeric(x)
+                  Xsub[, 2L+sum(Q <= p)+k] <- as.numeric(x)
                   Y <- c(Y, 2L+sum(Q <= p)+k)
                 }
               }
               Q <- 3:length(c(i, j, Q))
+              names(Q) <- nam_Q
             }
-            names(Q) <- nam_Q
+
+            rval <- NA
 
             if (is.null(I)) {
               S <- qpCov(Xsub)
-              qpgraph:::.qpCItest(S, n, i, j, Q, R.code.only)
+              rval <- qpgraph:::.qpCItest(S, n, i, j, Q, R.code.only)
             } else {
               ssd <- qpCov(Xsub[, Y, drop=FALSE], corrected=FALSE)
               mapX2ssd <- match(colnames(Xsub), colnames(ssd))
               names(mapX2ssd) <- colnames(Xsub)
 
-              cit <- qpgraph:::.qpCItestHMGM(Xsub, I, Y, ssd, mapX2ssd, i, j, Q, exact.test, R.code.only)
-              if (is.nan(cit$statistic))
+              rval <- qpgraph:::.qpCItestHMGM(Xsub, I, Y, ssd, mapX2ssd, i, j, Q,
+                                              exact.test, R.code.only)
+              if (is.nan(rval$statistic))
                 warning(paste(sprintf("CI test unavailable for i=%s, j=%s and Q={",
                                       i, j, paste(Q, collapse=", ")),
                                       "}. Try a smaller Q or increase n if you can\n"))
-              cit
             }
+
+            class(rval) <- "htest" ## this is kind of redundant but otherwise
+                                   ## the object returned by the C function does
+                                   ## not print by default as a 'htest' object
+
+            return(rval)
           })
 
 # X comes as a data frame
@@ -198,11 +207,13 @@ setMethod("qpCItest", signature(X="data.frame"),
               I <- match(I, colnames(X))
             }
 
+            rval <- NA
+
             if (is.null(I)) {
               S <- qpCov(X)
               n <- nrow(X)
 
-              qpgraph:::.qpCItest(S, n, i, j, Q, R.code.only)
+              rval <- qpgraph:::.qpCItest(S, n, i, j, Q, R.code.only)
             } else {
               if (!is.character(I) && !is.numeric(I) && !is.integer(I))
                 stop("I should be either variables names or indices\n")
@@ -223,14 +234,19 @@ setMethod("qpCItest", signature(X="data.frame"),
               mapX2ssd <- match(colnames(X), colnames(ssd))
               names(mapX2ssd) <- colnames(X)
 
-              cit <- qpgraph:::.qpCItestHMGM(X, I, Y, ssd, mapX2ssd, i, j, Q, exact.test, R.code.only)
-              if (is.nan(cit$statistic))
+              rval <- qpgraph:::.qpCItestHMGM(X, I, Y, ssd, mapX2ssd, i, j, Q, exact.test, R.code.only)
+              if (is.nan(rval$statistic))
                 warning(paste(sprintf("CI test unavailable for i=%s, j=%s and Q={",
                                       colnames(X)[i], colnames(X)[j]),
                               paste(colnames(X)[Q], collapse=", "),
                                     "}. Try a smaller Q or increase n if you can\n"))
-              cit
             }
+
+            class(rval) <- "htest" ## this is kind of redundant but otherwise
+                                   ## the object returned by the C function does
+                                   ## not print by default as a 'htest' object
+
+            return(rval)
           })
 
           
@@ -285,7 +301,7 @@ setMethod("qpCItest", signature(X="matrix"),
               I <- match(I, colnames(X))
             }
 
-            RVAL <- NA
+            rval <- NA
 
             # if the matrix is squared let's assume then that it is the sample
             # covariance matrix and that the sample size is the next parameter
@@ -297,7 +313,7 @@ setMethod("qpCItest", signature(X="matrix"),
                 S <- qpCov(X)
                 n <- nrow(X)
 
-                RVAL <- qpgraph:::.qpCItest(S, n, i, j, Q, R.code.only)
+                rval <- qpgraph:::.qpCItest(S, n, i, j, Q, R.code.only)
               } else {
                 if (!is.character(I) && !is.numeric(I) && !is.integer(I))
                   stop("I should be either variables names or indices\n")
@@ -318,8 +334,8 @@ setMethod("qpCItest", signature(X="matrix"),
                 mapX2ssd <- match(colnames(X), colnames(ssd))
                 names(mapX2ssd) <- colnames(X)
 
-                RVAL <- qpgraph:::.qpCItestHMGM(X, I, Y, ssd, mapX2ssd, i, j, Q, exact.test, R.code.only)
-                if (is.nan(RVAL$statistic))
+                rval <- qpgraph:::.qpCItestHMGM(X, I, Y, ssd, mapX2ssd, i, j, Q, exact.test, R.code.only)
+                if (is.nan(rval$statistic))
                   warning(paste(sprintf("CI test unavailable for i=%s, j=%s and Q={",
                                         colnames(X)[i], colnames(X)[j]),
                                 paste(colnames(X)[Q], collapse=", "),
@@ -334,19 +350,23 @@ setMethod("qpCItest", signature(X="matrix"),
                 rownames(X) <- colnames(X)
 
               S <- X
-              RVAL <- qpgraph:::.qpCItest(S, n, i, j, Q, R.code.only)
+              rval <- qpgraph:::.qpCItest(S, n, i, j, Q, R.code.only)
             }
 
-            return(RVAL)
+            class(rval) <- "htest" ## this is kind of redundant but otherwise
+                                   ## the object returned by the C function does
+                                   ## not print by default as a 'htest' object
+
+            return(rval)
           })
 
-.qpCItest <- function(S, n, i=1, j=2, Q=c(), R.code.only=FALSE) {
+.qpCItest <- function(S, n, i=1L, j=2L, Q=c(), R.code.only=FALSE) {
 
   p <- (d <- dim(S))[1]
   if (p != d[2] || !isSymmetric(S))
     stop("S is not squared and symmetric. Is it really a covariance matrix?n")
 
-  if (!is.integer(i) || !is.integer(j) || !is.integer(Q))
+  if (!is.integer(i) || !is.integer(j) || (!is.null(Q) && !is.integer(Q)))
     stop("i, j and Q should contain only integer values when calling .qpCItest()")
 
   if (!R.code.only) {
@@ -413,7 +433,7 @@ setMethod("qpCItest", signature(X="matrix"),
   if (p != length(Y))
     stop("ssdMat is not the ssd matrix of the variables in Y\n")
 
-  if (!is.integer(i) || !is.integer(j) || !is.integer(Q) || !is.integer(I) || !is.integer(Y))
+  if (!is.integer(i) || !is.integer(j) || (!is.null(Q) && !is.integer(Q)) || (!is.null(I) && !is.integer(I)) || !is.integer(Y))
     stop("i, j, Y, I and Q should contain only integer values when calling .qpCItestHMGM()")
 
   if (all(!is.na(match(c(i,j), I))))
@@ -538,11 +558,11 @@ setMethod("qpCItest", signature(X="matrix"),
 }
 
 
-.qpFastCItestStd <- function(S, n, i, j, Q=c()) {
+.qpFastCItestStd <- function(S, n, i, j, Q) {
   return(.Call("qp_fast_ci_test_std", S@x, nrow(S), as.integer(n), i, j, Q))
 }
 
-.qpFastCItestOpt <- function(S, n, i, j, Q=c()) {
+.qpFastCItestOpt <- function(S, n, i, j, Q) {
   return(.Call("qp_fast_ci_test_opt", S@x, nrow(S), as.integer(n), i, j, Q))
 }
 
@@ -551,4 +571,3 @@ setMethod("qpCItest", signature(X="matrix"),
   return(.Call("qp_fast_ci_test_hmgm", X, I, nLevels, Y, ssd@x,
                as.integer(mapX2ssd), i, j, Q, as.integer(exact.test)))
 }
-
