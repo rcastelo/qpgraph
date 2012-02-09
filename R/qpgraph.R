@@ -3,7 +3,7 @@
 ##                   to interact with microarray data in order to build network
 ##                   models of molecular regulation
 ##
-## Copyright (C) 2011 R. Castelo and A. Roverato
+## Copyright (C) 2012 R. Castelo and A. Roverato, with contributions of Inma Tur
 ## This program is free software; you can redistribute it and/or
 ## modify it under the terms of the GNU General Public License
 ## as published by the Free Software Foundation; either version 2

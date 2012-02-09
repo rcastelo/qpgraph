@@ -20,15 +20,212 @@
 setGeneric("qpCItest", function(X, ...) standardGeneric("qpCItest"))
 
 ## X comes as an smlSet object
-##
-## setMethod("qpCItest", signature(X="smlSet"),
-##           function(X, i=1, j=2, Q=c(), R.code.only=FALSE) {
-##           })
 
-# X comes as an ExpressionSet object
+setMethod("qpCItest", signature(X="smlSet"),
+          function(X, i=1, j=2, Q=c(), exact.test=TRUE, R.code.only=FALSE) {
+            p <- as.integer(nrow(X))
+            h <- as.integer(ncol(pData(X)))
+            sByChr <- sapply(smList(X), ncol)
+            cumsum_sByChr <- c(0, cumsum(sByChr))
+            s <- sum(sByChr)
+            n <- as.integer(ncol(X))
+            fNames <- Biobase::featureNames(X)
+            pNames <- colnames(Biobase::pData(X))
+            sNamesByChr <- lapply(smList(X), colnames)
+            sNames <- unlist(sNamesByChr, use.names=FALSE)
+            Xsub <- matrix(0, nrow=n, ncol=length(c(i, j, Q)))
+            colnames(Xsub) <- 1:length(c(i, j, Q))
+            x <- Y <- I <- c()
+
+            nam_i <- i
+            if (is.character(i)) {
+              smt <- match(i, sNames)
+              if (is.na(match(i, fNames)) && is.na(match(i, pNames)) && is.na(smt))
+                stop(sprintf("i=%s does not form part of the variable names of the data\n", i))
+              if (!is.na(match(i, fNames))) ## then 'i' refers to an expression profile (cont.)
+                x <- Biobase::exprs(X)[i, ]
+              else if (!is.na(match(i, pNames))) ## then 'i' refers to a phenotypic variable (cont. or discrete)
+                x <- Biobase::pData(X)[, i]
+              else { ## then 'i' refers to a SNP genotype (discrete)
+                x <- as(smList(X)[[sum(cumsum_sByChr < smt)]][, i], "character")
+                if (any(x == "Uncertain"))
+                  stop(sprintf("i=%s has uncertain genotype calls\n", i))
+              }
+            } else {
+              if (i <= p) ## then 'i' refers to an expression profile (cont.)
+                x <- Biobase::exprs(X)[i, ]
+              else if (i <= p+h) ## then 'i' refers to a phenotypic variable (cont. or discrete)
+                x <- Biobase::pData(X)[, i-p]
+              else { ## then 'i' refers to a SNP genotype (discrete)
+                x <- as(smList(X)[[sum(cumsum_sByChr < i-p-h)]][, i-p-h-cumsum_sByChr[sum(cumsum_sByChr < i-p-h)] ], "character")[, 1]
+                if (any(x == "Uncertain"))
+                  warning(sprintf("i=%s has uncertain genotype calls\n", i))
+                x[x == "Uncertain" | x == "NA"] <- NA
+              }
+            }
+            i <- 1L
+            names(i) <- nam_i
+
+            if (is.character(x) || is.factor(x)) {
+              Xsub[, 1] <- as.numeric(factor(x, levels=unique(x)))
+              I <- 1L
+            } else {
+              Xsub[, 1] <- as.numeric(x)
+              Y <- 1L
+            }
+
+            nam_j <- j
+            if (is.character(j)) {
+              smt <- match(j, sNames)
+              if (is.na(match(j, fNames)) && is.na(match(j, pNames)) && is.na(smt))
+                stop(sprintf("j=%s does not form part of the variable names of the data\n", j))
+              if (!is.na(match(j, fNames))) ## then 'j' refers to an expression profile (cont.)
+                x <- Biobase::exprs(X)[j, ]
+              else if (!is.na(match(j, pNames))) ## then 'j' refers to a phenotypic variable (cont. or discrete)
+                x <- Biobase::pData(X)[, j]
+              else { ## then 'j' refers to a SNP genotype (discrete)
+                x <- as(smList(X)[[sum(cumsum_sByChr < smt)]][, j], "character")
+                if (any(x == "Uncertain"))
+                  stop(sprintf("j=%s has uncertain genotype calls\n", j))
+              }
+            } else {
+              if (j <= p) ## then 'j' refers to an expression profile (cont.)
+                x <- Biobase::exprs(X)[j, ]
+              else if (j <= p+h) ## then 'j' refers to a phenotypic variable (cont. or discrete)
+                x <- Biobase::pData(X)[, j-p]
+              else { ## then 'j' refers to a SNP genotype (discrete)
+                x <- as(smList(X)[[sum(cumsum_sByChr < j-p-h)]][, j-p-h-cumsum_sByChr[sum(cumsum_sByChr < j-p-h)] ], "character")[, 1]
+                if (any(x == "Uncertain"))
+                  warning(sprintf("j=%s has uncertain genotype calls\n", j))
+                x[x == "Uncertain" | x == "NA"] <- NA
+              }
+            }
+            j <- 2L
+            names(j) <- nam_j
+
+            if (is.character(x) || is.factor(x)) {
+              Xsub[, 2] <- as.numeric(factor(x, levels=unique(x)))
+              I <- c(I, 2L)
+            } else {
+              Xsub[, 2] <- as.numeric(x)
+              Y <- c(Y, 2L)
+            }
+
+            nam_Q <- Q
+            if (is.character(Q)) {
+              Qe <- match(Q, fNames)
+              if (any(!is.na(Qe))) {
+                Xsub[, 3:(2+sum(!is.na(Qe)))] <- t(Biobase::exprs(X)[Qe[!is.na(Qe)], ])
+                Y <- c(Y, 3:(2+sum(!is.na(Qe))))
+              }
+              if (any(is.na(Qe))) { ## then some variables in Q should refer to either phenotypic vars. or genotype calls
+                Qp <- match(Q[is.na(Qe)], pNames)
+                Qs <- c()
+                if (any(is.na(Qp))) {
+                  Qs <- match(Q[is.na(Qe)][is.na(Qp)], sNames)
+                  if (any(is.na(Qs))) ## then some variables in Q should refer to genotype calls
+                    stop(sprintf("Q={%s} do(es) not form part of the variable names of the data\n",
+                                 paste(Q[is.na(Qe)][is.na(Qp)][is.na(Qs)], collapse=", ")))
+                  Qp <- Qp[!is.na(Qp)]
+                }
+                for (k in seq(along=Qp)) {
+                  x <- Biobase::pData(X)[, Qp[k]]
+                  if (is.character(x) || is.factor(x)) {
+                    Xsub[, 2+sum(!is.na(Qe))+k] <- as.numeric(factor(x, levels=unique(x)))
+
+                    I <- c(I, 2L+sum(!is.na(Qe))+k)
+                  } else {
+                    Xsub[, 2+sum(!is.na(Qe))+k] <- as.numeric(x)
+                    Y <- c(Y, 2L+sum(!is.na(Qe))+k)
+                  }
+                }
+                for (k in seq(along=Qs)) {
+                  x <- as(smList(X)[[sum(cumsum_sByChr < Qs[k])]][, Qs[k]-cumsum_sByChr[sum(cumsum_sByChr < Qs[k])] ], "character")[, 1]
+                  if (any(x == "Uncertain"))
+                    warning(sprintf("Q=%s has uncertain genotype calls\n", Q[is.na(Qe)][is.na(Qp)][k]))
+                  x[x == "Uncertain" | x == "NA"] <- NA
+
+                  if (is.character(x) || is.factor(x)) {
+                    Xsub[, 2L+sum(!is.na(Qe))+sum(!is.na(Qp))+k] <- as.numeric(factor(x, levels=unique(x)))
+
+                    I <- c(I, 2L+sum(!is.na(Qe))+sum(!is.na(Qp))+k)
+                  } else {
+                    Xsub[, 2L+sum(!is.na(Qe))+sum(!is.na(Qp))+k] <- as.numeric(x)
+                    Y <- c(Y, 2L+sum(!is.na(Qe))+sum(!is.na(Qp))+k)
+                  }
+                }
+              }
+              Q <- 3:length(c(i, j, Q))
+              names(Q) <- nam_Q
+            } else if (!is.null(Q)) { ## if argument Q was empty, it should remain empty
+              if (any(Q > p+h+s))
+                stop(sprintf("Q={%s} is/are larger than the number of expression profiles (%d), phenotypic variables (%d) and genotype calls (%d) together (%d+%d+%d=%d)\n",
+                             paste(Q[Q > p+h+s], collapse=", "), p, h, s, p, h, s, p+h+s))
+
+              if (any(Q <= p)) { ## Q indices smaller or equal than p correspond to expression profiles
+                Xsub[, 3:(2+sum(Q <= p))] <- Biobase::exprs(X)[Q[Q <= p], ]
+                Y <- c(Y, 3:(2+sum(Q <= p)))
+              }
+              Qp <- which(Q > p & Q <= p+h) ## Q indices larger than p and smaller than h correspond to phenotypic variables
+              for (k in seq(along=Qp)) {
+                x <- Biobase::pData(X)[, Q[Qp[k]]-p]
+                if (is.character(x) || is.factor(x)) {
+                  Xsub[, 2L+sum(Q <= p)+k] <- as.numeric(factor(x, levels=unique(x)))
+                  I <- c(I, 2L+sum(Q <= p)+k)
+                } else {
+                  Xsub[, 2L+sum(Q <= p)+k] <- as.numeric(x)
+                  Y <- c(Y, 2L+sum(Q <= p)+k)
+                }
+              }
+              Qs <- which(Q > p+h) ## Q indices larger than p+h correspond to genotype calls
+              for (k in seq(along=Qs)) {
+                x <- as(smList(X)[[sum(cumsum_sByChr < Q[Qs[k]]-p-h)]][, Q[Qs[k]]-p-h-cumsum_sByChr[sum(cumsum_sByChr < Q[Qs[k]]-p-h)] ], "character")[, 1]
+                x[x == "Uncertain" | x == "NA"] <- NA
+
+                if (any(x == "Uncertain"))
+                  warning(sprintf("Q=%s has uncertain genotype calls\n", Q[Qs[k]]))
+                if (is.character(x) || is.factor(x)) {
+                  Xsub[, 2L+sum(Q <= p+h)+k] <- as.numeric(factor(x, levels=unique(x)))
+                  I <- c(I, 2L+sum(Q <= p+h)+k)
+                } else {
+                  Xsub[, 2L+sum(Q <= p+h)+k] <- as.numeric(x)
+                  Y <- c(Y, 2L+sum(Q <= p+h)+k)
+                }
+              }
+              Q <- 3:length(c(i, j, Q))
+              names(Q) <- nam_Q
+            }
+
+            rval <- NA
+
+            if (is.null(I)) {
+              S <- qpCov(Xsub)
+              rval <- qpgraph:::.qpCItest(S, n, i, j, Q, R.code.only)
+            } else {
+              ssd <- qpCov(Xsub[, Y, drop=FALSE], corrected=FALSE)
+              mapX2ssd <- match(colnames(Xsub), colnames(ssd))
+              names(mapX2ssd) <- colnames(Xsub)
+
+              rval <- qpgraph:::.qpCItestHMGM(Xsub, I, Y, ssd, mapX2ssd, i, j, Q,
+                                              exact.test, R.code.only)
+              if (is.nan(rval$statistic))
+                warning(paste(sprintf("CI test unavailable for i=%s, j=%s and Q={",
+                                      i, j, paste(Q, collapse=", ")),
+                                      "}. Try a smaller Q or increase n if you can\n"))
+            }
+
+            class(rval) <- "htest" ## this is kind of redundant but otherwise
+                                   ## the object returned by the C function does
+                                   ## not print by default as a 'htest' object
+
+            return(rval)
+          })
+
+## X comes as an ExpressionSet object
 setMethod("qpCItest", signature(X="ExpressionSet"),
           function(X, i=1, j=2, Q=c(), exact.test=TRUE, R.code.only=FALSE) {
             p <- as.integer(nrow(X))
+            h <- as.integer(ncol(pData(X)))
             n <- as.integer(ncol(X))
             fNames <- Biobase::featureNames(X)
             pNames <- colnames(Biobase::pData(X))
@@ -96,15 +293,16 @@ setMethod("qpCItest", signature(X="ExpressionSet"),
               if (any(is.na(Qe))) { ## then some variables in Q should refer to phenotypic vars.
                 Qp <- match(Q[is.na(Qe)], pNames)
                 if (any(is.na(Qp)))
-                  stop(sprintf("Q=%s do(es) not form part of the variable names of the data\n", Q[is.na(Qe)]))
+                  stop(sprintf("Q={%s} do(es) not form part of the variable names of the data\n",
+                       paste(Q[is.na(Qe)][is.na(Qp)], collapse=", ")))
                 for (k in seq(along=Qp)) {
                   x <- Biobase::pData(X)[, Qp[k]]
                   if (is.character(x) || is.factor(x)) {
-                    Xsub[, (2+sum(!is.na(Qe))+k)] <- as.numeric(factor(x, levels=unique(x)))
+                    Xsub[, 2L+sum(!is.na(Qe))+k] <- as.numeric(factor(x, levels=unique(x)))
 
                     I <- c(I, 2L+sum(!is.na(Qe))+k)
                   } else {
-                    Xsub[, (2+sum(!is.na(Qe))+k)] <- as.numeric(x)
+                    Xsub[, 2L+sum(!is.na(Qe))+k] <- as.numeric(x)
                     Y <- c(Y, 2L+sum(!is.na(Qe))+k)
                   }
                 }
@@ -112,6 +310,10 @@ setMethod("qpCItest", signature(X="ExpressionSet"),
               Q <- 3:length(c(i, j, Q))
               names(Q) <- nam_Q
             } else if (!is.null(Q)) { ## if argument Q was empty, it should remain empty
+              if (any(Q > p+h))
+                stop(sprintf("Q={%s} is/are larger than the number of expression profiles (%d) and phenotypic variables (%d) together (%d+%d=%d)\n",
+                             paste(Q[Q > p+h], collapse=", "), p, h, p, h, p+h))
+
               if (any(Q <= p)) { ## Q indices smaller or equal than p correspond to expression profiles
                 Xsub[, 3:(2+sum(Q <= p))] <- Biobase::exprs(X)[Q[Q <= p], ]
                 Y <- c(Y, 3:(2+sum(Q <= p)))
@@ -156,7 +358,7 @@ setMethod("qpCItest", signature(X="ExpressionSet"),
             return(rval)
           })
 
-# X comes as a data frame
+## X comes as a data frame
 setMethod("qpCItest", signature(X="data.frame"),
           function(X, i=1, j=2, Q=c(), I=NULL, long.dim.are.variables=TRUE,
                    exact.test=TRUE, R.code.only=FALSE) {
@@ -250,7 +452,7 @@ setMethod("qpCItest", signature(X="data.frame"),
           })
 
           
-# X comes as a matrix
+## X comes as a matrix
 setMethod("qpCItest", signature(X="matrix"),
           function(X, i=1, j=2, Q=c(), I=NULL, n=NULL,
                    long.dim.are.variables=TRUE, exact.test=TRUE,
