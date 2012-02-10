@@ -76,24 +76,21 @@ setMethod("qpNrr", signature(X="ExpressionSet"),
 
             XP <- matrix(NA, nrow=ncol(X), ncol=0)
             I <- NULL
-            if (h > 0 && any(!is.na(match(c(pairup.i, pairup.j, fix.Q), pNames)))) {
+            if (h > 0) {
               if (is.character(pairup.i)) {
                 mt <- match(pairup.i, pNames)
-                if (any(!is.na(mt))) {
-                  for (i in seq(along=mt[!is.na(mt)])) {
-                    x <- Biobase::pData(X)[, i]
-                    cnames <- colnames(XP)
-                    if (is.character(x) || is.factor(x)) {
-                      XP <- cbind(XP, as.numeric(factor(x, levels=unique(x))))
-                      I <- c(I, p+ncol(XP))
-                    } else
-                      XP <- cbind(XP, as.numeric(x))
-                    colnames(XP) <- c(cnames, pNames[i])
-                  }
+                for (i in mt[!is.na(mt)]) {
+                  x <- Biobase::pData(X)[, i]
+                  cnames <- colnames(XP)
+                  if (is.character(x) || is.factor(x)) {
+                    XP <- cbind(XP, as.numeric(factor(x, levels=unique(x))))
+                    I <- c(I, p+ncol(XP))
+                  } else
+                    XP <- cbind(XP, as.numeric(x))
+                  colnames(XP) <- c(cnames, pNames[i])
                 }
               } else {
-                w <- which(pairup.i > p)
-                for (i in seq(along=w)) {
+                for (i in which(pairup.i > p)) {
                   x <- Biobase::pData(X)[, pairup.i[i]-p]
                   cnames <- colnames(XP)
                   if (is.character(x) || is.factor(x)) {
@@ -101,27 +98,24 @@ setMethod("qpNrr", signature(X="ExpressionSet"),
                     I <- c(I, p+ncol(XP))
                   } else
                     XP <- cbind(XP, as.numeric(x))
-                  colnames(XP) <- c(cnames, pairup.i[i])
+                  colnames(XP) <- c(cnames, pNames[pairup.i[i]-p])
                   pairup.i[i] <- p+ncol(XP)
                 }
               }
               if (is.character(pairup.j)) {
                 mt <- match(pairup.j, pNames)
-                if (any(!is.na(mt))) {
-                  for (i in seq(along=mt[!is.na(mt)])) {
-                    x <- Biobase::pData(X)[, i]
-                    cnames <- colnames(XP)
-                    if (is.character(x) || is.factor(x)) {
-                      XP <- cbind(XP, as.numeric(factor(x, levels=unique(x))))
-                      I <- c(I, p+ncol(XP))
-                    } else
-                      XP <- cbind(XP, as.numeric(x))
-                    colnames(XP) <- c(cnames, pNames[i])
-                  }
+                for (i in mt[!is.na(mt)]) {
+                  x <- Biobase::pData(X)[, i]
+                  cnames <- colnames(XP)
+                  if (is.character(x) || is.factor(x)) {
+                    XP <- cbind(XP, as.numeric(factor(x, levels=unique(x))))
+                    I <- c(I, p+ncol(XP))
+                  } else
+                    XP <- cbind(XP, as.numeric(x))
+                  colnames(XP) <- c(cnames, pNames[i])
                 }
               } else {
-                w <- which(pairup.j > p)
-                for (i in seq(along=w)) {
+                for (i in which(pairup.j > p)) {
                   x <- Biobase::pData(X)[, pairup.j[i]-p]
                   cnames <- colnames(XP)
                   if (is.character(x) || is.factor(x)) {
@@ -129,27 +123,24 @@ setMethod("qpNrr", signature(X="ExpressionSet"),
                     I <- c(I, p+ncol(XP))
                   } else
                     XP <- cbind(XP, as.numeric(x))
-                  colnames(XP) <- c(cnames, pairup.j[i])
+                  colnames(XP) <- c(cnames, pNames[pairup.j[i]-p])
                   pairup.j[i] <- p+ncol(XP)
                 }
               }
               if (is.character(fix.Q)) {
                 mt <- match(fix.Q, pNames)
-                if (any(!is.na(mt))) {
-                  for (i in seq(along=mt[!is.na(mt)])) {
-                    x <- Biobase::pData(X)[, i]
-                    cnames <- colnames(XP)
-                    if (is.character(x) || is.factor(x)) {
-                      XP <- cbind(XP, as.numeric(factor(x, levels=unique(x))))
-                      I <- c(I, p+ncol(XP))
-                    } else
-                      XP <- cbind(XP, as.numeric(x))
-                    colnames(XP) <- c(cnames, pNames[i])
-                  }
+                for (i in mt[!is.na(mt)]) {
+                  x <- Biobase::pData(X)[, i]
+                  cnames <- colnames(XP)
+                  if (is.character(x) || is.factor(x)) {
+                    XP <- cbind(XP, as.numeric(factor(x, levels=unique(x))))
+                    I <- c(I, p+ncol(XP))
+                  } else
+                    XP <- cbind(XP, as.numeric(x))
+                  colnames(XP) <- c(cnames, pNames[i])
                 }
               } else {
-                w <- which(fix.Q > p)
-                for (i in seq(along=w)) {
+                for (i in which(fix.Q > p)) {
                   x <- Biobase::pData(X)[, fix.Q[i]-p]
                   cnames <- colnames(XP)
                   if (is.character(x) || is.factor(x)) {
@@ -157,7 +148,7 @@ setMethod("qpNrr", signature(X="ExpressionSet"),
                     I <- c(I, p+ncol(XP))
                   } else
                     XP <- cbind(XP, as.numeric(x))
-                  colnames(XP) <- c(cnames, fix.Q[i])
+                  colnames(XP) <- c(cnames, pNames[fix.Q[i]-p])
                   fix.Q[i] <- p+ncol(XP)
                 }
               }
