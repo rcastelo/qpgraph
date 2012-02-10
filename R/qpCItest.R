@@ -20,12 +20,11 @@
 setGeneric("qpCItest", function(X, ...) standardGeneric("qpCItest"))
 
 ## X comes as an smlSet object
-
 setMethod("qpCItest", signature(X="smlSet"),
           function(X, i=1, j=2, Q=c(), exact.test=TRUE, R.code.only=FALSE) {
             p <- as.integer(nrow(X))
-            h <- as.integer(ncol(pData(X)))
-            sByChr <- sapply(smList(X), ncol)
+            h <- as.integer(ncol(Biobase::pData(X)))
+            sByChr <- sapply(GGbase::smList(X), ncol)
             cumsum_sByChr <- c(0, cumsum(sByChr))
             s <- sum(sByChr)
             n <- as.integer(ncol(X))

@@ -54,10 +54,13 @@ setGeneric("qpNrr", function(X, ...) standardGeneric("qpNrr"))
 
 ## X comes as an ExpressionSet object
 setMethod("qpNrr", signature(X="ExpressionSet"),
-          function(X, q=1, I=NULL, restrict.Q=NULL, fix.Q=NULL, nTests=100,
+          function(X, q=1, restrict.Q=NULL, fix.Q=NULL, nTests=100,
                    alpha=0.05, pairup.i=NULL, pairup.j=NULL, verbose=TRUE,
                    identicalQs=TRUE, exact.test=TRUE, R.code.only=FALSE,
                    clusterSize=1, estimateTime=FALSE, nAdj2estimateTime=10) {
+            p <- as.integer(nrow(X))
+            h <- as.integer(ncol(Biobase::pData(X)))
+            pNames <- colnames(Biobase::pData(X))
 
             startTime <- c(user.self=0, sys.self=0, elapsed=0, user.child=0, sys.child=0)
             class(startTime) <- "proc_time"
@@ -70,44 +73,99 @@ setMethod("qpNrr", signature(X="ExpressionSet"),
             if (clusterSize > 1 &&
                (!qpgraph:::.qpIsPackageLoaded("rlecuyer") || !qpgraph:::.qpIsPackageLoaded("snow")))
               stop("Using a cluster (clusterSize > 1) requires first loading packages 'snow' and 'rlecuyer'\n")
-              
-            X_I <- NULL
-            if (!is.null(I)) {
-              if (!is.character(I))
-                stop("When X is an ExpressionSet, I can only contain variable names from the associated phenotypic data.")
-              if (any(is.na(match(I, Biobase::varLabels(X)))))
-                stop(sprintf("%s do(es) not form part of the phenotypic data in the ExpressionSet object X.",
-                             I[is.na(match(I, Biobase::varLabels(X)))]))
 
-              X_I <- apply(Biobase::pData(X)[, I, drop=FALSE], 2,
-                           function(x) as.double(as.factor(as.character(x))))
-              I <- dim(X)[1]+match(I, Biobase::varLabels(X))
-            }
-
-            Y <- cbind(t(Biobase::exprs(X)), X_I)
-
-            if (!is.null(fix.Q)) {
-              if (is.character(fix.Q)) {
-                if (any(is.na(match(fix.Q, Biobase::varLabels(X)))))
-                  stop(sprintf("Variable(s) %s in fix.Q do(es) not form part of the phenotypic data in the ExpressionSet object X.",
-                               fix.Q[is.na(match(fix.Q, Biobase::varLabels(X)))]))
-
+            XP <- matrix(NA, nrow=ncol(X), ncol=0)
+            I <- NULL
+            if (h > 0 && any(!is.na(match(c(pairup.i, pairup.j, fix.Q), pNames)))) {
+              if (is.character(pairup.i)) {
+                mt <- match(pairup.i, pNames)
+                if (any(!is.na(mt))) {
+                  for (i in seq(along=mt[!is.na(mt)])) {
+                    x <- Biobase::pData(X)[, i]
+                    cnames <- colnames(XP)
+                    if (is.character(x) || is.factor(x)) {
+                      XP <- cbind(XP, as.numeric(factor(x, levels=unique(x))))
+                      I <- c(I, p+ncol(XP))
+                    } else
+                      XP <- cbind(XP, as.numeric(x))
+                    colnames(XP) <- c(cnames, pNames[i])
+                  }
+                }
               } else {
-                if (any(is.na(match(fix.Q, 1:length(Biobase::varLabels(X))))))
-                  stop(sprintf("Variable(s) %s in fix.Q do(es) not form part of the phenotypic data in the ExpressionSet object X.",
-                               fix.Q[is.na(match(fix.Q, 1:length(Biobase::varLabels(X))))]))
+                w <- which(pairup.i > p)
+                for (i in seq(along=w)) {
+                  x <- Biobase::pData(X)[, pairup.i[i]-p]
+                  cnames <- colnames(XP)
+                  if (is.character(x) || is.factor(x)) {
+                    XP <- cbind(XP, as.numeric(factor(x, levels=unique(x))))
+                    I <- c(I, p+ncol(XP))
+                  } else
+                    XP <- cbind(XP, as.numeric(x))
+                  colnames(XP) <- c(cnames, pairup.i[i])
+                  pairup.i[i] <- p+ncol(XP)
+                }
               }
-
-              ## TODO: fix this to handle discrete data as well
-              if (any(apply(Biobase::pData(X)[, fix.Q, drop=FALSE], 2, class) != "numeric"))
-                stop("Variables specified in fix.Q can at the moment only be continuous data.")
-
-              p <- dim(Y)[2]
-              Y <- cbind(Y, as.matrix(Biobase::pData(X)[, fix.Q, drop=FALSE]))
-              fix.Q <- (p+1):(p+length(fix.Q))
+              if (is.character(pairup.j)) {
+                mt <- match(pairup.j, pNames)
+                if (any(!is.na(mt))) {
+                  for (i in seq(along=mt[!is.na(mt)])) {
+                    x <- Biobase::pData(X)[, i]
+                    cnames <- colnames(XP)
+                    if (is.character(x) || is.factor(x)) {
+                      XP <- cbind(XP, as.numeric(factor(x, levels=unique(x))))
+                      I <- c(I, p+ncol(XP))
+                    } else
+                      XP <- cbind(XP, as.numeric(x))
+                    colnames(XP) <- c(cnames, pNames[i])
+                  }
+                }
+              } else {
+                w <- which(pairup.j > p)
+                for (i in seq(along=w)) {
+                  x <- Biobase::pData(X)[, pairup.j[i]-p]
+                  cnames <- colnames(XP)
+                  if (is.character(x) || is.factor(x)) {
+                    XP <- cbind(XP, as.numeric(factor(x, levels=unique(x))))
+                    I <- c(I, p+ncol(XP))
+                  } else
+                    XP <- cbind(XP, as.numeric(x))
+                  colnames(XP) <- c(cnames, pairup.j[i])
+                  pairup.j[i] <- p+ncol(XP)
+                }
+              }
+              if (is.character(fix.Q)) {
+                mt <- match(fix.Q, pNames)
+                if (any(!is.na(mt))) {
+                  for (i in seq(along=mt[!is.na(mt)])) {
+                    x <- Biobase::pData(X)[, i]
+                    cnames <- colnames(XP)
+                    if (is.character(x) || is.factor(x)) {
+                      XP <- cbind(XP, as.numeric(factor(x, levels=unique(x))))
+                      I <- c(I, p+ncol(XP))
+                    } else
+                      XP <- cbind(XP, as.numeric(x))
+                    colnames(XP) <- c(cnames, pNames[i])
+                  }
+                }
+              } else {
+                w <- which(fix.Q > p)
+                for (i in seq(along=w)) {
+                  x <- Biobase::pData(X)[, fix.Q[i]-p]
+                  cnames <- colnames(XP)
+                  if (is.character(x) || is.factor(x)) {
+                    XP <- cbind(XP, as.numeric(factor(x, levels=unique(x))))
+                    I <- c(I, p+ncol(XP))
+                  } else
+                    XP <- cbind(XP, as.numeric(x))
+                  colnames(XP) <- c(cnames, fix.Q[i])
+                  fix.Q[i] <- p+ncol(XP)
+                }
+              }
             }
 
-            qpgraph:::.qpNrr(Y, q, I, restrict.Q, fix.Q, nTests, alpha,
+            X <- t(Biobase::exprs(X))
+            X <- cbind(X, XP)
+            qpgraph:::.qpNrr(X, q, I, restrict.Q, fix.Q, nTests, alpha,
                              pairup.i, pairup.j, verbose, identicalQs,
                              exact.test, R.code.only, clusterSize,
                              startTime, nAdj2estimateTime)

@@ -11,7 +11,7 @@ Non-rejection rate estimation
 Estimates non-rejection rates for every pair of variables.
 }
 \usage{
-\S4method{qpNrr}{ExpressionSet}(X, q=1, I=NULL, restrict.Q=NULL, fix.Q=NULL, nTests=100,
+\S4method{qpNrr}{ExpressionSet}(X, q=1, restrict.Q=NULL, fix.Q=NULL, nTests=100,
                                 alpha=0.05, pairup.i=NULL, pairup.j=NULL,
                                 verbose=TRUE, identicalQs=TRUE, exact.test=TRUE,
                                 R.code.only=FALSE, clusterSize=1, estimateTime=FALSE,
@@ -32,9 +32,7 @@ Estimates non-rejection rates for every pair of variables.
        It can be an ExpressionSet object, a data frame or a matrix.}
   \item{q}{partial-correlation order to be employed.}
   \item{I}{indexes or names of the variables in \code{X} that are discrete.
-       When \code{X} is an \code{ExpressionSet} then \code{I} may contain
-       only names of the phenotypic variables in \code{X}. See details below
-       regarding this argument.}
+       See details below regarding this argument.}
   \item{restrict.Q}{indexes or names of the variables in \code{X} that
        restrict the sample space of conditioning subsets Q.}
   \item{fix.Q}{indexes or names of the variables in \code{X} that should be

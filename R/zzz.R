@@ -5,5 +5,3 @@ GOenv <- function(what) {
     getAnnMap(what, "GO", load=TRUE,
               type=c("db", "env"))
 }
-
-.onLoad <- function(lib, pkg) require(methods)

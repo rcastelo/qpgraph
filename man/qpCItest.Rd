@@ -1,5 +1,6 @@
 \name{qpCItest}
 \alias{qpCItest}
+\alias{qpCItest,smlSet-method}
 \alias{qpCItest,ExpressionSet-method}
 \alias{qpCItest,data.frame-method}
 \alias{qpCItest,matrix-method}
@@ -12,7 +13,8 @@ Performs a conditional independence test between two variables given
 a conditioning set.
 }
 \usage{
-\S4method{qpCItest}{ExpressionSet}(X, i=1, j=2, Q=c(), R.code.only=FALSE)
+\S4method{qpCItest}{smlSet}(X, i=1, j=2, Q=c(), exact.test=TRUE, R.code.only=FALSE)
+\S4method{qpCItest}{ExpressionSet}(X, i=1, j=2, Q=c(), exact.test=TRUE, R.code.only=FALSE)
 \S4method{qpCItest}{data.frame}(X, i=1, j=2, Q=c(), I=NULL, long.dim.are.variables=TRUE,
                                 exact.test=TRUE, R.code.only=FALSE)
 \S4method{qpCItest}{matrix}(X, i=1, j=2, Q=c(), I=NULL, n=NULL, long.dim.are.variables=TRUE,

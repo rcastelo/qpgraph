@@ -2787,7 +2787,7 @@ qp_edge_nrr(double* S, int p, int n, int i, int j, int q, int* restrictQ, int n_
             int* fixQ, int n_fQ, int nTests, double alpha) {
   double thr;
   int*   q_by_T_samples;
-  int    k,l;
+  int    k;
   int    nAcceptedTests = 0;
 
   q_by_T_samples = Calloc(q * nTests, int);
@@ -2842,7 +2842,6 @@ qp_edge_nrr_identicalQs(double* S, int n_var, int* Qs, double* Qinvs, int N, int
       l++;
 
     if (l >= q) {
-      int m;
       int* Q;
       Q=Qs+k*q;
       t_value = qp_ci_test_opt(S, n_var, N, i, j, (int*) (Qs+k*q), q,
