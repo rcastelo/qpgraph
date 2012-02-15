@@ -1,5 +1,6 @@
 \name{qpEdgeNrr}
 \alias{qpEdgeNrr}
+\alias{qpEdgeNrr,smlSet-method}
 \alias{qpEdgeNrr,ExpressionSet-method}
 \alias{qpEdgeNrr,data.frame-method}
 \alias{qpEdgeNrr,matrix-method}
@@ -11,7 +12,10 @@ Non-rejection rate estimation for a pair of variables
 Estimates the non-rejection rate for one pair of variables.
 }
 \usage{
-\S4method{qpEdgeNrr}{ExpressionSet}(X, i=1, j=2, q=1, I=NULL, restrict.Q=NULL, fix.Q=NULL,
+\S4method{qpEdgeNrr}{smlSet}(X, i=1, j=2, q=1, restrict.Q=NULL, fix.Q=NULL,
+                                    nTests=100, alpha=0.05, exact.test=TRUE,
+                                    R.code.only=FALSE)
+\S4method{qpEdgeNrr}{ExpressionSet}(X, i=1, j=2, q=1, restrict.Q=NULL, fix.Q=NULL,
                                     nTests=100, alpha=0.05, exact.test=TRUE,
                                     R.code.only=FALSE)
 \S4method{qpEdgeNrr}{data.frame}(X, i=1, j=2, q=1, I=NULL, restrict.Q=NULL, fix.Q=NULL,

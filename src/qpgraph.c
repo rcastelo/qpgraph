@@ -2982,10 +2982,10 @@ qp_edge_nrr_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y
 */
 
 static SEXP
-qp_fast_edge_nrr(SEXP S, SEXP n_varR, SEXP nR, SEXP iR, SEXP jR, SEXP qR,
+qp_fast_edge_nrr(SEXP S, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP qR,
                  SEXP restrictQR, SEXP fixQR, SEXP nTestsR, SEXP alphaR) {
   int    i,j,k;
-  int    n_var = INTEGER(n_varR)[0];
+  int    p = INTEGER(pR)[0];
   int    n;
   int    q;
   int    nTests;
@@ -3012,11 +3012,11 @@ qp_fast_edge_nrr(SEXP S, SEXP n_varR, SEXP nR, SEXP iR, SEXP jR, SEXP qR,
 
   alpha = REAL(alphaR)[0];
 
-  if (i < 0 || i > n_var-1 || j < 0 || j > n_var-1)
-    error("vertices of the selected edge (i,j) should lie in the range [1,n.var=%d]", n_var);
+  if (i < 0 || i > p-1 || j < 0 || j > p-1)
+    error("vertices of the selected edge (i=%d,j=%d) should lie in the range [1, p=%d]", i+1, j+1, p);
 
-  if (q > n_var-2)
-    error("q=%d > n.var-2=%d", q, n_var-2);
+  if (q > p-2)
+    error("q=%d > p-2=%d", q, p-2);
 
   if (q < 0)
     error("q=%d < 0",q);
@@ -3038,7 +3038,7 @@ qp_fast_edge_nrr(SEXP S, SEXP n_varR, SEXP nR, SEXP iR, SEXP jR, SEXP qR,
 
   PROTECT(nrr = allocVector(REALSXP,1));
 
-  REAL(nrr)[0] = qp_edge_nrr(REAL(S), n_var, n, i, j, q, restrictQ, n_rQ,
+  REAL(nrr)[0] = qp_edge_nrr(REAL(S), p, n, i, j, q, restrictQ, n_rQ,
                              fixQ, n_fQ, nTests, alpha);
 
   if (n_rQ > 0)
@@ -3100,7 +3100,7 @@ qp_fast_edge_nrr_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
   alpha = REAL(alphaR)[0];
 
   if (i < 0 || i > p-1 || j < 0 || j > p-1)
-    error("vertices of the selected edge (i,j) should lie in the range [1,p=%d]", p);
+    error("vertices of the selected edge (i=%d,j=%d) should lie in the range [1, p=%d]", i+1, j+1, p);
 
   if (q > p-2)
     error("q=%d > p-2=%d", q, p-2);

@@ -24,7 +24,7 @@ setMethod("qpCItest", signature(X="smlSet"),
           function(X, i=1, j=2, Q=c(), exact.test=TRUE, R.code.only=FALSE) {
             p <- as.integer(nrow(X))
             h <- as.integer(ncol(Biobase::pData(X)))
-            sByChr <- sapply(GGbase::smList(X), ncol)
+            sByChr <- sapply(GGBase::smList(X), ncol)
             cumsum_sByChr <- c(0, cumsum(sByChr))
             s <- sum(sByChr)
             n <- as.integer(ncol(X))
@@ -129,7 +129,7 @@ setMethod("qpCItest", signature(X="smlSet"),
                 }
                 for (k in seq(along=Qp)) {
                   x <- Biobase::pData(X)[, Qp[k]]
-                  if (is.character(x) || is.factor(x)) {
+                  if (is.character(x) || is.factor(x) || is.logical(x)) {
                     Xsub[, 2+sum(!is.na(Qe))+k] <- as.numeric(factor(x, levels=unique(x)))
 
                     I <- c(I, 2L+sum(!is.na(Qe))+k)
@@ -144,7 +144,7 @@ setMethod("qpCItest", signature(X="smlSet"),
                     warning(sprintf("Q=%s has uncertain genotype calls\n", Q[is.na(Qe)][is.na(Qp)][k]))
                   x[x == "Uncertain" | x == "NA"] <- NA
 
-                  if (is.character(x) || is.factor(x)) {
+                  if (is.character(x) || is.factor(x) || is.logical(x)) {
                     Xsub[, 2L+sum(!is.na(Qe))+sum(!is.na(Qp))+k] <- as.numeric(factor(x, levels=unique(x)))
 
                     I <- c(I, 2L+sum(!is.na(Qe))+sum(!is.na(Qp))+k)
@@ -183,7 +183,7 @@ setMethod("qpCItest", signature(X="smlSet"),
 
                 if (any(x == "Uncertain"))
                   warning(sprintf("Q=%s has uncertain genotype calls\n", Q[Qs[k]]))
-                if (is.character(x) || is.factor(x)) {
+                if (is.character(x) || is.factor(x) || is.logical(x)) {
                   Xsub[, 2L+sum(Q <= p+h)+k] <- as.numeric(factor(x, levels=unique(x)))
                   I <- c(I, 2L+sum(Q <= p+h)+k)
                 } else {
@@ -249,7 +249,7 @@ setMethod("qpCItest", signature(X="ExpressionSet"),
             i <- 1L
             names(i) <- nam_i
 
-            if (is.character(x) || is.factor(x)) {
+            if (is.character(x) || is.factor(x) || is.logical(x)) {
               Xsub[, 1] <- as.numeric(factor(x, levels=unique(x)))
               I <- 1L
             } else {
@@ -274,7 +274,7 @@ setMethod("qpCItest", signature(X="ExpressionSet"),
             j <- 2L
             names(j) <- nam_j
 
-            if (is.character(x) || is.factor(x)) {
+            if (is.character(x) || is.factor(x) || is.logical(x)) {
               Xsub[, 2] <- as.numeric(factor(x, levels=unique(x)))
               I <- c(I, 2L)
             } else {
@@ -320,7 +320,7 @@ setMethod("qpCItest", signature(X="ExpressionSet"),
               Qp <- which(Q > p) ## Q indices larger than p correspond to phenotypic variables
               for (k in seq(along=Qp)) {
                 x <- Biobase::pData(X)[, Q[Qp[k]]-p]
-                if (is.character(x) || is.factor(x)) {
+                if (is.character(x) || is.factor(x) || is.logical(x)) {
                   Xsub[, 2L+sum(Q <= p)+k] <- as.numeric(factor(x, levels=unique(x)))
                   I <- c(I, 2L+sum(Q <= p)+k)
                 } else {
