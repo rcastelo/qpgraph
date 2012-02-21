@@ -1839,37 +1839,54 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
 ## IT ELSEWHERE AND WITHIN THE S4 METHODS. THIS SHOULD FACILITATE EXPLOITING
 ## RESTRICT.Q TO CALCULATE COVARIANCE MATRICES OF REDUCED SIZE WHEN POSSIBLE
 
-.qpEdgeNrr <- function(S, n, i=1, j=2, q=1, restrict.Q=NULL, fix.Q=NULL,
-                       nTests=100, alpha=0.05, R.code.only=FALSE) {
+.processParameters <- function(varNames, n, i, j, q, I=NULL, Y=NULL,
+                               restrict.Q=NULL, fix.Q=NULL) {
+
+  p <- length(varNames)
+  V <- 1:p
+
+  if (q > p-2)
+    stop(paste("q=", q, " > p-2=", p-2))
+
+  if (q < 0)
+    stop(paste("q=", q, " < 0"))
+
+  if (q > n-3)
+    stop(paste("q=", q, " > n-3=", n-3))
+
   if (is.character(i)) {
-    if (is.na(match(i, colnames(S))))
+    if (is.na(match(i, varNames)))
       stop(sprintf("i=%s does not form part of the variable names of the data\n",i))
-    i <- match(i,colnames(S))
+    i <- match(i, varNames)
   }
 
   if (is.character(j)) {
-    if (is.na(match(j, colnames(S))))
+    if (is.na(match(j, varNames)))
       stop(sprintf("j=%s does not form part of the variable names of the data\n",j))
-    j <- match(j,colnames(S))
+    j <- match(j, varNames)
   }
 
-  n.var  <- nrow(S)
-  V <- 1:n.var
+  if (!is.null(I)) {
+    if (is.character(I)) {
+      if (any(is.na(match(I, varNames))))
+        stop("Some variables in I do not form part of the variable names of the data\n")
+      I <- match(I, varNames)
+    }
+  }
 
-  if (q > n.var-2)
-    stop(paste("q=",q," > n.var-2=",n.var-2))
-
-  if (q < 0)
-    stop(paste("q=",q," < 0"))
-
-  if (q > n-3)
-    stop(paste("q=",q," > n-3=", n-3))
+  if (!is.null(Y)) {
+    if (is.character(Y)) {
+      if (any(is.na(match(Y, varNames))))
+        stop("Some variables in Y do not form part of the variable names of the data\n")
+      Y <- match(Y, varNames)
+    }
+  }
 
   if (!is.null(restrict.Q)) {
     if (is.character(restrict.Q)) {
-      if (any(is.na(match(restrict.Q, colnames(S)))))
+      if (any(is.na(match(restrict.Q, varNames))))
         stop("Some variables in restrict.Q do not form part of the variable names of the data\n")
-      restrict.Q <- match(restrict.Q, colnames(S))
+      restrict.Q <- match(restrict.Q, varNames)
     }
 
     V <- restrict.Q
@@ -1877,9 +1894,9 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
 
   if (!is.null(fix.Q)) {
     if (is.character(fix.Q)) {
-      if (any(is.na(match(fix.Q, colnames(S)))))
+      if (any(is.na(match(fix.Q, varNames))))
         stop("Some variables in restrict.Q do not form part of the variable names of the data\n")
-      fix.Q <- match(fix.Q, colnames(S))
+      fix.Q <- match(fix.Q, varNames)
     }
 
     if (any(!is.na(match(c(i, j), fix.Q))))
@@ -1895,6 +1912,23 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
         stop("The subsets restrict.Q and fix.Q should be disjoint.\n")
     }
   }
+
+  return(list(V=V, i=i, j=j, I=I, Y=Y, restrict.Q=restrict.Q, fix.Q=fix.Q))
+}
+
+.qpEdgeNrr <- function(S, n, i=1, j=2, q=1, restrict.Q=NULL, fix.Q=NULL,
+                       nTests=100, alpha=0.05, R.code.only=FALSE) {
+
+  varNames <- colnames(S)
+  p  <- nrow(S)
+
+  param <- qpgraph:::.processParameters(varNames, n, i=i, j=j, q=q,
+                                        restrict.Q=restrict.Q, fix.Q=fix.Q)
+  V <- param$V
+  i <- param$i
+  j <- param$j
+  restrict.Q <- param$restrict.Q
+  fix.Q <- param$fix.Q
 
   if (!R.code.only) { ## assume restrict.Q and fix.Q are coordinately set!!!!
     return(qpgraph:::.qpFastEdgeNrr(S, n, i, j, q, restrict.Q, fix.Q, nTests, alpha));
@@ -1927,76 +1961,23 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
 .qpEdgeNrrHMGM <- function(X, I, Y, ssdMat, mapX2ssdMat, i=1, j=2, q=1,
                            restrict.Q=NULL, fix.Q=NULL, nTests=100,
                            alpha=0.05, exact.test=TRUE, R.code.only=FALSE) {
-  if (is.character(i)) {
-    if (is.na(match(i, colnames(X))))
-      stop(sprintf("i=%s does not form part of the variable names of the data\n", i))
-    i <- match(i, colnames(X))
-  }
+  varNames <- colnames(X)
+  n <- nrow(X)
 
-  if (is.character(j)) {
-    if (is.na(match(j, colnames(X))))
-      stop(sprintf("j=%s does not form part of the variable names of the data\n", j))
-    j <- match(j ,colnames(X))
-  }
-
-  if (is.character(I)) {
-    if (any(is.na(match(I, colnames(X)))))
-      stop("Some variables in I do not form part of the variable names of the data\n")
-    I <- match(I, colnames(X))
-  }
-
-  if (is.character(Y)) {
-    if (any(is.na(match(Y, colnames(X)))))
-      stop("Some variables in Y do not form part of the variable names of the data\n")
-    Y <- match(Y, colnames(X))
-  }
+  param <- qpgraph:::.processParameters(varNames, n, i=i, j=j, q=q, I=I, Y=I,
+                                        restrict.Q=restrict.Q, fix.Q=fix.Q)
+  V <- param$V
+  i <- param$i
+  j <- param$j
+  I <- param$I
+  Y <- param$Y
+  restrict.Q <- param$restrict.Q
+  fix.Q <- param$fix.Q
 
   if (all(!is.na(match(c(i,j), I))))
     stop("i and j cannot be both discrete at the moment\n")
 
   V <- c(I, Y)
-  n.var  <- length(V)
-  n <- dim(X)[1]
-
-  if (q > n.var-2)
-    stop(paste("q=", q, " > n.var-2=", n.var-2))
-
-  if (q < 0)
-    stop(paste("q=", q, " < 0"))
-
-  if (q > n-3)
-    stop(paste("q=", q, " > n-3=", n-3))
-
-  if (!is.null(restrict.Q)) {
-    if (is.character(restrict.Q)) {
-      if (any(is.na(match(restrict.Q, colnames(X)))))
-        stop("Some variables in restrict.Q do not form part of the variable names of the data\n")
-      restrict.Q <- match(restrict.Q, colnames(X))
-    }
-
-    V <- restrict.Q
-  }
-
-  if (!is.null(fix.Q)) {
-    if (is.character(fix.Q)) {
-      if (any(is.na(match(fix.Q, colnames(X)))))
-        stop("Some variables in restrict.Q do not form part of the variable names of the data\n")
-      fix.Q <- match(fix.Q, colnames(X))
-    }
-
-    if (any(!is.na(match(c(i, j), fix.Q))))
-      stop("The subset fix.Q cannot include any of the (i, j) variables.\n")
-
-    if (q <= length(fix.Q))
-      stop("q should be larger than the number of variables in fix.Q\n")
-
-    if (is.null(restrict.Q))
-      restrict.Q <- setdiff(V, fix.Q)
-    else {
-      if (length(intersect(restrict.Q, fix.Q)) > 0)
-        stop("The subsets restrict.Q and fix.Q should be disjoint.\n")
-    }
-  }
 
   if (!is.na(match(j, I))) { ## if any of (i,j) is discrete, it should be i
     tmp <- i
@@ -2062,40 +2043,24 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
   return(nAcceptedTests / nActualTests)
 }
 
-.qpEdgeNrrIdenticalQs <- function(S, Qs, S22invs, N, i=1, j=2, q=1, nTests=100, alpha=0.05,
+.qpEdgeNrrIdenticalQs <- function(S, Qs, S22invs, n, i=1, j=2, q=1, nTests=100, alpha=0.05,
                                   R.code.only=FALSE) {
-  if (is.character(i)) {
-    if (is.na(match(i, colnames(S))))
-      stop(sprintf("i=%s does not form part of the variable names of the data\n",i))
-    i <- match(i,colnames(S))
-  }
+  varNames <- colnames(S)
 
-  if (is.character(j)) {
-    if (is.na(match(j, colnames(S))))
-      stop(sprintf("j=%s does not form part of the variable names of the data\n",j))
-    j <- match(j,colnames(S))
-  }
-
-  n.var  <- nrow(S)
-
-  if (q > n.var-2)
-    stop(paste("q=",q," > n.var-2=",n.var-2))
-
-  if (q < 0)
-    stop(paste("q=",q," < 0"))
-
-  if (q > N-3)
-    stop(paste("q=",q," > N-3=",N-3))
+  param <- qpgraph:::.processParameters(varNames, n, i=i, j=j)
+  V <- param$V
+  i <- param$i
+  j <- param$j
 
   nActualTests <- 0
-  thr    <- qt(p=1-(alpha/2),df=N-q-2,lower.tail=TRUE,log.p=FALSE)
+  thr    <- qt(p=1-(alpha/2),df=n-q-2,lower.tail=TRUE,log.p=FALSE)
   lambda <- c()
   for (k in 1:nTests) {
     if (sum(!is.na(match(c(i, j), Qs[[k]]))) == 0) { # those Q sets that include i or j are excluded
       Mmar    <- S[c(i, j, Qs[[k]]), c(i, j, Qs[[k]])]
       par.cov <- Mmar[1:2, 1:2] - Mmar[1:2, 3:(q+2)] %*% S22invs[[k]] %*% Mmar[3:(q+2), 1:2]
       par.cor <- cov2cor(par.cov)[1,2]
-      t.value <- sqrt(N - q - 2) * par.cor / sqrt(1 - par.cor^2)
+      t.value <- sqrt(n - q - 2) * par.cor / sqrt(1 - par.cor^2)
       lambda <- c(lambda, abs(t.value))
       nActualTests <- nActualTests + 1
     }
