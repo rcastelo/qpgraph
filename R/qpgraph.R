@@ -1793,7 +1793,7 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
               colnames(X) <- 1:ncol(X)
 
             # if the matrix is squared let's assume then that it is the sample
-            # covariance matrix and that the sample size is the next parameter
+            # covariance matrix and that the sample size is included as argument 'n'
             if (nrow(X) != ncol(X)) {
               if (!is.null(n))
                 stop("if X is not a sample covariance matrix then n should not be set\n")
@@ -1830,23 +1830,23 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
                 rownames(X) <- colnames(X)
 
               S <- X
+
+              param <- qpgraph:::.processParameters(varNames, n, i=i, j=j, q=q,
+                                                    restrict.Q=restrict.Q, fix.Q=fix.Q)
+              i <- param$i
+              j <- param$j
+              restrict.Q <- param$restrict.Q
+              fix.Q <- param$fix.Q
+
               qpgraph:::.qpEdgeNrr(S, n, i, j, q, restrict.Q, fix.Q, nTests,
                                    alpha, R.code.only)
             }
           })
 
-## FACTORIZE OUT THE PARAMETER CHECKING AND CONVERSION INTO INTEGERS TO USE
-## IT ELSEWHERE AND WITHIN THE S4 METHODS. THIS SHOULD FACILITATE EXPLOITING
-## RESTRICT.Q TO CALCULATE COVARIANCE MATRICES OF REDUCED SIZE WHEN POSSIBLE
-
 .processParameters <- function(varNames, n, i, j, q, I=NULL, Y=NULL,
                                restrict.Q=NULL, fix.Q=NULL) {
 
   p <- length(varNames)
-  V <- 1:p
-
-  if (q > p-2)
-    stop(paste("q=", q, " > p-2=", p-2))
 
   if (q < 0)
     stop(paste("q=", q, " < 0"))
@@ -1882,16 +1882,6 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
     }
   }
 
-  if (!is.null(restrict.Q)) {
-    if (is.character(restrict.Q)) {
-      if (any(is.na(match(restrict.Q, varNames))))
-        stop("Some variables in restrict.Q do not form part of the variable names of the data\n")
-      restrict.Q <- match(restrict.Q, varNames)
-    }
-
-    V <- restrict.Q
-  }
-
   if (!is.null(fix.Q)) {
     if (is.character(fix.Q)) {
       if (any(is.na(match(fix.Q, varNames))))
@@ -1904,16 +1894,20 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
 
     if (q <= length(fix.Q))
       stop("q should be larger than the number of variables in fix.Q\n")
+  }
 
-    if (is.null(restrict.Q))
-      restrict.Q <- setdiff(V, fix.Q)
-    else {
-      if (length(intersect(restrict.Q, fix.Q)) > 0)
-        stop("The subsets restrict.Q and fix.Q should be disjoint.\n")
+  if (!is.null(restrict.Q)) {
+    if (is.character(restrict.Q)) {
+      if (any(is.na(match(restrict.Q, varNames))))
+        stop("Some variables in restrict.Q do not form part of the variable names of the data\n")
+      restrict.Q <- match(restrict.Q, varNames)
     }
   }
 
-  return(list(V=V, i=i, j=j, I=I, Y=Y, restrict.Q=restrict.Q, fix.Q=fix.Q))
+  if (length(intersect(restrict.Q, fix.Q)) > 0)
+    stop("The subsets restrict.Q and fix.Q should be disjoint.\n")
+
+  return(list(i=i, j=j, I=I, Y=Y, restrict.Q=restrict.Q, fix.Q=fix.Q))
 }
 
 .qpEdgeNrr <- function(S, n, i=1, j=2, q=1, restrict.Q=NULL, fix.Q=NULL,
@@ -1924,7 +1918,6 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
 
   param <- qpgraph:::.processParameters(varNames, n, i=i, j=j, q=q,
                                         restrict.Q=restrict.Q, fix.Q=fix.Q)
-  V <- param$V
   i <- param$i
   j <- param$j
   restrict.Q <- param$restrict.Q
@@ -1934,15 +1927,21 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
     return(qpgraph:::.qpFastEdgeNrr(S, n, i, j, q, restrict.Q, fix.Q, nTests, alpha));
   }
 
-  V <- setdiff(V, fix.Q)
+  V <- 1:p
+  if (!is.null(restrict.Q))
+    V <- restrict.Q
+
+  if (!is.null(fix.Q))
+    V <- setdiff(V, fix.Q)
+
+  if (q > length(V)-2)
+    stop(paste("q=", q, " > p-2=", p-2))
+
   q.fix <- length(fix.Q)
   mt <- match(c(i, j), V)
   mt <- mt[!is.na(mt)]
   if (length(mt) > 0)
     V <- V[-mt]
-
-  if (q > length(V))
-    stop("The set of variables from where subsets Q of size q should sampled is smaller than q\n")
 
   thr <- qt(p=1-(alpha/2), df=n-q-2, lower.tail=TRUE, log.p=FALSE)
   lambda <- c()
@@ -1966,7 +1965,6 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
 
   param <- qpgraph:::.processParameters(varNames, n, i=i, j=j, q=q, I=I, Y=I,
                                         restrict.Q=restrict.Q, fix.Q=fix.Q)
-  V <- param$V
   i <- param$i
   j <- param$j
   I <- param$I
@@ -1976,8 +1974,6 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
 
   if (all(!is.na(match(c(i,j), I))))
     stop("i and j cannot be both discrete at the moment\n")
-
-  V <- c(I, Y)
 
   if (!is.na(match(j, I))) { ## if any of (i,j) is discrete, it should be i
     tmp <- i
@@ -1990,15 +1986,21 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
                                         restrict.Q, fix.Q, nTests, alpha, exact.test))
   }
 
-  V <- setdiff(V, fix.Q)
+  V <- 1:p
+  if (!is.null(restrict.Q))
+    V <- restrict.Q
+
+  if (!is.null(fix.Q))
+    V <- setdiff(V, fix.Q)
+
+  if (q > length(V)-2)
+    stop(paste("q=", q, " > p-2=", p-2))
+
   q.fix <- length(fix.Q)
   mt <- match(c(i, j), V)
   mt <- mt[!is.na(mt)]
   if (length(mt) > 0)
     V <- V[-mt]
-
-  if (q > length(V))
-    stop("The set of variables from where subsets Q of size q should sampled is smaller than q\n")
 
   problematicQ <- NA
   nActualTests <- 0
@@ -2048,7 +2050,6 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
   varNames <- colnames(S)
 
   param <- qpgraph:::.processParameters(varNames, n, i=i, j=j)
-  V <- param$V
   i <- param$i
   j <- param$j
 
