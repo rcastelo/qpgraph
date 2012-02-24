@@ -631,8 +631,8 @@ setMethod("qpCItest", signature(X="matrix"),
   if (p != d[2] || !isSymmetric(ssdMat))
     stop("ssdMat is not squared and symmetric. Is it really a ssd matrix?\n")
 
-  if (p != length(Y))
-    stop("ssdMat is not the ssd matrix of the variables in Y\n")
+  ## if (p != length(Y))
+  ##  stop("ssdMat is not the ssd matrix of the variables in Y\n")
 
   if (!is.integer(i) || !is.integer(j) || (!is.null(Q) && !is.integer(Q)) || (!is.null(I) && !is.integer(I)) || !is.integer(Y))
     stop("i, j, Y, I and Q should contain only integer values when calling .qpCItestHMGM()")

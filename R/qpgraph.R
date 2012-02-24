@@ -1542,7 +1542,7 @@ setMethod("qpEdgeNrr", signature(X="smlSet"),
               }
               if (is.character(fix.Q)) {
                 mt <- match(fix.Q, pNames)
-                mt2 <- match(restrict.Q, colnames(XP)) ## avoid including a phen. var. twice
+                mt2 <- match(fix.Q, colnames(XP)) ## avoid including a phen. var. twice
                 for (k in mt[!is.na(mt) & is.na(mt2)]) {
                   x <- Biobase::pData(X)[, k]
                   cnames <- colnames(XP)
@@ -1570,28 +1570,49 @@ setMethod("qpEdgeNrr", signature(X="smlSet"),
               }
             } ## end if (h > 0)
 
-            X <- t(Biobase::exprs(X))
-            X <- cbind(X, XP)
+            XEP <- t(Biobase::exprs(X))
+            XEP <- cbind(XEP, XP)
+            ph <- ncol(XEP) ## write down how many vars are expression profiles and phenotypes
+            varNames <- c(colNames(XEP), sNames)
+            Y <- varNames
+            Y <- (1:ph)[-I]
 
-            if (is.null(I) && !is.null(restrict.Q)) { ## only expression profiles are involved in the calculations
-              S <- qpCov(X)
-              n <- nrow(X)
+            param <- qpgraph:::.processParameters(varNames, n, i=i, j=j, q=q, I=I, Y=Y,
+                                                  restrict.Q=restrict.Q, fix.Q=fix.Q)
+            i <- param$i
+            j <- param$j
+            I <- param$I
+            Y <- param$Y
+            restrict.Q <- param$restrict.Q
+            fix.Q <- param$fix.Q
+
+            if (length(intersect(restrict.Q, Y)) > 0)
+              Y <- c(intersect(i, Y), intersect(j, Y),
+                     intersect(restrict.Q, Y), intersect(fix.Q, Y))
+
+            if (is.null(I) && !is.null(restrict.Q) &&
+                all(c(i, j, restrict.Q, fix.Q) <= ph)) { ## only continuous variables are
+                                                         ## involved in the calculations
+              V <- c(i, j, setdiff(restrict.Q, c(i, j)), fix.Q)
+              i <- 1
+              j <- 2
+              restrict.Q <- 2+seq(along=setdiff(restrict.Q, c(i, j)))
+              fix.Q <- 2+length(restrict.Q)+seq(along=fix.Q)
+
+              S <- qpCov(XEP[, V, drop=FALSE])
+
               qpgraph:::.qpEdgeNrr(S, n, i, j, q, restrict.Q, fix.Q, nTests,
                                    alpha, R.code.only)
             } else {
-              Y <- colnames(X)
-              if (is.character(I))
-                Y <- setdiff(colnames(X), I)
-              else
-                Y <- (1:ncol(X))[-I]
 
-              ssd <- qpCov(X[, Y, drop=FALSE], corrected=FALSE)
-              mapX2ssd <- match(colnames(X), colnames(ssd))
-              names(mapX2ssd) <- colnames(X)
+              ## ssd <- qpCov(XEP[, Y, drop=FALSE], corrected=FALSE)
+              ## mapX2ssd <- match(colnames(X), colnames(ssd))
+              ## names(mapX2ssd) <- colnames(X)
 
-              qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i, j, q,
-                                       restrict.Q, fix.Q, nTests, alpha,
-                                       exact.test, R.code.only)
+              ## CONTINUE HERE !!!
+              qpgraph:::.qpEdgeNrrHMGMsmlSet(X, XEP, I, Y, i, j, q,
+                                             restrict.Q, fix.Q, nTests, alpha,
+                                             exact.test, R.code.only)
             }
           })
 
@@ -1685,7 +1706,7 @@ setMethod("qpEdgeNrr", signature(X="ExpressionSet"),
               }
               if (is.character(fix.Q)) {
                 mt <- match(fix.Q, pNames)
-                mt2 <- match(restrict.Q, colnames(XP)) ## avoid including a phen. var. twice
+                mt2 <- match(fix.Q, colnames(XP)) ## avoid including a phen. var. twice
                 for (k in mt[!is.na(mt) & is.na(mt2)]) {
                   x <- Biobase::pData(X)[, k]
                   cnames <- colnames(XP)
@@ -1715,22 +1736,53 @@ setMethod("qpEdgeNrr", signature(X="ExpressionSet"),
 
             X <- t(Biobase::exprs(X))
             X <- cbind(X, XP)
+            varNames <- colnames(X)
+            p <- ncol(X)
 
             if (is.null(I)) {
-              S <- qpCov(X)
-              n <- nrow(X)
+              param <- qpgraph:::.processParameters(varNames, n, i=i, j=j, q=q,
+                                                    restrict.Q=restrict.Q, fix.Q=fix.Q)
+              i <- param$i
+              j <- param$j
+              restrict.Q <- param$restrict.Q
+              fix.Q <- param$fix.Q
+
+              V <- 1:p
+              if (!is.null(restrict.Q)) {
+                V <- c(i, j, setdiff(restrict.Q, c(i, j)), fix.Q)
+                i <- 1
+                j <- 2
+                restrict.Q <- 2+seq(along=setdiff(restrict.Q, c(i, j)))
+                fix.Q <- 2+length(restrict.Q)+seq(along=fix.Q)
+              }
+
+              S <- qpCov(X[, V, drop=FALSE])
+
               qpgraph:::.qpEdgeNrr(S, n, i, j, q, restrict.Q, fix.Q, nTests,
                                    alpha, R.code.only)
             } else {
-              Y <- colnames(X)
-              if (is.character(I))
-                Y <- setdiff(colnames(X), I)
+              Y <- varNames
+              if (is.character(I)) ## isn't it I at this point always integer ?
+                Y <- setdiff(varNames, I)
               else
-                Y <- (1:ncol(X))[-I]
+                Y <- (1:p)[-I]
+
+              param <- qpgraph:::.processParameters(varNames, n, i=i, j=j, q=q, I=I, Y=Y,
+                                                      restrict.Q=restrict.Q, fix.Q=fix.Q)
+              i <- param$i
+              j <- param$j
+              I <- param$I
+              Y <- param$Y
+              restrict.Q <- param$restrict.Q
+              fix.Q <- param$fix.Q
+
+              if (length(intersect(restrict.Q, Y)) > 0)
+                Y <- c(intersect(i, Y), intersect(j, Y),
+                       intersect(restrict.Q, Y), intersect(fix.Q, Y))
 
               ssd <- qpCov(X[, Y, drop=FALSE], corrected=FALSE)
-              mapX2ssd <- match(colnames(X), colnames(ssd))
-              names(mapX2ssd) <- colnames(X)
+              mapX2ssd <- match(varNames, colnames(ssd))
+              names(mapX2ssd) <- varNames
 
               qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i, j, q,
                                        restrict.Q, fix.Q, nTests, alpha,
@@ -1753,10 +1805,28 @@ setMethod("qpEdgeNrr", signature(X="data.frame"),
 
             if (is.null(colnames(X)))
               colnames(X) <- 1:ncol(X)
+            varNames <- colnames(X)
+            n <- nrow(X)
 
             if (is.null(I)) {
-              S <- qpCov(X)
-              n <- nrow(X)
+              param <- qpgraph:::.processParameters(varNames, n, i=i, j=j, q=q,
+                                                    restrict.Q=restrict.Q, fix.Q=fix.Q)
+              i <- param$i
+              j <- param$j
+              restrict.Q <- param$restrict.Q
+              fix.Q <- param$fix.Q
+
+              V <- 1:p
+              if (!is.null(restrict.Q)) {
+                V <- c(i, j, setdiff(restrict.Q, c(i, j)), fix.Q)
+                i <- 1
+                j <- 2
+                restrict.Q <- 2+seq(along=setdiff(restrict.Q, c(i, j)))
+                fix.Q <- 2+length(restrict.Q)+seq(along=fix.Q)
+              }
+
+              S <- qpCov(X[, V, drop=FALSE])
+
               qpgraph:::.qpEdgeNrr(S, n, i, j, q, restrict.Q, fix.Q, nTests,
                                    alpha, R.code.only)
             } else {
@@ -1768,6 +1838,18 @@ setMethod("qpEdgeNrr", signature(X="data.frame"),
                 Y <- setdiff(colnames(X), I)
               else
                 Y <- (1:ncol(X))[-I]
+
+              param <- qpgraph:::.processParameters(varNames, n, i=i, j=j, q=q, I=I, Y=Y,
+                                                      restrict.Q=restrict.Q, fix.Q=fix.Q)
+              i <- param$i
+              j <- param$j
+              I <- param$I
+              Y <- param$Y
+              restrict.Q <- param$restrict.Q
+              fix.Q <- param$fix.Q
+
+              if (length(intersect(restrict.Q, Y)) > 0)
+                Y <- c(intersect(restrict.Q, Y), intersect(fix.Q, Y))
 
               ssd <- qpCov(X[, Y, drop=FALSE], corrected=FALSE)
               mapX2ssd <- match(colnames(X), colnames(ssd))
@@ -1791,6 +1873,7 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
 
             if (is.null(colnames(X))) 
               colnames(X) <- 1:ncol(X)
+            varNames <- colnames(X)
 
             # if the matrix is squared let's assume then that it is the sample
             # covariance matrix and that the sample size is included as argument 'n'
@@ -1798,9 +1881,25 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
               if (!is.null(n))
                 stop("if X is not a sample covariance matrix then n should not be set\n")
 
+              n <- nrow(X)
               if (is.null(I)) {
-                S <- qpCov(X)
-                n <- nrow(X)
+                param <- qpgraph:::.processParameters(varNames, n, i=i, j=j, q=q,
+                                                      restrict.Q=restrict.Q, fix.Q=fix.Q)
+                i <- param$i
+                j <- param$j
+                restrict.Q <- param$restrict.Q
+                fix.Q <- param$fix.Q
+
+                V <- 1:p
+                if (!is.null(restrict.Q)) {
+                  V <- c(i, j, setdiff(restrict.Q, c(i, j)), fix.Q)
+                  i <- 1
+                  j <- 2
+                  restrict.Q <- 2+seq(along=setdiff(restrict.Q, c(i, j)))
+                  fix.Q <- 2+length(restrict.Q)+seq(along=fix.Q)
+                }
+
+                S <- qpCov(X[, V, drop=FALSE])
 
                 qpgraph:::.qpEdgeNrr(S, n, i, j, q, restrict.Q, fix.Q, nTests,
                                      alpha, R.code.only)
@@ -1813,6 +1912,18 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
                   Y <- setdiff(colnames(X), I)
                 else
                   Y <- (1:ncol(X))[-I]
+
+                param <- qpgraph:::.processParameters(varNames, n, i=i, j=j, q=q, I=I, Y=Y,
+                                                      restrict.Q=restrict.Q, fix.Q=fix.Q)
+                i <- param$i
+                j <- param$j
+                I <- param$I
+                Y <- param$Y
+                restrict.Q <- param$restrict.Q
+                fix.Q <- param$fix.Q
+
+                if (length(intersect(restrict.Q, Y)) > 0)
+                  Y <- c(intersect(restrict.Q, Y), intersect(fix.Q, Y))
 
                 ssd <- qpCov(X[, Y, drop=FALSE], corrected=FALSE)
                 mapX2ssd <- match(colnames(X), colnames(ssd))
@@ -1829,8 +1940,7 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
               if (is.null(rownames(X)))
                 rownames(X) <- colnames(X)
 
-              S <- X
-
+              varNames <- colnames(X)
               param <- qpgraph:::.processParameters(varNames, n, i=i, j=j, q=q,
                                                     restrict.Q=restrict.Q, fix.Q=fix.Q)
               i <- param$i
@@ -1838,7 +1948,7 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
               restrict.Q <- param$restrict.Q
               fix.Q <- param$fix.Q
 
-              qpgraph:::.qpEdgeNrr(S, n, i, j, q, restrict.Q, fix.Q, nTests,
+              qpgraph:::.qpEdgeNrr(X, n, i, j, q, restrict.Q, fix.Q, nTests,
                                    alpha, R.code.only)
             }
           })
@@ -1885,7 +1995,7 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
   if (!is.null(fix.Q)) {
     if (is.character(fix.Q)) {
       if (any(is.na(match(fix.Q, varNames))))
-        stop("Some variables in restrict.Q do not form part of the variable names of the data\n")
+        stop("Some variables in fix.Q do not form part of the variable names of the data\n")
       fix.Q <- match(fix.Q, varNames)
     }
 
@@ -1910,23 +2020,17 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
   return(list(i=i, j=j, I=I, Y=Y, restrict.Q=restrict.Q, fix.Q=fix.Q))
 }
 
+## IMPORTANT: .qpEdgeNrr() assumes that .processParameters() has been
+##            previously called and all arguments related to variables
+##            com as integers
 .qpEdgeNrr <- function(S, n, i=1, j=2, q=1, restrict.Q=NULL, fix.Q=NULL,
                        nTests=100, alpha=0.05, R.code.only=FALSE) {
-
-  varNames <- colnames(S)
-  p  <- nrow(S)
-
-  param <- qpgraph:::.processParameters(varNames, n, i=i, j=j, q=q,
-                                        restrict.Q=restrict.Q, fix.Q=fix.Q)
-  i <- param$i
-  j <- param$j
-  restrict.Q <- param$restrict.Q
-  fix.Q <- param$fix.Q
 
   if (!R.code.only) { ## assume restrict.Q and fix.Q are coordinately set!!!!
     return(qpgraph:::.qpFastEdgeNrr(S, n, i, j, q, restrict.Q, fix.Q, nTests, alpha));
   }
 
+  p  <- nrow(S)
   V <- 1:p
   if (!is.null(restrict.Q))
     V <- restrict.Q
@@ -1949,7 +2053,7 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
     Q <- c(sample(V, q-q.fix, rep=FALSE), fix.Q)
     cit <- qpgraph:::.qpCItest(S, n, as.integer(i), as.integer(j), as.integer(Q),
                                R.code.only=TRUE)
-    lambda  <- c(lambda, abs(cit$t.value))
+    lambda  <- c(lambda, abs(cit$statistic))
   }
 
   nAcceptedTests <- sum(lambda < thr)
@@ -1957,21 +2061,12 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
   return(nAcceptedTests / nTests)
 }
 
+## IMPORTANT: .qpEdgeNrrHMGM() assumes that .processParameters() has been
+##            previously called and all arguments related to variables
+##            com as integers
 .qpEdgeNrrHMGM <- function(X, I, Y, ssdMat, mapX2ssdMat, i=1, j=2, q=1,
                            restrict.Q=NULL, fix.Q=NULL, nTests=100,
                            alpha=0.05, exact.test=TRUE, R.code.only=FALSE) {
-  varNames <- colnames(X)
-  n <- nrow(X)
-
-  param <- qpgraph:::.processParameters(varNames, n, i=i, j=j, q=q, I=I, Y=I,
-                                        restrict.Q=restrict.Q, fix.Q=fix.Q)
-  i <- param$i
-  j <- param$j
-  I <- param$I
-  Y <- param$Y
-  restrict.Q <- param$restrict.Q
-  fix.Q <- param$fix.Q
-
   if (all(!is.na(match(c(i,j), I))))
     stop("i and j cannot be both discrete at the moment\n")
 
@@ -1986,6 +2081,7 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
                                         restrict.Q, fix.Q, nTests, alpha, exact.test))
   }
 
+  p <- ncol(X)
   V <- 1:p
   if (!is.null(restrict.Q))
     V <- restrict.Q
@@ -2024,7 +2120,7 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
       problematicQ <- Q
   }
 
-  nAcceptedTests <- thr <- NA
+  nAcceptedTests <- NA
   if (exact.test) {
     nAcceptedTests <- sum(lambda > thr, na.rm=TRUE)
   } else {
@@ -2047,12 +2143,6 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
 
 .qpEdgeNrrIdenticalQs <- function(S, Qs, S22invs, n, i=1, j=2, q=1, nTests=100, alpha=0.05,
                                   R.code.only=FALSE) {
-  varNames <- colnames(S)
-
-  param <- qpgraph:::.processParameters(varNames, n, i=i, j=j)
-  i <- param$i
-  j <- param$j
-
   nActualTests <- 0
   thr    <- qt(p=1-(alpha/2),df=n-q-2,lower.tail=TRUE,log.p=FALSE)
   lambda <- c()
