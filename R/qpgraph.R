@@ -525,7 +525,7 @@ setMethod("qpNrr", signature(X="matrix"),
   if (!is.null(I)) {  ## calculate the uncorrected sum of squares and deviations
     ssd <- qpCov(X[, Y, drop=FALSE], corrected=FALSE)
     mapX2ssd <- match(var.names, colnames(ssd))
-    names(mapX2ssd) <- colnames(X)
+    ## names(mapX2ssd) <- colnames(X) ## is this necessary
   } else             ## calculate sample covariance matrix
     S <- qpCov(X)
 
@@ -1573,9 +1573,10 @@ setMethod("qpEdgeNrr", signature(X="smlSet"),
             XEP <- t(Biobase::exprs(X))
             XEP <- cbind(XEP, XP)
             ph <- ncol(XEP) ## write down how many vars are expression profiles and phenotypes
-            varNames <- c(colNames(XEP), sNames)
-            Y <- varNames
-            Y <- (1:ph)[-I]
+            varNames <- c(colnames(XEP), sNames)
+            Y <- 1:ph
+            if (!is.null(I))
+              Y <- Y[-I]
 
             param <- qpgraph:::.processParameters(varNames, n, i=i, j=j, q=q, I=I, Y=Y,
                                                   restrict.Q=restrict.Q, fix.Q=fix.Q)
@@ -1605,12 +1606,8 @@ setMethod("qpEdgeNrr", signature(X="smlSet"),
                                    alpha, R.code.only)
             } else {
 
-              ## ssd <- qpCov(XEP[, Y, drop=FALSE], corrected=FALSE)
-              ## mapX2ssd <- match(colnames(X), colnames(ssd))
-              ## names(mapX2ssd) <- colnames(X)
-
-              ## CONTINUE HERE !!!
-              qpgraph:::.qpEdgeNrrHMGMsmlSet(X, XEP, I, Y, i, j, q,
+              qpgraph:::.qpEdgeNrrHMGMsmlSet(X, sByChr, cumsum_sByChr, s,
+                                             XEP, I, Y, i, j, q,
                                              restrict.Q, fix.Q, nTests, alpha,
                                              exact.test, R.code.only)
             }
@@ -1782,7 +1779,7 @@ setMethod("qpEdgeNrr", signature(X="ExpressionSet"),
 
               ssd <- qpCov(X[, Y, drop=FALSE], corrected=FALSE)
               mapX2ssd <- match(varNames, colnames(ssd))
-              names(mapX2ssd) <- varNames
+              ## names(mapX2ssd) <- varNames ## is this necessary?
 
               qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i, j, q,
                                        restrict.Q, fix.Q, nTests, alpha,
@@ -1853,7 +1850,7 @@ setMethod("qpEdgeNrr", signature(X="data.frame"),
 
               ssd <- qpCov(X[, Y, drop=FALSE], corrected=FALSE)
               mapX2ssd <- match(colnames(X), colnames(ssd))
-              names(mapX2ssd) <- colnames(X)
+              ## names(mapX2ssd) <- colnames(X) ## is this necessary?
 
               qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i, j, q,
                                        restrict.Q, fix.Q, nTests, alpha,
@@ -1873,6 +1870,7 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
 
             if (is.null(colnames(X))) 
               colnames(X) <- 1:ncol(X)
+            p <- ncol(X)
             varNames <- colnames(X)
 
             # if the matrix is squared let's assume then that it is the sample
@@ -1927,7 +1925,7 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
 
                 ssd <- qpCov(X[, Y, drop=FALSE], corrected=FALSE)
                 mapX2ssd <- match(colnames(X), colnames(ssd))
-                names(mapX2ssd) <- colnames(X)
+                ## names(mapX2ssd) <- colnames(X) ## is this necessary ??
 
                 qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i, j, q,
                                          restrict.Q, fix.Q, nTests, alpha,
@@ -2061,6 +2059,30 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
   return(nAcceptedTests / nTests)
 }
 
+## IMPORTANT: .qpEdgeNrr() assumes that .processParameters() has been
+##            previously called and all arguments related to variables
+##            com as integers
+.qpEdgeNrrIdenticalQs <- function(S, Qs, S22invs, n, i=1, j=2, q=1, nTests=100, alpha=0.05,
+                                  R.code.only=FALSE) {
+  nActualTests <- 0
+  thr    <- qt(p=1-(alpha/2),df=n-q-2,lower.tail=TRUE,log.p=FALSE)
+  lambda <- c()
+  for (k in 1:nTests) {
+    if (sum(!is.na(match(c(i, j), Qs[[k]]))) == 0) { # those Q sets that include i or j are excluded
+      Mmar    <- S[c(i, j, Qs[[k]]), c(i, j, Qs[[k]])]
+      par.cov <- Mmar[1:2, 1:2] - Mmar[1:2, 3:(q+2)] %*% S22invs[[k]] %*% Mmar[3:(q+2), 1:2]
+      par.cor <- cov2cor(par.cov)[1,2]
+      t.value <- sqrt(n - q - 2) * par.cor / sqrt(1 - par.cor^2)
+      lambda <- c(lambda, abs(t.value))
+      nActualTests <- nActualTests + 1
+    }
+  }
+
+  nAcceptedTests <- sum(lambda < thr)
+
+  return(nAcceptedTests / nActualTests)
+}
+
 ## IMPORTANT: .qpEdgeNrrHMGM() assumes that .processParameters() has been
 ##            previously called and all arguments related to variables
 ##            com as integers
@@ -2141,23 +2163,140 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
   return(nAcceptedTests / nActualTests)
 }
 
-.qpEdgeNrrIdenticalQs <- function(S, Qs, S22invs, n, i=1, j=2, q=1, nTests=100, alpha=0.05,
-                                  R.code.only=FALSE) {
-  nActualTests <- 0
-  thr    <- qt(p=1-(alpha/2),df=n-q-2,lower.tail=TRUE,log.p=FALSE)
-  lambda <- c()
-  for (k in 1:nTests) {
-    if (sum(!is.na(match(c(i, j), Qs[[k]]))) == 0) { # those Q sets that include i or j are excluded
-      Mmar    <- S[c(i, j, Qs[[k]]), c(i, j, Qs[[k]])]
-      par.cov <- Mmar[1:2, 1:2] - Mmar[1:2, 3:(q+2)] %*% S22invs[[k]] %*% Mmar[3:(q+2), 1:2]
-      par.cor <- cov2cor(par.cov)[1,2]
-      t.value <- sqrt(n - q - 2) * par.cor / sqrt(1 - par.cor^2)
-      lambda <- c(lambda, abs(t.value))
-      nActualTests <- nActualTests + 1
-    }
+## IMPORTANT: .qpEdgeNrrHMGMsmlSet() assumes that .processParameters() has been
+##            previously called and all arguments related to variables
+##            com as integers
+.qpEdgeNrrHMGMsmlSet <- function(X, sByChr, cumsum_sByChr, s, XEP,
+                                 I, Y, i=1L, j=2L, q=1L,
+                                 restrict.Q=NULL, fix.Q=NULL, nTests=100,
+                                 alpha=0.05, exact.test=TRUE, R.code.only=FALSE) {
+  if (all(!is.na(match(c(i,j), I))))
+    stop("i and j cannot be both discrete at the moment\n")
+
+  n <- nrow(XEP)
+  ph <- ncol(XEP)
+  p <- ph + s
+
+  if (!is.na(match(j, I)) || j > ph) { ## if any of (i,j) is discrete, it should be i
+    tmp <- i
+    i <- j
+    j <- tmp
   }
 
-  nAcceptedTests <- sum(lambda < thr)
+  ssd <- qpCov(XEP[, Y, drop=FALSE], corrected=FALSE)
+  ## we need to map smlSet-level Y indices to the ssd dimension
+  mapY2ssd <- rep(NA, length=max(Y))
+  mapY2ssd[Y] <- 1:ncol(ssd)
+
+  ## if (!R.code.only) {
+  ##   return(qpgraph:::.qpFastEdgeNrrHMGM(X, I, Y, ssdMat, mapX2ssdMat, i, j, q,
+  ##                                       restrict.Q, fix.Q, nTests, alpha, exact.test))
+  ## }
+
+  V <- 1:p
+  if (!is.null(restrict.Q))
+    V <- restrict.Q
+
+  if (!is.null(fix.Q))
+    V <- setdiff(V, fix.Q)
+
+  if (q > length(V)-2)
+    stop(paste("q=", q, " > p-2=", p-2))
+
+  q.fix <- length(fix.Q)
+  mt <- match(c(i, j), V)
+  mt <- mt[!is.na(mt)]
+  if (length(mt) > 0)
+    V <- V[-mt]
+
+  Xsub <- matrix(NA_real_, nrow=n, ncol=q+2)
+  Yij <- Iij <- NULL
+  if (i > ph) {
+    selChr <- sum(cumsum_sByChr < i-ph)
+    x <- as(smList(X)[[selChr]][, i-ph-cumsum_sByChr[selChr]], "character")[ ,1]
+    x[x == "Uncertain" | x == "NA"] <- NA ## could this be directly done by coercing to numeric?
+    Xsub[, 1] <- as.numeric(factor(x, levels=unique(x)))
+    Iij <- 1
+  } else {
+    Xsub[, 1] <- XEP[, i]
+    Yij <- i
+  }
+  i <- 1L 
+
+  if (j > ph) {
+    selChr <- sum(cumsum_sByChr < j-ph)
+    x <- as(smList(X)[[selChr]][, j-ph-cumsum_sByChr[selChr]], "character")[ ,2]
+    x[x == "Uncertain" | x == "NA"] <- NA ## could this be directly done by coercing to numeric?
+    Xsub[, 2] <- as.numeric(factor(x, levels=unique(x)))
+    Iij <- 1 ## assuming only i or j can be discrete, not both at the same time
+  } else {
+    Xsub[, 2] <- XEP[, j]
+    Yij <- j
+  }
+  j <- 2L
+
+  problematicQ <- NA
+  nActualTests <- 0
+  lambda <- a <- b <- thr <- rep(NA, times=nTests)
+  for (k in 1:nTests) {
+    Q <- c(sample(V, q-q.fix, rep=FALSE), fix.Q)
+    w <- which(Q <= ph)
+    nijep <- length(w)
+    Xsub[, 2+seq(along=w)] <- XEP[, Q[w]]
+    Isub <- c(Iij, 2+seq(along=w)[na.omit(match(I, Q))])
+    Qw <- Q[which(Q > ph)]
+    for (m in seq(along=Qw)) {
+      selChr <- sum(cumsum_sByChr < Qw[m]-ph)
+      x <- as(smList(X)[[selChr]][, Qw[m]-ph-cumsum_sByChr[selChr]], "character")[, 1]
+      Xsub[, 2+nijep+m] <- as.numeric(factor(x), levels=unique(x))
+      Isub <- c(Isub, 2+nijep+m)
+    }
+ 
+    ## map2ssd maps columns of continuous variables in Xsub to columns in ssd
+    map2ssd <- rep(NA, length=q+2)
+    Ysub <- (1:(q+2))
+    if (length(Isub) > 0)
+      Ysub <- Ysub[-Isub]
+    map2ssd[Ysub] <- mapY2ssd[intersect(c(Yij, Q), Y)] ## map Xsub coord. to ssd coord.
+
+    Q <- 2+seq(along=Q)
+
+    ## map2ssd <- match(colnames(Xsub), colnames(ssd))
+    ## names(map2ssd) <- colnames(Xsub) ## this is not really necessary
+    cit <- qpgraph:::.qpCItestHMGM(Xsub, Isub, Ysub, ssd, map2ssd, i, j, Q,
+                                   exact.test, R.code.only=TRUE)
+    if (!is.nan(cit$statistic)) {
+      lambda[k] <- cit$statistic
+      if (exact.test) {
+        a[k] <- cit$parameter["a"]
+        b[k] <- cit$parameter["b"]
+        if (k > 1 && a[k] == a[k-1] && b[k] == b[k-1])
+          thr[k] <- thr[k-1]
+        else
+          thr[k] <- qbeta(p=alpha, shape1=a[k], shape2=b[k], lower.tail=TRUE)
+      }
+      nActualTests <- nActualTests + 1
+    } else
+      problematicQ <- Q
+  }
+
+  nAcceptedTests <- NA
+  if (exact.test) {
+    nAcceptedTests <- sum(lambda > thr, na.rm=TRUE)
+  } else {
+    thr <- qchisq(p=(1-alpha), df=1, lower.tail=TRUE)
+    nAcceptedTests <- sum(lambda < thr, na.rm=TRUE)
+  }
+
+
+  if (nActualTests < nTests)
+    warning(paste(sprintf("Non-rejection rate estimation between i=%s and j=%s with q=%d was based on %d out of %d requested tests.\n",
+                          colnames(X)[i], colnames(X)[j], q, nActualTests, nTests),
+                  sprintf("For instance, the CI test between i=%s and j=%s given Q={",
+                          colnames(X)[i], colnames(X)[j]),
+                  paste(colnames(X)[problematicQ], collapse=", "),
+                  "}, could not be calculated. Try with smaller Q subsets or increase n if you can.\n",
+                  sep=""))
 
   return(nAcceptedTests / nActualTests)
 }

@@ -629,20 +629,23 @@ setMethod("qpCItest", signature(X="matrix"),
 .qpCItestHMGM <- function(X, I, Y, ssdMat, mapX2ssdMat, i, j, Q, exact.test=TRUE, R.code.only=FALSE ) {
   p <- (d <- dim(ssdMat))[1]
   if (p != d[2] || !isSymmetric(ssdMat))
-    stop("ssdMat is not squared and symmetric. Is it really a ssd matrix?\n")
+    stop("ssdMat is not squared and symmetric. Is it really an ssd matrix?\n")
 
+  ## not possible when considering restrict.Q != NULL
   ## if (p != length(Y))
   ##  stop("ssdMat is not the ssd matrix of the variables in Y\n")
 
-  if (!is.integer(i) || !is.integer(j) || (!is.null(Q) && !is.integer(Q)) || (!is.null(I) && !is.integer(I)) || !is.integer(Y))
-    stop("i, j, Y, I and Q should contain only integer values when calling .qpCItestHMGM()")
+  ## not necessary if we assume .processParameters() is called before
+  ## if (!is.integer(i) || !is.integer(j) || (!is.null(Q) && !is.integer(Q)) || (!is.null(I) && !is.integer(I)) || !is.integer(Y))
+  ##   stop("i, j, Y, I and Q should contain only integer values when calling .qpCItestHMGM()")
 
   if (all(!is.na(match(c(i,j), I))))
     stop("i and j cannot be both discrete at the moment")
 
-  if (is.null(rownames(ssdMat)) || is.null(colnames(ssdMat)) ||
-      any(is.na(match(colnames(ssdMat), colnames(X)))))
-    stop("ssdMat should have row and column names that match variables in X\n")
+  ## for the sake of speed assume the map is correct
+  ## if (is.null(rownames(ssdMat)) || is.null(colnames(ssdMat)) ||
+  ##     any(is.na(match(colnames(ssdMat), colnames(X)))))
+  ##   stop("ssdMat should have row and column names that match variables in X\n")
 
   if (!is.na(match(j, I))) { ## if any of (i,j) is discrete, it should be i
     tmp <- i
