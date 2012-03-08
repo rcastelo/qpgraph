@@ -27,14 +27,15 @@ Estimates the non-rejection rate for one pair of variables.
 }
 \arguments{
   \item{X}{data set from where the non-rejection rate should be estimated. It
-       can be either an \code{ExpressionSet} object, a data frame, or a matrix.
-       If it is a matrix and the matrix is squared then this function assumes the
-       matrix is the sample covariance matrix of the data and the sample size
-       parameter \code{n} should be provided.}
+       can be either an \code{ExpressionSet} object, a \code{smlSet} object a
+       data frame, or a matrix. If it is a matrix and the matrix is squared
+       then this function assumes the matrix is the sample covariance matrix of
+       the data and the sample size parameter \code{n} should be provided.}
   \item{i}{index or name of one of the two variables in \code{X} to test.}
   \item{j}{index or name of the other variable in \code{X} to test.}
   \item{q}{order of the conditioning subsets employed in the calculation.}
-  \item{I}{indexes or names of the variables in \code{X} that are discrete.}
+  \item{I}{indexes or names of the variables in \code{X} that are discrete
+       when \code{X} is a matrix or a data frame.}
   \item{restrict.Q}{indexes or names of the variables in \code{X} that
        restrict the sample space of conditioning subsets Q.}
   \item{fix.Q}{indexes or names of the variables in \code{X} that should be

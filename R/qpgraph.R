@@ -1606,10 +1606,9 @@ setMethod("qpEdgeNrr", signature(X="smlSet"),
                                    alpha, R.code.only)
             } else {
 
-              qpgraph:::.qpEdgeNrrHMGMsmlSet(X, sByChr, cumsum_sByChr, s,
-                                             XEP, I, Y, i, j, q,
-                                             restrict.Q, fix.Q, nTests, alpha,
-                                             exact.test, R.code.only)
+              qpgraph:::.qpEdgeNrrHMGMsml(smList(X), cumsum_sByChr, s, XEP, I, Y,
+                                          i, j, q, restrict.Q, fix.Q, nTests, alpha,
+                                          exact.test, R.code.only)
             }
           })
 
@@ -2163,35 +2162,37 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
   return(nAcceptedTests / nActualTests)
 }
 
-## IMPORTANT: .qpEdgeNrrHMGMsmlSet() assumes that .processParameters() has been
+## IMPORTANT: .qpEdgeNrrHMGMsml() assumes that .processParameters() has been
 ##            previously called and all arguments related to variables
 ##            com as integers
-.qpEdgeNrrHMGMsmlSet <- function(X, sByChr, cumsum_sByChr, s, XEP,
-                                 I, Y, i=1L, j=2L, q=1L,
-                                 restrict.Q=NULL, fix.Q=NULL, nTests=100,
-                                 alpha=0.05, exact.test=TRUE, R.code.only=FALSE) {
-  if (all(!is.na(match(c(i,j), I))))
-    stop("i and j cannot be both discrete at the moment\n")
-
+.qpEdgeNrrHMGMsml <- function(X, cumsum_sByChr, s, XEP, I, Y, i=1L, j=2L, q=1L,
+                              restrict.Q=NULL, fix.Q=NULL, nTests=100,
+                              alpha=0.05, exact.test=TRUE, R.code.only=FALSE) {
   n <- nrow(XEP)
   ph <- ncol(XEP)
   p <- ph + s
 
-  if (!is.na(match(j, I)) || j > ph) { ## if any of (i,j) is discrete, it should be i
-    tmp <- i
-    i <- j
-    j <- tmp
-  }
+  iDiscrete <- !is.na(match(i, I)) | i > ph
+  jDiscrete <- !is.na(match(j, I)) | j > ph
+  if (iDiscrete && jDiscrete)
+    stop("i and j cannot be both discrete at the moment\n")
 
   ssd <- qpCov(XEP[, Y, drop=FALSE], corrected=FALSE)
   ## we need to map smlSet-level Y indices to the ssd dimension
   mapY2ssd <- rep(NA, length=max(Y))
   mapY2ssd[Y] <- 1:ncol(ssd)
 
-  ## if (!R.code.only) {
-  ##   return(qpgraph:::.qpFastEdgeNrrHMGM(X, I, Y, ssdMat, mapX2ssdMat, i, j, q,
-  ##                                       restrict.Q, fix.Q, nTests, alpha, exact.test))
-  ## }
+  if (!R.code.only) {
+    return(qpgraph:::.qpFastEdgeNrrHMGMsml(X, cumsum_sByChr, s, XEP, I, Y,
+                                           ssd, mapY2ssd, i, j, q, restrict.Q,
+                                           fix.Q, nTests, alpha, exact.test))
+  }
+
+  if (!is.na(match(j, I)) || j > ph) { ## if any of (i,j) is discrete, it should be i
+    tmp <- i
+    i <- j
+    j <- tmp
+  }
 
   V <- 1:p
   if (!is.null(restrict.Q))
@@ -2213,7 +2214,7 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
   Yij <- Iij <- NULL
   if (i > ph) {
     selChr <- sum(cumsum_sByChr < i-ph)
-    x <- as(smList(X)[[selChr]][, i-ph-cumsum_sByChr[selChr]], "character")[ ,1]
+    x <- as(X[[selChr]][, i-ph-cumsum_sByChr[selChr]], "character")[ ,1]
     x[x == "Uncertain" | x == "NA"] <- NA ## could this be directly done by coercing to numeric?
     Xsub[, 1] <- as.numeric(factor(x, levels=unique(x)))
     Iij <- 1
@@ -2225,7 +2226,7 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
 
   if (j > ph) {
     selChr <- sum(cumsum_sByChr < j-ph)
-    x <- as(smList(X)[[selChr]][, j-ph-cumsum_sByChr[selChr]], "character")[ ,2]
+    x <- as(X[[selChr]][, j-ph-cumsum_sByChr[selChr]], "character")[ ,2]
     x[x == "Uncertain" | x == "NA"] <- NA ## could this be directly done by coercing to numeric?
     Xsub[, 2] <- as.numeric(factor(x, levels=unique(x)))
     Iij <- 1 ## assuming only i or j can be discrete, not both at the same time
@@ -2247,7 +2248,7 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
     Qw <- Q[which(Q > ph)]
     for (m in seq(along=Qw)) {
       selChr <- sum(cumsum_sByChr < Qw[m]-ph)
-      x <- as(smList(X)[[selChr]][, Qw[m]-ph-cumsum_sByChr[selChr]], "character")[, 1]
+      x <- as(X[[selChr]][, Qw[m]-ph-cumsum_sByChr[selChr]], "character")[, 1]
       Xsub[, 2+nijep+m] <- as.numeric(factor(x), levels=unique(x))
       Isub <- c(Isub, 2+nijep+m)
     }
@@ -2261,8 +2262,6 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
 
     Q <- 2+seq(along=Q)
 
-    ## map2ssd <- match(colnames(Xsub), colnames(ssd))
-    ## names(map2ssd) <- colnames(Xsub) ## this is not really necessary
     cit <- qpgraph:::.qpCItestHMGM(Xsub, Isub, Ysub, ssd, map2ssd, i, j, Q,
                                    exact.test, R.code.only=TRUE)
     if (!is.nan(cit$statistic)) {
@@ -2290,6 +2289,7 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
 
 
   if (nActualTests < nTests)
+    ## UPDATE HOW VARIABLE NAMES ARE HERE RETRIEVED !!!
     warning(paste(sprintf("Non-rejection rate estimation between i=%s and j=%s with q=%d was based on %d out of %d requested tests.\n",
                           colnames(X)[i], colnames(X)[j], q, nActualTests, nTests),
                   sprintf("For instance, the CI test between i=%s and j=%s given Q={",
@@ -4851,11 +4851,23 @@ clPrCall <- function(cl, fun, n.adj, ...) {
 .qpFastEdgeNrrHMGM <- function(X, I, Y, ssd, mapX2ssd, i, j, q, restrict.Q,
                                fix.Q, nTests, alpha, exact.test) {
   nLevels <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
-  return(.Call("qp_fast_edge_nrr_hmgm",X, as.integer(I), as.integer(nLevels),
-                                       as.integer(Y), ssd@x, as.integer(mapX2ssd),
-                                       as.integer(i),as.integer(j), as.integer(q),
-                                       as.integer(restrict.Q), as.integer(fix.Q),
-                                       as.integer(nTests), as.double(alpha), as.integer(exact.test)))
+  return(.Call("qp_fast_edge_nrr_hmgm", X, as.integer(I), as.integer(nLevels),
+                                        as.integer(Y), ssd@x, as.integer(mapX2ssd),
+                                        as.integer(i),as.integer(j), as.integer(q),
+                                        as.integer(restrict.Q), as.integer(fix.Q),
+                                        as.integer(nTests), as.double(alpha), as.integer(exact.test)))
+}
+
+.qpFastEdgeNrrHMGMsml <- function(X, cumsum_sByChr, s, XEP, I, Y, ssd, mapX2ssd,
+                                  i, j, q, restrict.Q, fix.Q, nTests, alpha, exact.test) {
+  nLevels <- apply(XEP[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
+  return(.Call("qp_fast_edge_nrr_hmgm_sml", X, as.integer(cumsum_sByChr), as.integer(s),
+                                            XEP, as.integer(I), as.integer(nLevels),
+                                            as.integer(Y), ssd@x, as.integer(mapX2ssd),
+                                            as.integer(i),as.integer(j), as.integer(q),
+                                            as.integer(restrict.Q), as.integer(fix.Q),
+                                            as.integer(nTests), as.double(alpha),
+                                            as.integer(exact.test)))
 }
 
 .qpFastCliquerGetCliques <- function(A, clqspervtx, verbose) {

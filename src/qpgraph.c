@@ -27,6 +27,7 @@
 #include <R_ext/Rdynload.h>
 #include <R_ext/Lapack.h>
 #include <R_ext/RS.h>
+#include <R_ext/Utils.h>
 #include "cliquer.h"
 
 /* constants */
@@ -130,9 +131,15 @@ qp_fast_edge_nrr_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
                       SEXP mapX2ssdR, SEXP iR, SEXP jR, SEXP qR, SEXP restrictQR,
                       SEXP fixQR, SEXP nTestsR, SEXP alphaR, SEXP exactTest);
 
+static SEXP
+qp_fast_edge_nrr_hmgm_sml(SEXP XR, SEXP cumsum_sByChrR, SEXP sR, SEXP XEPR, SEXP IR,
+                          SEXP n_levelsR, SEXP YR, SEXP ssdR, SEXP mapX2ssdR,
+                          SEXP iR, SEXP jR, SEXP qR, SEXP restrictQR, SEXP fixQR,
+                          SEXP nTestsR, SEXP alphaR, SEXP exactTest);
+
 static double
-qp_edge_nrr(double* S, int p, int n, int i, int j, int q, int* restrictQ, int n_rQ,
-            int* fixQ, int n_fQ, int nTests, double alpha);
+qp_edge_nrr(double* s, int p, int n, int i, int j, int q, int* restrictq, int n_rq,
+            int* fixq, int n_fq, int ntests, double alpha);
 
 static double
 qp_edge_nrr_identicalQs(double* S, int n_var, int* Qs, double* Qinvs, int N, int i,
@@ -143,6 +150,13 @@ qp_edge_nrr_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y
                  int n_Y, double* ucond_ssd, int* mapX2ucond_ssd, int i, int j,
                  int q, int* restrictQ, int n_rQ, int* fixQ, int n_fQ, int nTests,
                  double alpha, int exactTest);
+
+static double
+qp_edge_nrr_hmgm_sml(SEXP X, int* cumsum_sByChr, int s, double* XEP1q, int p, int n,
+                     int* I, int n_I, int* n_levels, int* Y, int n_Y,
+                     double* ucond_ssd, int* mapX2ucond_ssd, int i, int j, int q,
+                     int* restrictQ, int n_rQ, int* fixQ, int n_fQ, int nTests,
+                     double alpha, int exactTest);
 
 static void
 sampleQs(int T, int q, int v_i, int v_j, int p, int* restrictQ, int* fixQ,
@@ -166,6 +180,12 @@ static double
 qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
                 int n_Y, double* ucond_ssd, int* mapX2ucond_ssd, int i, int j,
                 int* Q, int q, double* df, double* a, double* b);
+
+static double
+qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, double* XEP1q, int p, int n,
+                    int* I, int n_I, int* n_levels, int* Y, int n_Y, double* ucond_ssd,
+                    int* mapX2ucond_ssd, int i, int j, int* Q, int q, double* df,
+                    double* a, double* b);
 
 boolean
 cliquer_cb_add_clique_to_list(set_t clique, graph_t* g, clique_options* opts);
@@ -290,6 +310,7 @@ callMethods[] = {
   {"qp_fast_nrr_identicalQs_par", (DL_FUNC) &qp_fast_nrr_identicalQs_par, 16},
   {"qp_fast_edge_nrr", (DL_FUNC) &qp_fast_edge_nrr, 10},
   {"qp_fast_edge_nrr_hmgm", (DL_FUNC) &qp_fast_edge_nrr_hmgm, 14},
+  {"qp_fast_edge_nrr_hmgm_sml", (DL_FUNC) &qp_fast_edge_nrr_hmgm_sml, 17},
   {"qp_fast_ci_test_std", (DL_FUNC) &qp_fast_ci_test_std, 6},
   {"qp_fast_ci_test_opt", (DL_FUNC) &qp_fast_ci_test_opt, 6},
   {"qp_fast_ci_test_hmgm", (DL_FUNC) &qp_fast_ci_test_hmgm, 10},
@@ -2054,8 +2075,7 @@ qp_fast_ci_test_opt(SEXP SR, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP QR) {
   FUNCTION: qp_ci_test_std
   PURPOSE: perform a test for conditional independence between variables
            indexed by i and j given the conditioning set Q using standard calculations
-  RETURNS: a list with two members, the t-statistic value and the p-value
-           on rejecting the null hypothesis of independence
+  RETURNS: the t-statistic value on rejecting the null hypothesis of conditional independence
 */
 
 static double
@@ -2164,8 +2184,8 @@ qp_ci_test_std(double* S, int n_var, int N, int i, int j, int* Q, int q, double*
            of variables which significantly decreases the overall computational
            cost of estimating non-rejection rates for a large number of
            pairs of variables
-  RETURNS: a list with two members, the t-statistic value and the p-value
-           on rejecting the null hypothesis of independence
+  RETURNS: the t-statistic value of the test on rejecting the null hypothesis
+           of conditional independence
 */
 
 static double
@@ -2428,8 +2448,7 @@ qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
 /*
   FUNCTION: qp_ci_test_hmgm
   PURPOSE: perform a test for conditional independence between variables
-           indexed by i and j given the conditioning set Q. this version
-           is more efficient than the original one.
+           indexed by i and j given the conditioning set Q.
   RETURNS: a list with two members, the t-statistic value and the p-value
            on rejecting the null hypothesis of independence
 */
@@ -2775,6 +2794,427 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
 
 
 /*
+  FUNCTION: qp_ci_test_hmgm_sml
+  PURPOSE: perform a test for conditional independence between variables
+           indexed by i and j given the conditioning set Q. it differs from
+           qp_ci_test_hmgm() in that it takes a list of snpMatrix objects as
+           part of the input and tries to access efficiently that information
+  RETURNS: a list with two members, the t-statistic value and the p-value
+           on rejecting the null hypothesis of independence
+*/
+
+static double
+qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, double* XEP1q, int p, int n,
+                    int* I, int n_I, int* n_levels, int* Y, int n_Y, double* ucond_ssd,
+                    int* mapX2ucond_ssd, int i, int j, int* Q, int q, double* df,
+                    double* a, double* b) {
+  int     nChr = length(Xsml);
+  int     k,l;
+  int*    I_int;
+  int     n_I_int = 0;
+  int     n_Y_int = 0;
+  int     n_I_i, n_Y_i, n_Y_j, n_Y_ij;
+  int     total_n_Y;
+  int*    n_levels_int;
+  int     s1q=0;
+  int     sign;
+  int     final_sign = 1;
+  int     flag_zero = 0;
+  int     mixed_edge = FALSE;
+  int     n_joint_levels = 1;
+  int     n_joint_levels_i = 1;
+  int     n_levels_i = 0;
+  double* ssd_mat;
+  double  x;
+  double  lr = 0.0;
+
+  /* assume if any of (i, j) is discrete is always i */
+
+  /* I <- intersect(I, c(i, Q)) */
+  I_int = Calloc(q+1, int);
+  n_levels_int = Calloc(q+1, int);
+
+  k = 0;
+  if (i < p)
+    while (k < n_I && i != I[k])
+      k++;
+
+  if (k < n_I || i >=p) { /* i is discrete */
+    if (i < p) {
+      I_int[n_I_int] = i;
+      n_levels_int[n_I_int] = n_levels[k];
+    } else {
+      int alleles[17]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1};
+      int selChr=1;
+      SEXP smR;
+      const unsigned char* sm_i;
+
+      while (cumsum_sByChr[selChr] < i-p && selChr < nChr)
+        selChr++;
+
+      if (selChr > nChr)
+        error("chromosome not found for SNP in i\n");
+
+      smR = VECTOR_ELT(Xsml, selChr-1);
+      sm_i = RAW(smR) + (i-p-cumsum_sByChr[selChr])*n;
+      for (l=0; l < n; l++) {
+        int g = (int) sm_i[l];
+
+        alleles[g]++;
+        if (sm_i[l] < 4)
+          XEP1q[p*n+l] = (double) g;
+        else
+          XEP1q[p*n+l] = NA_REAL;
+      }
+      n_levels_int[n_I_int] = 0;
+      l=0;
+      while (alleles[l] != -1) {
+        if (alleles[l])
+          n_levels_int[n_I_int]++;
+        l++;
+      }
+      I_int[n_I_int] = p+s1q;
+      i = p+s1q;
+      s1q++;
+    }
+
+    n_levels_i = n_levels_int[n_I_int];
+    n_joint_levels = n_joint_levels * n_levels_int[n_I_int];
+    n_I_int++;
+    mixed_edge = TRUE;
+  }
+
+  for (k=0; k < q; k++) {
+    l = 0;
+    if (Q[k] < p)
+      while (l < n_I && Q[k] != I[l])
+        l++;
+
+    if (l < n_I || Q[k] >= p) {
+      if (Q[k] < p) {
+        I_int[n_I_int] = Q[k];
+        n_levels_int[n_I_int] = n_levels[l];
+      } else {
+        int alleles[17]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1};
+        int selChr=0;
+        SEXP smR;
+        const unsigned char* sm_Qk;
+
+        while (cumsum_sByChr[selChr] < Q[k]-p && selChr < nChr)
+          selChr++;
+
+        if (selChr == nChr)
+          error("chromosome not found for SNP in Q\n");
+
+        smR = VECTOR_ELT(Xsml, selChr-1);
+        sm_Qk = RAW(smR) + (Q[k]-p-cumsum_sByChr[selChr])*n;
+        for (l=0; l < n; l++) {
+          int g = (int) sm_Qk[l];
+
+          alleles[g]++;
+          if (sm_Qk[l] < 4)
+            XEP1q[(p+s1q)*n+l] = (double) g;
+          else
+            XEP1q[(p+s1q)*n+l] = NA_REAL;
+        }
+        n_levels_int[n_I_int] = 0;
+        l=0;
+        while (alleles[l] != -1) {
+          if (alleles[l])
+            n_levels_int[n_I_int]++;
+          l++;
+        }
+        I_int[n_I_int] = p+s1q;
+        Q[k] = p+s1q;
+        s1q++;
+      }
+      n_joint_levels = n_joint_levels * n_levels_int[n_I_int];
+      n_joint_levels_i = n_joint_levels_i * n_levels_int[n_I_int];
+
+      n_I_int++;
+    }
+  }
+
+  /* Y <- intersect(Y, c(i, j, Q)) */
+  if (n_I_int > 0) {
+    if (I_int[0] != i) {  /* i is continuous */
+      k = 0;
+      while (k < n_Y && i != Y[k])
+        k++;
+
+      if (k < n_Y) {
+        Y[k] = Y[0];
+        Y[0] = i;
+        n_Y_int++;
+      }
+    }
+  } else { /* no discrete variables, then i is continuous */
+    k = 0;
+    while (k < n_Y && i != Y[k])
+      k++;
+
+    if (k < n_Y) {
+      Y[k] = Y[0];
+      Y[0] = i;
+      n_Y_int++;
+    }
+  }
+
+  k = 0;
+  while (k < n_Y && j != Y[k]) /* assume j is always continuous */
+    k++;
+
+  if (k < n_Y) {
+    Y[k] = Y[n_Y_int];
+    Y[n_Y_int] = j;
+    n_Y_int++;
+  }
+
+
+  for (k=0; k < q; k++) {
+    l = 0;
+    while (l < n_Y && Q[k] != Y[l])
+      l++;
+
+    if (l < n_Y) {
+      Y[l] = Y[n_Y_int];
+      Y[n_Y_int] = Q[k];
+      n_Y_int++;
+    }
+  }
+
+  total_n_Y = n_Y;
+  n_Y = n_Y_int;
+
+  ssd_mat = Calloc((n_Y * (n_Y + 1)) / 2, double);  /* upper triangle includes the diagonal */
+
+  if (n_I_int > 0 || ucond_ssd == NULL)
+    ssd_A(XEP1q, p+s1q, n, I_int, n_I_int, n_levels_int, Y, n_Y,  ssd_mat);
+  else {
+    int* tmp;
+
+    tmp = Calloc(n_Y, int);
+    for (k=0; k < n_Y; k++)
+      tmp[k] = mapX2ucond_ssd[Y[k]];
+
+    symmatsubm(ssd_mat, ucond_ssd, total_n_Y, tmp, n_Y);
+
+    Free(tmp);
+  }
+/*
+  Rprintf("ssd:\n");
+  m = 0;
+  for (k=0; k < n_Y; k++) {
+    for (l=0; l <= k; l++) {
+       Rprintf("%10.6f\t", ssd_mat[m++]);
+    }
+    Rprintf("\n");
+  }
+*/
+
+  lr = x = symmatlogdet(ssd_mat, n_Y, &sign);
+  if (x < -DBL_DIG)
+    flag_zero = TRUE;
+  final_sign *= sign;
+
+/*
+  Rprintf("log(det(ssd_A))=%.5f\n", symmatlogdet(ssd_mat, n_Y, &sign));
+  Rprintf("sign(log(det(ssd_A)))=%d\n", sign);
+*/
+
+  /* ssd_i = ssd_Gamma when i is discrete or ssd_{Gamma\i} when i is continuous */
+
+  k = 0;
+  while (i != I_int[k] && k < n_I_int)
+    k++;
+
+  n_I_i = n_I_int;
+  n_Y_i = n_Y;
+  if (k < n_I_int) {  /* i is discrete */
+    int tmp;
+
+    I_int[k] = I_int[n_I_int-1];
+    I_int[n_I_int-1] = i;
+    n_I_i = n_I_int - 1;
+    tmp = n_levels[k];
+    n_levels[k] = n_levels[n_I_int-1];
+    n_levels[n_I_int-1] = tmp;
+  } else {       /* i is continuous */
+    k = 0;
+    while (i != Y[k] && k < n_Y)
+      k++;
+
+    if (k < n_Y) {
+      Y[k] = Y[n_Y-1];
+      Y[n_Y-1] = i;
+      n_Y_i = n_Y - 1;
+    } else
+      error("qp_ci_test_hmgm_sml(): i does not form part of neither I nor Y\n");
+  }
+
+  if (n_I_int > 0 || ucond_ssd == NULL) {
+    memset(ssd_mat, 0, ((n_Y_i * (n_Y_i + 1)) / 2) * sizeof(double));
+    ssd_A(XEP1q, p+s1q, n, I_int, n_I_i, n_levels_int, Y, n_Y_i, ssd_mat);
+  } else {
+    int* tmp;
+
+    tmp = Calloc(n_Y_i, int);
+    for (k=0; k < n_Y_i; k++)
+      tmp[k] = mapX2ucond_ssd[Y[k]];
+
+    symmatsubm(ssd_mat, ucond_ssd, total_n_Y, tmp, n_Y_i);
+
+    Free(tmp);
+  }
+
+/*
+  Rprintf("ssd_i:\n");
+  m = 0;
+  for (k=0; k < n_Y_i; k++) {
+    Rprintf("%d", Y[k]+1);
+    for (l=0; l <= k; l++) {
+       Rprintf("\t%10.6f", ssd_mat[m++]);
+    }
+    Rprintf("\n");
+  }
+*/
+
+  x = symmatlogdet(ssd_mat, n_Y_i, &sign);
+  lr -= x;
+  if (x < -DBL_DIG)
+    flag_zero = TRUE;
+  final_sign *= sign;
+/*
+  Rprintf("log(det(ssd_A))=%.5f\n", symmatlogdet(ssd_mat, n_Y_i, &sign));
+  Rprintf("sign(log(det(ssd_A)))=%d\n", sign);
+*/
+
+  if (n_Y > 1) {
+    n_Y_j = n_Y;
+    k = 0;
+    while (j != Y[k] && k < n_Y)
+      k++;
+
+    if (k < n_Y) {
+      Y[k] = Y[n_Y-1];
+      Y[n_Y-1] = j;
+      n_Y_j = n_Y - 1;
+    }
+
+    if (n_I_int > 0 || ucond_ssd == NULL) {
+      memset(ssd_mat, 0, ((n_Y_j * (n_Y_j + 1)) / 2) * sizeof(double));
+      ssd_A(XEP1q, p+s1q, n, I_int, n_I_int, n_levels_int, Y, n_Y_j, ssd_mat);
+    } else {
+      int* tmp;
+
+      tmp = Calloc(n_Y_j, int);
+      for (k=0; k < n_Y_j; k++)
+        tmp[k] = mapX2ucond_ssd[Y[k]];
+
+      symmatsubm(ssd_mat, ucond_ssd, total_n_Y, tmp, n_Y_j);
+
+      Free(tmp);
+    }
+
+    /*
+    Rprintf("ssd_j:\n");
+    m = 0;
+    for (k=0; k < n_Y_j; k++) {
+      Rprintf("%d", Y[k]+1);
+      for (l=0; l <= k; l++) {
+         Rprintf("\t%10.6f", ssd_mat[m++]);
+      }
+      Rprintf("\n");
+    }
+    */
+
+    x = symmatlogdet(ssd_mat, n_Y_j, &sign);
+    lr -= x;
+    if (x < -DBL_DIG)
+      flag_zero = TRUE;
+    final_sign *= sign;
+
+    /*
+    Rprintf("log(det(ssd_A))=%.5f\n", symmatlogdet(ssd_mat, n_Y_j, &sign));
+    Rprintf("sign(log(det(ssd_A)))=%d\n", sign);
+    */
+
+    n_Y_ij = n_Y_j;
+    k = 0;
+    while (i != Y[k] && k < n_Y)
+      k++;
+
+    if (k < n_Y) {
+      Y[k] = Y[n_Y-2];
+      Y[n_Y-2] = i;
+      n_Y_ij = n_Y_j - 1;
+    }
+
+    if (n_Y_ij > 0) {
+      if (n_I_int > 0 || ucond_ssd == NULL) {
+        memset(ssd_mat, 0, ((n_Y_j * (n_Y_j + 1)) / 2) * sizeof(double));
+        ssd_A(XEP1q, p+s1q, n, I_int, n_I_i, n_levels_int, Y, n_Y_ij, ssd_mat);
+      } else {
+        int* tmp;
+
+        tmp = Calloc(n_Y_ij, int);
+        for (k=0; k < n_Y_ij; k++)
+          tmp[k] = mapX2ucond_ssd[Y[k]];
+
+        symmatsubm(ssd_mat, ucond_ssd, total_n_Y, tmp, n_Y_ij);
+
+        Free(tmp);
+      }
+
+      /*
+      Rprintf("ssd_ij:\n");
+      m = 0;
+      for (k=0; k < n_Y_ij; k++) {
+        Rprintf("%d", Y[k]+1);
+        for (l=0; l <= k; l++) {
+           Rprintf("\t%10.6f", ssd_mat[m++]);
+        }
+        Rprintf("\n");
+      }
+      */
+
+      x = symmatlogdet(ssd_mat, n_Y_ij, &sign);
+      lr += x;
+      if (x < -DBL_DIG)
+        flag_zero = TRUE;
+      final_sign *= sign;
+
+      /*
+      Rprintf("log(det(ssd_A))=%.5f\n", symmatlogdet(ssd_mat, n_Y_ij, &sign));
+      Rprintf("sign(log(det(ssd_A)))=%d\n", sign);
+      */
+    }
+
+  }
+
+  Free(ssd_mat);
+  Free(n_levels_int);
+  Free(I_int);
+
+  if (flag_zero || final_sign == -1)
+    lr = R_NaN;
+  else
+    lr = lr * ((double) -n);
+
+  *df = 1.0;
+  *a = ((double) (n - n_Y - n_joint_levels + 1)) / 2.0;
+  if (mixed_edge) {
+    *df = ((double) (n_joint_levels_i * (n_levels_i - 1)));
+    *b = *df / 2.0;
+  } else
+    *b = 0.5;
+
+  return lr;
+}
+
+
+
+/*
   FUNCTION: qp_edge_nrr
   PURPOSE: estimate the non-rejection rate of the edge as the number of tests
            that accept the null hypothesis of independence given the
@@ -2864,8 +3304,7 @@ qp_edge_nrr_identicalQs(double* S, int n_var, int* Qs, double* Qinvs, int N, int
   FUNCTION: qp_edge_nrr_hmgm
   PURPOSE: estimate the non-rejection rate of the edge as the number of tests
            that accept the null hypothesis of independence given the
-           q-order conditionals
-           for data where variables may be discrete or continuous
+           q-order conditionals for data where variables may be discrete or continuous
   RETURNS: the estimate of the non-rejection rate for the particular given edge
 */
 
@@ -2969,6 +3408,122 @@ qp_edge_nrr_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y
   return (double) ( ((double) nAcceptedTests) / ((double) nActualTests) );
 }
 
+
+
+/*
+  FUNCTION: qp_edge_nrr_hmgm_sml
+  PURPOSE: estimate the non-rejection rate of the edge as the number of tests
+           that accept the null hypothesis of independence given the
+           q-order conditionals for data where variables may be discrete or continuous.
+           The main difference with qp_edge_nrr_hmgm() is that this function works
+           directly on the input snpMatrix object to avoid having to take the entire
+           matrix of genotypes
+  RETURNS: the estimate of the non-rejection rate for the particular given edge
+*/
+
+static double
+qp_edge_nrr_hmgm_sml(SEXP X, int* cumsum_sByChr, int s, double* XEP1q, int p, int n,
+                     int* I, int n_I, int* n_levels, int* Y, int n_Y,
+                     double* ucond_ssd, int* mapX2ucond_ssd, int i, int j, int q,
+                     int* restrictQ, int n_rQ, int* fixQ, int n_fQ, int nTests,
+                     double alpha, int exactTest) {
+  double thr=-1.0;
+  double prev_thr, prev_df, prev_a, prev_b;
+  int*   q_by_T_samples;
+  int    k;
+  int    nAcceptedTests = 0;
+  int    nActualTests = 0;
+  int*   problematicQ = NULL;
+
+  q_by_T_samples = Calloc(q * nTests, int);
+
+  if (n_rQ == 0)
+    sampleQs(nTests, q, i, j, p+s, NULL, fixQ, n_fQ, q_by_T_samples);
+  else
+    sampleQs(nTests, q, i, j, n_rQ, restrictQ, fixQ, n_fQ, q_by_T_samples);
+
+  if (n_I > 0 || j >= p) {
+    if (j < p) {
+      k = 0;
+      while (k < n_I && I[k] != j)
+        k++;
+    } else
+      k = -1;
+
+    if (k < n_I) {  /* for a mixed edge i should be always the discrete variable */
+      k = i;
+      i = j;
+      j = k;
+    }
+  }
+
+  prev_thr = prev_df = prev_a = prev_b = -1;
+
+  for (k = 0; k < nTests; k++) {
+    double lambda, df, a, b;
+/*
+    int l;
+
+    Rprintf("Q:");
+    for (l=0; l < q; l++)
+      Rprintf(" %d", *((int *) (q_by_T_samples+k*q+l)));
+    Rprintf("\n");
+*/
+    lambda = qp_ci_test_hmgm_sml(X, cumsum_sByChr, s, XEP1q, p, n, I, n_I, n_levels,
+                                 Y, n_Y, ucond_ssd, mapX2ucond_ssd, i, j,
+                                 (int*) (q_by_T_samples+k*q), q, &df, &a, &b);
+
+    if (!ISNAN(lambda) && a > 0.0 && b > 0.0) {
+      if (exactTest) {
+        lambda = exp(lambda / ((double) -n));
+        if (a == prev_a && b == prev_b)
+          thr = prev_thr;
+        else
+          thr = qbeta(alpha, a, b, TRUE, FALSE);
+        prev_a = a;
+        prev_b = b;
+        prev_thr = thr;
+        if (lambda > thr)
+          nAcceptedTests++;
+      } else {
+        if (df == prev_df)
+          thr = prev_thr;
+        else
+          thr = qchisq(1.0-alpha, df, TRUE, FALSE);
+        prev_df = df;
+        prev_thr = thr;
+        if (lambda < thr)
+          nAcceptedTests++;
+      }
+      nActualTests++;
+    } else
+      problematicQ = (int*) (q_by_T_samples+k*q);
+  }
+
+  if (nActualTests < nTests) {
+    char buf[4096];
+
+    sprintf(buf, "Non-rejection rate estimation between i=%d and j=%d with q=%d was based on %d out of %d requested tests.\n"
+                 "For instance, the CI test between i=%d and j=%d given Q={",
+            i+1, j+1, q, nActualTests, nTests, i+1, j+1);
+    for (k=0; k < q; k++) {
+      char tmp[256];
+
+      if (k == 0)
+        sprintf(tmp, " %d", problematicQ[k]+1);
+      else
+        sprintf(tmp, ", %d", problematicQ[k]+1);
+      strcat(buf, tmp);
+    }
+    strcat(buf, " }, could not be calculated. Try with smaller Q subsets or increase n if you can.\n");
+
+    /* warning(buf); */
+  }
+
+  Free(q_by_T_samples);
+
+  return (double) ( ((double) nAcceptedTests) / ((double) nActualTests) );
+}
 
 
 /*
@@ -3149,6 +3704,121 @@ qp_fast_edge_nrr_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
   if (n_fQ > 0)
     Free(fixQ);
 
+  Free(I);
+  Free(Y);
+  Free(mapX2ssd);
+
+  return nrr;
+}
+
+
+
+/*
+  FUNCTION: qp_fast_edge_nrr_hmgm_sml
+  PURPOSE: wrapper to the C function that estimates the non-rejection
+           rate of the edge as the number of tests that accept the null
+           hypothesis of independence given the q-order conditionals
+           for data where variables may be discrete or continuous. It
+           differs from the previous function in that it takes the input
+           data as an snpMatrix object (X) and a matrix of expression profiles
+           and phenotypic data (XEP)
+  RETURNS: the estimate of the non-rejection rate for the particular given edge
+*/
+
+static SEXP
+qp_fast_edge_nrr_hmgm_sml(SEXP XR, SEXP cumsum_sByChrR, SEXP sR, SEXP XEPR, SEXP IR,
+                          SEXP n_levelsR, SEXP YR, SEXP ssdR, SEXP mapX2ssdR,
+                          SEXP iR, SEXP jR, SEXP qR, SEXP restrictQR, SEXP fixQR,
+                          SEXP nTestsR, SEXP alphaR, SEXP exactTest) {
+  int     n = INTEGER(getAttrib(XEPR, R_DimSymbol))[0];
+  int     p = INTEGER(getAttrib(XEPR, R_DimSymbol))[1];
+  int     s = INTEGER(sR)[0];
+  int     n_I = length(IR);
+  int     n_Y = length(YR);
+  int     q;
+  int     i,j,k;
+  int*    I;
+  int*    Y;
+  double* XEP1q; /* store exp. profiles, phenotypic vars + up to (1+q) possible genotypes */
+  int*    mapX2ssd;
+  int*    restrictQ = NULL;
+  int     n_rQ = length(restrictQR);
+  int*    fixQ=NULL;
+  int     n_fQ=length(fixQR);
+  int     nTests;
+  double  alpha;
+  SEXP    nrr;
+
+  PROTECT_INDEX ssd_pi;
+
+  PROTECT_WITH_INDEX(ssdR,&ssd_pi);
+
+  REPROTECT(ssdR = coerceVector(ssdR,REALSXP), ssd_pi);
+
+  i = INTEGER(iR)[0] - 1;
+  j = INTEGER(jR)[0] - 1;
+
+  q = INTEGER(qR)[0];
+
+  nTests = INTEGER(nTestsR)[0];
+
+  alpha = REAL(alphaR)[0];
+
+  if (i < 0 || i > p+s-1 || j < 0 || j > p+s-1)
+    error("vertices of the selected edge (i=%d,j=%d) should lie in the range [1, p=%d]", i+1, j+1, p+s);
+
+  if (q > p+s-2)
+    error("q=%d > p-2=%d", q, p+s-2);
+
+  if (q < 0)
+    error("q=%d < 0", q);
+
+  if (q > n-3)
+    error("q=%d > n-3=%d", q, n-3);
+
+  I = Calloc(n_I, int);
+  for (k=0; k < n_I; k++)
+    I[k] = INTEGER(IR)[k]-1;
+
+  Y = Calloc(n_Y, int);
+  for (k=0; k < n_Y; k++)
+    Y[k] = INTEGER(YR)[k]-1;
+
+  mapX2ssd = Calloc(p, int);
+  for (k=0; k < p; k++)
+    mapX2ssd[k] = INTEGER(mapX2ssdR)[k]-1;
+
+  if (n_rQ > 0) {
+    restrictQ = Calloc(n_rQ, int);
+    for (k=0; k < n_rQ; k++)
+      restrictQ[k] = INTEGER(restrictQR)[k]-1;
+  }
+
+  if (n_fQ > 0) {
+    fixQ = Calloc(n_rQ, int);
+    for (k=0; k < n_rQ; k++)
+      fixQ[k] = INTEGER(fixQR)[k]-1;
+  }
+
+  XEP1q = Calloc((p+q+1)*n, double);
+  Memcpy(XEP1q, REAL(XEPR), (size_t) (p * n));
+
+  PROTECT(nrr = allocVector(REALSXP,1));
+
+  REAL(nrr)[0] = qp_edge_nrr_hmgm_sml(XR, INTEGER(cumsum_sByChrR), s,
+                                      XEP1q, p, n, I, n_I, INTEGER(n_levelsR),
+                                      Y, n_Y, REAL(ssdR), mapX2ssd, i, j, q, restrictQ,
+                                      n_rQ, fixQ, n_fQ, nTests, alpha, INTEGER(exactTest)[0]);
+
+  UNPROTECT(2); /* ssd nrr */
+
+  if (n_rQ > 0)
+    Free(restrictQ);
+
+  if (n_fQ > 0)
+    Free(fixQ);
+
+  Free(XEP1q);
   Free(I);
   Free(Y);
   Free(mapX2ssd);
@@ -5230,7 +5900,7 @@ calculate_xtab(double* X, int p, int n, int* I, int n_I, int* n_levels, int* xta
 
 /*
   FUNCTION: ssd_A
-  PURPOSE: calculate the, corrected or not, sum of squares and deviations matrix
+  PURPOSE: calculate the uncorrected sum of squares and deviations matrix
            for a subset of variables A = I \cup Y returning only the upper
            triangle of the matrix in column-major order (for creating later a dspMatrix object)
   PARAMETERS: X - vector containing the column-major stored matrix of values
