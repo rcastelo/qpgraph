@@ -3,7 +3,7 @@
 ##                   to interact with microarray data in order to build network
 ##                   models of molecular regulation
 ##
-## Copyright (C) 2012 R. Castelo and A. Roverato, with contributions of Inma Tur
+## Copyright (C) 2012 R. Castelo and A. Roverato, with contributions of Inma Tur.
 ## This program is free software; you can redistribute it and/or
 ## modify it under the terms of the GNU General Public License
 ## as published by the Free Software Foundation; either version 2
@@ -1454,8 +1454,9 @@ setMethod("qpEdgeNrr", signature(X="smlSet"),
             n <- as.integer(ncol(X))
             fNames <- Biobase::featureNames(X)
             pNames <- colnames(Biobase::pData(X))
-            sNamesByChr <- lapply(smList(X), colnames)
+            sNamesByChr <- lapply(GGBase::smList(X), colnames)
             sNames <- unlist(sNamesByChr, use.names=FALSE)
+            nLevels <- rep(NA, p+h)
 
             ## paste the involved phenotypic variables with the expression profiles
             ## just like when handling ExpressionSet objects and send this matrix
@@ -1463,7 +1464,7 @@ setMethod("qpEdgeNrr", signature(X="smlSet"),
             ## minimize the memory footprint
 
             XP <- matrix(NA, nrow=ncol(X), ncol=0)
-            I <- NULL
+            I <-  NULL
             if (h > 0) { ## if there are phenotypic variables, they are allowed to
                          ## to be included in i, j or fix.Q
               if (is.character(i)) {
@@ -1471,47 +1472,54 @@ setMethod("qpEdgeNrr", signature(X="smlSet"),
                   x <- Biobase::pData(X)[, i]
                   cnames <- colnames(XP)
                   if (is.character(x) || is.factor(x) || is.logical(x)) {
-                    XP <- cbind(XP, as.numeric(factor(x, levels=unique(x))))
-                    I <- c(I, p+ncol(XP))
-                  } else
-                    XP <- cbind(XP, as.numeric(x))
+                    x <- factor(x)
+                    nLevels[p+ncol(XP)+1] <- nlevels(x)
+                    I <- c(I, p+ncol(XP)+1)
+                  }
+                  XP <- cbind(XP, as.numeric(x))
                   colnames(XP) <- c(cnames, i)
                 }
               } else if (i > p && i <= p+h) { ## then 'i' refers to a phenotypic variable (cont. or discrete)
                 x <- Biobase::pData(X)[, i-p]
                 cnames <- colnames(XP)
                 if (is.character(x) || is.factor(x) || is.logical(x)) {
-                  XP <- cbind(XP, as.numeric(factor(x, levels=unique(x))))
-                  I <- c(I, p+ncol(XP))
-                } else
-                  XP <- cbind(XP, as.numeric(x))
+                  x <- factor(x)
+                  nLevels[p+ncol(XP)+1] <- nlevels(x)
+                  I <- c(I, p+ncol(XP)+1)
+                }
+                XP <- cbind(XP, as.numeric(x))
                 colnames(XP) <- c(cnames, pNames[i-p])
                 i <- p+ncol(XP)
-              } else if (i > p+h)
-                stop(sprintf("i=%d is larger than the number of expression profiles (%d) and phenotypic variables (%d) together (%d+%d=%d)\n", i, p, h, p+h))
+              } else if (i > p+h+s)
+                stop(sprintf("i=%d is larger than the number of expression profiles (%d), phenotypic variables (%d) and genotypes together (%d+%d+%d=%d)\n", i, p, h, s, p+h+s))
+
               if (is.character(j)) {
                 if (!is.na(match(j, pNames))) { ## then 'j' refers to a phenotypic variable (cont. or discrete)
                   x <- Biobase::pData(X)[, j]
                   cnames <- colnames(XP)
                   if (is.character(x) || is.factor(x) || is.logical(x)) {
-                    XP <- cbind(XP, as.numeric(factor(x, levels=unique(x))))
+                    x <- factor(x)
+                    nLevels[p+ncol(XP)+1] <- nlevels(x)
+                    XP <- cbind(XP, as.numeric(x))
                     I <- c(I, p+ncol(XP))
                   } else
                     XP <- cbind(XP, as.numeric(x))
                   colnames(XP) <- c(cnames, j)
                 }
-              } else if (j > p) { ## then 'j' refers to a phenotypic variable (cont. or discrete)
+              } else if (j > p && j <= p+h) { ## then 'j' refers to a phenotypic variable (cont. or discrete)
                 x <- Biobase::pData(X)[, j-p]
                 cnames <- colnames(XP)
                 if (is.character(x) || is.factor(x) || is.logical(x)) {
-                  XP <- cbind(XP, as.numeric(factor(x, levels=unique(x))))
-                  I <- c(I, p+ncol(XP))
-                } else
-                  XP <- cbind(XP, as.numeric(x))
+                  x <- factor(x)
+                  nLevels[p+ncol(XP)+1] <- nlevels(x)
+                  I <- c(I, p+ncol(XP)+1)
+                }
+                XP <- cbind(XP, as.numeric(x))
                 colnames(XP) <- c(cnames, pNames[j-p])
                 j <- p+ncol(XP)
-              } else if (j > p+h)
-                stop(sprintf("j=%d is larger than the number of expression profiles (%d) and phenotypic variables (%d) together (%d+%d=%d)\n", j, p, h, p+h))
+              } else if (j > p+h+s)
+                stop(sprintf("j=%d is larger than the number of expression profiles, phenotypic variables and genotypes together (%d+%d+%d=%d)\n", j, p, h, s, p+h+s))
+
               if (is.character(restrict.Q)) {
                 mt <- match(restrict.Q, pNames)
                 mt2 <- match(restrict.Q, colnames(XP)) ## avoid including a phen. var. twice
@@ -1519,22 +1527,24 @@ setMethod("qpEdgeNrr", signature(X="smlSet"),
                   x <- Biobase::pData(X)[, k]
                   cnames <- colnames(XP)
                   if (is.character(x) || is.factor(x) || is.logical(x)) {
-                    XP <- cbind(XP, as.numeric(factor(x, levels=unique(x))))
-                    I <- c(I, p+ncol(XP))
-                  } else
-                    XP <- cbind(XP, as.numeric(x))
+                    x <- factor(x)
+                    nLevels[p+ncol(XP)+1] <- nlevels(x)
+                    I <- c(I, p+ncol(XP)+1)
+                  }
+                  XP <- cbind(XP, as.numeric(x))
                   colnames(XP) <- c(cnames, pNames[k])
                 }
               } else {
-                for (k in which(restrict.Q > p)) {
+                for (k in which(restrict.Q > p & restrict.Q <= p+h)) {
                   if (is.na(match(pNames[restrict.Q[k]], colnames(XP)))) { ## avoid including a phen. var. twice
                     x <- Biobase::pData(X)[, restrict.Q[k]-p]
                     cnames <- colnames(XP)
                     if (is.character(x) || is.factor(x) || is.logical(x)) {
-                      XP <- cbind(XP, as.numeric(factor(x, levels=unique(x))))
-                      I <- c(I, p+ncol(XP))
-                    } else
-                      XP <- cbind(XP, as.numeric(x))
+                      x <- factor(x)
+                      nLevels[p+ncol(XP)+1] <- nlevels(x)
+                      I <- c(I, p+ncol(XP)+1)
+                    }
+                    XP <- cbind(XP, as.numeric(x))
                     colnames(XP) <- c(cnames, pNames[restrict.Q[k]-p])
                     restrict.Q[k] <- p+ncol(XP)
                   }
@@ -1547,22 +1557,24 @@ setMethod("qpEdgeNrr", signature(X="smlSet"),
                   x <- Biobase::pData(X)[, k]
                   cnames <- colnames(XP)
                   if (is.character(x) || is.factor(x) || is.logical(x)) {
-                    XP <- cbind(XP, as.numeric(factor(x, levels=unique(x))))
-                    I <- c(I, p+ncol(XP))
-                  } else
-                    XP <- cbind(XP, as.numeric(x))
+                    x <- factor(x)
+                    nLevels[p+ncol(XP)+1] <- nlevels(x)
+                    I <- c(I, p+ncol(XP)+1)
+                  }
+                  XP <- cbind(XP, as.numeric(x))
                   colnames(XP) <- c(cnames, pNames[k])
                 }
               } else {
-                for (k in which(fix.Q > p)) {
+                for (k in which(fix.Q > p & fix.Q <= p+h)) {
                   if (is.na(match(pNames[fix.Q[k]], colnames(XP)))) { ## avoid including a phen. var. twice
                     x <- Biobase::pData(X)[, fix.Q[k]-p]
                     cnames <- colnames(XP)
                     if (is.character(x) || is.factor(x) || is.logical(x)) {
-                      XP <- cbind(XP, as.numeric(factor(x, levels=unique(x))))
-                      I <- c(I, p+ncol(XP))
-                    } else
-                      XP <- cbind(XP, as.numeric(x))
+                      x <- factor(x)
+                      nLevels[p+ncol(XP)+1] <- nlevels(x)
+                      I <- c(I, p+ncol(XP)+1)
+                    }
+                    XP <- cbind(XP, as.numeric(x))
                     colnames(XP) <- c(cnames, pNames[fix.Q[k]-p])
                     fix.Q[k] <- p+ncol(XP)
                   }
@@ -1573,13 +1585,15 @@ setMethod("qpEdgeNrr", signature(X="smlSet"),
             XEP <- t(Biobase::exprs(X))
             XEP <- cbind(XEP, XP)
             ph <- ncol(XEP) ## write down how many vars are expression profiles and phenotypes
+            nLevels <- nLevels[1:ph]
+
             varNames <- c(colnames(XEP), sNames)
             Y <- 1:ph
             if (!is.null(I))
               Y <- Y[-I]
 
-            param <- qpgraph:::.processParameters(varNames, n, i=i, j=j, q=q, I=I, Y=Y,
-                                                  restrict.Q=restrict.Q, fix.Q=fix.Q)
+            param <- qpgraph:::.processParameters(varNames, ph, p+h, s, n, i=i, j=j, q=q,
+                                                  I=I, Y=Y, restrict.Q=restrict.Q, fix.Q=fix.Q)
             i <- param$i
             j <- param$j
             I <- param$I
@@ -1606,9 +1620,11 @@ setMethod("qpEdgeNrr", signature(X="smlSet"),
                                    alpha, R.code.only)
             } else {
 
-              qpgraph:::.qpEdgeNrrHMGMsml(smList(X), cumsum_sByChr, s, XEP, I, Y,
-                                          i, j, q, restrict.Q, fix.Q, nTests, alpha,
-                                          exact.test, R.code.only)
+              gLevels <- sum(unique(as.vector(as(GGBase::smList(X)[[1]][, 1:min(sByChr[1], 1000)], "matrix"))) > 0)
+
+              qpgraph:::.qpEdgeNrrHMGMsml(GGBase::smList(X), cumsum_sByChr, s, gLevels,
+                                          XEP, I, nLevels, Y, i, j, q, restrict.Q, fix.Q,
+                                          nTests, alpha, exact.test, R.code.only)
             }
           })
 
@@ -1736,7 +1752,7 @@ setMethod("qpEdgeNrr", signature(X="ExpressionSet"),
             p <- ncol(X)
 
             if (is.null(I)) {
-              param <- qpgraph:::.processParameters(varNames, n, i=i, j=j, q=q,
+              param <- qpgraph:::.processParameters(varNames, p, p+h, 0, n, i=i, j=j, q=q,
                                                     restrict.Q=restrict.Q, fix.Q=fix.Q)
               i <- param$i
               j <- param$j
@@ -1763,7 +1779,7 @@ setMethod("qpEdgeNrr", signature(X="ExpressionSet"),
               else
                 Y <- (1:p)[-I]
 
-              param <- qpgraph:::.processParameters(varNames, n, i=i, j=j, q=q, I=I, Y=Y,
+              param <- qpgraph:::.processParameters(varNames, p, p+h, 0, n, i=i, j=j, q=q, I=I, Y=Y,
                                                       restrict.Q=restrict.Q, fix.Q=fix.Q)
               i <- param$i
               j <- param$j
@@ -1802,10 +1818,11 @@ setMethod("qpEdgeNrr", signature(X="data.frame"),
             if (is.null(colnames(X)))
               colnames(X) <- 1:ncol(X)
             varNames <- colnames(X)
+            p <- ncol(X)
             n <- nrow(X)
 
             if (is.null(I)) {
-              param <- qpgraph:::.processParameters(varNames, n, i=i, j=j, q=q,
+              param <- qpgraph:::.processParameters(varNames, p, p, 0, n, i=i, j=j, q=q,
                                                     restrict.Q=restrict.Q, fix.Q=fix.Q)
               i <- param$i
               j <- param$j
@@ -1835,7 +1852,7 @@ setMethod("qpEdgeNrr", signature(X="data.frame"),
               else
                 Y <- (1:ncol(X))[-I]
 
-              param <- qpgraph:::.processParameters(varNames, n, i=i, j=j, q=q, I=I, Y=Y,
+              param <- qpgraph:::.processParameters(varNames, p, p, 0, n, i=i, j=j, q=q, I=I, Y=Y,
                                                       restrict.Q=restrict.Q, fix.Q=fix.Q)
               i <- param$i
               j <- param$j
@@ -1880,7 +1897,7 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
 
               n <- nrow(X)
               if (is.null(I)) {
-                param <- qpgraph:::.processParameters(varNames, n, i=i, j=j, q=q,
+                param <- qpgraph:::.processParameters(varNames, p, p, 0, n, i=i, j=j, q=q,
                                                       restrict.Q=restrict.Q, fix.Q=fix.Q)
                 i <- param$i
                 j <- param$j
@@ -1910,7 +1927,7 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
                 else
                   Y <- (1:ncol(X))[-I]
 
-                param <- qpgraph:::.processParameters(varNames, n, i=i, j=j, q=q, I=I, Y=Y,
+                param <- qpgraph:::.processParameters(varNames, p, p, 0, n, i=i, j=j, q=q, I=I, Y=Y,
                                                       restrict.Q=restrict.Q, fix.Q=fix.Q)
                 i <- param$i
                 j <- param$j
@@ -1938,7 +1955,7 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
                 rownames(X) <- colnames(X)
 
               varNames <- colnames(X)
-              param <- qpgraph:::.processParameters(varNames, n, i=i, j=j, q=q,
+              param <- qpgraph:::.processParameters(varNames, p, p, 0, n, i=i, j=j, q=q,
                                                     restrict.Q=restrict.Q, fix.Q=fix.Q)
               i <- param$i
               j <- param$j
@@ -1950,7 +1967,10 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
             }
           })
 
-.processParameters <- function(varNames, n, i, j, q, I=NULL, Y=NULL,
+## ph contains the number of profile and phenotypic variables within varNames
+## init_ph contains the initial number of profile and phenotypic variables on
+## which integer values for i, j, restrict.Q or fix.Q could be based on.
+.processParameters <- function(varNames, ph, init_ph, s, n, i, j, q, I=NULL, Y=NULL,
                                restrict.Q=NULL, fix.Q=NULL) {
 
   p <- length(varNames)
@@ -1965,12 +1985,18 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
     if (is.na(match(i, varNames)))
       stop(sprintf("i=%s does not form part of the variable names of the data\n",i))
     i <- match(i, varNames)
+  } else {
+    if (i > init_ph && i <= init_ph+s)
+      i <- i - init_ph + ph
   }
 
   if (is.character(j)) {
     if (is.na(match(j, varNames)))
       stop(sprintf("j=%s does not form part of the variable names of the data\n",j))
     j <- match(j, varNames)
+  } else {
+    if (j > init_ph && j <= init_ph+s)
+      j <- j - init_ph + ph
   }
 
   if (!is.null(I)) {
@@ -1994,7 +2020,9 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
       if (any(is.na(match(fix.Q, varNames))))
         stop("Some variables in fix.Q do not form part of the variable names of the data\n")
       fix.Q <- match(fix.Q, varNames)
-    }
+    } else
+      fix.Q[fix.Q > init_ph & fix.Q <= init_ph+s] <- fix.Q[fix.Q > init_ph & fix.Q <= init_ph+s] - init_ph + ph
+
 
     if (any(!is.na(match(c(i, j), fix.Q))))
       stop("The subset fix.Q cannot include any of the (i, j) variables.\n")
@@ -2008,7 +2036,8 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
       if (any(is.na(match(restrict.Q, varNames))))
         stop("Some variables in restrict.Q do not form part of the variable names of the data\n")
       restrict.Q <- match(restrict.Q, varNames)
-    }
+    } else
+      restrict.Q[restrict.Q > init_ph & restrict.Q <= init_ph+s] <- restrict.Q[restrict.Q > init_ph & restrict.Q <= init_ph+s] - init_ph + ph
   }
 
   if (length(intersect(restrict.Q, fix.Q)) > 0)
@@ -2162,12 +2191,15 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
   return(nAcceptedTests / nActualTests)
 }
 
+## automatic calculation of genotype levels
+## sum(unique(as.vector(as(smList(c20)[[1]][, 1:1000], "matrix"))) > 0)
+
 ## IMPORTANT: .qpEdgeNrrHMGMsml() assumes that .processParameters() has been
 ##            previously called and all arguments related to variables
 ##            com as integers
-.qpEdgeNrrHMGMsml <- function(X, cumsum_sByChr, s, XEP, I, Y, i=1L, j=2L, q=1L,
-                              restrict.Q=NULL, fix.Q=NULL, nTests=100,
-                              alpha=0.05, exact.test=TRUE, R.code.only=FALSE) {
+.qpEdgeNrrHMGMsml <- function(X, cumsum_sByChr, s, gLevels, XEP, I, nLevels, Y,
+                              i=1L, j=2L, q=1L, restrict.Q=NULL, fix.Q=NULL,
+                              nTests=100, alpha=0.05, exact.test=TRUE, R.code.only=FALSE) {
   n <- nrow(XEP)
   ph <- ncol(XEP)
   p <- ph + s
@@ -2183,8 +2215,8 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
   mapY2ssd[Y] <- 1:ncol(ssd)
 
   if (!R.code.only) {
-    return(qpgraph:::.qpFastEdgeNrrHMGMsml(X, cumsum_sByChr, s, XEP, I, Y,
-                                           ssd, mapY2ssd, i, j, q, restrict.Q,
+    return(qpgraph:::.qpFastEdgeNrrHMGMsml(X, cumsum_sByChr, s, gLevels, XEP, I, nLevels,
+                                           Y, ssd, mapY2ssd, i, j, q, restrict.Q,
                                            fix.Q, nTests, alpha, exact.test))
   }
 
@@ -2211,13 +2243,17 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
     V <- V[-mt]
 
   Xsub <- matrix(NA_real_, nrow=n, ncol=q+2)
+  nLevelsSub <- rep(NA, q+2)
   Yij <- Iij <- NULL
   if (i > ph) {
     selChr <- sum(cumsum_sByChr < i-ph)
-    x <- as(X[[selChr]][, i-ph-cumsum_sByChr[selChr]], "character")[ ,1]
-    x[x == "Uncertain" | x == "NA"] <- NA ## could this be directly done by coercing to numeric?
-    Xsub[, 1] <- as.numeric(factor(x, levels=unique(x)))
+    x <- as(X[[selChr]][, i-ph-cumsum_sByChr[selChr]], "numeric")[ ,1]+1
+    if (any(x > 3))
+      warning(sprintf("i=%s has uncertain genotype calls which are treated here as missing", i))
+    x[x > 3] <- NA ## > 2 in the "numeric" coercion implies an uncertain call
+    Xsub[, 1] <- x
     Iij <- 1
+    nLevelsSub[1] <- gLevels
   } else {
     Xsub[, 1] <- XEP[, i]
     Yij <- i
@@ -2226,10 +2262,13 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
 
   if (j > ph) {
     selChr <- sum(cumsum_sByChr < j-ph)
-    x <- as(X[[selChr]][, j-ph-cumsum_sByChr[selChr]], "character")[ ,2]
-    x[x == "Uncertain" | x == "NA"] <- NA ## could this be directly done by coercing to numeric?
-    Xsub[, 2] <- as.numeric(factor(x, levels=unique(x)))
+    x <- as(X[[selChr]][, j-ph-cumsum_sByChr[selChr]], "numeric")[ ,1]+1
+    if (any(x > 3))
+      warning(sprintf("j=%s has uncertain genotype calls which are treated here as missing", j))
+    x[x > 3] <- NA ## > 2 in the "numeric" coercion implies an uncertain call
+    Xsub[, 2] <- x
     Iij <- 1 ## assuming only i or j can be discrete, not both at the same time
+    nLevelsSub[2] <- gLevels
   } else {
     Xsub[, 2] <- XEP[, j]
     Yij <- j
@@ -2245,12 +2284,15 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
     nijep <- length(w)
     Xsub[, 2+seq(along=w)] <- XEP[, Q[w]]
     Isub <- c(Iij, 2+seq(along=w)[na.omit(match(I, Q))])
+    nLevelsSub[2+seq(along=w)[na.omit(match(I, Q))]] <- nLevels[Q[na.omit(match(I, Q))]]
     Qw <- Q[which(Q > ph)]
     for (m in seq(along=Qw)) {
       selChr <- sum(cumsum_sByChr < Qw[m]-ph)
-      x <- as(X[[selChr]][, Qw[m]-ph-cumsum_sByChr[selChr]], "character")[, 1]
-      Xsub[, 2+nijep+m] <- as.numeric(factor(x), levels=unique(x))
+      x <- as(X[[selChr]][, Qw[m]-ph-cumsum_sByChr[selChr]], "numeric")[, 1]+1
+      x[x > 3] <- NA ## > 2 in the "numeric" coercion implies an uncertain call
+      Xsub[, 2+nijep+m] <- x
       Isub <- c(Isub, 2+nijep+m)
+      nLevelsSub[2+nijep+m] <- gLevels
     }
  
     ## map2ssd maps columns of continuous variables in Xsub to columns in ssd
@@ -2262,8 +2304,8 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
 
     Q <- 2+seq(along=Q)
 
-    cit <- qpgraph:::.qpCItestHMGM(Xsub, Isub, Ysub, ssd, map2ssd, i, j, Q,
-                                   exact.test, R.code.only=TRUE)
+    cit <- qpgraph:::.qpCItestHMGM(Xsub, Isub, nLevelsSub, Ysub, ssd, map2ssd,
+                                   i, j, Q, exact.test, R.code.only=TRUE)
     if (!is.nan(cit$statistic)) {
       lambda[k] <- cit$statistic
       if (exact.test) {
@@ -4851,6 +4893,9 @@ clPrCall <- function(cl, fun, n.adj, ...) {
 .qpFastEdgeNrrHMGM <- function(X, I, Y, ssd, mapX2ssd, i, j, q, restrict.Q,
                                fix.Q, nTests, alpha, exact.test) {
   nLevels <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
+  if (any(nLevels == 1))
+    stop(sprintf("Phenotypic discrete variable %s has only one level", colnames(XEP)[I][which(nLevels == 1)]))
+
   return(.Call("qp_fast_edge_nrr_hmgm", X, as.integer(I), as.integer(nLevels),
                                         as.integer(Y), ssd@x, as.integer(mapX2ssd),
                                         as.integer(i),as.integer(j), as.integer(q),
@@ -4858,13 +4903,15 @@ clPrCall <- function(cl, fun, n.adj, ...) {
                                         as.integer(nTests), as.double(alpha), as.integer(exact.test)))
 }
 
-.qpFastEdgeNrrHMGMsml <- function(X, cumsum_sByChr, s, XEP, I, Y, ssd, mapX2ssd,
-                                  i, j, q, restrict.Q, fix.Q, nTests, alpha, exact.test) {
-  nLevels <- apply(XEP[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
+.qpFastEdgeNrrHMGMsml <- function(X, cumsum_sByChr, s, gLevels, XEP, I, nLevels, Y,
+                                  ssd, mapX2ssd, i, j, q, restrict.Q, fix.Q,
+                                  nTests, alpha, exact.test) {
+
   return(.Call("qp_fast_edge_nrr_hmgm_sml", X, as.integer(cumsum_sByChr), as.integer(s),
-                                            XEP, as.integer(I), as.integer(nLevels),
-                                            as.integer(Y), ssd@x, as.integer(mapX2ssd),
-                                            as.integer(i),as.integer(j), as.integer(q),
+                                            as.integer(gLevels), XEP, as.integer(I),
+                                            as.integer(nLevels), as.integer(Y), ssd@x,
+                                            as.integer(mapX2ssd), as.integer(i),
+                                            as.integer(j), as.integer(q),
                                             as.integer(restrict.Q), as.integer(fix.Q),
                                             as.integer(nTests), as.double(alpha),
                                             as.integer(exact.test)))

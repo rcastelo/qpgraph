@@ -132,10 +132,10 @@ qp_fast_edge_nrr_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
                       SEXP fixQR, SEXP nTestsR, SEXP alphaR, SEXP exactTest);
 
 static SEXP
-qp_fast_edge_nrr_hmgm_sml(SEXP XR, SEXP cumsum_sByChrR, SEXP sR, SEXP XEPR, SEXP IR,
-                          SEXP n_levelsR, SEXP YR, SEXP ssdR, SEXP mapX2ssdR,
-                          SEXP iR, SEXP jR, SEXP qR, SEXP restrictQR, SEXP fixQR,
-                          SEXP nTestsR, SEXP alphaR, SEXP exactTest);
+qp_fast_edge_nrr_hmgm_sml(SEXP XR, SEXP cumsum_sByChrR, SEXP sR, SEXP gLevelsR,
+                          SEXP XEPR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
+                          SEXP mapX2ssdR, SEXP iR, SEXP jR, SEXP qR, SEXP restrictQR,
+                          SEXP fixQR, SEXP nTestsR, SEXP alphaR, SEXP exactTest);
 
 static double
 qp_edge_nrr(double* s, int p, int n, int i, int j, int q, int* restrictq, int n_rq,
@@ -152,8 +152,8 @@ qp_edge_nrr_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y
                  double alpha, int exactTest);
 
 static double
-qp_edge_nrr_hmgm_sml(SEXP X, int* cumsum_sByChr, int s, double* XEP1q, int p, int n,
-                     int* I, int n_I, int* n_levels, int* Y, int n_Y,
+qp_edge_nrr_hmgm_sml(SEXP X, int* cumsum_sByChr, int s, int gLevels, double* XEP1q,
+                     int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
                      double* ucond_ssd, int* mapX2ucond_ssd, int i, int j, int q,
                      int* restrictQ, int n_rQ, int* fixQ, int n_fQ, int nTests,
                      double alpha, int exactTest);
@@ -182,10 +182,10 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
                 int* Q, int q, double* df, double* a, double* b);
 
 static double
-qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, double* XEP1q, int p, int n,
-                    int* I, int n_I, int* n_levels, int* Y, int n_Y, double* ucond_ssd,
-                    int* mapX2ucond_ssd, int i, int j, int* Q, int q, double* df,
-                    double* a, double* b);
+qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* XEP1q,
+                    int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
+                    double* ucond_ssd, int* mapX2ucond_ssd, int i, int j, int* Q,
+                    int q, double* df, double* a, double* b);
 
 boolean
 cliquer_cb_add_clique_to_list(set_t clique, graph_t* g, clique_options* opts);
@@ -310,7 +310,7 @@ callMethods[] = {
   {"qp_fast_nrr_identicalQs_par", (DL_FUNC) &qp_fast_nrr_identicalQs_par, 16},
   {"qp_fast_edge_nrr", (DL_FUNC) &qp_fast_edge_nrr, 10},
   {"qp_fast_edge_nrr_hmgm", (DL_FUNC) &qp_fast_edge_nrr_hmgm, 14},
-  {"qp_fast_edge_nrr_hmgm_sml", (DL_FUNC) &qp_fast_edge_nrr_hmgm_sml, 17},
+  {"qp_fast_edge_nrr_hmgm_sml", (DL_FUNC) &qp_fast_edge_nrr_hmgm_sml, 18},
   {"qp_fast_ci_test_std", (DL_FUNC) &qp_fast_ci_test_std, 6},
   {"qp_fast_ci_test_opt", (DL_FUNC) &qp_fast_ci_test_opt, 6},
   {"qp_fast_ci_test_hmgm", (DL_FUNC) &qp_fast_ci_test_hmgm, 10},
@@ -2804,10 +2804,10 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
 */
 
 static double
-qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, double* XEP1q, int p, int n,
-                    int* I, int n_I, int* n_levels, int* Y, int n_Y, double* ucond_ssd,
-                    int* mapX2ucond_ssd, int i, int j, int* Q, int q, double* df,
-                    double* a, double* b) {
+qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* XEP1q,
+                    int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
+                    double* ucond_ssd, int* mapX2ucond_ssd, int i, int j, int* Q, int q,
+                    double* df, double* a, double* b) {
   int     nChr = length(Xsml);
   int     k,l;
   int*    I_int;
@@ -2844,7 +2844,6 @@ qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, double* XEP1q, int p, 
       I_int[n_I_int] = i;
       n_levels_int[n_I_int] = n_levels[k];
     } else {
-      int alleles[17]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1};
       int selChr=1;
       SEXP smR;
       const unsigned char* sm_i;
@@ -2860,19 +2859,12 @@ qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, double* XEP1q, int p, 
       for (l=0; l < n; l++) {
         int g = (int) sm_i[l];
 
-        alleles[g]++;
         if (sm_i[l] < 4)
           XEP1q[p*n+l] = (double) g;
         else
           XEP1q[p*n+l] = NA_REAL;
       }
-      n_levels_int[n_I_int] = 0;
-      l=0;
-      while (alleles[l] != -1) {
-        if (alleles[l])
-          n_levels_int[n_I_int]++;
-        l++;
-      }
+      n_levels_int[n_I_int] = gLevels;
       I_int[n_I_int] = p+s1q;
       i = p+s1q;
       s1q++;
@@ -2895,7 +2887,6 @@ qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, double* XEP1q, int p, 
         I_int[n_I_int] = Q[k];
         n_levels_int[n_I_int] = n_levels[l];
       } else {
-        int alleles[17]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1};
         int selChr=0;
         SEXP smR;
         const unsigned char* sm_Qk;
@@ -2911,19 +2902,12 @@ qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, double* XEP1q, int p, 
         for (l=0; l < n; l++) {
           int g = (int) sm_Qk[l];
 
-          alleles[g]++;
           if (sm_Qk[l] < 4)
             XEP1q[(p+s1q)*n+l] = (double) g;
           else
             XEP1q[(p+s1q)*n+l] = NA_REAL;
         }
-        n_levels_int[n_I_int] = 0;
-        l=0;
-        while (alleles[l] != -1) {
-          if (alleles[l])
-            n_levels_int[n_I_int]++;
-          l++;
-        }
+        n_levels_int[n_I_int] = gLevels;
         I_int[n_I_int] = p+s1q;
         Q[k] = p+s1q;
         s1q++;
@@ -3422,8 +3406,8 @@ qp_edge_nrr_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y
 */
 
 static double
-qp_edge_nrr_hmgm_sml(SEXP X, int* cumsum_sByChr, int s, double* XEP1q, int p, int n,
-                     int* I, int n_I, int* n_levels, int* Y, int n_Y,
+qp_edge_nrr_hmgm_sml(SEXP X, int* cumsum_sByChr, int s, int gLevels, double* XEP1q,
+                     int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
                      double* ucond_ssd, int* mapX2ucond_ssd, int i, int j, int q,
                      int* restrictQ, int n_rQ, int* fixQ, int n_fQ, int nTests,
                      double alpha, int exactTest) {
@@ -3469,8 +3453,8 @@ qp_edge_nrr_hmgm_sml(SEXP X, int* cumsum_sByChr, int s, double* XEP1q, int p, in
       Rprintf(" %d", *((int *) (q_by_T_samples+k*q+l)));
     Rprintf("\n");
 */
-    lambda = qp_ci_test_hmgm_sml(X, cumsum_sByChr, s, XEP1q, p, n, I, n_I, n_levels,
-                                 Y, n_Y, ucond_ssd, mapX2ucond_ssd, i, j,
+    lambda = qp_ci_test_hmgm_sml(X, cumsum_sByChr, s, gLevels, XEP1q, p, n, I, n_I,
+                                 n_levels, Y, n_Y, ucond_ssd, mapX2ucond_ssd, i, j,
                                  (int*) (q_by_T_samples+k*q), q, &df, &a, &b);
 
     if (!ISNAN(lambda) && a > 0.0 && b > 0.0) {
@@ -3726,13 +3710,14 @@ qp_fast_edge_nrr_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
 */
 
 static SEXP
-qp_fast_edge_nrr_hmgm_sml(SEXP XR, SEXP cumsum_sByChrR, SEXP sR, SEXP XEPR, SEXP IR,
-                          SEXP n_levelsR, SEXP YR, SEXP ssdR, SEXP mapX2ssdR,
-                          SEXP iR, SEXP jR, SEXP qR, SEXP restrictQR, SEXP fixQR,
-                          SEXP nTestsR, SEXP alphaR, SEXP exactTest) {
+qp_fast_edge_nrr_hmgm_sml(SEXP XR, SEXP cumsum_sByChrR, SEXP sR, SEXP gLevelsR,
+                          SEXP XEPR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
+                          SEXP mapX2ssdR, SEXP iR, SEXP jR, SEXP qR, SEXP restrictQR,
+                          SEXP fixQR, SEXP nTestsR, SEXP alphaR, SEXP exactTest) {
   int     n = INTEGER(getAttrib(XEPR, R_DimSymbol))[0];
   int     p = INTEGER(getAttrib(XEPR, R_DimSymbol))[1];
   int     s = INTEGER(sR)[0];
+  int     gLevels = INTEGER(gLevelsR)[0];
   int     n_I = length(IR);
   int     n_Y = length(YR);
   int     q;
@@ -3805,7 +3790,7 @@ qp_fast_edge_nrr_hmgm_sml(SEXP XR, SEXP cumsum_sByChrR, SEXP sR, SEXP XEPR, SEXP
 
   PROTECT(nrr = allocVector(REALSXP,1));
 
-  REAL(nrr)[0] = qp_edge_nrr_hmgm_sml(XR, INTEGER(cumsum_sByChrR), s,
+  REAL(nrr)[0] = qp_edge_nrr_hmgm_sml(XR, INTEGER(cumsum_sByChrR), s, gLevels,
                                       XEP1q, p, n, I, n_I, INTEGER(n_levelsR),
                                       Y, n_Y, REAL(ssdR), mapX2ssd, i, j, q, restrictQ,
                                       n_rQ, fixQ, n_fQ, nTests, alpha, INTEGER(exactTest)[0]);

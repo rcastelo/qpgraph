@@ -19,21 +19,27 @@
 
 setGeneric("qpCItest", function(X, ...) standardGeneric("qpCItest"))
 
+## ADD gLevels to either directly denote the number of genotype levels or trigger their
+## automatic calculation
+
 ## X comes as an smlSet object
 setMethod("qpCItest", signature(X="smlSet"),
           function(X, i=1, j=2, Q=c(), exact.test=TRUE, R.code.only=FALSE) {
             p <- as.integer(nrow(X))
             h <- as.integer(ncol(Biobase::pData(X)))
-            sByChr <- sapply(GGBase::smList(X), ncol)
+            Xsml <- GGBase::smList(X)
+            sByChr <- sapply(Xsml, ncol)
+            gLevels <- sum(unique(as.vector(as(Xsml[[1]][, 1:min(sByChr[1], 1000)], "matrix"))) > 0)
             cumsum_sByChr <- c(0, cumsum(sByChr))
             s <- sum(sByChr)
             n <- as.integer(ncol(X))
             fNames <- Biobase::featureNames(X)
             pNames <- colnames(Biobase::pData(X))
-            sNamesByChr <- lapply(smList(X), colnames)
+            sNamesByChr <- lapply(Xsml, colnames)
             sNames <- unlist(sNamesByChr, use.names=FALSE)
             Xsub <- matrix(0, nrow=n, ncol=length(c(i, j, Q)))
             colnames(Xsub) <- 1:length(c(i, j, Q))
+            nLevels <- rep(NA, length(c(i, j, Q)))
             x <- Y <- I <- c()
 
             nam_i <- i
@@ -46,9 +52,11 @@ setMethod("qpCItest", signature(X="smlSet"),
               else if (!is.na(match(i, pNames))) ## then 'i' refers to a phenotypic variable (cont. or discrete)
                 x <- Biobase::pData(X)[, i]
               else { ## then 'i' refers to a SNP genotype (discrete)
-                x <- as(smList(X)[[sum(cumsum_sByChr < smt)]][, i], "character")
-                if (any(x == "Uncertain"))
-                  stop(sprintf("i=%s has uncertain genotype calls\n", i))
+                x <- as(Xsml[[sum(cumsum_sByChr < smt)]][, i], "numeric")+1
+                if (any(x > 3, na.rm=TRUE))
+                  warning(sprintf("i=%s has uncertain genotype calls which are treated here as missing", nam_i))
+                x[x > 3] <- NA ## > 2 in the "numeric" coercion implies an uncertain call
+                nLevels[1] <- gLevels
               }
             } else {
               if (i <= p) ## then 'i' refers to an expression profile (cont.)
@@ -56,22 +64,24 @@ setMethod("qpCItest", signature(X="smlSet"),
               else if (i <= p+h) ## then 'i' refers to a phenotypic variable (cont. or discrete)
                 x <- Biobase::pData(X)[, i-p]
               else { ## then 'i' refers to a SNP genotype (discrete)
-                x <- as(smList(X)[[sum(cumsum_sByChr < i-p-h)]][, i-p-h-cumsum_sByChr[sum(cumsum_sByChr < i-p-h)] ], "character")[, 1]
-                if (any(x == "Uncertain"))
-                  warning(sprintf("i=%s has uncertain genotype calls\n", i))
-                x[x == "Uncertain" | x == "NA"] <- NA
+                x <- as(Xsml[[sum(cumsum_sByChr < i-p-h)]][, i-p-h-cumsum_sByChr[sum(cumsum_sByChr < i-p-h)] ], "numeric")[, 1]+1
+                if (any(x > 3, na.rm=TRUE))
+                  warning(sprintf("i=%s has uncertain genotype calls which are treated here as missing", nam_i))
+                x[x > 3] <- NA ## > 2 in the "numeric" coercion implies an uncertain call
+                nLevels[1] <- gLevels
               }
             }
             i <- 1L
             names(i) <- nam_i
 
-            if (is.character(x) || is.factor(x)) {
-              Xsub[, 1] <- as.numeric(factor(x, levels=unique(x)))
+            if (!is.na(nLevels[1]) || is.character(x) || is.factor(x) || is.logical(x)) {
+              x <- factor(x)
+              if (is.na(nLevels[1]))
+                nLevels[1] <- nlevels(x)
               I <- 1L
-            } else {
-              Xsub[, 1] <- as.numeric(x)
+            } else
               Y <- 1L
-            }
+            Xsub[, 1] <- as.numeric(x)
 
             nam_j <- j
             if (is.character(j)) {
@@ -83,9 +93,11 @@ setMethod("qpCItest", signature(X="smlSet"),
               else if (!is.na(match(j, pNames))) ## then 'j' refers to a phenotypic variable (cont. or discrete)
                 x <- Biobase::pData(X)[, j]
               else { ## then 'j' refers to a SNP genotype (discrete)
-                x <- as(smList(X)[[sum(cumsum_sByChr < smt)]][, j], "character")
-                if (any(x == "Uncertain"))
-                  stop(sprintf("j=%s has uncertain genotype calls\n", j))
+                x <- as(Xsml[[sum(cumsum_sByChr < smt)]][, j], "numeric")+1
+                if (any(x > 3, na.rm=TRUE))
+                  warning(sprintf("j=%s has uncertain genotype calls which are treated here as missing", nam_j))
+                x[x > 3] <- NA ## > 2 in the "numeric" coercion implies an uncertain call
+                nLevels[2] <- gLevels
               }
             } else {
               if (j <= p) ## then 'j' refers to an expression profile (cont.)
@@ -93,22 +105,24 @@ setMethod("qpCItest", signature(X="smlSet"),
               else if (j <= p+h) ## then 'j' refers to a phenotypic variable (cont. or discrete)
                 x <- Biobase::pData(X)[, j-p]
               else { ## then 'j' refers to a SNP genotype (discrete)
-                x <- as(smList(X)[[sum(cumsum_sByChr < j-p-h)]][, j-p-h-cumsum_sByChr[sum(cumsum_sByChr < j-p-h)] ], "character")[, 1]
-                if (any(x == "Uncertain"))
-                  warning(sprintf("j=%s has uncertain genotype calls\n", j))
-                x[x == "Uncertain" | x == "NA"] <- NA
+                x <- as(Xsml[[sum(cumsum_sByChr < j-p-h)]][, j-p-h-cumsum_sByChr[sum(cumsum_sByChr < j-p-h)] ], "numeric")[, 1]+1
+                if (any(x > 3, na.rm=TRUE))
+                  warning(sprintf("j=%s has uncertain genotype calls which are treated here as missing", nam_j))
+                x[x > 3] <- NA ## > 2 in the "numeric" coercion implies an uncertain call
+                nLevels[2] <- gLevels
               }
             }
             j <- 2L
             names(j) <- nam_j
 
-            if (is.character(x) || is.factor(x)) {
-              Xsub[, 2] <- as.numeric(factor(x, levels=unique(x)))
+            if (!is.na(nLevels[2]) || is.character(x) || is.factor(x) || is.logical(x)) {
+              x <- factor(x)
+              if (is.na(nLevels[2]))
+                nLevels[2] <- nlevels(x)
               I <- c(I, 2L)
-            } else {
-              Xsub[, 2] <- as.numeric(x)
+            } else
               Y <- c(Y, 2L)
-            }
+            Xsub[, 2] <- as.numeric(x)
 
             nam_Q <- Q
             if (is.character(Q)) {
@@ -129,29 +143,27 @@ setMethod("qpCItest", signature(X="smlSet"),
                 }
                 for (k in seq(along=Qp)) {
                   x <- Biobase::pData(X)[, Qp[k]]
+                  idx <- 2L+sum(!is.na(Qe))+k
                   if (is.character(x) || is.factor(x) || is.logical(x)) {
-                    Xsub[, 2+sum(!is.na(Qe))+k] <- as.numeric(factor(x, levels=unique(x)))
-
-                    I <- c(I, 2L+sum(!is.na(Qe))+k)
+                    x <- factor(x)
+                    nLevels[idx] <- nlevels(x)
+                    Xsub[, idx] <- as.numeric(x)
+                    I <- c(I, idx)
                   } else {
-                    Xsub[, 2+sum(!is.na(Qe))+k] <- as.numeric(x)
-                    Y <- c(Y, 2L+sum(!is.na(Qe))+k)
+                    Xsub[, idx] <- as.numeric(x)
+                    Y <- c(Y, idx)
                   }
                 }
                 for (k in seq(along=Qs)) {
-                  x <- as(smList(X)[[sum(cumsum_sByChr < Qs[k])]][, Qs[k]-cumsum_sByChr[sum(cumsum_sByChr < Qs[k])] ], "character")[, 1]
-                  if (any(x == "Uncertain"))
-                    warning(sprintf("Q=%s has uncertain genotype calls\n", Q[is.na(Qe)][is.na(Qp)][k]))
-                  x[x == "Uncertain" | x == "NA"] <- NA
+                  x <- as(Xsml[[sum(cumsum_sByChr < Qs[k])]][, Qs[k]-cumsum_sByChr[sum(cumsum_sByChr < Qs[k])] ], "numeric")[, 1]+1
+                  if (any(x > 3, na.rm=TRUE))
+                    warning(sprintf("Q=%s has uncertain genotype calls which are treated here as missing", Q[Qs[k]]))
+                  x[x > 3] <- NA ## > 2 in the "numeric" coercion implies an uncertain call
 
-                  if (is.character(x) || is.factor(x) || is.logical(x)) {
-                    Xsub[, 2L+sum(!is.na(Qe))+sum(!is.na(Qp))+k] <- as.numeric(factor(x, levels=unique(x)))
-
-                    I <- c(I, 2L+sum(!is.na(Qe))+sum(!is.na(Qp))+k)
-                  } else {
-                    Xsub[, 2L+sum(!is.na(Qe))+sum(!is.na(Qp))+k] <- as.numeric(x)
-                    Y <- c(Y, 2L+sum(!is.na(Qe))+sum(!is.na(Qp))+k)
-                  }
+                  idx <- 2L+sum(!is.na(Qe))+sum(!is.na(Qp))+k
+                  Xsub[, idx] <- x
+                  I <- c(I, idx)
+                  nLevels[idx] <- gLevels
                 }
               }
               Q <- 3:length(c(i, j, Q))
@@ -168,28 +180,28 @@ setMethod("qpCItest", signature(X="smlSet"),
               Qp <- which(Q > p & Q <= p+h) ## Q indices larger than p and smaller than h correspond to phenotypic variables
               for (k in seq(along=Qp)) {
                 x <- Biobase::pData(X)[, Q[Qp[k]]-p]
+                idx <- 2L+sum(Q <= p)+k
                 if (is.character(x) || is.factor(x)) {
-                  Xsub[, 2L+sum(Q <= p)+k] <- as.numeric(factor(x, levels=unique(x)))
-                  I <- c(I, 2L+sum(Q <= p)+k)
+                  x <- factor(x)
+                  nLevels[idx] <- nlevels(x)
+                  Xsub[, idx] <- as.numeric(x)
+                  I <- c(I, idx)
                 } else {
-                  Xsub[, 2L+sum(Q <= p)+k] <- as.numeric(x)
-                  Y <- c(Y, 2L+sum(Q <= p)+k)
+                  Xsub[, idx] <- as.numeric(x)
+                  Y <- c(Y, idx)
                 }
               }
               Qs <- which(Q > p+h) ## Q indices larger than p+h correspond to genotype calls
               for (k in seq(along=Qs)) {
-                x <- as(smList(X)[[sum(cumsum_sByChr < Q[Qs[k]]-p-h)]][, Q[Qs[k]]-p-h-cumsum_sByChr[sum(cumsum_sByChr < Q[Qs[k]]-p-h)] ], "character")[, 1]
-                x[x == "Uncertain" | x == "NA"] <- NA
+                x <- as(Xsml[[sum(cumsum_sByChr < Q[Qs[k]]-p-h)]][, Q[Qs[k]]-p-h-cumsum_sByChr[sum(cumsum_sByChr < Q[Qs[k]]-p-h)] ], "numeric")[, 1]+1
+                if (any(x > 3, na.rm=TRUE))
+                  warning(sprintf("Q=%s has uncertain genotype calls which are treated here as missing", Q[Qs[k]]))
+                x[x > 3] <- NA ## > 2 in the "numeric" coercion implies an uncertain call
 
-                if (any(x == "Uncertain"))
-                  warning(sprintf("Q=%s has uncertain genotype calls\n", Q[Qs[k]]))
-                if (is.character(x) || is.factor(x) || is.logical(x)) {
-                  Xsub[, 2L+sum(Q <= p+h)+k] <- as.numeric(factor(x, levels=unique(x)))
-                  I <- c(I, 2L+sum(Q <= p+h)+k)
-                } else {
-                  Xsub[, 2L+sum(Q <= p+h)+k] <- as.numeric(x)
-                  Y <- c(Y, 2L+sum(Q <= p+h)+k)
-                }
+                idx <- 2L+sum(Q <= p+h)+k
+                Xsub[, idx] <- x
+                I <- c(I, idx)
+                nLevels[idx] <- gLevels
               }
               Q <- 3:length(c(i, j, Q))
               names(Q) <- nam_Q
@@ -205,7 +217,10 @@ setMethod("qpCItest", signature(X="smlSet"),
               mapX2ssd <- match(colnames(Xsub), colnames(ssd))
               names(mapX2ssd) <- colnames(Xsub)
 
-              rval <- qpgraph:::.qpCItestHMGM(Xsub, I, Y, ssd, mapX2ssd, i, j, Q,
+              if (any(nLevels[I] == 1))
+                stop(sprintf("Discrete variable %s has only one level", colnames(Xsub)[I[nLevels[I]==1]]))
+
+              rval <- qpgraph:::.qpCItestHMGM(Xsub, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
                                               exact.test, R.code.only)
               if (is.nan(rval$statistic))
                 warning(paste(sprintf("CI test unavailable for i=%s, j=%s and Q={",
@@ -215,7 +230,7 @@ setMethod("qpCItest", signature(X="smlSet"),
 
             class(rval) <- "htest" ## this is kind of redundant but otherwise
                                    ## the object returned by the C function does
-                                   ## not print by default as a 'htest' object
+                                   ## not print by default as an 'htest' object
 
             return(rval)
           })
@@ -342,7 +357,12 @@ setMethod("qpCItest", signature(X="ExpressionSet"),
               mapX2ssd <- match(colnames(Xsub), colnames(ssd))
               names(mapX2ssd) <- colnames(Xsub)
 
-              rval <- qpgraph:::.qpCItestHMGM(Xsub, I, Y, ssd, mapX2ssd, i, j, Q,
+              nLevels <- rep(NA_integer_, times=ncol(Xsub))
+              nLevels[I] <- apply(Xsub[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
+              if (any(nLevels[I] == 1))
+                stop(sprintf("Discrete variable %s has only one level", colnames(Xsub)[I[nLevels[I]==1]]))
+
+              rval <- qpgraph:::.qpCItestHMGM(Xsub, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
                                               exact.test, R.code.only)
               if (is.nan(rval$statistic))
                 warning(paste(sprintf("CI test unavailable for i=%s, j=%s and Q={",
@@ -435,7 +455,13 @@ setMethod("qpCItest", signature(X="data.frame"),
               mapX2ssd <- match(colnames(X), colnames(ssd))
               names(mapX2ssd) <- colnames(X)
 
-              rval <- qpgraph:::.qpCItestHMGM(X, I, Y, ssd, mapX2ssd, i, j, Q, exact.test, R.code.only)
+              nLevels <- rep(NA_integer_, times=ncol(X))
+              nLevels[I] <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
+              if (any(nLevels[I] == 1))
+                stop(sprintf("Discrete variable %s has only one level", colnames(X)[I[nLevels[I]==1]]))
+
+              rval <- qpgraph:::.qpCItestHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
+                                              exact.test, R.code.only)
               if (is.nan(rval$statistic))
                 warning(paste(sprintf("CI test unavailable for i=%s, j=%s and Q={",
                                       colnames(X)[i], colnames(X)[j]),
@@ -535,7 +561,13 @@ setMethod("qpCItest", signature(X="matrix"),
                 mapX2ssd <- match(colnames(X), colnames(ssd))
                 names(mapX2ssd) <- colnames(X)
 
-                rval <- qpgraph:::.qpCItestHMGM(X, I, Y, ssd, mapX2ssd, i, j, Q, exact.test, R.code.only)
+                nLevels <- rep(NA_integer_, times=ncol(X))
+                nLevels[I] <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
+                if (any(nLevels[I] == 1))
+                  stop(sprintf("Discrete variable %s has only one level", colnames(X)[I[nLevels[I]==1]]))
+
+                rval <- qpgraph:::.qpCItestHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
+                                                exact.test, R.code.only)
                 if (is.nan(rval$statistic))
                   warning(paste(sprintf("CI test unavailable for i=%s, j=%s and Q={",
                                         colnames(X)[i], colnames(X)[j]),
@@ -626,7 +658,8 @@ setMethod("qpCItest", signature(X="matrix"),
   ssd
 }
 
-.qpCItestHMGM <- function(X, I, Y, ssdMat, mapX2ssdMat, i, j, Q, exact.test=TRUE, R.code.only=FALSE ) {
+.qpCItestHMGM <- function(X, I, nLevels, Y, ssdMat, mapX2ssdMat, i, j, Q,
+                          exact.test=TRUE, R.code.only=FALSE ) {
   p <- (d <- dim(ssdMat))[1]
   if (p != d[2] || !isSymmetric(ssdMat))
     stop("ssdMat is not squared and symmetric. Is it really an ssd matrix?\n")
@@ -651,16 +684,17 @@ setMethod("qpCItest", signature(X="matrix"),
     tmp <- i
     i <- j
     j <- tmp
+    tmp <- nLevels[i]
+    nLevels[i] <- nLevels[j]
+    nLevels[j] <- tmp
   }
 
   if (!R.code.only) {
-    return(qpgraph:::.qpFastCItestHMGM(X, I, Y, ssdMat, mapX2ssdMat, i, j, Q, exact.test))
+    return(qpgraph:::.qpFastCItestHMGM(X, I, nLevels, Y, ssdMat, mapX2ssdMat, i, j, Q, exact.test))
   }
 
   I <- intersect(I, c(i, Q))
   Y <- intersect(Y, c(i, j, Q))
-  nLevels <- rep(NA_integer_, times=ncol(X))
-  nLevels[I] <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
 
   ssd <- ssd_i <- ssd_j <- ssd_ij <- diag(2) 
   n <- nrow(X)
@@ -770,8 +804,7 @@ setMethod("qpCItest", signature(X="matrix"),
   return(.Call("qp_fast_ci_test_opt", S@x, nrow(S), as.integer(n), i, j, Q))
 }
 
-.qpFastCItestHMGM <- function(X, I, Y, ssd, mapX2ssd, i, j, Q, exact.test) {
-  nLevels <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
+.qpFastCItestHMGM <- function(X, I, nLevels, Y, ssd, mapX2ssd, i, j, Q, exact.test) {
   return(.Call("qp_fast_ci_test_hmgm", X, I, nLevels, Y, ssd@x,
                as.integer(mapX2ssd), i, j, Q, as.integer(exact.test)))
 }
