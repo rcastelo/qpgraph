@@ -4894,7 +4894,7 @@ clPrCall <- function(cl, fun, n.adj, ...) {
                                fix.Q, nTests, alpha, exact.test) {
   nLevels <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
   if (any(nLevels == 1))
-    stop(sprintf("Phenotypic discrete variable %s has only one level", colnames(XEP)[I][which(nLevels == 1)]))
+    stop(sprintf("Phenotypic discrete variable %s has only one level", colnames(X)[I][which(nLevels == 1)]))
 
   return(.Call("qp_fast_edge_nrr_hmgm", X, as.integer(I), as.integer(nLevels),
                                         as.integer(Y), ssd@x, as.integer(mapX2ssd),
