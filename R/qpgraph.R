@@ -2211,7 +2211,7 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
 
   ssd <- qpCov(XEP[, Y, drop=FALSE], corrected=FALSE)
   ## we need to map smlSet-level Y indices to the ssd dimension
-  mapY2ssd <- rep(NA, length=max(Y))
+  mapY2ssd <- rep(NA, length=ph)
   mapY2ssd[Y] <- 1:ncol(ssd)
 
   if (!R.code.only) {
