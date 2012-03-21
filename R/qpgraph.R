@@ -2224,6 +2224,9 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
     tmp <- i
     i <- j
     j <- tmp
+    tmp <- nLevels[i]
+    nLevels[i] <- nLevels[j]
+    nLevels[j] <- tmp
   }
 
   V <- 1:p
