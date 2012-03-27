@@ -1,3 +1,14 @@
+CHANGES IN VERSION 1.12
+-----------------------
+
+NEW FEATURES
+
+    o Results of conditional independence tests with qpCItest() are now returned using the R standard htest class
+
+    o qpCItest() allows one to test mixed interactions involving phenotypic data variables and expression profiles in ExpressionSet objects, and phenotypic/genetic variables and expression profiles in smlSet objects
+
+    o qpEdgeNrr() estimates the non-rejection rate involving phenotypic data variables and expression profiles in ExpressionSet objects, and phenotypic/genetic variables and expression profiles in smlSet objects
+
 CHANGES IN VERSION 1.10
 ----------------------
 
