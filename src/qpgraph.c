@@ -298,7 +298,7 @@ calculate_xtab(double* X, int p, int n, int* I, int n_I, int* n_levels, int* xta
 
 void
 ssd_A(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
-      double* ssd_A);
+      int* idx_excobs, double* ssd_A, int* n_co, int* idx_misobs);
 
 /* R-function register */
 
@@ -2309,34 +2309,37 @@ qp_ci_test_opt(double* S, int n_var, int N, int i, int j, int* Q, int q,
 static SEXP
 qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
                      SEXP mapX2ssdR, SEXP iR, SEXP jR, SEXP QR, SEXP exactTestR) {
-  int    n = INTEGER(getAttrib(XR, R_DimSymbol))[0];
-  int    p = INTEGER(getAttrib(XR, R_DimSymbol))[1];
-  int    n_I = length(IR);
-  int    n_Y = length(YR);
-  int    q = length(QR);
-  int    i,j,k;
-  int    exactTest = INTEGER(exactTestR)[0];
-  int*   I;
+  int     n = INTEGER(getAttrib(XR, R_DimSymbol))[0];
+  int     p = INTEGER(getAttrib(XR, R_DimSymbol))[1];
+  int     n_I = length(IR);
+  int     n_Y = length(YR);
+  int     q = length(QR);
+  int     i,j,k;
+  int     exactTest = INTEGER(exactTestR)[0];
+  int*    I;
   int*    Y;
-  int*   Q;
-  int*   mapX2ssd;
-  double lambda;
-  double df, a, b;
-  double p_value = R_NaReal;
-  char   dataname[4096];
-  SEXP   result;
-  SEXP   result_names;
-  SEXP   result_stat;
-  SEXP   result_param;
-  SEXP   result_p_val;
-  SEXP   class;
-  SEXP   stat_name, param_name, pval_name, nullval_name;
+  int*    Q;
+  double* ssd = NULL;
+  int*    mapX2ssd = NULL;
+  double  lambda;
+  double  df, a, b;
+  double  p_value = R_NaReal;
+  char    dataname[4096];
+  SEXP    result;
+  SEXP    result_names;
+  SEXP    result_stat;
+  SEXP    result_param;
+  SEXP    result_p_val;
+  SEXP    class;
+  SEXP    stat_name, param_name, pval_name, nullval_name;
 
   PROTECT_INDEX ssd_pi;
 
-  PROTECT_WITH_INDEX(ssdR,&ssd_pi);
+  if (ssdR != R_NilValue) {
+    PROTECT_WITH_INDEX(ssdR,&ssd_pi);
 
-  REPROTECT(ssdR = coerceVector(ssdR,REALSXP), ssd_pi);
+    REPROTECT(ssdR = coerceVector(ssdR,REALSXP), ssd_pi);
+  }
 
   i = INTEGER(iR)[0] - 1;
   j = INTEGER(jR)[0] - 1;
@@ -2360,12 +2363,15 @@ qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
   }
   strcat(dataname, "}");
 
-  mapX2ssd = Calloc(p, int);
-  for (k=0; k < p; k++)
-    mapX2ssd[k] = INTEGER(mapX2ssdR)[k]-1;
+  if (ssdR != R_NilValue) {
+    mapX2ssd = Calloc(p, int);
+    for (k=0; k < p; k++)
+      mapX2ssd[k] = INTEGER(mapX2ssdR)[k]-1;
+    ssd = REAL(ssdR);
+  }
 
   lambda = qp_ci_test_hmgm(REAL(XR), p, n, I, n_I, INTEGER(n_levelsR), Y, n_Y,
-                           REAL(ssdR), mapX2ssd, i, j, Q, q, &df, &a, &b);
+                           ssd, mapX2ssd, i, j, Q, q, &df, &a, &b);
 
   if (!ISNAN(lambda)) {
     if (exactTest) {
@@ -2433,12 +2439,16 @@ qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
   SET_STRING_ELT(class, 0, mkChar("htest"));
   installAttrib(result, R_ClassSymbol, class);
 
-  UNPROTECT(8); /* ssdR result result_names stat_name param_name pval_name nullval_name class */
+  UNPROTECT(7); /* result result_names stat_name param_name pval_name nullval_name class */
 
   Free(I);
   Free(Y);
   Free(Q);
-  Free(mapX2ssd);
+
+  if (ssdR != R_NilValue) {
+    UNPROTECT(1); /* ssdR */
+    Free(mapX2ssd);
+  }
 
   return result;
 }
@@ -2458,6 +2468,7 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
                 int n_Y, double* ucond_ssd, int* mapX2ucond_ssd, int i, int j,
                 int* Q, int q, double* df, double* a, double* b) {
   int     k,l;
+  int     n_co=n;
   int     n_I_int = 0;
   int     n_Y_int = 0;
   int     n_I_i, n_Y_i, n_Y_j, n_Y_ij;
@@ -2469,6 +2480,7 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
   int     n_joint_levels = 1;
   int     n_joint_levels_i = 1;
   int     n_levels_i = 0;
+  int*    idx_misobs=NULL;
   double* ssd_mat;
   double  x;
   double  lr = 0.0;
@@ -2569,9 +2581,10 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
 
   ssd_mat = Calloc((n_Y * (n_Y + 1)) / 2, double);  /* upper triangle includes the diagonal */
 
-  if (n_I > 0 || ucond_ssd == NULL)
-    ssd_A(X, p, n, I, n_I, n_levels, Y, n_Y,  ssd_mat);
-  else {
+  if (n_I > 0 || ucond_ssd == NULL) {
+    idx_misobs = Calloc(n, int);
+    ssd_A(X, p, n, I, n_I, n_levels, Y, n_Y, NULL, ssd_mat, &n_co, idx_misobs);
+  } else {
     int* tmp;
 
     tmp = Calloc(n_Y, int);
@@ -2582,6 +2595,7 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
 
     Free(tmp);
   }
+
 /*
   Rprintf("ssd:\n");
   m = 0;
@@ -2635,7 +2649,7 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
 
   if (n_I > 0 || ucond_ssd == NULL) {
     memset(ssd_mat, 0, ((n_Y_i * (n_Y_i + 1)) / 2) * sizeof(double));
-    ssd_A(X, p, n, I, n_I_i, n_levels, Y, n_Y_i, ssd_mat);
+    ssd_A(X, p, n, I, n_I_i, n_levels, Y, n_Y_i, idx_misobs, ssd_mat, NULL, NULL);
   } else {
     int* tmp;
 
@@ -2684,7 +2698,7 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
 
     if (n_I > 0 || ucond_ssd == NULL) {
       memset(ssd_mat, 0, ((n_Y_j * (n_Y_j + 1)) / 2) * sizeof(double));
-      ssd_A(X, p, n, I, n_I, n_levels, Y, n_Y_j, ssd_mat);
+      ssd_A(X, p, n, I, n_I, n_levels, Y, n_Y_j, idx_misobs, ssd_mat, NULL, NULL);
     } else {
       int* tmp;
 
@@ -2697,7 +2711,7 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
       Free(tmp);
     }
 
-    /*
+/*    
     Rprintf("ssd_j:\n");
     m = 0;
     for (k=0; k < n_Y_j; k++) {
@@ -2707,7 +2721,7 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
       }
       Rprintf("\n");
     }
-    */
+*/    
 
     x = symmatlogdet(ssd_mat, n_Y_j, &sign);
     lr -= x;
@@ -2734,7 +2748,7 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
     if (n_Y_ij > 0) {
       if (n_I > 0 || ucond_ssd == NULL) {
         memset(ssd_mat, 0, ((n_Y_j * (n_Y_j + 1)) / 2) * sizeof(double));
-        ssd_A(X, p, n, I, n_I_i, n_levels, Y, n_Y_ij, ssd_mat);
+        ssd_A(X, p, n, I, n_I_i, n_levels, Y, n_Y_ij, idx_misobs, ssd_mat, NULL, NULL);
       } else {
         int* tmp;
 
@@ -2747,7 +2761,7 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
         Free(tmp);
       }
 
-      /*
+/*      
       Rprintf("ssd_ij:\n");
       m = 0;
       for (k=0; k < n_Y_ij; k++) {
@@ -2757,7 +2771,7 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
         }
         Rprintf("\n");
       }
-      */
+*/      
 
       x = symmatlogdet(ssd_mat, n_Y_ij, &sign);
       lr += x;
@@ -2775,13 +2789,16 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
 
   Free(ssd_mat);
 
+  if (idx_misobs != NULL)
+    Free(idx_misobs);
+
   if (flag_zero || final_sign == -1)
     lr = R_NaN;
   else
     lr = lr * ((double) -n);
 
   *df = 1.0;
-  *a = ((double) (n - n_Y - n_joint_levels + 1)) / 2.0;
+  *a = ((double) (n_co - n_Y - n_joint_levels + 1)) / 2.0; /* by now complete.obs w/ missing data */
   if (mixed_edge) {
     *df = ((double) (n_joint_levels_i * (n_levels_i - 1)));
     *b = *df / 2.0;
@@ -2810,6 +2827,7 @@ qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* X
                     double* df, double* a, double* b) {
   int     nChr = length(Xsml);
   int     k,l;
+  int     n_co = n;
   int*    I_int;
   int     n_I_int = 0;
   int     n_Y_int = 0;
@@ -2824,6 +2842,7 @@ qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* X
   int     n_joint_levels = 1;
   int     n_joint_levels_i = 1;
   int     n_levels_i = 0;
+  int*    idx_misobs;
   double* ssd_mat;
   double  x;
   double  lr = 0.0;
@@ -2972,9 +2991,10 @@ qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* X
 
   ssd_mat = Calloc((n_Y * (n_Y + 1)) / 2, double);  /* upper triangle includes the diagonal */
 
-  if (n_I_int > 0 || ucond_ssd == NULL)
-    ssd_A(XEP1q, p+s1q, n, I_int, n_I_int, n_levels_int, Y, n_Y,  ssd_mat);
-  else {
+  if (n_I_int > 0 || ucond_ssd == NULL) {
+    idx_misobs = Calloc(n, int);
+    ssd_A(XEP1q, p+s1q, n, I_int, n_I_int, n_levels_int, Y, n_Y, NULL, ssd_mat, &n_co, idx_misobs);
+  } else {
     int* tmp;
 
     tmp = Calloc(n_Y, int);
@@ -3038,7 +3058,7 @@ qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* X
 
   if (n_I_int > 0 || ucond_ssd == NULL) {
     memset(ssd_mat, 0, ((n_Y_i * (n_Y_i + 1)) / 2) * sizeof(double));
-    ssd_A(XEP1q, p+s1q, n, I_int, n_I_i, n_levels_int, Y, n_Y_i, ssd_mat);
+    ssd_A(XEP1q, p+s1q, n, I_int, n_I_i, n_levels_int, Y, n_Y_i, idx_misobs, ssd_mat, NULL, NULL);
   } else {
     int* tmp;
 
@@ -3087,7 +3107,7 @@ qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* X
 
     if (n_I_int > 0 || ucond_ssd == NULL) {
       memset(ssd_mat, 0, ((n_Y_j * (n_Y_j + 1)) / 2) * sizeof(double));
-      ssd_A(XEP1q, p+s1q, n, I_int, n_I_int, n_levels_int, Y, n_Y_j, ssd_mat);
+      ssd_A(XEP1q, p+s1q, n, I_int, n_I_int, n_levels_int, Y, n_Y_j, idx_misobs, ssd_mat, NULL, NULL);
     } else {
       int* tmp;
 
@@ -3137,7 +3157,7 @@ qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* X
     if (n_Y_ij > 0) {
       if (n_I_int > 0 || ucond_ssd == NULL) {
         memset(ssd_mat, 0, ((n_Y_j * (n_Y_j + 1)) / 2) * sizeof(double));
-        ssd_A(XEP1q, p+s1q, n, I_int, n_I_i, n_levels_int, Y, n_Y_ij, ssd_mat);
+        ssd_A(XEP1q, p+s1q, n, I_int, n_I_i, n_levels_int, Y, n_Y_ij, idx_misobs, ssd_mat, NULL, NULL);
       } else {
         int* tmp;
 
@@ -3180,13 +3200,16 @@ qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* X
   Free(n_levels_int);
   Free(I_int);
 
+  if (idx_misobs != NULL)
+    Free(idx_misobs);
+
   if (flag_zero || final_sign == -1)
     lr = R_NaN;
   else
     lr = lr * ((double) -n);
 
   *df = 1.0;
-  *a = ((double) (n - n_Y - n_joint_levels + 1)) / 2.0;
+  *a = ((double) (n_co - n_Y - n_joint_levels + 1)) / 2.0; /* by now complete.obs w/ missing data */
   if (mixed_edge) {
     *df = ((double) (n_joint_levels_i * (n_levels_i - 1)));
     *b = *df / 2.0;
@@ -5855,7 +5878,8 @@ qp_cov_upper_triangular(SEXP XR, SEXP corrected) {
            discrete variables indicated in the arguments. The discrete values
            should be encoded as natural numbers 1, 2, ... just as the encoding
            of factor variables in R. Missing values encoded as NAs are treated
-           by setting to -1 the cross-classified observation
+           by setting to -1 the cross-classified observation.
+  IMPORTANT: it assumes the argument xtab has all its positions set to the value of 1
   PARAMETERS: X - vector containing the column-major stored matrix of values
               p - number of variables
               n - number of values per variable
@@ -5868,8 +5892,10 @@ calculate_xtab(double* X, int p, int n, int* I, int n_I, int* n_levels, int* xta
   int i,j;
   int base=1;
 
+  /*
   for (i=0; i < n; i++)
     xtab[i] = 1;
+  */
 
   for (i=0; i < n_I; i++) {
     for (j=0; j < n; j++)
@@ -5910,34 +5936,54 @@ indirect_int_cmp(const void *a, const void *b) {
 
 void
 ssd_A(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
-      double* ssd_A) {
+      int* idx_excobs, double* ssd_A, int* n_co, int* idx_misobs) {
   int*    obs_idx;
+  int     n_obs;
   int     i,j;
 
+  obs_idx = Calloc(n, int);
+  global_xtab = Calloc(n, int);
+  n_obs = 0;
+  for (i=0; i < n; i++) {
+    global_xtab[i] = 1;
+    if (idx_excobs != NULL) {
+      if (!idx_excobs[i])      /* if obs is not excluded i use it */
+        obs_idx[n_obs++] = i;
+      else                     /* if obs is excluded i avoid using it later */
+        global_xtab[i] = -1;
+    } else
+      obs_idx[n_obs++] = i;
+  }
+
   if (n_I == 0) {
-    ssd(X, p, n, Y, n_Y, NULL, n, FALSE, ssd_A);
+    ssd(X, p, n, Y, n_Y, obs_idx, n_obs, FALSE, ssd_A);
+
+    Free(obs_idx);
+    Free(global_xtab);
 
     return;
   }
 
-  global_xtab = Calloc(n, int);
   calculate_xtab(X, p, n, I, n_I, n_levels, global_xtab);
-
-  obs_idx = Calloc(n, int);
-  for (i=0; i < n; i++)
-    obs_idx[i] = i;
 
   /* group together observations from the same joint discrete level putting the *
    * observations from missing discrete levels at the beginning                 */
-  qsort(obs_idx, n, sizeof(int), indirect_int_cmp);
+  qsort(obs_idx, n_obs, sizeof(int), indirect_int_cmp);
 
+  /* skip missing discrete observations */
   i = 0;
-  while (i < n && global_xtab[obs_idx[i]] == -1) /* skip missing discrete observations */
+  while (i < n_obs && global_xtab[obs_idx[i]] == -1) {
+    if (idx_misobs != NULL)
+      idx_misobs[obs_idx[i]] = 1;
     i++;
+  }
 
-  while (i < n) {
+  if (n_co != NULL)
+    *n_co = n - i; /* calculate number of complete observations */
+
+  while (i < n_obs) {
     j = i;
-    while (j < n && global_xtab[obs_idx[i]] == global_xtab[obs_idx[j]])
+    while (j < n_obs && global_xtab[obs_idx[i]] == global_xtab[obs_idx[j]])
       j++;
 
     ssd(X, p, n, Y, n_Y, obs_idx+i, j-i, FALSE, ssd_A);

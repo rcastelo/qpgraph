@@ -40,6 +40,7 @@ setMethod("qpCItest", signature(X="smlSet"),
             Xsub <- matrix(0, nrow=n, ncol=length(c(i, j, Q)))
             colnames(Xsub) <- 1:length(c(i, j, Q))
             nLevels <- rep(NA, length(c(i, j, Q)))
+            missingMask <- rep(FALSE, length(c(i, j, Q)))
             x <- Y <- I <- c()
 
             nam_i <- i
@@ -78,9 +79,12 @@ setMethod("qpCItest", signature(X="smlSet"),
               x <- factor(x)
               if (is.na(nLevels[1]))
                 nLevels[1] <- nlevels(x)
+
               I <- 1L
             } else
               Y <- 1L
+
+            missingMask[1] <- any(is.na(x))
             Xsub[, 1] <- as.numeric(x)
 
             nam_j <- j
@@ -122,6 +126,8 @@ setMethod("qpCItest", signature(X="smlSet"),
               I <- c(I, 2L)
             } else
               Y <- c(Y, 2L)
+
+            missingMask[2] <- any(is.na(x))
             Xsub[, 2] <- as.numeric(x)
 
             nam_Q <- Q
@@ -144,6 +150,8 @@ setMethod("qpCItest", signature(X="smlSet"),
                 for (k in seq(along=Qp)) {
                   x <- Biobase::pData(X)[, Qp[k]]
                   idx <- 2L+sum(!is.na(Qe))+k
+                  missingMask[idx] <- any(is.na(x))
+
                   if (is.character(x) || is.factor(x) || is.logical(x)) {
                     x <- factor(x)
                     nLevels[idx] <- nlevels(x)
@@ -161,6 +169,7 @@ setMethod("qpCItest", signature(X="smlSet"),
                   x[x > 3] <- NA ## > 2 in the "numeric" coercion implies an uncertain call
 
                   idx <- 2L+sum(!is.na(Qe))+sum(!is.na(Qp))+k
+                  missingMask[idx] <- any(is.na(x))
                   Xsub[, idx] <- x
                   I <- c(I, idx)
                   nLevels[idx] <- gLevels
@@ -181,6 +190,8 @@ setMethod("qpCItest", signature(X="smlSet"),
               for (k in seq(along=Qp)) {
                 x <- Biobase::pData(X)[, Q[Qp[k]]-p]
                 idx <- 2L+sum(Q <= p)+k
+                missingMask[idx] <- any(is.na(x))
+
                 if (is.character(x) || is.factor(x)) {
                   x <- factor(x)
                   nLevels[idx] <- nlevels(x)
@@ -199,6 +210,7 @@ setMethod("qpCItest", signature(X="smlSet"),
                 x[x > 3] <- NA ## > 2 in the "numeric" coercion implies an uncertain call
 
                 idx <- 2L+sum(Q <= p+h)+k
+                missingMask[idx] <- any(is.na(x))
                 Xsub[, idx] <- x
                 I <- c(I, idx)
                 nLevels[idx] <- gLevels
@@ -213,12 +225,16 @@ setMethod("qpCItest", signature(X="smlSet"),
               S <- qpCov(Xsub)
               rval <- qpgraph:::.qpCItest(S, n, i, j, Q, R.code.only)
             } else {
-              ssd <- qpCov(Xsub[, Y, drop=FALSE], corrected=FALSE)
-              mapX2ssd <- match(colnames(Xsub), colnames(ssd))
-              names(mapX2ssd) <- colnames(Xsub)
-
               if (any(nLevels[I] == 1))
                 stop(sprintf("Discrete variable %s has only one level", colnames(Xsub)[I[nLevels[I]==1]]))
+
+              missingData <- any(missingMask)
+              ssd <- mapX2ssd <- NULL
+              if (!missingData) {
+                ssd <- qpCov(Xsub[, Y, drop=FALSE], corrected=FALSE)
+                mapX2ssd <- match(colnames(Xsub), colnames(ssd))
+                names(mapX2ssd) <- colnames(Xsub)
+              }
 
               rval <- qpgraph:::.qpCItestHMGM(Xsub, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
                                               exact.test, R.code.only)
@@ -246,6 +262,7 @@ setMethod("qpCItest", signature(X="ExpressionSet"),
             Xsub <- matrix(0, nrow=n, ncol=length(c(i, j, Q)))
             colnames(Xsub) <- 1:length(c(i, j, Q))
             x <- Y <- I <- c()
+            missingMask <- rep(FALSE, length(c(i, j, Q)))
 
             nam_i <- i
             if (is.character(i)) {
@@ -271,6 +288,7 @@ setMethod("qpCItest", signature(X="ExpressionSet"),
               Xsub[, 1] <- as.numeric(x)
               Y <- 1L
             }
+            missingMask[1] <- any(is.na(x))
 
             nam_j <- j
             if (is.character(j)) {
@@ -296,6 +314,7 @@ setMethod("qpCItest", signature(X="ExpressionSet"),
               Xsub[, 2] <- as.numeric(x)
               Y <- c(Y, 2L)
             }
+            missingMask[2] <- any(is.na(x))
 
             nam_Q <- Q
             if (is.character(Q)) {
@@ -311,14 +330,17 @@ setMethod("qpCItest", signature(X="ExpressionSet"),
                        paste(Q[is.na(Qe)][is.na(Qp)], collapse=", ")))
                 for (k in seq(along=Qp)) {
                   x <- Biobase::pData(X)[, Qp[k]]
-                  if (is.character(x) || is.factor(x)) {
-                    Xsub[, 2L+sum(!is.na(Qe))+k] <- as.numeric(factor(x, levels=unique(x)))
+                  idx <- 2L+sum(!is.na(Qe))+k
 
-                    I <- c(I, 2L+sum(!is.na(Qe))+k)
+                  if (is.character(x) || is.factor(x)) {
+                    Xsub[, idx] <- as.numeric(factor(x, levels=unique(x)))
+
+                    I <- c(I, idx)
                   } else {
-                    Xsub[, 2L+sum(!is.na(Qe))+k] <- as.numeric(x)
-                    Y <- c(Y, 2L+sum(!is.na(Qe))+k)
+                    Xsub[, idx] <- as.numeric(x)
+                    Y <- c(Y, idx)
                   }
+                  missingMask[idx] <- any(is.na(x))
                 }
               }
               Q <- 3:length(c(i, j, Q))
@@ -335,13 +357,16 @@ setMethod("qpCItest", signature(X="ExpressionSet"),
               Qp <- which(Q > p) ## Q indices larger than p correspond to phenotypic variables
               for (k in seq(along=Qp)) {
                 x <- Biobase::pData(X)[, Q[Qp[k]]-p]
+                idx <- 2L+sum(Q <= p)+k
+
                 if (is.character(x) || is.factor(x) || is.logical(x)) {
-                  Xsub[, 2L+sum(Q <= p)+k] <- as.numeric(factor(x, levels=unique(x)))
-                  I <- c(I, 2L+sum(Q <= p)+k)
+                  Xsub[, idx] <- as.numeric(factor(x, levels=unique(x)))
+                  I <- c(I, idx)
                 } else {
-                  Xsub[, 2L+sum(Q <= p)+k] <- as.numeric(x)
-                  Y <- c(Y, 2L+sum(Q <= p)+k)
+                  Xsub[, idx] <- as.numeric(x)
+                  Y <- c(Y, idx)
                 }
+                missingMask[idx] <- any(is.na(x))
               }
               Q <- 3:length(c(i, j, Q))
               names(Q) <- nam_Q
@@ -353,9 +378,13 @@ setMethod("qpCItest", signature(X="ExpressionSet"),
               S <- qpCov(Xsub)
               rval <- qpgraph:::.qpCItest(S, n, i, j, Q, R.code.only)
             } else {
-              ssd <- qpCov(Xsub[, Y, drop=FALSE], corrected=FALSE)
-              mapX2ssd <- match(colnames(Xsub), colnames(ssd))
-              names(mapX2ssd) <- colnames(Xsub)
+              missingData <- any(missingMask)
+              ssd <- mapX2ssd <- NULL
+              if (!missingData) {
+                ssd <- qpCov(Xsub[, Y, drop=FALSE], corrected=FALSE)
+                mapX2ssd <- match(colnames(Xsub), colnames(ssd))
+                names(mapX2ssd) <- colnames(Xsub)
+              }
 
               nLevels <- rep(NA_integer_, times=ncol(Xsub))
               nLevels[I] <- apply(Xsub[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
@@ -451,14 +480,19 @@ setMethod("qpCItest", signature(X="data.frame"),
                 Y <- match(Y, colnames(X))
               }
 
-              ssd <- qpCov(X[, Y, drop=FALSE], corrected=FALSE)
-              mapX2ssd <- match(colnames(X), colnames(ssd))
-              names(mapX2ssd) <- colnames(X)
-
               nLevels <- rep(NA_integer_, times=ncol(X))
               nLevels[I] <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
               if (any(nLevels[I] == 1))
                 stop(sprintf("Discrete variable %s has only one level", colnames(X)[I[nLevels[I]==1]]))
+
+              missingMask <- apply(X[, I, drop=FALSE], 2, function(x) any(is.na(x)))
+              missingData <- any(missingMask)
+              ssd <- mapX2ssd <- NULL
+              if (!missingData) {
+                ssd <- qpCov(X[, Y, drop=FALSE], corrected=FALSE)
+                mapX2ssd <- match(colnames(X), colnames(ssd))
+                names(mapX2ssd) <- colnames(X)
+              }
 
               rval <- qpgraph:::.qpCItestHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
                                               exact.test, R.code.only)
@@ -557,14 +591,19 @@ setMethod("qpCItest", signature(X="matrix"),
                   Y <- match(Y, colnames(X))
                 }
 
-                ssd <- qpCov(X[, Y, drop=FALSE], corrected=FALSE)
-                mapX2ssd <- match(colnames(X), colnames(ssd))
-                names(mapX2ssd) <- colnames(X)
-
                 nLevels <- rep(NA_integer_, times=ncol(X))
                 nLevels[I] <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
                 if (any(nLevels[I] == 1))
                   stop(sprintf("Discrete variable %s has only one level", colnames(X)[I[nLevels[I]==1]]))
+
+                missingMask <- apply(X[, I, drop=FALSE], 2, function(x) any(is.na(x)))
+                missingData <- any(missingMask)
+                ssd <- mapX2ssd <- NULL
+                if (!missingData) {
+                  ssd <- qpCov(X[, Y, drop=FALSE], corrected=FALSE)
+                  mapX2ssd <- match(colnames(X), colnames(ssd))
+                  names(mapX2ssd) <- colnames(X)
+                }
 
                 rval <- qpgraph:::.qpCItestHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
                                                 exact.test, R.code.only)
@@ -638,7 +677,7 @@ setMethod("qpCItest", signature(X="matrix"),
 
 .ssdStats <- function(X, I, Y) {
 
-  n <- dim(X)[1]
+  n <- n_co <- dim(X)[1]
 
   if (length(I) == 0)
     return((n-1) * cov(X[, Y, drop=FALSE]))
@@ -660,9 +699,11 @@ setMethod("qpCItest", signature(X="matrix"),
 
 .qpCItestHMGM <- function(X, I, nLevels, Y, ssdMat, mapX2ssdMat, i, j, Q,
                           exact.test=TRUE, R.code.only=FALSE ) {
-  p <- (d <- dim(ssdMat))[1]
-  if (p != d[2] || !isSymmetric(ssdMat))
-    stop("ssdMat is not squared and symmetric. Is it really an ssd matrix?\n")
+  if (!is.null(ssdMat)) {
+    p <- (d <- dim(ssdMat))[1]
+    if (p != d[2] || !isSymmetric(ssdMat))
+      stop("ssdMat is not squared and symmetric. Is it really an ssd matrix?\n")
+  }
 
   ## not possible when considering restrict.Q != NULL
   ## if (p != length(Y))
@@ -690,7 +731,8 @@ setMethod("qpCItest", signature(X="matrix"),
   }
 
   if (!R.code.only) {
-    return(qpgraph:::.qpFastCItestHMGM(X, I, nLevels, Y, ssdMat, mapX2ssdMat, i, j, Q, exact.test))
+    return(qpgraph:::.qpFastCItestHMGM(X, I, nLevels, Y, ssdMat, mapX2ssdMat,
+                                       i, j, Q, exact.test))
   }
 
   I <- intersect(I, c(i, Q))
@@ -700,6 +742,7 @@ setMethod("qpCItest", signature(X="matrix"),
   n <- nrow(X)
 
   if (length(I) == 0) { ## dspMatrix -> matrix because det() still doesn't work with Matrix classes
+    ## when we'll handle missing continuous data too we'll have to consider calculating ssd
     ssd <- as.matrix(ssdMat[mapX2ssdMat[Y], mapX2ssdMat[Y], drop=FALSE])
     ## ssd_i = ssd_Gamma when i is discrete or ssd_{Gamma\i} when i is continuous
     ssd_i <- as.matrix(ssdMat[mapX2ssdMat[setdiff(Y, i)], mapX2ssdMat[setdiff(Y, i)], drop=FALSE])
@@ -710,20 +753,24 @@ setMethod("qpCItest", signature(X="matrix"),
                                    mapX2ssdMat[setdiff(Y, c(i, j))], drop=FALSE])
     }
   } else {
-    ssd <- qpgraph:::.ssdStats(X, I, Y)
-    if (length(setdiff(I, i)) == 0) ## dspMatrix -> matrix because det() still doesn't work with Matrix classes
+    ## by now missing data w/ complete.obs
+    missingMask <- apply(X[, I, drop=FALSE], 1, function(x) any(is.na(x)))
+    missingData <- any(missingMask)
+    n_co <- n - sum(missingMask)
+    ssd <- qpgraph:::.ssdStats(X[!missingMask, ], I, Y)
+    if (length(setdiff(I, i)) == 0 && !missingData && !is.null(ssdMat)) ## dspMatrix -> matrix because det() still doesn't work with Matrix classes
       ssd_i <- as.matrix(ssdMat[mapX2ssdMat[setdiff(Y, i)], mapX2ssdMat[setdiff(Y, i)], drop=FALSE])
     else ## ssd_i = ssd_Gamma when i is discrete or ssd_{Gamma\i} when i is continuous
-      ssd_i <- qpgraph:::.ssdStats(X, setdiff(I, i), setdiff(Y, i))
+      ssd_i <- qpgraph:::.ssdStats(X[!missingMask, ], setdiff(I, i), setdiff(Y, i))
 
     if (length(setdiff(Y, j)) > 0) {
-      ssd_j <- qpgraph:::.ssdStats(X, I, setdiff(Y, j))
+      ssd_j <- qpgraph:::.ssdStats(X[!missingMask, ], I, setdiff(Y, j))
       if (length(setdiff(Y, c(i,j))) > 0) {
-        if (length(setdiff(I, i)) == 0) ## dspMatrix -> matrix because det() still doesn't work with Matrix classes
+        if (length(setdiff(I, i)) == 0 && !missingData && !is.null(ssdMat)) ## dspMatrix -> matrix because det() still doesn't work with Matrix classes
           ssd_ij <- as.matrix(ssdMat[mapX2ssdMat[setdiff(Y, c(i, j))],
                                      mapX2ssdMat[setdiff(Y, c(i, j))], drop=FALSE])
         else
-          ssd_ij <- qpgraph:::.ssdStats(X, setdiff(I, i), setdiff(Y, c(i, j)))
+          ssd_ij <- qpgraph:::.ssdStats(X[!missingMask, ], setdiff(I, i), setdiff(Y, c(i, j)))
       }
     }
   }
@@ -751,7 +798,7 @@ setMethod("qpCItest", signature(X="matrix"),
     DeltaStar <- setdiff(I, c(i, j))
     if (exact.test) {
       lr <- exp(ssd$modulus[1]+ssd_ij$modulus[1]-ssd_j$modulus[1]-ssd_i$modulus[1])
-      a <- (n-nGamma-prod(nLevels[Delta])+1)/2
+      a <- (n_co-nGamma-prod(nLevels[Delta])+1)/2 ## by now missing data w/ complete.obs
       b <- ifelse(mixedEdge,
                   prod(nLevels[DeltaStar])*(nLevels[intersect(Delta, c(i,j))]-1)/2,
                   0.5)
@@ -768,7 +815,7 @@ setMethod("qpCItest", signature(X="matrix"),
       method  <- "Conditional independence test for homogeneous mixed data using an exact likelihood ratio test"
       alt <- "less"
     } else {
-      lr <- -n * (ssd$modulus[1]+ssd_ij$modulus[1]-ssd_j$modulus[1]-ssd_i$modulus[1])
+      lr <- -n_co * (ssd$modulus[1]+ssd_ij$modulus[1]-ssd_j$modulus[1]-ssd_i$modulus[1])
       df <- 1
       if (mixedEdge)
         df <- prod(nLevels[DeltaStar])*(nLevels[intersect(Delta, c(i, j))]-1)
@@ -805,6 +852,9 @@ setMethod("qpCItest", signature(X="matrix"),
 }
 
 .qpFastCItestHMGM <- function(X, I, nLevels, Y, ssd, mapX2ssd, i, j, Q, exact.test) {
-  return(.Call("qp_fast_ci_test_hmgm", X, I, nLevels, Y, ssd@x,
-               as.integer(mapX2ssd), i, j, Q, as.integer(exact.test)))
+  x <- NULL
+  if (!is.null(ssd))
+    x <- ssd@x
+  return(.Call("qp_fast_ci_test_hmgm", X, I, nLevels, Y, x, as.integer(mapX2ssd),
+               i, j, Q, as.integer(exact.test)))
 }

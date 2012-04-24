@@ -267,7 +267,7 @@ setMethod("qpNrr", signature(X="matrix"),
         stopCl(cl)
         stop("The package 'qpgraph' could not be loaded in some of the nodes of the cluster")
       }
-      assign("clusterSize", clusterSize, env=.GlobalEnv)
+      assign("clusterSize", clusterSize, envir=.GlobalEnv)
       clExport(cl, list("clusterSize"))
       rm("clusterSize", envir=.GlobalEnv)
       clApply(cl, 1:clusterSize, function(x) assign("clusterRank", x, envir=.GlobalEnv))
@@ -984,7 +984,7 @@ setMethod("qpAvgNrr", signature(X="matrix"),
       stopCl(cl)
       stop("The package 'qpgraph' could not be loaded in some of the nodes of the cluster")
     }
-    assign("clusterSize", clusterSize, env=.GlobalEnv)
+    assign("clusterSize", clusterSize, envir=.GlobalEnv)
     clExport(cl, list("clusterSize"))
     rm("clusterSize", envir=.GlobalEnv)
     clApply(cl, 1:clusterSize, function(x) assign("clusterRank", x, envir=.GlobalEnv))
@@ -1332,7 +1332,7 @@ setMethod("qpGenNrr", signature(X="matrix"),
       stopCl(cl)
       stop("The package 'qpgraph' could not be loaded in some of the nodes of the cluster")
     }
-    assign("clusterSize", clusterSize, env=.GlobalEnv)
+    assign("clusterSize", clusterSize, envir=.GlobalEnv)
     clExport(cl, list("clusterSize"))
     rm("clusterSize", envir=.GlobalEnv)
     clApply(cl, 1:clusterSize, function(x) assign("clusterRank", x, envir=.GlobalEnv))
@@ -2076,7 +2076,7 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
   thr <- qt(p=1-(alpha/2), df=n-q-2, lower.tail=TRUE, log.p=FALSE)
   lambda <- c()
   for (k in 1:nTests) {
-    Q <- c(sample(V, q-q.fix, rep=FALSE), fix.Q)
+    Q <- c(sample(V, q-q.fix, replace=FALSE), fix.Q)
     cit <- qpgraph:::.qpCItest(S, n, as.integer(i), as.integer(j), as.integer(Q),
                                R.code.only=TRUE)
     lambda  <- c(lambda, abs(cit$statistic))
@@ -2152,7 +2152,7 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
   nActualTests <- 0
   lambda <- a <- b <- thr <- rep(NA, times=nTests)
   for (k in 1:nTests) {
-    Q <- c(sample(V, q-q.fix, rep=FALSE), fix.Q)
+    Q <- c(sample(V, q-q.fix, replace=FALSE), fix.Q)
     cit <- qpgraph:::.qpCItestHMGM(X, I, Y, ssdMat, mapX2ssdMat, as.integer(i),
                                    as.integer(j), as.integer(Q), exact.test, R.code.only=TRUE)
     if (!is.nan(cit$statistic)) {
@@ -2282,7 +2282,7 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
   nActualTests <- 0
   lambda <- a <- b <- thr <- rep(NA, times=nTests)
   for (k in 1:nTests) {
-    Q <- c(sample(V, q-q.fix, rep=FALSE), fix.Q)
+    Q <- c(sample(V, q-q.fix, replace=FALSE), fix.Q)
     w <- which(Q <= ph)
     nijep <- length(w)
     Xsub[, 2+seq(along=w)] <- XEP[, Q[w]]
@@ -2400,7 +2400,7 @@ qpHist <- function(nrrMatrix, A=NULL,
     hist(xnotbeta, freq=freq, col="yellow", xlim=nrr_rg, ylim=yl,
          main="missing edges\nnon-rejection rates", xlab="non-rejection rates",
          breaks=length(H$breaks))
-    close.screen(all=TRUE)
+    close.screen(all.screens=TRUE)
   }
 }
 
