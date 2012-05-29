@@ -4992,7 +4992,7 @@ qpRndHMGM <- function(nDiscrete=1, nContinuous=3, d=2, mixedIntStrength=5, rho=0
   pDelta <- rep(1/prod(discreteLevels), times=nDiscreteLevels)
 
   ## Sigma
-  Sigma <- qpG2Sigma(G[Gamma, Gamma], rho=rho)
+  Sigma <- qpG2Sigma(G[Gamma, Gamma, drop=FALSE], rho=rho)
   rownames(Sigma) <- colnames(Sigma) <- Gamma
 
   ## h(i)
@@ -5005,24 +5005,26 @@ qpRndHMGM <- function(nDiscrete=1, nContinuous=3, d=2, mixedIntStrength=5, rho=0
   edL <- apply(G[Delta, Gamma, drop=FALSE], 2, which)
   edL <- edL[which(sapply(edL, length) > 0)]
 
-  levelsDelta <- do.call("expand.grid", rep(list(1:2), nDiscrete))
-  colnames(levelsDelta) <- Delta
+  if (length(edL) > 0) {
+    levelsDelta <- do.call("expand.grid", rep(list(1:2), nDiscrete))
+    colnames(levelsDelta) <- Delta
 
-  h[names(edL), ] <- 
-    t(sapply(edL,
-             function(whichDiscreteVars, levelsDelta) {
-               if (length(whichDiscreteVars) > 1) {
-                 whichLevelsDiffer <- lapply(lapply(split(levelsDelta[, whichDiscreteVars],
-                                                          levelsDelta[, whichDiscreteVars]),
-                                                    rownames),
-                                             as.integer)
-               } else {
-                 whichLevelsDiffer <- split(1:nDiscreteLevels, levelsDelta[, whichDiscreteVars])
-               }
-               x <- rep(rnorm(length(whichLevelsDiffer), sd=mixedIntStrength),
-                        times=sapply(whichLevelsDiffer, length))
-               x[sort(unlist(whichLevelsDiffer, use.names=FALSE), index.return=TRUE)$ix]
-             }, levelsDelta))
+    h[names(edL), ] <- 
+      t(sapply(edL,
+               function(whichDiscreteVars, levelsDelta) {
+                 if (length(whichDiscreteVars) > 1) {
+                   whichLevelsDiffer <- lapply(lapply(split(levelsDelta[, whichDiscreteVars],
+                                                            levelsDelta[, whichDiscreteVars]),
+                                                      rownames),
+                                               as.integer)
+                 } else {
+                   whichLevelsDiffer <- split(1:nDiscreteLevels, levelsDelta[, whichDiscreteVars])
+                 }
+                 x <- rep(rnorm(length(whichLevelsDiffer), sd=mixedIntStrength),
+                          times=sapply(whichLevelsDiffer, length))
+                 x[sort(unlist(whichLevelsDiffer, use.names=FALSE), index.return=TRUE)$ix]
+               }, levelsDelta))
+  }
 
   ## mu
   mu <- Sigma %*% h
