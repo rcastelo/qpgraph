@@ -13,12 +13,14 @@ Performs a conditional independence test between two variables given
 a conditioning set.
 }
 \usage{
-\S4method{qpCItest}{smlSet}(X, i=1, j=2, Q=c(), exact.test=TRUE, R.code.only=FALSE)
-\S4method{qpCItest}{ExpressionSet}(X, i=1, j=2, Q=c(), exact.test=TRUE, R.code.only=FALSE)
+\S4method{qpCItest}{smlSet}(X, i=1, j=2, Q=c(), exact.test=TRUE, use=c("complete.obs", "em"),
+                            tol=0.01, R.code.only=FALSE)
+\S4method{qpCItest}{ExpressionSet}(X, i=1, j=2, Q=c(), exact.test=TRUE, use=c("complete.obs", "em"),
+                                   tol=0.01, R.code.only=FALSE)
 \S4method{qpCItest}{data.frame}(X, i=1, j=2, Q=c(), I=NULL, long.dim.are.variables=TRUE,
-                                exact.test=TRUE, R.code.only=FALSE)
+                                exact.test=TRUE, use=c("complete.obs", "em"), tol=0.01, R.code.only=FALSE)
 \S4method{qpCItest}{matrix}(X, i=1, j=2, Q=c(), I=NULL, n=NULL, long.dim.are.variables=TRUE,
-                            exact.test=TRUE, R.code.only=FALSE)
+                            exact.test=TRUE, use=c("complete.obs", "em"), tol=0.01, R.code.only=FALSE)
 }
 \arguments{
   \item{X}{data set where the test should be performed. It can be either an
@@ -41,6 +43,11 @@ a conditioning set.
        conditional independence test is employed with mixed (i.e., continuous and discrete)
        data; if \code{TRUE} (default) then an exact likelihood ratio test of conditional
        independence with mixed data is employed. See details below regarding this argument.}
+  \item{use}{a character string defining the way in which calculations are done in the
+       presence of missing values. It can be either \code{"complete.obs"} (default)
+       or \code{"em"}.}
+  \item{tol}{maximum tolerance controlling the convergence of the EM algorithm employed
+             when the argument \code{use="em"}.}
   \item{R.code.only}{logical; if FALSE then the faster C implementation is used
        (default); if TRUE then only R code is executed.}
 }

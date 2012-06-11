@@ -14,18 +14,20 @@ Estimates non-rejection rates for every pair of variables.
 \S4method{qpNrr}{ExpressionSet}(X, q=1, restrict.Q=NULL, fix.Q=NULL, nTests=100,
                                 alpha=0.05, pairup.i=NULL, pairup.j=NULL,
                                 verbose=TRUE, identicalQs=TRUE, exact.test=TRUE,
-                                R.code.only=FALSE, clusterSize=1, estimateTime=FALSE,
-                                nAdj2estimateTime=10)
+                                use=c("complete.obs", "em"), tol=0.01, R.code.only=FALSE,
+                                clusterSize=1, estimateTime=FALSE, nAdj2estimateTime=10)
 \S4method{qpNrr}{data.frame}(X, q=1, I=NULL, restrict.Q=NULL, fix.Q=NULL, nTests=100,
                              alpha=0.05, pairup.i=NULL, pairup.j=NULL,
                              long.dim.are.variables=TRUE, verbose=TRUE,
-                             identicalQs=TRUE, exact.test=TRUE, R.code.only=FALSE,
-                             clusterSize=1, estimateTime=FALSE, nAdj2estimateTime=10)
+                             identicalQs=TRUE, exact.test=TRUE, use=c("complete.obs", "em"),
+                             tol=0.01, R.code.only=FALSE, clusterSize=1,
+                             estimateTime=FALSE, nAdj2estimateTime=10)
 \S4method{qpNrr}{matrix}(X, q=1, I=NULL, restrict.Q=NULL, fix.Q=NULL, nTests=100,
                          alpha=0.05, pairup.i=NULL, pairup.j=NULL,
                          long.dim.are.variables=TRUE, verbose=TRUE, identicalQs=TRUE,
-                         exact.test=TRUE, R.code.only=FALSE, clusterSize=1,
-                         estimateTime=FALSE, nAdj2estimateTime=10)
+                         exact.test=TRUE, use=c("complete.obs", "em"), tol=0.01,
+                         R.code.only=FALSE, clusterSize=1, estimateTime=FALSE,
+                         nAdj2estimateTime=10)
 }
 \arguments{
   \item{X}{data set from where to estimate the non-rejection rates.
@@ -53,6 +55,11 @@ Estimates non-rejection rates for every pair of variables.
        test is employed with mixed (i.e., continuous and discrete) data;
        if \code{TRUE} (default) then an exact conditional independence test with
        mixed data is employed. See details below regarding this argument.}
+  \item{use}{a character string defining the way in which calculations are done in the
+       presence of missing values. It can be either \code{"complete.obs"} (default)
+       or \code{"em"}.}
+  \item{tol}{maximum tolerance controlling the convergence of the EM algorithm employed
+             when the argument \code{use="em"}.}
   \item{R.code.only}{logical; if \code{FALSE} then the faster C implementation is used
        (default); if \code{TRUE} then only R code is executed.}
   \item{clusterSize}{size of the cluster of processors to employ if we wish to

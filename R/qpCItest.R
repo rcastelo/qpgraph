@@ -24,7 +24,11 @@ setGeneric("qpCItest", function(X, ...) standardGeneric("qpCItest"))
 
 ## X comes as an smlSet object
 setMethod("qpCItest", signature(X="smlSet"),
-          function(X, i=1, j=2, Q=c(), exact.test=TRUE, R.code.only=FALSE) {
+          function(X, i=1, j=2, Q=c(), exact.test=TRUE, use=c("complete.obs", "em"),
+                   tol=0.01, R.code.only=FALSE) {
+
+            use <- match.arg(use)
+
             p <- as.integer(nrow(X))
             h <- as.integer(ncol(Biobase::pData(X)))
             Xsml <- GGBase::smList(X)
@@ -237,7 +241,7 @@ setMethod("qpCItest", signature(X="smlSet"),
               }
 
               rval <- qpgraph:::.qpCItestHMGM(Xsub, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
-                                              exact.test, R.code.only)
+                                              exact.test, use, tol, R.code.only)
               if (is.nan(rval$statistic))
                 warning(paste(sprintf("CI test unavailable for i=%s, j=%s and Q={",
                                       i, j, paste(Q, collapse=", ")),
@@ -253,7 +257,11 @@ setMethod("qpCItest", signature(X="smlSet"),
 
 ## X comes as an ExpressionSet object
 setMethod("qpCItest", signature(X="ExpressionSet"),
-          function(X, i=1, j=2, Q=c(), exact.test=TRUE, R.code.only=FALSE) {
+          function(X, i=1, j=2, Q=c(), exact.test=TRUE, use=c("complete.obs", "em"),
+                   tol=0.01, R.code.only=FALSE) {
+
+            use <- match.arg(use)
+
             p <- as.integer(nrow(X))
             h <- as.integer(ncol(pData(X)))
             n <- as.integer(ncol(X))
@@ -392,7 +400,7 @@ setMethod("qpCItest", signature(X="ExpressionSet"),
                 stop(sprintf("Discrete variable %s has only one level", colnames(Xsub)[I[nLevels[I]==1]]))
 
               rval <- qpgraph:::.qpCItestHMGM(Xsub, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
-                                              exact.test, R.code.only)
+                                              exact.test, use, tol, R.code.only)
               if (is.nan(rval$statistic))
                 warning(paste(sprintf("CI test unavailable for i=%s, j=%s and Q={",
                                       i, j, paste(Q, collapse=", ")),
@@ -409,7 +417,9 @@ setMethod("qpCItest", signature(X="ExpressionSet"),
 ## X comes as a data frame
 setMethod("qpCItest", signature(X="data.frame"),
           function(X, i=1, j=2, Q=c(), I=NULL, long.dim.are.variables=TRUE,
-                   exact.test=TRUE, R.code.only=FALSE) {
+                   exact.test=TRUE, use=c("complete.obs", "em"), tol=0.01, R.code.only=FALSE) {
+
+            use <- match.arg(use)
 
             X <- as.matrix(X)
             if (!is.double(X))
@@ -495,7 +505,7 @@ setMethod("qpCItest", signature(X="data.frame"),
               }
 
               rval <- qpgraph:::.qpCItestHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
-                                              exact.test, R.code.only)
+                                              exact.test, use, tol, R.code.only)
               if (is.nan(rval$statistic))
                 warning(paste(sprintf("CI test unavailable for i=%s, j=%s and Q={",
                                       colnames(X)[i], colnames(X)[j]),
@@ -515,7 +525,9 @@ setMethod("qpCItest", signature(X="data.frame"),
 setMethod("qpCItest", signature(X="matrix"),
           function(X, i=1, j=2, Q=c(), I=NULL, n=NULL,
                    long.dim.are.variables=TRUE, exact.test=TRUE,
-                   R.code.only=FALSE) {
+                   use=c("complete.obs", "em"), tol=0.01, R.code.only=FALSE) {
+
+            use <- match.arg(use)
 
             if (!is.double(X))
               stop("X should be double-precision real numbers\n")
@@ -601,12 +613,14 @@ setMethod("qpCItest", signature(X="matrix"),
                 ssd <- mapX2ssd <- NULL
                 if (!missingData) {
                   ssd <- qpCov(X[, Y, drop=FALSE], corrected=FALSE)
-                  mapX2ssd <- match(colnames(X), colnames(ssd))
-                  names(mapX2ssd) <- colnames(X)
+                  ## mapX2ssd <- match(colnames(X), colnames(ssd))
+                  ## names(mapX2ssd) <- colnames(X)
+                  mapX2ssd <- rep(NA, ncol(X))
+                  mapX2ssd[Y] <- 1:length(Y)
                 }
 
                 rval <- qpgraph:::.qpCItestHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
-                                                exact.test, R.code.only)
+                                                exact.test, use, tol, R.code.only)
                 if (is.nan(rval$statistic))
                   warning(paste(sprintf("CI test unavailable for i=%s, j=%s and Q={",
                                         colnames(X)[i], colnames(X)[j]),
@@ -675,9 +689,10 @@ setMethod("qpCItest", signature(X="matrix"),
   RVAL
 }
 
-.ssdStats <- function(X, I, Y) {
+## calculate one ssd matrix using complete observations only
+.ssdStatsCompleteObs <- function(X, I, Y) {
 
-  n <- n_co <- dim(X)[1]
+  n <- nrow(X)
 
   if (length(I) == 0)
     return((n-1) * cov(X[, Y, drop=FALSE]))
@@ -693,12 +708,286 @@ setMethod("qpCItest", signature(X="matrix"),
   ssd <- Reduce("+",
                 lapply(as.list(1:length(xtab)),
                        function(i, x) qpCov(as.matrix(x[[i]]), corrected=FALSE), xtab))
-                       ##function(i, x, ni, n) (ni[i]-1)*cov(x[[i]]), xtab, ni, n))
+                        ##function(i, x, ni, n) (ni[i]-1)*cov(x[[i]]), xtab, ni, n))
   ssd
 }
 
+## the following functions implement calculating all necessary ssd matrices
+## using the EM algorithm
+
+## k(i) = y^T\Sigma^{-1}\mu(i) - 1/2 * [y^T\Sigma^{-1} y + \mu(i)^T \Sigma^{-1}\mu(i)] + log p(i)
+Ki <- function(x, Ys, i, mapX2Y, Sigma, mu, p) {
+
+  aux <- p[i]
+  if (length(Ys) > 0) {
+    Ys_Sigma <- mapX2Y[Ys]
+    aux <- exp( t(x[ ,Ys]) %*% solve(Sigma[Ys_Sigma, Ys_Sigma]) %*% mu[i, Ys_Sigma] -
+                (t(x[ ,Ys]) %*% solve(Sigma[Ys_Sigma, Ys_Sigma]) %*% x[ ,Ys] +
+                 t(mu[i, Ys_Sigma]) %*% solve(Sigma[Ys_Sigma, Ys_Sigma]) %*% mu[i, Ys_Sigma])/2 + log(p[i]) )
+  }
+
+  aux
+}
+
+## calculate the probability of I=i for each observation with missing values
+## pr(I=i' | (i_{obs}, y)^{(\nu)}) = exp k(i') / \sum_{s\in{\cal S}} exp k(s)
+prob_i <- function(idxMissingObs, X, I, Is, Ys, k, level_i, levels_I, mapX2I, mapX2Y, p, mu, Sigma) {
+
+  p_i <- vector(length=length(idxMissingObs))
+  ## names(p_i) <- idxMissingObs
+
+  for (i in 1:length(idxMissingObs)) {
+    x <- X[idxMissingObs[i], ,drop=FALSE]
+    I_obs <- which(!is.na(x[, I]))
+
+    ## if (length(I_obs) > 0 && !all(x[, intersect(Is, I_obs)] == level_i[intersect(Is, I_obs)])) {
+    if (length(I_obs) > 0 && !all(x[, intersect(Is, I_obs)] == level_i[!is.na(match(Is, I_obs))])) {
+      p_i[i] <- 0
+    } else {
+      ifelse(length(I_obs)==0,
+             index_S <- 1:nrow(levels_I),
+             index_S <- which(apply(levels_I[, mapX2I[I_obs], drop=FALSE], 1, function(l) {all(l == x[, I_obs])})))
+      index_Si <- index_S[which(sapply(index_S, function(i) {all(levels_I[i, mapX2I[Is]] == level_i)}))]
+      if (all(intersect(index_S, index_Si)==index_S)) {
+        p_i[i] <- 1
+      } else {
+        K_den <- sum(sapply(index_S, function(i) {Ki(x, Ys, i, mapX2Y, Sigma, mu, p)}))
+        ifelse (K_den == 0,
+                p_i[i] <- 0,
+                p_i[i] <- sum(sapply(index_Si, function(i) {Ki(x, Ys, i, mapX2Y, Sigma, mu, p)/K_den})))
+      }
+    }
+  }
+
+  p_i
+}
+
+## complete sufficient statistics: calculate sufficient statistics (En, Es and Ess) of those
+## observations that do not have missing values
+stat_com <- function(X, idxCompleteObs, idxMissingObs, mapAllObs2MissingObs, Is, Ys, levels_Is) {
+  Es_com <- Ess_com <- n_com <- c()
+
+  if (length(idxCompleteObs) > 0) {
+    xi_level <- lapply(1:nrow(levels_Is), function(k) names(which(apply(X[idxCompleteObs, Is, drop=FALSE], 1, function(x){all(x == levels_Is[k, ])}))))
+    n_com <- sapply(xi_level, length)
+  }
+
+  if (length(Ys) > 0) {
+    Es_com <- matrix(0, nrow=nrow(levels_Is), ncol=length(Ys))##, dimnames=list(1:nrow(levels_Is), Ys))
+    Ess_com <- matrix(0, nrow=length(Ys), ncol=length(Ys))##, dimnames=list(Ys, Ys))
+    if (length(idxCompleteObs) > 0) {
+      aux <- which(n_com > 0)
+      Es_com[aux, ] <- matrix(t(sapply(aux, function(i) colSums(X[xi_level[[i]], Ys, drop=FALSE]))), ncol=length(Ys))##, dimnames=list(aux, Ys))
+      Ess_com <- Reduce("+" ,lapply(xi_level, function(i) t(as.matrix(X[i, Ys, drop=FALSE]))%*%as.matrix(X[i, Ys,drop=FALSE])))
+    }
+  }
+
+  list(idxMissingObs=idxMissingObs, mapAllObs2MissingObs=mapAllObs2MissingObs,
+       n_com=n_com, Es_com=Es_com, Ess_com=Ess_com)
+}
+
+## sufficient statistics from missing data: perform the E step for the observations with missing values.
+stat_mis <- function(X, Is, Ys, levels_Is, stat, I, levels_I, mapX2I, Y, mapX2Y, p, mu, Sigma) {
+
+  m <- vector(length=nrow(levels_I))
+  h <- bar_y <- matrix(0, nrow=nrow(levels_I), ncol=length(Y))##, dimnames=list(1:nrow(levels_I), Y))
+  K <- matrix(0, nrow=length(Y), ncol=length(Y))##, dimnames=list(Y, Y))
+  n <- nrow(X)
+
+  Ys_Sigma <- mapX2Y[Ys]
+
+  ### Is != emptyset
+  if (length(Is) > 0) {
+
+    ### Pr(I=i | x_obs)
+    p_i <- sapply(1:nrow(levels_Is),
+                  function(k) prob_i(stat$idxMissingObs, X, I, Is, Ys, k,
+                                     levels_Is[k, ], levels_I, mapX2I, mapX2Y, p, mu, Sigma))
+    if (!is.matrix(p_i)) {
+      p_i <- t(as.matrix(p_i))
+      ## dimnames(p_i) <- list(stat$idxMissingObs, 1:nrow(levels_Is))
+    }
+
+    index <- lapply(1:nrow(levels_Is), function(k) which(apply(levels_I[, mapX2I[Is], drop=FALSE], 1, function(l){all(l == levels_Is[k, ])})))
+
+    ### En
+    E_n <- stat$n_com + colSums(p_i)
+
+    ### m     # afegit
+    for (k in 1:nrow(levels_Is)) {
+      j <- index[[k]]
+      m[j] <- rep(E_n[k], length(j))
+    }
+
+    ### Is != emptyset & Ys != emptyset
+    if (length(Ys) > 0) {
+
+      ### Es
+      Es <- stat$Es_com + t(p_i) %*% X[stat$idxMissingObs, Ys, drop=FALSE]
+      ## mapX2Ys <- rep(NA, ncol(X))
+      ## mapX2Ys[Ys] <- 1:length(Ys)
+
+
+      ### Ess
+      Ess <- stat$Ess_com + Reduce("+", lapply(1:nrow(levels_Is),
+                                               function(k, idxMissingObs, mapAllObs2MissingObs)
+                                                 Reduce("+" , lapply(idxMissingObs,
+                                                                     function(i, k, mapAllObs2MissingObs) {
+                                                                       p_i[mapAllObs2MissingObs[i], k]*t(X[i, Ys, drop=FALSE]) %*% X[i, Ys, drop=FALSE]
+                                                                     }, k, mapAllObs2MissingObs)
+                                                       ),
+                                               stat$idxMissingObs, stat$mapAllObs2MissingObs)
+                                  )
+
+      ### ssd
+      ssd <- Ess - t(Es)%*%(Es/E_n)
+
+      for (k in 1:nrow(levels_Is)) {
+        j <- index[[k]]
+        ### WATCH OUT: Es[k, Ys] REPLACED BY Es[k, ] SINCE LOOKS LIKE ALL Ys ARE USED ALONG THE COLUMNS FROM Es
+        bar_y[j, Ys_Sigma] <- matrix(rep(Es[k, ]/E_n[k], length(j)), byrow=TRUE, ncol=length(Ys))##, dimnames=list(j, Ys))
+      }
+      h[ , Ys_Sigma] <- t(n*solve(ssd)%*%t(bar_y[ ,Ys_Sigma]))
+      K[Ys_Sigma, Ys_Sigma] <- n*solve(ssd)
+    } else {  ### Is != emptyset & Ys == emptyset
+      ssd <- 1
+    }
+
+  } else {
+    ### Is == emptyset & Ys == emptyset
+    if (length(Ys)==0) {
+      m <- 1
+      ssd <- 1
+    } else { ### Is == emptyset & Ys != emptyset
+      m <- n
+      ssd <- (n - 1)*cov(X[ , Ys, drop = FALSE])
+      h[, Ys_Sigma] <- matrix(rep(n*solve(ssd) %*% colMeans(X[, Ys, drop=FALSE]), nrow(levels_I)), ncol=length(Ys), byrow=TRUE)
+      K[Ys_Sigma, Ys_Sigma] <- n*solve(ssd)
+    }
+  }
+
+  list(ssd=ssd, K=K, h=h, m=m, bar_y=bar_y)
+}
+
+## convergence: calculate convergence diagnostic of the EM algorithm by comparing
+## the updated values of the moment parameteres to the moment parameters of the
+## previous iteration
+convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
+
+  delta_m <- abs(m_update - m)/sqrt(m_update + 1)
+  delta_mu <- abs(mu_update - mu)/sqrt(diag(Sigma_update))
+  delta_Sigma <- abs(Sigma_update - Sigma)
+  for (i in 1:ncol(Sigma)) {
+    for (j in 1:nrow(Sigma)) {
+      delta_Sigma[i,j] <- delta_Sigma[i,j]/sqrt(Sigma_update[i,i]*Sigma_update[j,j] + Sigma_update[i,j]^2)
+    }
+  }
+
+  list(mdiff=max(max(delta_m), max(delta_mu), max(delta_Sigma)), m=m_update, mu=mu_update, Sigma=Sigma_update)
+}
+
+## calculate ssd matrices for H0 and H1 using the EM algorithm
+.ssdStatsEM <- function(X, idxCompleteObs, idxMissingObs, mapAllObs2MissingObs,
+                        I, mapX2I, nLevels, Y, mapX2Y, i, j, Q, tol=0.01) {
+
+  if (length(I) > 0) {
+    levels_I <- expand.grid(sapply(nLevels[I], seq_len, simplify=FALSE))
+    dimnames(levels_I) <- list(1:nrow(levels_I), I)
+  } else {
+    levels_I <- matrix(1, ncol=1, nrow=1, dimnames=list(1,1))
+  }
+
+  p0 <- rep(1/nrow(levels_I), nrow(levels_I))
+  mu0 <- matrix(0, ncol=length(Y), nrow=nrow(levels_I))
+  ## colnames(mu0) <- Y
+  Sigma0 <- diag(length(Y))
+  ## dimnames(Sigma0) <- list(Y, Y)
+
+  p <- p0
+  mu <- mu0
+  Sigma <- Sigma0
+  n <- nrow(X)
+
+  I_j <- intersect(I, c(i, Q))
+  Y_j <- intersect(Y, c(i, Q))
+  levels_I_j <- comStat_j <- c()
+  if (length(I_j) > 0) {
+    levels_I_j <- as.matrix(unique(levels_I[, mapX2I[I_j], drop=FALSE]))
+    ## colnames(levels_I_j) <- I_j
+    comStat_j <- stat_com(X, idxCompleteObs, idxMissingObs, mapAllObs2MissingObs,
+                          Is=I_j, Ys=Y_j, levels_Is=levels_I_j)
+  }
+
+  I_i <- intersect(I, c(j, Q))
+  Y_i <- intersect(Y, c(j, Q))
+  levels_I_i <- comStat_i <- c()
+
+  if (length(I_i) > 0) {
+    levels_I_i <- as.matrix(unique(levels_I[, mapX2I[I_i], drop=FALSE]))
+    ## colnames(levels_I_i) <- I_i
+    comStat_i <- stat_com(X, idxCompleteObs, idxMissingObs, mapAllObs2MissingObs,
+                          Is=I_i, Ys=Y_i, levels_Is=levels_I_i)
+  }
+
+  I_ij <- intersect(I, Q)
+  Y_ij <- intersect(Y, Q)
+  levels_I_ij <- comStat_ij <- c()
+  if (length(I_ij) > 0) {
+    levels_I_ij <- as.matrix(unique(levels_I[, mapX2I[I_ij], drop=FALSE]))
+    ## colnames(levels_I_ij) <- I_ij
+    comStat_ij <- stat_com(X, idxCompleteObs, idxMissingObs, mapAllObs2MissingObs,
+                           Is=I_ij, Ys=Y_ij, levels_Is=levels_I_ij)
+  }
+
+  mdiff <- 1
+  while (mdiff > tol) {
+    sufstat_j <- stat_mis(X, I_j, Y_j, levels_I_j, comStat_j, I, levels_I, mapX2I, Y, mapX2Y, p, mu, Sigma)
+    sufstat_i <- stat_mis(X, I_i, Y_i, levels_I_i, comStat_i, I, levels_I, mapX2I, Y, mapX2Y, p, mu, Sigma)
+    sufstat_ij <- stat_mis(X, I_ij, Y_ij, levels_I_ij, comStat_ij, I, levels_I, mapX2I, Y, mapX2Y, p, mu, Sigma)
+
+    K <- sufstat_j$K + sufstat_i$K - sufstat_ij$K
+    h <- sufstat_j$h + sufstat_i$h - sufstat_ij$h
+    m <- sufstat_j$m*sufstat_i$m/sufstat_ij$m
+
+    if (all(K == matrix(0,ncol=length(Y), nrow=length(Y)))){
+      Sigma_update <- 0
+    } else {
+      Sigma_update <- solve(K)
+    }
+    mu_update <- t(Sigma_update%*%t(h))
+    conv <- convergence(Sigma_update=Sigma_update, mu_update=mu_update, m_update=m, Sigma=Sigma, mu=mu, m=p*n)
+    mdiff <- conv$mdiff
+    p <- conv$m/n
+    mu <- conv$mu
+    Sigma <- conv$Sigma
+  }
+
+  mdiff <- 1
+  p <- p0
+  mu <- mu0
+  Sigma <- Sigma0
+  comStat <- stat_com(X, idxCompleteObs, idxMissingObs, mapAllObs2MissingObs, Is=I, Ys=Y, levels_Is=levels_I)
+
+  while (mdiff > tol) {
+    sufstat <- stat_mis(X, I, Y, levels_I, comStat, I, levels_I, mapX2I, Y, mapX2Y, p, mu, Sigma)
+
+    ssd <- sufstat$ssd
+    bar_y <- sufstat$bar_y
+    m <- sufstat$m
+
+    conv <- convergence(Sigma_update=ssd/n, mu_update=bar_y, m_update=m, Sigma=Sigma, mu=mu, m=p*n)
+    mdiff <- conv$mdiff
+    p <- conv$m/n
+    mu <- conv$mu
+    Sigma <- conv$Sigma
+  }
+
+  list(ssd_j=sufstat_j$ssd, ssd_i=sufstat_i$ssd, ssd_ij=sufstat_ij$ssd, ssd=sufstat$ssd)
+}
+
 .qpCItestHMGM <- function(X, I, nLevels, Y, ssdMat, mapX2ssdMat, i, j, Q,
-                          exact.test=TRUE, R.code.only=FALSE ) {
+                          exact.test=TRUE, use=c("complete.obs", "em"), tol=0.01,
+                          R.code.only=FALSE ) {
   if (!is.null(ssdMat)) {
     p <- (d <- dim(ssdMat))[1]
     if (p != d[2] || !isSymmetric(ssdMat))
@@ -732,7 +1021,7 @@ setMethod("qpCItest", signature(X="matrix"),
 
   if (!R.code.only) {
     return(qpgraph:::.qpFastCItestHMGM(X, I, nLevels, Y, ssdMat, mapX2ssdMat,
-                                       i, j, Q, exact.test))
+                                       i, j, Q, exact.test, use))
   }
 
   I <- intersect(I, c(i, Q))
@@ -753,32 +1042,50 @@ setMethod("qpCItest", signature(X="matrix"),
                                    mapX2ssdMat[setdiff(Y, c(i, j))], drop=FALSE])
     }
   } else {
-    ## by now missing data w/ complete.obs
     missingMask <- apply(X[, I, drop=FALSE], 1, function(x) any(is.na(x)))
     missingData <- any(missingMask)
-    n_co <- n - sum(missingMask)
-    ssd <- qpgraph:::.ssdStats(X[!missingMask, ], I, Y)
-    if (length(setdiff(I, i)) == 0 && !missingData && !is.null(ssdMat)) ## dspMatrix -> matrix because det() still doesn't work with Matrix classes
-      ssd_i <- as.matrix(ssdMat[mapX2ssdMat[setdiff(Y, i)], mapX2ssdMat[setdiff(Y, i)], drop=FALSE])
-    else ## ssd_i = ssd_Gamma when i is discrete or ssd_{Gamma\i} when i is continuous
-      ssd_i <- qpgraph:::.ssdStats(X[!missingMask, ], setdiff(I, i), setdiff(Y, i))
+    n_co <- n
+    if (!missingData || use == "complete.obs") { ## either no missing data or use complete obs
+      n_co <- n - sum(missingMask)
+      ssd <- qpgraph:::.ssdStatsCompleteObs(X[!missingMask, ], I, Y)
+      if (length(setdiff(I, i)) == 0 && !missingData && !is.null(ssdMat)) ## dspMatrix -> matrix because det() still doesn't work with Matrix classes
+        ssd_i <- as.matrix(ssdMat[mapX2ssdMat[setdiff(Y, i)], mapX2ssdMat[setdiff(Y, i)], drop=FALSE])
+      else ## ssd_i = ssd_Gamma when i is discrete or ssd_{Gamma\i} when i is continuous
+        ssd_i <- qpgraph:::.ssdStatsCompleteObs(X[!missingMask, ], setdiff(I, i), setdiff(Y, i))
 
-    if (length(setdiff(Y, j)) > 0) {
-      ssd_j <- qpgraph:::.ssdStats(X[!missingMask, ], I, setdiff(Y, j))
-      if (length(setdiff(Y, c(i,j))) > 0) {
-        if (length(setdiff(I, i)) == 0 && !missingData && !is.null(ssdMat)) ## dspMatrix -> matrix because det() still doesn't work with Matrix classes
-          ssd_ij <- as.matrix(ssdMat[mapX2ssdMat[setdiff(Y, c(i, j))],
-                                     mapX2ssdMat[setdiff(Y, c(i, j))], drop=FALSE])
-        else
-          ssd_ij <- qpgraph:::.ssdStats(X[!missingMask, ], setdiff(I, i), setdiff(Y, c(i, j)))
+      if (length(setdiff(Y, j)) > 0) {
+        ssd_j <- qpgraph:::.ssdStatsCompleteObs(X[!missingMask, ], I, setdiff(Y, j))
+        if (length(setdiff(Y, c(i,j))) > 0) {
+          if (length(setdiff(I, i)) == 0 && !missingData && !is.null(ssdMat)) ## dspMatrix -> matrix because det() still doesn't work with Matrix classes
+            ssd_ij <- as.matrix(ssdMat[mapX2ssdMat[setdiff(Y, c(i, j))],
+                                       mapX2ssdMat[setdiff(Y, c(i, j))], drop=FALSE])
+          else
+            ssd_ij <- qpgraph:::.ssdStatsCompleteObs(X[!missingMask, ], setdiff(I, i), setdiff(Y, c(i, j)))
+        }
       }
+    } else { ## missing data and should use the EM algorithm
+      mapX2Y <- rep(NA, ncol(X))
+      mapX2Y[Y] <- 1:length(Y)
+      mapX2I <- rep(NA, ncol(X))
+      mapX2I[I] <- 1:length(I)
+
+      idxMissingObs <- which(missingMask)
+      idxCompleteObs <- setdiff(1:n, idxMissingObs)
+      mapAllObs2MissingObs <- rep(NA, n)
+      mapAllObs2MissingObs[idxMissingObs] <- 1:length(idxMissingObs)
+      ssdMats <- qpgraph:::.ssdStatsEM(X, idxCompleteObs, idxMissingObs, mapAllObs2MissingObs,
+                                       I, mapX2I, nLevels, Y, mapX2Y, i, j, Q, tol)
+      ssd <- as.matrix(ssdMats$ssd)
+      ssd_i <- as.matrix(ssdMats$ssd_i)
+      ssd_j <- as.matrix(ssdMats$ssd_j)
+      ssd_ij <- as.matrix(ssdMats$ssd_ij)
     }
   }
  
   ssd <- determinant(ssd, logarithm=TRUE)
-  ssd_ij <- determinant(ssd_ij, logarithm=TRUE)
-  ssd_j <- determinant(ssd_j, logarithm=TRUE)
   ssd_i <- determinant(ssd_i, logarithm=TRUE)
+  ssd_j <- determinant(ssd_j, logarithm=TRUE)
+  ssd_ij <- determinant(ssd_ij, logarithm=TRUE)
   final_sign <- ssd$sign * ssd_ij$sign * ssd_j$sign *ssd_i$sign
 
   ## lr <- -n * log((det(ssd) * det(ssd_ij)) / 
@@ -851,10 +1158,11 @@ setMethod("qpCItest", signature(X="matrix"),
   return(.Call("qp_fast_ci_test_opt", S@x, nrow(S), as.integer(n), i, j, Q))
 }
 
-.qpFastCItestHMGM <- function(X, I, nLevels, Y, ssd, mapX2ssd, i, j, Q, exact.test) {
+.qpFastCItestHMGM <- function(X, I, nLevels, Y, ssd, mapX2ssd, i, j, Q, exact.test, use) {
   x <- NULL
   if (!is.null(ssd))
     x <- ssd@x
   return(.Call("qp_fast_ci_test_hmgm", X, I, nLevels, Y, x, as.integer(mapX2ssd),
-               i, j, Q, as.integer(exact.test)))
+               i, j, Q, as.integer(exact.test),
+               as.integer(factor(use, levels=c("complete.obs", "em")))))
 }

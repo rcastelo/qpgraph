@@ -1023,10 +1023,8 @@ static boolean store_clique(set_t clique, graph_t *g, clique_options *opts) {
 		 * the recursions? 
 		 */
 		if (clique_list_count <= 0) {
-			fprintf(stderr,"CLIQUER INTERNAL ERROR: "
-				"clique_list_count has negative value!\n");
-			fprintf(stderr,"Please report as a bug.\n");
-			abort();
+			error("CLIQUER INTERNAL ERROR: clique_list_count has negative value! Please report as a bug.\n");
+			/* abort(); */
 		}
 		if (clique_list_count <= opts->clique_list_length)
 			opts->clique_list[clique_list_count-1] =
@@ -1789,19 +1787,21 @@ boolean clique_print_time(int level, int i, int n, int max,
 	FILE *fp=opts->output;
 	int j;
 
+/*
 	if (fp==NULL)
 		fp=stdout;
+*/
 
 	if (ABS(prev_time-realtime)>0.1 || i==n || i<prev_i || max!=prev_max ||
 	    level!=prev_level) {
 		for (j=1; j<level; j++)
-			fprintf(fp,"  ");
+			Rprintf("  ");
 		if (realtime-prev_time < 0.01 || i<=prev_i)
-			fprintf(fp,"%3d/%d (max %2d)  %2.2f s  "
+			Rprintf("%3d/%d (max %2d)  %2.2f s  "
 				"(0.00 s/round)\n",i,n,max,
 				realtime);
 		else
-			fprintf(fp,"%3d/%d (max %2d)  %2.2f s  "
+			Rprintf("%3d/%d (max %2d)  %2.2f s  "
 				"(%2.2f s/round)\n",
 				i,n,max,realtime,
 				(realtime-prev_time)/(i-prev_i));
@@ -1836,17 +1836,19 @@ boolean clique_print_time_always(int level, int i, int n, int max,
 	FILE *fp=opts->output;
 	int j;
 
+/*
 	if (fp==NULL)
 		fp=stdout;
+*/
 
 	for (j=1; j<level; j++)
-		fprintf(fp,"  ");
+		Rprintf("  ");
 
 	if (realtime-prev_time < 0.01 || i<=prev_i)
-		fprintf(fp,"%3d/%d (max %2d)  %2.2f s  (0.00 s/round)\n",
+		Rprintf("%3d/%d (max %2d)  %2.2f s  (0.00 s/round)\n",
 			i,n,max,realtime);
 	else
-		fprintf(fp,"%3d/%d (max %2d)  %2.2f s  (%2.2f s/round)\n",
+		Rprintf("%3d/%d (max %2d)  %2.2f s  (%2.2f s/round)\n",
 			i,n,max,realtime,(realtime-prev_time)/(i-prev_i));
 	prev_time=realtime;
 	prev_i=i;

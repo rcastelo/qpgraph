@@ -14,16 +14,20 @@ Estimates the non-rejection rate for one pair of variables.
 \usage{
 \S4method{qpEdgeNrr}{smlSet}(X, i=1, j=2, q=1, restrict.Q=NULL, fix.Q=NULL,
                                     nTests=100, alpha=0.05, exact.test=TRUE,
+                                    use=c("complete.obs", "em"), tol=0.01,
                                     R.code.only=FALSE)
 \S4method{qpEdgeNrr}{ExpressionSet}(X, i=1, j=2, q=1, restrict.Q=NULL, fix.Q=NULL,
                                     nTests=100, alpha=0.05, exact.test=TRUE,
+                                    use=c("complete.obs", "em"), tol=0.01,
                                     R.code.only=FALSE)
 \S4method{qpEdgeNrr}{data.frame}(X, i=1, j=2, q=1, I=NULL, restrict.Q=NULL, fix.Q=NULL,
                                  nTests=100, alpha=0.05, long.dim.are.variables=TRUE,
-                                 exact.test=TRUE, R.code.only=FALSE)
+                                 exact.test=TRUE, use=c("complete.obs", "em"), tol=0.01,
+                                 R.code.only=FALSE)
 \S4method{qpEdgeNrr}{matrix}(X, i=1, j=2, q=1, I=NULL, restrict.Q=NULL, fix.Q=NULL,
                              n=NULL, nTests=100, alpha=0.05, long.dim.are.variables=TRUE,
-                             exact.test=TRUE, R.code.only=FALSE)
+                             exact.test=TRUE, use=c("complete.obs", "em"), tol=0.01,
+                             R.code.only=FALSE)
 }
 \arguments{
   \item{X}{data set from where the non-rejection rate should be estimated. It
@@ -52,6 +56,11 @@ Estimates the non-rejection rate for one pair of variables.
        test is employed with mixed (i.e., continuous and discrete) data;
        if \code{TRUE} (default) then an exact conditional independence test with
        mixed data is employed.}
+  \item{use}{a character string defining the way in which calculations are done in the
+       presence of missing values. It can be either \code{"complete.obs"} (default)
+       or \code{"em"}.}
+  \item{tol}{maximum tolerance controlling the convergence of the EM algorithm employed
+             when the argument \code{use="em"}.}
   \item{R.code.only}{logical; if FALSE then the faster C implementation is used
        (default); if TRUE then only R code is executed.}
 }

@@ -34,6 +34,8 @@
 
 #define E2I(v,w) (v > w ? ((int) (((double) ( v * (v - 1))) / 2.0)) + w : ((int) (((double) (w * (w - 1))) / 2.0)) + v) 
 #define UTE2I(v,w) (v > w ? ((int) (((double) ( v * (v - 1))) / 2.0)) + w + v : ((int) (((double) (w * (w - 1))) / 2.0)) + v + w) 
+#define USE_COMPLETE_OBS 1
+#define USE_EM           2
 
 /* datatype definitions */
 
@@ -175,17 +177,17 @@ qp_ci_test_opt(double* S, int n_var, int N, int i, int j, int* C, int q, double*
 
 static SEXP
 qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
-                     SEXP mapX2ssdR, SEXP iR, SEXP jR, SEXP QR, SEXP exactTest);
+                     SEXP mapX2ssdR, SEXP iR, SEXP jR, SEXP QR, SEXP exactTest, SEXP use);
 static double
 qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
                 int n_Y, double* ucond_ssd, int* mapX2ucond_ssd, int i, int j,
-                int* Q, int q, double* df, double* a, double* b);
+                int* Q, int q, int use, double* df, double* a, double* b);
 
 static double
 qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* XEP1q,
                     int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
                     double* ucond_ssd, int* mapX2ucond_ssd, int i, int j, int* Q,
-                    int q, double* df, double* a, double* b);
+                    int q, int use, double tol, double* df, double* a, double* b);
 
 boolean
 cliquer_cb_add_clique_to_list(set_t clique, graph_t* g, clique_options* opts);
@@ -291,7 +293,7 @@ static SEXP
 qp_cov_upper_triangular(SEXP XR, SEXP corrected);
 
 static SEXP
-qp_fast_rnd_graph(SEXP pR, SEXP dR);
+qp_fast_rnd_graph(SEXP pR, SEXP dR, SEXP excludeR, SEXP verbose);
 
 void
 calculate_xtab(double* X, int p, int n, int* I, int n_I, int* n_levels, int* xtab);
@@ -313,7 +315,7 @@ callMethods[] = {
   {"qp_fast_edge_nrr_hmgm_sml", (DL_FUNC) &qp_fast_edge_nrr_hmgm_sml, 18},
   {"qp_fast_ci_test_std", (DL_FUNC) &qp_fast_ci_test_std, 6},
   {"qp_fast_ci_test_opt", (DL_FUNC) &qp_fast_ci_test_opt, 6},
-  {"qp_fast_ci_test_hmgm", (DL_FUNC) &qp_fast_ci_test_hmgm, 10},
+  {"qp_fast_ci_test_hmgm", (DL_FUNC) &qp_fast_ci_test_hmgm, 11},
   {"qp_fast_cliquer_get_cliques", (DL_FUNC) &qp_fast_cliquer_get_cliques, 3},
   {"qp_fast_update_cliques_removing", (DL_FUNC) &qp_fast_update_cliques_removing, 5},
   {"qp_clique_number_lb", (DL_FUNC) &qp_clique_number_lb, 4},
@@ -322,7 +324,7 @@ callMethods[] = {
   {"qp_fast_ipf", (DL_FUNC) &qp_fast_ipf, 4},
   {"qp_fast_htf", (DL_FUNC) &qp_fast_htf, 4},
   {"qp_cov_upper_triangular", (DL_FUNC) &qp_cov_upper_triangular, 2},
-  {"qp_fast_rnd_graph", (DL_FUNC) &qp_fast_rnd_graph, 2},
+  {"qp_fast_rnd_graph", (DL_FUNC) &qp_fast_rnd_graph, 4},
   {NULL}
 };
 
@@ -2308,7 +2310,7 @@ qp_ci_test_opt(double* S, int n_var, int N, int i, int j, int* Q, int q,
 
 static SEXP
 qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
-                     SEXP mapX2ssdR, SEXP iR, SEXP jR, SEXP QR, SEXP exactTestR) {
+                     SEXP mapX2ssdR, SEXP iR, SEXP jR, SEXP QR, SEXP exactTestR, SEXP use) {
   int     n = INTEGER(getAttrib(XR, R_DimSymbol))[0];
   int     p = INTEGER(getAttrib(XR, R_DimSymbol))[1];
   int     n_I = length(IR);
@@ -2371,7 +2373,7 @@ qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
   }
 
   lambda = qp_ci_test_hmgm(REAL(XR), p, n, I, n_I, INTEGER(n_levelsR), Y, n_Y,
-                           ssd, mapX2ssd, i, j, Q, q, &df, &a, &b);
+                           ssd, mapX2ssd, i, j, Q, q, INTEGER(use)[0], &df, &a, &b);
 
   if (!ISNAN(lambda)) {
     if (exactTest) {
@@ -2466,7 +2468,7 @@ qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
 static double
 qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
                 int n_Y, double* ucond_ssd, int* mapX2ucond_ssd, int i, int j,
-                int* Q, int q, double* df, double* a, double* b) {
+                int* Q, int q, int use, double* df, double* a, double* b) {
   int     k,l;
   int     n_co=n;
   int     n_I_int = 0;
@@ -2824,7 +2826,7 @@ static double
 qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* XEP1q,
                     int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
                     double* ucond_ssd, int* mapX2ucond_ssd, int i, int j, int* Q, int q,
-                    double* df, double* a, double* b) {
+                    int use, double tol, double* df, double* a, double* b) {
   int     nChr = length(Xsml);
   int     k,l;
   int     n_co = n;
@@ -3361,7 +3363,7 @@ qp_edge_nrr_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y
 */
     lambda = qp_ci_test_hmgm(X, p, n, I, n_I, n_levels, Y, n_Y, ucond_ssd,
                              mapX2ucond_ssd, i, j, (int*) (q_by_T_samples+k*q),
-                             q, &df, &a, &b);
+                             q, USE_COMPLETE_OBS, &df, &a, &b);
 
     if (!ISNAN(lambda) && a > 0.0 && b > 0.0) {
       if (exactTest) {
@@ -3478,7 +3480,8 @@ qp_edge_nrr_hmgm_sml(SEXP X, int* cumsum_sByChr, int s, int gLevels, double* XEP
 */
     lambda = qp_ci_test_hmgm_sml(X, cumsum_sByChr, s, gLevels, XEP1q, p, n, I, n_I,
                                  n_levels, Y, n_Y, ucond_ssd, mapX2ucond_ssd, i, j,
-                                 (int*) (q_by_T_samples+k*q), q, &df, &a, &b);
+                                 (int*) (q_by_T_samples+k*q), q, USE_COMPLETE_OBS,
+                                 0.01, &df, &a, &b);
 
     if (!ISNAN(lambda) && a > 0.0 && b > 0.0) {
       if (exactTest) {
@@ -5770,7 +5773,8 @@ calculate_means(double* X, int p, int n, int* Y, int n_Y, int* idx_obs,
   FUNCTION: ssd
   PURPOSE: calculate the, corrected or not, sum of squares and deviations matrix
            returning only the upper triangle of the matrix in column-major order
-           (for creating later a dspMatrix object)
+           (for creating later a dspMatrix object). By now it assumes that the
+           continuous data are complete (i.e., no NAs)
   PARAMETERS: X - vector containing the column-major stored matrix of values
               p - number of variables
               n - number of observations
@@ -5912,7 +5916,7 @@ calculate_xtab(double* X, int p, int n, int* I, int n_I, int* n_levels, int* xta
 /*
   FUNCTION: ssd_A
   PURPOSE: calculate the uncorrected sum of squares and deviations matrix
-           for a subset of variables A = I \cup Y returning only the upper
+           for a subset of variables A = I \cap Y returning only the upper
            triangle of the matrix in column-major order (for creating later a dspMatrix object)
   PARAMETERS: X - vector containing the column-major stored matrix of values
               p - number of variables
@@ -5923,7 +5927,10 @@ calculate_xtab(double* X, int p, int n, int* I, int n_I, int* n_levels, int* xta
               Y - vector containing the indices of the variables in X for which we
                   want to calculate the ssd
               n_Y - number of elements in Y
-              ssd_A - pointer to the matrix where the result is return
+              idx_excobs - indices to observations that should be excluded from the calculations
+              ssd_A - (output) pointer to the matrix where the result is returned
+              n_co - (output) number of complete observations
+              idx_misobs - (output) indices to observations that contain missing values
   RETURN: none
 */
 
@@ -5997,11 +6004,14 @@ ssd_A(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
   return;
 }
 
+
+
 /*
   FUNCTION: qp_fast_rnd_graph
   PURPOSE: samples a d-regular graph uniformly at random
   PARAMETERS: pR - number of vertices
               dR - vertex degree
+              excludeR - vertex whose pairwise adjacencies should be excluded
   RETURN: upper triangle in column major of the adjacency matrix of the sampled graph
 */
 
@@ -6027,10 +6037,13 @@ int_cmp_desc_idx_incr(const void *a, const void *b) {
 }
 
 static SEXP
-qp_fast_rnd_graph(SEXP pR, SEXP dR) {
+qp_fast_rnd_graph(SEXP pR, SEXP dR, SEXP excludeR, SEXP verboseR) {
   int         p=INTEGER(pR)[0];
   int         d=INTEGER(dR)[0];
+  int         verbose=INTEGER(verboseR)[0];
+  int*        exclude;
   SEXP        GR;
+  SEXP        pb=R_NilValue;
   Rboolean*   G;
   double*     deg_diff;
   IntWithIdx* deg;
@@ -6045,9 +6058,30 @@ qp_fast_rnd_graph(SEXP pR, SEXP dR) {
   deg         = Calloc(p, IntWithIdx);
   working_deg = Calloc(p, IntWithIdx);
   deg_diff    = Calloc(p, double);
+  exclude     = Calloc(p, int); /* assume Calloc() initializes memory to 0 */
+
+  if (verbose) {
+    SEXP s, t;
+    PROTECT(t = s = allocList(2));
+    SET_TYPEOF(s, LANGSXP);
+    SETCAR(t, install("txtProgressBar")); t=CDR(t);
+    SETCAR(t, ScalarInteger(3));
+    SET_TAG(t, install("style"));
+    SETCAR(t, ScalarInteger(0));
+    SET_TAG(t, install("min"));
+    SETCAR(t, ScalarInteger(p));
+    SET_TAG(t, install("max"));
+    PROTECT(pb = eval(s, R_GlobalEnv));
+    UNPROTECT(1); /* t s */
+  }
 
   PROTECT(GR = allocVector(LGLSXP, n_upper_tri)); /* upper triangle includes diagonal */
   G = LOGICAL(GR);
+
+  if (excludeR != R_NilValue) {
+    for (i=0; i < length(excludeR); i++)
+      exclude[INTEGER(excludeR)[i]-1] = 1;
+  }
 
   regular=FALSE;
   while (!regular) {
@@ -6066,6 +6100,19 @@ qp_fast_rnd_graph(SEXP pR, SEXP dR) {
       while (working_deg[n_vtx_left].x < d && n_vtx_left < p) {
         deg_diff[n_vtx_left] = (double) (d - working_deg[n_vtx_left].x);
         n_vtx_left++;
+      }
+
+      if (verbose) {
+        SEXP s, t;
+        PROTECT(t = s = allocList(3));
+        SET_TYPEOF(s, LANGSXP);
+        SETCAR(t, install("setTxtProgressBar")); t=CDR(t);
+        SETCAR(t, pb);
+        SET_TAG(t, install("pb")); t=CDR(t);
+        SETCAR(t, ScalarInteger(p-n_vtx_left));
+        SET_TAG(t, install("value"));
+        eval(s, R_GlobalEnv);
+        UNPROTECT(1); /* t s */
       }
 
       if (n_vtx_left > 0) {
@@ -6087,15 +6134,18 @@ qp_fast_rnd_graph(SEXP pR, SEXP dR) {
             if (G[UTE2I(working_deg[i].ix, working_deg[j].ix)])
               S[i+j*n_vtx_left] = S[j+i*n_vtx_left] = -1; /* exclude adjacent pairs of vertices */
             else {
-              sum_S = sum_S + S[i+j*n_vtx_left];
-              missing_edges++;
+              if (!exclude[working_deg[i].ix] || !exclude[working_deg[j].ix]) {
+                sum_S = sum_S + S[i+j*n_vtx_left];
+                missing_edges++;
+              }
             }
 
         if (missing_edges > 0) {
           n_cdf = 0;
           for (i=0; i < n_vtx_left; i++)
             for (j=i+1; j < n_vtx_left; j++)
-              if (!G[UTE2I(working_deg[i].ix, working_deg[j].ix)]) {
+              if (!G[UTE2I(working_deg[i].ix, working_deg[j].ix)] &&
+                  (!exclude[working_deg[i].ix] || !exclude[working_deg[j].ix])) {
                 cdf[E2I(i, j)].x = S[i+j*n_vtx_left] / sum_S;
                 cdf[E2I(i, j)].ix = i;
                 cdf[E2I(i, j)].jx = j;
@@ -6123,8 +6173,8 @@ qp_fast_rnd_graph(SEXP pR, SEXP dR) {
             G[UTE2I(working_deg[i].ix , working_deg[j].ix)] = TRUE;
             deg[working_deg[i].ix].x++;
             deg[working_deg[j].ix].x++;
-          } else
-            error("No cdf could be built\n");
+          } /* else
+            error("No cdf could be built\n"); */
     
           Free(cdf);
           Free(S);
@@ -6142,9 +6192,20 @@ qp_fast_rnd_graph(SEXP pR, SEXP dR) {
     }
   }
 
+  Free(exclude);
   Free(deg_diff);
   Free(working_deg);
   Free(deg);
+
+  if (verbose) {
+    SEXP s, t;
+    PROTECT(t = s = allocList(2));
+    SET_TYPEOF(s, LANGSXP);
+    SETCAR(t, install("close")); t=CDR(t);
+    SETCAR(t, pb);
+    eval(s, R_GlobalEnv);
+    UNPROTECT(2); /* t s pb */
+  }
 
   UNPROTECT(1); /* GR */
 
