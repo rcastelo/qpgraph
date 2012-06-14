@@ -1858,7 +1858,7 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR,
            matrix X one conditional independence test. Vertex pairs may be restricted
            by using the pairup_* arguments
   RETURNS: matrix of p-values of all the tests of conditional independence
-*/
+*/ 
 
 static SEXP
 qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,

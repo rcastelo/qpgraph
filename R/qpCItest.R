@@ -1543,15 +1543,14 @@ setMethod("qpAllCItests", signature(X="matrix"),
                                       as.integer(Y), as.integer(Q),
                                       as.integer(pairup.i.noint), as.integer(pairup.j.noint),
                                       as.integer(pairup.ij.int), as.integer(exact.test),
-                                      as.integer(verbose),
                                       as.integer(factor(use, levels=c("complete.obs", "em"))),
-                                      tol, as.double(startTime),
+                                      tol, as.integer(verbose), as.double(startTime),
                                       as.integer(nAdj2estimateTime), .GlobalEnv))
 }
 
 .qpFastAllCItestsPar <- function(X, I, Y, Q, pairup.i.noint, pairup.j.noint,
                                  pairup.ij.int, exact.test, use, tol, verbose,
-                                 startTime, nAdj2estimateTime) {
+                                 estimateTime, nAdj2estimateTime) {
   clOpt <- get("getClusterOption", mode="function")
   myMaster <- clOpt("masterNode")
 
@@ -1566,9 +1565,8 @@ setMethod("qpAllCItests", signature(X="matrix"),
                                            as.integer(Y), as.integer(Q),
                                            as.integer(pairup.i.noint), as.integer(pairup.j.noint),
                                            as.integer(pairup.ij.int), as.integer(exact.test),
-                                           as.integer(verbose),
                                            as.integer(factor(use, levels=c("complete.obs", "em"))),
-                                           tol, as.double(startTime),
+                                           tol, as.integer(verbose), as.double(startTime),
                                            as.integer(nAdj2estimateTime), as.integer(get("clusterRank")),
                                            as.integer(get("clusterSize")), myMaster, .GlobalEnv))
 }
