@@ -194,8 +194,15 @@ qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* X
 static SEXP
 qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
                      SEXP pairup_i_nointR, SEXP pairup_j_nointR, SEXP pairup_ij_intR,
-                     SEXP exactTest, SEXP verboseR, SEXP startTimeR,
+                     SEXP exactTest, SEXP use, SEXP tol, SEXP verboseR, SEXP startTimeR,
                      SEXP nAdj2estimateTimeR, SEXP env);
+
+static SEXP
+qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
+                         SEXP pairup_i_nointR, SEXP pairup_j_nointR,
+                         SEXP pairup_ij_intR, SEXP exactTest, SEXP use, SEXP tol,
+                         SEXP verboseR, SEXP startTimeR, SEXP nAdj2estimateTimeR,
+                         SEXP myRankR, SEXP clSzeR, SEXP masterNode, SEXP env);
 
 boolean
 cliquer_cb_add_clique_to_list(set_t clique, graph_t* g, clique_options* opts);
@@ -324,7 +331,8 @@ callMethods[] = {
   {"qp_fast_ci_test_std", (DL_FUNC) &qp_fast_ci_test_std, 6},
   {"qp_fast_ci_test_opt", (DL_FUNC) &qp_fast_ci_test_opt, 6},
   {"qp_fast_ci_test_hmgm", (DL_FUNC) &qp_fast_ci_test_hmgm, 12},
-  {"qp_fast_all_ci_tests", (DL_FUNC) &qp_fast_all_ci_tests, 13},
+  {"qp_fast_all_ci_tests", (DL_FUNC) &qp_fast_all_ci_tests, 15},
+  {"qp_fast_all_ci_tests_par", (DL_FUNC) &qp_fast_all_ci_tests_par, 18},
   {"qp_fast_cliquer_get_cliques", (DL_FUNC) &qp_fast_cliquer_get_cliques, 3},
   {"qp_fast_update_cliques_removing", (DL_FUNC) &qp_fast_update_cliques_removing, 5},
   {"qp_clique_number_lb", (DL_FUNC) &qp_clique_number_lb, 4},
@@ -1855,7 +1863,7 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR,
 static SEXP
 qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
                      SEXP pairup_i_nointR, SEXP pairup_j_nointR, SEXP pairup_ij_intR,
-                     SEXP exactTest, SEXP verboseR, SEXP startTimeR,
+                     SEXP exactTest, SEXP use, SEXP tol, SEXP verboseR, SEXP startTimeR,
                      SEXP nAdj2estimateTimeR, SEXP env) {
   int     N;
   int     n_var;
@@ -1891,15 +1899,6 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
   startTime   = REAL(startTimeR)[0];
   nAdjEtime   = INTEGER(nAdj2estimateTimeR)[0];
 
-  if (q > n_var-2)
-    error("q=%d > p-2=%d",q,n_var-2);
-
-  if (q < 0)
-    error("q=%d < 0",q);
-
-  if (q > N-3)
-    error("q=%d > n-3=%d", q, N-3);
-
   if (n_I == 0) {
     S = ssdMat = Calloc((n_var*(n_var+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
     ssd(REAL(XR), n_var, N, NULL, n_var, NULL, N, 1, S);
@@ -1928,6 +1927,16 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
 
   if (QR != R_NilValue) {
     q = length(QR);
+
+    if (q > n_var-2)
+      error("q=%d > p-2=%d",q,n_var-2);
+
+    if (q < 0)
+      error("q=%d < 0",q);
+
+    if (q > N-3)
+      error("q=%d > n-3=%d", q, N-3);
+
     Q = Calloc(q, int);
     for (i=0; i < q; i++)
       Q[i] = INTEGER(QR)[i] - 1;
@@ -1984,7 +1993,7 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
       lambda = n_I == 0 ? qp_ci_test_std(S, n_var, N, i2, j2, Q, q, NULL) :
                           qp_ci_test_hmgm(REAL(XR), n_var, N, I, n_I, INTEGER(n_levelsR),
                                           Y, n_Y, ssdMat, mapX2ssd, i2, j2,
-                                          Q, q, USE_COMPLETE_OBS, 0.01, &df, &a, &b);
+                                          Q, q, INTEGER(use)[0], REAL(tol)[0], &df, &a, &b);
 
       if (n_I == 0)
         nrr[UTE2I(i2, j2)] = 2.0 * (1.0 - pt(fabs(lambda), N-q-2, 1, 0));
@@ -2043,7 +2052,7 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
         lambda = n_I == 0 ? qp_ci_test_std(S, n_var, N, i2, j2, Q, q, NULL) :
                             qp_ci_test_hmgm(REAL(XR), n_var, N, I, n_I, INTEGER(n_levelsR),
                                             Y, n_Y, ssdMat, mapX2ssd, i2, j2,
-                                            Q, q, USE_COMPLETE_OBS, 0.01, &df, &a, &b);
+                                            Q, q, INTEGER(use)[0], REAL(tol)[0], &df, &a, &b);
         if (n_I == 0)
           nrr[UTE2I(i2, j2)] = 2.0 * (1.0 - pt(fabs(lambda), N-q-2, 1, 0));
         else {
@@ -2099,7 +2108,7 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
         lambda = n_I == 0 ? qp_ci_test_std(S, n_var, N, i2, j2, Q, q, NULL) :
                             qp_ci_test_hmgm(REAL(XR), n_var, N, I, n_I, INTEGER(n_levelsR),
                                             Y, n_Y, ssdMat, mapX2ssd, i2, j2,
-                                            Q, q, USE_COMPLETE_OBS, 0.01, &df, &a, &b);
+                                            Q, q, INTEGER(use)[0], REAL(tol)[0], &df, &a, &b);
         if (n_I == 0)
           nrr[UTE2I(i2, j2)] = 2.0 * (1.0 - pt(fabs(lambda), N-q-2, 1, 0));
         else {
@@ -2199,6 +2208,383 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
   }
 
   return nrrR;
+}
+
+
+
+/*
+  FUNCTION: qp_fast_all_ci_tests_par
+  PURPOSE: compute for each pair of vertices indexed by the rows (columns)
+           a conditional independence test. Vertex pairs may be restricted
+           by using the pairup_* arguments. This function should be called only
+           within a parallel environment running in a cluster where arguments
+           myRankR and clSzeR tell how many nodes form the cluster (clSzeR) and
+           which is the node running the function (myRankR)
+  RETURNS: matrix of p-values of all the tests of conditional independence
+*/
+
+static SEXP
+qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
+                         SEXP pairup_i_nointR, SEXP pairup_j_nointR,
+                         SEXP pairup_ij_intR, SEXP exactTest, SEXP use, SEXP tol,
+                         SEXP verboseR, SEXP startTimeR, SEXP nAdj2estimateTimeR,
+                         SEXP myRankR, SEXP clSzeR, SEXP masterNode, SEXP env) {
+  int     N;
+  int     n_var;
+  double* S;
+  double* ssdMat;
+  int     n_I = length(IR);
+  int     n_Y = length(YR);
+  int*    Q = NULL;
+  int     q = 0;
+  int     l_ini = length(pairup_i_nointR);
+  int     l_jni = length(pairup_j_nointR);
+  int     l_int = length(pairup_ij_intR);
+  int*    I = NULL;
+  int*    Y = NULL;
+  int*    mapX2ssd = NULL;
+  int*    pairup_i_noint = INTEGER(pairup_i_nointR);
+  int*    pairup_j_noint = INTEGER(pairup_j_nointR);
+  int*    pairup_ij_int = INTEGER(pairup_ij_intR);
+  int*    pairup_ij_noint = NULL;
+  int     i,j,k;
+  int     n_adj, n_adj_this_proc, pct, ppct;
+  SEXP    nrrR, idxR;
+  SEXP    result, result_names;
+  double* nrr;
+  double  df, a, b, lambda;
+  int*    idx;
+  int     verbose;
+  int     myrank;
+  int     clsze;
+  int     firstAdj, lastAdj;
+  double  startTime, elapsedTime;
+  int     nAdjEtime;
+  SEXP    progressReport,progressReportType,
+          progressReportValue,progressReportSuccess,
+          progressReportTag,progressReport_names;
+
+  PROTECT(progressReport = allocVector(VECSXP,4));
+  SET_VECTOR_ELT(progressReport,0,progressReportType = allocVector(STRSXP,1));
+  SET_VECTOR_ELT(progressReport,1,progressReportValue = allocVector(INTSXP,1));
+  SET_VECTOR_ELT(progressReport,2,progressReportSuccess = allocVector(LGLSXP,1));
+  SET_VECTOR_ELT(progressReport,3,progressReportTag = allocVector(STRSXP,1));
+  PROTECT(progressReport_names = allocVector(STRSXP,4));
+  SET_STRING_ELT(progressReport_names,0,mkChar("type"));
+  SET_STRING_ELT(progressReport_names,1,mkChar("value"));
+  SET_STRING_ELT(progressReport_names,2,mkChar("success"));
+  SET_STRING_ELT(progressReport_names,3,mkChar("tag"));
+  setAttrib(progressReport,R_NamesSymbol,progressReport_names);
+  SET_STRING_ELT(VECTOR_ELT(progressReport,0), 0, mkChar("VALUE"));
+  INTEGER(VECTOR_ELT(progressReport,1))[0] = 0;
+  LOGICAL(VECTOR_ELT(progressReport,2))[0] = TRUE;
+  SET_STRING_ELT(VECTOR_ELT(progressReport,3), 0, mkChar("UPDATE"));
+
+  N         = INTEGER(getAttrib(XR, R_DimSymbol))[0];
+  n_var     = INTEGER(getAttrib(XR, R_DimSymbol))[1];
+  verbose   = INTEGER(verboseR)[0];
+  startTime = REAL(startTimeR)[0];
+  nAdjEtime = INTEGER(nAdj2estimateTimeR)[0];
+  myrank    = INTEGER(myRankR)[0];
+  clsze     = INTEGER(clSzeR)[0];
+
+  if (n_I == 0) {
+    S = ssdMat = Calloc((n_var*(n_var+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
+    ssd(REAL(XR), n_var, N, NULL, n_var, NULL, N, 1, S);
+  } else {
+    I = Calloc(n_I, int);
+    for (i=0; i < n_I; i++)
+      I[i] = INTEGER(IR)[i]-1;
+
+    Y = Calloc(n_Y, int);
+    for (i=0; i < n_Y; i++)
+      Y[i] = INTEGER(YR)[i]-1;
+
+    mapX2ssd = Calloc(n_var, int);
+    for (i=0; i < n_var; i++) {
+      j = 0;
+      while (j < n_Y && i != Y[j])
+        j++;
+
+      mapX2ssd[i] = j;
+    }
+
+    S = ssdMat = Calloc((n_Y*(n_Y+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
+    ssd(REAL(XR), n_var, N, Y, n_Y, NULL, N, 1, ssdMat);
+
+  }
+
+  if (QR != R_NilValue) {
+    q = length(QR);
+
+    if (q > n_var-2)
+      error("q=%d > p-2=%d",q,n_var-2);
+
+    if (q < 0)
+      error("q=%d < 0",q);
+
+    if (q > N-3)
+      error("q=%d > n-3=%d", q, N-3);
+
+    Q = Calloc(q, int);
+    for (i=0; i < q; i++)
+      Q[i] = INTEGER(QR)[i] - 1;
+
+  }
+
+  if (l_ini + l_jni > 0) {
+    pairup_ij_noint = Calloc(l_ini + l_jni, int);
+    Memcpy(pairup_ij_noint, pairup_i_noint, (size_t) l_ini);
+    Memcpy(pairup_ij_noint + l_ini, pairup_j_noint, (size_t) l_jni);
+  }
+
+  n_adj = l_int * (l_jni + l_ini) + l_ini * l_jni + l_int * (l_int - 1) / 2;
+
+  firstAdj = (myrank-1) * (n_adj / clsze);
+  lastAdj  = myrank * (n_adj / clsze);
+
+  if (myrank == clsze)
+    lastAdj += n_adj - lastAdj;
+
+  lastAdj--;
+
+  n_adj_this_proc = lastAdj - firstAdj + 1;
+
+  PROTECT(result = allocVector(VECSXP,2));
+  SET_VECTOR_ELT(result, 0, nrrR = allocVector(REALSXP, lastAdj-firstAdj+1));
+  SET_VECTOR_ELT(result, 1, idxR = allocVector(INTSXP, lastAdj-firstAdj+1));
+  PROTECT(result_names = allocVector(STRSXP, 2));
+  SET_STRING_ELT(result_names, 0, mkChar("nrr"));
+  SET_STRING_ELT(result_names, 1, mkChar("idx"));
+  setAttrib(result, R_NamesSymbol, result_names);
+  nrr = REAL(VECTOR_ELT(result, 0));
+  idx = INTEGER(VECTOR_ELT(result, 1));
+
+  elapsedTime = 0.0;
+  if (startTime > 0.0) {
+    SEXP procTimeR;
+    double* procTime;
+    SEXP call;
+
+    /* initialize 'idx' so that the R code copying the result works as
+     * in a normal execution */
+    for (k=0; k < n_adj_this_proc; k++)
+      idx[k] = firstAdj + k + 1;
+
+    PROTECT(call = lang1(install("proc.time")));
+    PROTECT(procTimeR = eval(call, env));
+    procTime = REAL(procTimeR);
+    elapsedTime = procTime[2] - startTime;
+    startTime = procTime[2];
+    UNPROTECT(2); /* call procTimeR */
+  }
+
+  k = firstAdj;
+  ppct = -1;
+
+  if (k < l_int * (l_ini + l_jni)) {
+    int j_first = k % (l_ini + l_jni);
+
+    /* intersection variables against ij-exclusive variables */
+    for (i=((int) (k/(l_ini + l_jni))); i < l_int && k <= lastAdj; i++) {
+      int i2 = pairup_ij_int[i] - 1;
+
+      for (j=j_first; j < l_ini + l_jni && k <= lastAdj; j++) {
+        int j2 = pairup_ij_noint[j] - 1;
+
+        lambda = n_I == 0 ? qp_ci_test_std(S, n_var, N, i2, j2, Q, q, NULL) :
+                            qp_ci_test_hmgm(REAL(XR), n_var, N, I, n_I,
+                                            INTEGER(n_levelsR), Y, n_Y,
+                                            ssdMat, mapX2ssd, i2, j2, Q, q,
+                                            INTEGER(use)[0], REAL(tol)[0],
+                                            &df, &a, &b);
+        idx[k-firstAdj] = UTE2I(i2, j2) + 1;
+
+        if (n_I == 0)
+          nrr[k-firstAdj] = 2.0 * (1.0 - pt(fabs(lambda), N-q-2, 1, 0));
+        else {
+          if (!ISNAN(lambda)) {
+            if (INTEGER(exactTest)[0]) {
+              lambda = exp(lambda / ((double) -N));
+              nrr[k-firstAdj] = pbeta(lambda, a, b, TRUE, FALSE);
+            } else
+              nrr[k-firstAdj] = 1.0 - pchisq(lambda, df, TRUE, FALSE);
+          }
+        }
+
+        k++;
+        if (startTime > 0 && k-firstAdj == 10)
+          break;
+        if (verbose && startTime == 0) {
+          pct = (int) (((k-firstAdj) * 100) / n_adj_this_proc);
+          if (pct != ppct) {
+            SEXP s, t;
+            PROTECT(t = s = allocList(3));
+            SET_TYPEOF(s, LANGSXP);
+            SETCAR(t, install("sendData")); t=CDR(t);
+            SETCAR(t, masterNode);
+            SET_TAG(t, install("node")); t=CDR(t);
+            INTEGER(VECTOR_ELT(progressReport,1))[0] = k-firstAdj;
+            SETCAR(t, progressReport);
+            SET_TAG(t, install("data"));
+            eval(s, env);
+            UNPROTECT(1); /* t s */
+          }
+          ppct = pct;
+        }
+      }
+      if (startTime > 0 && k-firstAdj == 10)
+        break;
+      j_first = 0;
+    }
+  }
+
+  if (l_ini + l_jni > 0)
+    Free(pairup_ij_noint);
+
+  if (k <= lastAdj && k < l_int * (l_ini + l_jni) + l_ini * l_jni &&
+      (startTime == 0 || k-firstAdj < 10)) {
+    int i_first = ((int) ((k - l_int * (l_ini + l_jni)) / l_jni));
+    int j_first = (k - l_int * (l_ini + l_jni)) % l_jni;
+
+    /* i-exclusive variables against j-exclusive variables */
+    for (i=i_first; i < l_ini && k <= lastAdj; i++) {
+      int i2 = pairup_i_noint[i] - 1;
+
+      for (j=j_first; j < l_jni && k <= lastAdj; j++) {
+        int j2 = pairup_j_noint[j] - 1;
+
+        lambda = n_I == 0 ? qp_ci_test_std(S, n_var, N, i2, j2, Q, q, NULL) :
+                            qp_ci_test_hmgm(REAL(XR), n_var, N, I, n_I,
+                                            INTEGER(n_levelsR), Y, n_Y,
+                                            ssdMat, mapX2ssd, i2, j2, Q, q,
+                                            INTEGER(use)[0], REAL(tol)[0],
+                                            &df, &a, &b);
+        idx[k-firstAdj] = UTE2I(i2, j2) + 1;
+
+        if (n_I == 0)
+          nrr[k-firstAdj] = 2.0 * (1.0 - pt(fabs(lambda), N-q-2, 1, 0));
+        else {
+          if (!ISNAN(lambda)) {
+            if (INTEGER(exactTest)[0]) {
+              lambda = exp(lambda / ((double) -N));
+              nrr[k-firstAdj] = pbeta(lambda, a, b, TRUE, FALSE);
+            } else
+              nrr[k-firstAdj] = 1.0 - pchisq(lambda, df, TRUE, FALSE);
+          }
+        }
+
+        k++;
+        if (startTime > 0 && k-firstAdj == 10)
+          break;
+        if (verbose && startTime == 0) {
+          pct = (int) (((k-firstAdj) * 100) / n_adj_this_proc);
+          if (pct != ppct) {
+            SEXP s, t;
+            PROTECT(t = s = allocList(3));
+            SET_TYPEOF(s, LANGSXP);
+            SETCAR(t, install("sendData")); t=CDR(t);
+            SETCAR(t, masterNode);
+            SET_TAG(t, install("node")); t=CDR(t);
+            INTEGER(VECTOR_ELT(progressReport,1))[0] = k-firstAdj;
+            SETCAR(t, progressReport);
+            SET_TAG(t, install("data"));
+            eval(s, env);
+            UNPROTECT(1); /* t s */
+          }
+          ppct = pct;
+        }
+      }
+      if (startTime > 0 && k-firstAdj == 10)
+        break;
+      j_first = 0;
+    }
+  }
+
+  if (k <= lastAdj && (startTime == 0 || k-firstAdj < 10)) {
+    int i_first = k - l_int * (l_ini + l_jni) - l_ini * l_jni;
+    int l;
+
+    /* intersection variables against themselves (avoiding pairing the same) */
+    for (l = i_first; l < (l_int * (l_int - 1)) / 2 && k <= lastAdj; l++) {
+      int i,j,i2,j2;
+      i2e(l, &i, &j);
+
+      i2 = pairup_ij_int[i] - 1;
+      j2 = pairup_ij_int[j] - 1;
+
+      lambda = n_I == 0 ? qp_ci_test_std(S, n_var, N, i2, j2, Q, q, NULL) :
+                          qp_ci_test_hmgm(REAL(XR), n_var, N, I, n_I,
+                                          INTEGER(n_levelsR), Y, n_Y,
+                                          ssdMat, mapX2ssd, i2, j2, Q, q,
+                                          INTEGER(use)[0], REAL(tol)[0],
+                                          &df, &a, &b);
+
+      idx[k-firstAdj] = UTE2I(i2, j2) + 1;
+
+      if (n_I == 0)
+        nrr[k-firstAdj] = 2.0 * (1.0 - pt(fabs(lambda), N-q-2, 1, 0));
+      else {
+        if (!ISNAN(lambda)) {
+          if (INTEGER(exactTest)[0]) {
+            lambda = exp(lambda / ((double) -N));
+            nrr[k-firstAdj] = pbeta(lambda, a, b, TRUE, FALSE);
+          } else
+            nrr[k-firstAdj] = 1.0 - pchisq(lambda, df, TRUE, FALSE);
+        }
+      }
+
+      k++;
+      if (startTime > 0 && k-firstAdj == 10)
+        break;
+      if (verbose && startTime == 0) {
+        pct = (int) (((k-firstAdj) * 100) / n_adj_this_proc);
+        if (pct != ppct) {
+          SEXP s, t;
+          PROTECT(t = s = allocList(3));
+          SET_TYPEOF(s, LANGSXP);
+          SETCAR(t, install("sendData")); t=CDR(t);
+          SETCAR(t, masterNode);
+          SET_TAG(t, install("node")); t=CDR(t);
+          INTEGER(VECTOR_ELT(progressReport,1))[0] = k-firstAdj;
+          SETCAR(t, progressReport);
+          SET_TAG(t, install("data"));
+          eval(s, env);
+          UNPROTECT(1); /* t s */
+        }
+        ppct = pct;
+      }
+    }
+  }
+
+  Free(S); /* = Free(ssdMat) */
+
+  if (n_I > 0) {
+    Free(mapX2ssd);
+    Free(Y);
+    Free(I);
+  }
+
+  if (QR != R_NilValue)
+    Free(Q);
+
+  if (startTime > 0) {
+    SEXP procTimeR;
+    double* procTime;
+    SEXP call;
+
+    PROTECT(call = lang1(install("proc.time")));
+    PROTECT(procTimeR = eval(call, env));
+    procTime = REAL(procTimeR);
+    elapsedTime = elapsedTime + ((procTime[2] - startTime) / (double) (k-firstAdj)) * (double) n_adj_this_proc;
+    UNPROTECT(2); /* call procTimeR */
+
+    nrr[0] = elapsedTime; /* store in the first position of the nrr vector the estimated time */
+  }
+
+  UNPROTECT(4);   /* result result_names progressReport progressReport_names */
+
+  return result;
 }
 
 

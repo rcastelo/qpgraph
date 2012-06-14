@@ -1334,7 +1334,7 @@ setMethod("qpAllCItests", signature(X="matrix"),
 
       nrrMatrix <- qpgraph:::.qpFastAllCItests(X, I, Y, Q, pairup.i.noint,
                                                pairup.j.noint, pairup.ij.int,
-                                               exact.test, verbose,
+                                               exact.test, use, tol, verbose,
                                                startTime["elapsed"], nAdj2estimateTime)
 
       if (startTime["elapsed"] == 0)
@@ -1347,11 +1347,11 @@ setMethod("qpAllCItests", signature(X="matrix"),
       if (verbose && startTime["elapsed"] == 0) { ## no cluster progress-call when only estimating time
         nrrIdx <- clPrCall(cl, qpgraph:::.qpFastAllCItestsPar, n.adj, X, I, Y, Q,
                            pairup.i.noint, pairup.j.noint, pairup.ij.int,
-                           exact.test, verbose, FALSE, nAdj2estimateTime)
+                           exact.test, use, tol, verbose, FALSE, nAdj2estimateTime)
       } else {
         nrrIdx <- clCall(cl, qpgraph:::.qpFastAllCItestsPar, X, I, Y, Q,
                          pairup.i.noint, pairup.j.noint, pairup.ij.int,
-                         exact.test, verbose, startTime["elapsed"] > 0,
+                         exact.test, use, tol, verbose, startTime["elapsed"] > 0,
                          nAdj2estimateTime)
       }
 
@@ -1536,19 +1536,39 @@ setMethod("qpAllCItests", signature(X="matrix"),
 }
 
 .qpFastAllCItests <- function(X, I, Y, Q, pairup.i.noint, pairup.j.noint,
-                              pairup.ij.int, exact.test, verbose,
+                              pairup.ij.int, exact.test, use, tol, verbose,
                               startTime, nAdj2estimateTime) {
   nLevels <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
   return(.Call("qp_fast_all_ci_tests", X, as.integer(I), as.integer(nLevels),
                                       as.integer(Y), as.integer(Q),
                                       as.integer(pairup.i.noint), as.integer(pairup.j.noint),
                                       as.integer(pairup.ij.int), as.integer(exact.test),
-                                      as.integer(verbose), as.double(startTime),
+                                      as.integer(verbose),
+                                      as.integer(factor(use, levels=c("complete.obs", "em"))),
+                                      tol, as.double(startTime),
                                       as.integer(nAdj2estimateTime), .GlobalEnv))
 }
 
 .qpFastAllCItestsPar <- function(X, I, Y, Q, pairup.i.noint, pairup.j.noint,
-                                 pairup.ij.int, exact.test, verbose, startTime,
-                                 nAdj2estimateTime) {
-  stop("R.code.only=FALSE not implemented yet\n")
+                                 pairup.ij.int, exact.test, use, tol, verbose,
+                                 startTime, nAdj2estimateTime) {
+  clOpt <- get("getClusterOption", mode="function")
+  myMaster <- clOpt("masterNode")
+
+  startTime <- 0
+  if (estimateTime)
+    startTime <- proc.time()["elapsed"]
+
+  nLevels <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
+
+  ## clusterRank and clusterSize should have been defined by the master node
+  return(.Call("qp_fast_all_ci_tests_par", X, as.integer(I), as.integer(nLevels),
+                                           as.integer(Y), as.integer(Q),
+                                           as.integer(pairup.i.noint), as.integer(pairup.j.noint),
+                                           as.integer(pairup.ij.int), as.integer(exact.test),
+                                           as.integer(verbose),
+                                           as.integer(factor(use, levels=c("complete.obs", "em"))),
+                                           tol, as.double(startTime),
+                                           as.integer(nAdj2estimateTime), as.integer(get("clusterRank")),
+                                           as.integer(get("clusterSize")), myMaster, .GlobalEnv))
 }
