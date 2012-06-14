@@ -1010,25 +1010,22 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
   ##     any(is.na(match(colnames(ssdMat), colnames(X)))))
   ##   stop("ssdMat should have row and column names that match variables in X\n")
 
+  if (!R.code.only) {
+    return(qpgraph:::.qpFastCItestHMGM(X, I, nLevels, Y, ssdMat, mapX2ssdMat,
+                                       i, j, Q, exact.test, use, tol))
+  }
+
   if (!is.na(match(j, I))) { ## if any of (i,j) is discrete, it should be i
     tmp <- i
     i <- j
     j <- tmp
-    tmp <- nLevels[i]
-    nLevels[i] <- nLevels[j]
-    nLevels[j] <- tmp
-  }
-
-  if (!R.code.only) {
-    return(qpgraph:::.qpFastCItestHMGM(X, I, nLevels, Y, ssdMat, mapX2ssdMat,
-                                       i, j, Q, exact.test, use))
   }
 
   I <- intersect(I, c(i, Q))
   Y <- intersect(Y, c(i, j, Q))
 
   ssd <- ssd_i <- ssd_j <- ssd_ij <- diag(2) 
-  n <- nrow(X)
+  n_co <- n <- nrow(X)
 
   if (length(I) == 0) { ## dspMatrix -> matrix because det() still doesn't work with Matrix classes
     ## when we'll handle missing continuous data too we'll have to consider calculating ssd
@@ -1044,9 +1041,9 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
   } else {
     missingMask <- apply(X[, I, drop=FALSE], 1, function(x) any(is.na(x)))
     missingData <- any(missingMask)
-    n_co <- n
     if (!missingData || use == "complete.obs") { ## either no missing data or use complete obs
       n_co <- n - sum(missingMask)
+
       ssd <- qpgraph:::.ssdStatsCompleteObs(X[!missingMask, ], I, Y)
       if (length(setdiff(I, i)) == 0 && !missingData && !is.null(ssdMat)) ## dspMatrix -> matrix because det() still doesn't work with Matrix classes
         ssd_i <- as.matrix(ssdMat[mapX2ssdMat[setdiff(Y, i)], mapX2ssdMat[setdiff(Y, i)], drop=FALSE])
@@ -1149,6 +1146,376 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
   RVAL
 }
 
+setGeneric("qpAllCItests", function(X, ...) standardGeneric("qpAllCItests"))
+
+setMethod("qpAllCItests", signature(X="matrix"),
+          function(X, I=NULL, Q=NULL, pairup.i=NULL, pairup.j=NULL,
+                   long.dim.are.variables=TRUE, exact.test=TRUE,
+                   use=c("complete.obs", "em"), tol=0.01, verbose=TRUE,
+                   R.code.only=FALSE, clusterSize=1, estimateTime=FALSE,
+                   nAdj2estimateTime=10) {
+
+            use <- match.arg(use)
+
+            startTime <- c(user.self=0, sys.self=0, elapsed=0, user.child=0, sys.child=0)
+            class(startTime) <- "proc_time"
+            if (estimateTime)
+              startTime <- proc.time()
+
+            if (clusterSize > 1 && R.code.only)
+              stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
+
+            if (clusterSize > 1 &&
+               (!qpgraph:::.qpIsPackageLoaded("rlecuyer") || !qpgraph:::.qpIsPackageLoaded("snow")))
+              stop("Using a cluster (clusterSize > 1) requires first loading packages 'snow' and 'rlecuyer'\n")
+
+            if (long.dim.are.variables &&
+                sort(dim(X),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
+              X <- t(X)
+
+            if (is.null(colnames(X))) 
+              colnames(X) <- 1:ncol(X)
+
+            qpgraph:::.qpAllCItests(X, I, Q, pairup.i, pairup.j,
+                                    exact.test, use, tol, verbose,
+                                    R.code.only, clusterSize,
+                                    startTime, nAdj2estimateTime)
+          })
+
+.qpAllCItests <- function(X, I=NULL, Q=NULL, pairup.i=NULL, pairup.j=NULL,
+                          exact.test=TRUE, use=c("complete.obs", "em"), tol=0.01,
+                          verbose=TRUE, R.code.only=FALSE, clusterSize=1, startTime,
+                          nAdj2estimateTime=10) {
+
+  cl <- NULL
+ 
+  if (class(clusterSize)[1] == "numeric" || class(clusterSize)[1] == "integer") {
+    if (clusterSize > 1) {
+      ## copying ShortRead's strategy, 'get()' are to quieten R CMD check, and for no other reason
+      makeCl <- get("makeCluster", mode="function")
+      clSetupRNG <- get("clusterSetupRNG", mode="function")
+      clEvalQ <- get("clusterEvalQ", mode="function")
+      clExport <- get("clusterExport", mode="function")
+      clApply <- get("clusterApply", mode="function")
+      stopCl <- get("stopCluster", mode="function")
+      clCall <- get("clusterCall", mode="function")
+      clOpt <- get("getClusterOption", mode="function")
+
+      if (startTime["elapsed"] == 0)
+        message("Testing conditional independences using a ", clOpt("type"),
+                " cluster of ", clusterSize, " nodes\n")
+      else
+        message("Estimating time of testing conditional independences using a ", clOpt("type"),
+                " cluster of ", clusterSize, " nodes\n")
+
+      cl <- makeCl(clusterSize, snowlib=system.file(package="qpgraph"))
+      clSetupRNG(cl)
+      res <- clEvalQ(cl, require(qpgraph, quietly=TRUE))
+      if (!all(unlist(res))) {
+        stopCl(cl)
+        stop("The package 'qpgraph' could not be loaded in some of the nodes of the cluster")
+      }
+      assign("clusterSize", clusterSize, envir=.GlobalEnv)
+      clExport(cl, list("clusterSize"))
+      rm("clusterSize", envir=.GlobalEnv)
+      clApply(cl, 1:clusterSize, function(x) assign("clusterRank", x, envir=.GlobalEnv))
+    }
+  } else {
+    if (!is.na(match("cluster", class(clusterSize))))
+      cl <- clusterSize
+    else
+      stop("Unknown class for argument clusterSize:", class(clusterSize))
+  }
+
+  ## X the matrix of data with columns as r.v. and rows as multivariate observations
+
+  var.names <- colnames(X)
+  n.var <- ncol(X)
+  N <- nrow(X)
+
+  ## check that the q parameter has proper values
+
+  q <- length(Q)
+
+  if (q > n.var - 2)
+    stop(paste("q=",q," > p-2=", n.var-2))
+
+  if (q < 0)
+    stop(paste("q=",q," < 0"))
+
+  if (q > N - 3)
+    stop(paste("q=",q," > n-3=",N-3))
+
+  ## check whether there are discrete variables and whether they're properly set
+
+  nLevels <- rep(NA_integer_, times=ncol(X))
+  Y <- NULL
+  if (!is.null(I)) {
+    if (is.character(I)) {
+      if (any(is.na(match(I, var.names))))
+        stop("Some variables in I do not form part of the variable names of the data in X\n")
+      I <- match(I, var.names)
+    } else {
+      if (any(is.na(match(I, 1:n.var))))
+        stop("Some variables in I do not form part of the variables of the data in X\n")
+    }
+    nLevels[I] <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
+    if (any(nLevels[I] == 1))
+      stop(sprintf("Discrete variable %s has only one level", colnames(X)[I[nLevels[I]==1]]))
+
+    Y <- (1:n.var)[-I]
+  }
+
+  if ((!is.null(pairup.i) && is.null(pairup.j)) ||
+      (is.null(pairup.i) && !is.null(pairup.j)))
+    stop("pairup.i and pairup.j should both either be set to NULL or contain subsets of variables\n")
+
+  if (is.null(pairup.i))
+    pairup.i <- 1:n.var
+  else {
+    if (is.character(pairup.i)) {
+      if (any(is.na(match(pairup.i, var.names))))
+        stop("Some variables in pairup.i do not form part of the variable names of the data in X\n")
+      pairup.i <- match(pairup.i, var.names)
+    }
+  }
+
+  if (is.null(pairup.j)) {
+    pairup.j <- 1:n.var
+    if (!is.null(I)) { ## by now, interactions between discrete variables are not considered
+        pairup.j <- (1:n.var)[-I]
+    }
+  } else {
+    if (is.character(pairup.j)) {
+      if (any(is.na(match(pairup.j, var.names))))
+        stop("Some variables in pairup.j do not form part of the variable names of the data in X\n")
+      pairup.j <- match(pairup.j, var.names)
+    }
+  }
+
+  if (!is.null(Q)) {
+    if (is.character(Q)) {
+      if (any(is.na(match(Q, var.names))))
+        stop("Some variables in Q do not form part of the variable names of the data\n")
+      Q <- match(Q, var.names)
+    } else {
+      if (any(is.na(match(Q, 1:n.var))))
+        stop("Some variables in Q do not form part of the variables of the data\n")
+    }
+
+    ## variables in Q are removed from the pairs for which nrr values are estimated
+    pairup.i <- setdiff(pairup.i, Q)
+    pairup.j <- setdiff(pairup.j, Q)
+  }
+
+  ## pair the two sets pairup.i and pairup.j without pairing the same variable
+  l.pairup.i <- length(pairup.i)
+  l.pairup.j <- length(pairup.j)
+  l.int <- length(intersect(pairup.i, pairup.j))
+  l.pairup.i.noint <- l.pairup.i - l.int
+  l.pairup.j.noint <- l.pairup.j - l.int
+  n.adj <- l.int * l.pairup.j.noint + l.int * l.pairup.i.noint +
+           l.pairup.i.noint * l.pairup.j.noint + l.int * (l.int - 1) / 2
+
+  pairup.ij.int <- intersect(pairup.i, pairup.j)
+  pairup.i.noint <- setdiff(pairup.i, pairup.ij.int)
+  pairup.j.noint <- setdiff(pairup.j, pairup.ij.int)
+
+  nrrMatrix <- NULL
+
+  if (!R.code.only) {
+    elapsedTime <- 0
+    if (startTime["elapsed"] > 0) {
+      elapsedTime <- (proc.time() - startTime)["elapsed"]
+      startTime <- proc.time()
+    }
+
+    if (is.null(cl)) { ## single-processor execution
+
+      nrrMatrix <- qpgraph:::.qpFastAllCItests(X, I, Y, Q, pairup.i.noint,
+                                               pairup.j.noint, pairup.ij.int,
+                                               exact.test, verbose,
+                                               startTime["elapsed"], nAdj2estimateTime)
+
+      if (startTime["elapsed"] == 0)
+        nrrMatrix <- new("dspMatrix", Dim=as.integer(c(n.var, n.var)),
+                         Dimnames=list(var.names, var.names), x=nrrMatrix)
+
+    } else {           ## use a cluster !
+      clCall <- get("clusterCall", mode="function")
+      nrrIdx <- list()
+      if (verbose && startTime["elapsed"] == 0) { ## no cluster progress-call when only estimating time
+        nrrIdx <- clPrCall(cl, qpgraph:::.qpFastAllCItestsPar, n.adj, X, I, Y, Q,
+                           pairup.i.noint, pairup.j.noint, pairup.ij.int,
+                           exact.test, verbose, FALSE, nAdj2estimateTime)
+      } else {
+        nrrIdx <- clCall(cl, qpgraph:::.qpFastAllCItestsPar, X, I, Y, Q,
+                         pairup.i.noint, pairup.j.noint, pairup.ij.int,
+                         exact.test, verbose, startTime["elapsed"] > 0,
+                         nAdj2estimateTime)
+      }
+
+      if (startTime["elapsed"] > 0) {
+        ## the following calculation makes important part of the estimation of the time
+        ## it assumes that the estimated time per processor is stored on the first position of 'nrr'
+        ## and uses the median of the times estimated for each processor to try to be robust against
+        ## fluctuations on the execution time taken in some processors
+        elapsedTime <- elapsedTime + median(sapply(nrrIdx, function(x) x$nrr[1]))
+        startTime <- proc.time()
+      }
+
+      if (class(clusterSize)[1] == "numeric" || class(clusterSize)[1] == "integer")
+        stopCl(cl)
+
+      nrrMatrix <- new("dspMatrix", Dim=as.integer(c(n.var, n.var)),
+                       Dimnames=list(var.names, var.names),
+                       x=rep(as.double(NA), n.var*(n.var-1)/2+n.var)) 
+      nrrMatrix@x[do.call("c", lapply(nrrIdx, function(x) x$idx))] <-
+        do.call("c", lapply(nrrIdx, function(x) x$nrr))
+
+      if (startTime["elapsed"] > 0) {
+        elapsedTime <- elapsedTime + (proc.time() - startTime)["elapsed"]
+        d <- as.vector(floor(elapsedTime / (24*3600)))
+        h <- as.vector(floor((elapsedTime-d*24*3600)/3600))
+        m <- as.vector(floor((elapsedTime-d*24*3600-h*3600)/60))
+        s <- as.vector(ceiling(elapsedTime-d*24*3600-h*3600-m*60))
+        nrrMatrix <- c(days=d, hours=h, minutes=m, seconds=s)
+      }
+    }
+
+    return(nrrMatrix)
+  }
+
+  S <- ssd <- mapX2ssd <- NULL
+  if (!is.null(I)) {  ## calculate the uncorrected sum of squares and deviations
+    ssd <- qpCov(X[, Y, drop=FALSE], corrected=FALSE)
+    mapX2ssd <- match(var.names, colnames(ssd))
+    ## names(mapX2ssd) <- colnames(X) ## is this necessary?
+  } else             ## calculate sample covariance matrix
+    S <- qpCov(X)
+
+  ## the idea is to return an efficiently stored symmetric matrix
+  nrrMatrix <- new("dspMatrix", Dim=as.integer(c(n.var, n.var)),
+                   Dimnames=list(var.names, var.names),
+                   x=rep(as.double(NA), n.var*(n.var-1)/2+n.var))
+
+  elapsedTime <- 0
+  if (startTime["elapsed"] > 0) {
+    elapsedTime <- (proc.time() - startTime)["elapsed"]
+    startTime <- proc.time()
+  }
+
+  ppct <- -1
+  k <- 0
+  pb <- NULL
+  if (verbose && elapsedTime == 0)
+    pb <- txtProgressBar(style=3)
+
+  nrr <- NA
+
+  ## intersection variables against ij-exclusive variables
+  for (i in pairup.ij.int) {
+    for (j in c(pairup.i.noint,pairup.j.noint)) {
+
+      if (is.null(I))
+        nrr <- qpgraph:::.qpCItest(S, N, i, j, Q, R.code.only=TRUE)$p.value
+      else
+        nrr <- qpgraph:::.qpCItestHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
+                                       exact.test, use, tol, R.code.only=TRUE)$p.value
+
+      nrrMatrix[j,i] <- nrrMatrix[i,j] <- nrr
+      k <- k + 1
+      if (elapsedTime > 0 && k == nAdj2estimateTime)
+        break;
+      pct <- floor((k * 100) / n.adj)
+      if (pct != ppct && verbose && elapsedTime == 0) {
+        setTxtProgressBar(pb, pct/100)
+        ppct <- pct
+      }
+    }
+    if (elapsedTime > 0 && k == nAdj2estimateTime)
+      break;
+  }
+
+  ## i-exclusive variables against j-exclusive variables
+  if (elapsedTime == 0 || k < nAdj2estimateTime) {
+    for (i in pairup.i.noint) {
+      for (j in pairup.j.noint) {
+
+        if (is.null(I))
+          nrr <- qpgraph:::.qpCItest(S, N, i, j, Q, R.code.only=TRUE)$p.value
+        else
+          nrr <- qpgraph:::.qpCItestHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
+                                         exact.test, use, tol, R.code.only=TRUE)$p.value
+
+        nrrMatrix[j,i] <- nrrMatrix[i,j] <- nrr
+        k <- k + 1
+        if (elapsedTime > 0 && k == nAdj2estimateTime)
+          break;
+        pct <- floor((k * 100) / n.adj)
+        if (pct != ppct && verbose && elapsedTime == 0) {
+          setTxtProgressBar(pb, pct/100)
+          ppct <- pct
+        }
+      }
+      if (elapsedTime > 0 && k == nAdj2estimateTime)
+        break;
+    }
+  }
+
+  ## intersection variables against themselves (avoiding pairing of the same)
+  if (elapsedTime == 0 || k < nAdj2estimateTime) {
+    for (i in 1:(l.int-1)) {
+      i2 <- pairup.ij.int[i]
+
+      for (j in (i+1):l.int) {
+        j2 <- pairup.ij.int[j]
+
+        if (is.null(I))
+          nrr <- qpgraph:::.qpCItest(S, N, i2, j2, Q, R.code.only=TRUE)$p.value
+        else
+          nrr <- qpgraph:::.qpCItestHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i2, j2, Q,
+                                         exact.test, use, tol, R.code.only=TRUE)$p.value
+
+        nrrMatrix[j2,i2] <- nrrMatrix[i2,j2] <- nrr
+        k <- k + 1
+        if (elapsedTime > 0 && k == nAdj2estimateTime)
+          break;
+        pct <- floor((k * 100) / n.adj)
+        if (pct != ppct && verbose && elapsedTime == 0) {
+          setTxtProgressBar(pb, pct/100)
+          ppct <- pct
+        }
+      }
+      if (elapsedTime > 0 && k == nAdj2estimateTime)
+        break;
+    }
+  }
+
+  if (verbose && elapsedTime == 0) {
+    close(pb)
+  }
+
+  if (elapsedTime > 0) {
+    elapsedTime <- elapsedTime + ((proc.time()-startTime)["elapsed"]/k) * n.adj
+    startTime <- proc.time()
+  }
+
+  ## this is necessary till we find out how to properly assign values in a dspMatrix
+  nrrMatrix <- as(nrrMatrix, "dspMatrix")
+
+  if (elapsedTime > 0) {
+    elapsedTime <- elapsedTime + (proc.time()-startTime)["elapsed"]
+    d <- as.vector(floor(elapsedTime / (24*3600)))
+    h <- as.vector(floor((elapsedTime-d*24*3600)/3600))
+    m <- as.vector(floor((elapsedTime-d*24*3600-h*3600)/60))
+    s <- as.vector(ceiling(elapsedTime-d*24*3600-h*3600-m*60))
+    nrrMatrix <- c(days=d, hours=h, minutes=m, seconds=s)
+  }
+
+  return(nrrMatrix)
+}
+
 
 .qpFastCItestStd <- function(S, n, i, j, Q) {
   return(.Call("qp_fast_ci_test_std", S@x, nrow(S), as.integer(n), i, j, Q))
@@ -1158,11 +1525,30 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
   return(.Call("qp_fast_ci_test_opt", S@x, nrow(S), as.integer(n), i, j, Q))
 }
 
-.qpFastCItestHMGM <- function(X, I, nLevels, Y, ssd, mapX2ssd, i, j, Q, exact.test, use) {
+.qpFastCItestHMGM <- function(X, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
+                              exact.test, use, tol) {
   x <- NULL
   if (!is.null(ssd))
     x <- ssd@x
   return(.Call("qp_fast_ci_test_hmgm", X, I, nLevels, Y, x, as.integer(mapX2ssd),
                i, j, Q, as.integer(exact.test),
-               as.integer(factor(use, levels=c("complete.obs", "em")))))
+               as.integer(factor(use, levels=c("complete.obs", "em"))), tol))
+}
+
+.qpFastAllCItests <- function(X, I, Y, Q, pairup.i.noint, pairup.j.noint,
+                              pairup.ij.int, exact.test, verbose,
+                              startTime, nAdj2estimateTime) {
+  nLevels <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
+  return(.Call("qp_fast_all_ci_tests", X, as.integer(I), as.integer(nLevels),
+                                      as.integer(Y), as.integer(Q),
+                                      as.integer(pairup.i.noint), as.integer(pairup.j.noint),
+                                      as.integer(pairup.ij.int), as.integer(exact.test),
+                                      as.integer(verbose), as.double(startTime),
+                                      as.integer(nAdj2estimateTime), .GlobalEnv))
+}
+
+.qpFastAllCItestsPar <- function(X, I, Y, Q, pairup.i.noint, pairup.j.noint,
+                                 pairup.ij.int, exact.test, verbose, startTime,
+                                 nAdj2estimateTime) {
+  stop("R.code.only=FALSE not implemented yet\n")
 }

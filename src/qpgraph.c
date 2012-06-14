@@ -177,17 +177,25 @@ qp_ci_test_opt(double* S, int n_var, int N, int i, int j, int* C, int q, double*
 
 static SEXP
 qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
-                     SEXP mapX2ssdR, SEXP iR, SEXP jR, SEXP QR, SEXP exactTest, SEXP use);
+                     SEXP mapX2ssdR, SEXP iR, SEXP jR, SEXP QR, SEXP exactTest,
+                     SEXP use, SEXP tol);
+
 static double
 qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
                 int n_Y, double* ucond_ssd, int* mapX2ucond_ssd, int i, int j,
-                int* Q, int q, int use, double* df, double* a, double* b);
+                int* Q, int q, int use, double tol, double* df, double* a, double* b);
 
 static double
 qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* XEP1q,
                     int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
                     double* ucond_ssd, int* mapX2ucond_ssd, int i, int j, int* Q,
                     int q, int use, double tol, double* df, double* a, double* b);
+
+static SEXP
+qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
+                     SEXP pairup_i_nointR, SEXP pairup_j_nointR, SEXP pairup_ij_intR,
+                     SEXP exactTest, SEXP verboseR, SEXP startTimeR,
+                     SEXP nAdj2estimateTimeR, SEXP env);
 
 boolean
 cliquer_cb_add_clique_to_list(set_t clique, graph_t* g, clique_options* opts);
@@ -315,7 +323,8 @@ callMethods[] = {
   {"qp_fast_edge_nrr_hmgm_sml", (DL_FUNC) &qp_fast_edge_nrr_hmgm_sml, 18},
   {"qp_fast_ci_test_std", (DL_FUNC) &qp_fast_ci_test_std, 6},
   {"qp_fast_ci_test_opt", (DL_FUNC) &qp_fast_ci_test_opt, 6},
-  {"qp_fast_ci_test_hmgm", (DL_FUNC) &qp_fast_ci_test_hmgm, 11},
+  {"qp_fast_ci_test_hmgm", (DL_FUNC) &qp_fast_ci_test_hmgm, 12},
+  {"qp_fast_all_ci_tests", (DL_FUNC) &qp_fast_all_ci_tests, 13},
   {"qp_fast_cliquer_get_cliques", (DL_FUNC) &qp_fast_cliquer_get_cliques, 3},
   {"qp_fast_update_cliques_removing", (DL_FUNC) &qp_fast_update_cliques_removing, 5},
   {"qp_clique_number_lb", (DL_FUNC) &qp_clique_number_lb, 4},
@@ -1836,6 +1845,365 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR,
 
 
 /*
+  FUNCTION: qp_fast_all_ci_tests
+  PURPOSE: compute for each pair of vertices indexed by the columns of the
+           matrix X one conditional independence test. Vertex pairs may be restricted
+           by using the pairup_* arguments
+  RETURNS: matrix of p-values of all the tests of conditional independence
+*/
+
+static SEXP
+qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
+                     SEXP pairup_i_nointR, SEXP pairup_j_nointR, SEXP pairup_ij_intR,
+                     SEXP exactTest, SEXP verboseR, SEXP startTimeR,
+                     SEXP nAdj2estimateTimeR, SEXP env) {
+  int     N;
+  int     n_var;
+  double* S;
+  double* ssdMat;
+  int     n_I = length(IR);
+  int     n_Y = length(YR);
+  int*    Q = NULL;
+  int     q = 0;
+  int     l_ini = length(pairup_i_nointR);
+  int     l_jni = length(pairup_j_nointR);
+  int     l_int = length(pairup_ij_intR);
+  int*    I = NULL;
+  int*    Y = NULL;
+  int*    mapX2ssd = NULL;
+  int*    pairup_i_noint = INTEGER(pairup_i_nointR);
+  int*    pairup_j_noint = INTEGER(pairup_j_nointR);
+  int*    pairup_ij_int = INTEGER(pairup_ij_intR);
+  int*    pairup_ij_noint = NULL;
+  int     i,j,k;
+  int     n_adj, pct, ppct;
+  SEXP    nrrR;
+  double* nrr;
+  double  df, a, b, lambda;
+  int     verbose;
+  double  startTime, elapsedTime;
+  int     nAdjEtime;
+  SEXP    pb=NULL;
+
+  N           = INTEGER(getAttrib(XR, R_DimSymbol))[0];
+  n_var       = INTEGER(getAttrib(XR, R_DimSymbol))[1];
+  verbose     = INTEGER(verboseR)[0];
+  startTime   = REAL(startTimeR)[0];
+  nAdjEtime   = INTEGER(nAdj2estimateTimeR)[0];
+
+  if (q > n_var-2)
+    error("q=%d > p-2=%d",q,n_var-2);
+
+  if (q < 0)
+    error("q=%d < 0",q);
+
+  if (q > N-3)
+    error("q=%d > n-3=%d", q, N-3);
+
+  if (n_I == 0) {
+    S = ssdMat = Calloc((n_var*(n_var+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
+    ssd(REAL(XR), n_var, N, NULL, n_var, NULL, N, 1, S);
+  } else {
+    I = Calloc(n_I, int);
+    for (i=0; i < n_I; i++)
+      I[i] = INTEGER(IR)[i]-1;
+
+    Y = Calloc(n_Y, int);
+    for (i=0; i < n_Y; i++)
+      Y[i] = INTEGER(YR)[i]-1;
+
+    mapX2ssd = Calloc(n_var, int);
+    for (i=0; i < n_var; i++) {
+      j = 0;
+      while (j < n_Y && i != Y[j])
+        j++;
+
+      mapX2ssd[i] = j;
+    }
+
+    S = ssdMat = Calloc((n_Y*(n_Y+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
+    ssd(REAL(XR), n_var, N, Y, n_Y, NULL, N, 1, ssdMat);
+
+  }
+
+  if (QR != R_NilValue) {
+    q = length(QR);
+    Q = Calloc(q, int);
+    for (i=0; i < q; i++)
+      Q[i] = INTEGER(QR)[i] - 1;
+  }
+
+  if (l_ini + l_jni > 0) {
+    pairup_ij_noint = Calloc(l_ini + l_jni, int);
+    Memcpy(pairup_ij_noint, pairup_i_noint, (size_t) l_ini);
+    Memcpy(pairup_ij_noint + l_ini, pairup_j_noint, (size_t) l_jni);
+  }
+
+  PROTECT(nrrR = allocVector(REALSXP, (n_var*(n_var+1))/2)); /* diagonal should be allocated */
+  nrr = REAL(nrrR);
+
+  for (i=0;i < (n_var*(n_var+1))/2;i++)
+    nrr[i] = NA_REAL;
+
+  n_adj = l_int * (l_jni + l_ini) + l_ini * l_jni + l_int * (l_int - 1) / 2;
+
+  elapsedTime = 0.0;
+  if (startTime > 0.0) {
+    SEXP procTimeR;
+    double* procTime;
+    SEXP call;
+
+    PROTECT(call = lang1(install("proc.time")));
+    PROTECT(procTimeR = eval(call, env));
+    procTime = REAL(procTimeR);
+    elapsedTime = procTime[2] - startTime;
+    startTime = procTime[2];
+    UNPROTECT(2); /* call procTimeR */
+  }
+
+  ppct = -1;
+  k = 0;
+  if (verbose && startTime == 0) {
+    SEXP s, t;
+    PROTECT(t = s = allocList(2));
+    SET_TYPEOF(s, LANGSXP);
+    SETCAR(t, install("txtProgressBar")); t=CDR(t);
+    SETCAR(t, ScalarInteger(3));
+    SET_TAG(t, install("style"));
+    PROTECT(pb = eval(s, R_GlobalEnv));
+    UNPROTECT(1); /* t s */
+  }
+
+  /* intersection variables against ij-exclusive variables */
+  for (i=0; i < l_int; i++) {
+    int i2 = pairup_ij_int[i] - 1;
+
+    for (j=0; j < l_ini + l_jni; j++) {
+      int j2 = pairup_ij_noint[j] - 1;
+
+      lambda = n_I == 0 ? qp_ci_test_std(S, n_var, N, i2, j2, Q, q, NULL) :
+                          qp_ci_test_hmgm(REAL(XR), n_var, N, I, n_I, INTEGER(n_levelsR),
+                                          Y, n_Y, ssdMat, mapX2ssd, i2, j2,
+                                          Q, q, USE_COMPLETE_OBS, 0.01, &df, &a, &b);
+
+      if (n_I == 0)
+        nrr[UTE2I(i2, j2)] = 2.0 * (1.0 - pt(fabs(lambda), N-q-2, 1, 0));
+      else {
+        if (!ISNAN(lambda)) {
+          if (INTEGER(exactTest)[0]) {
+            lambda = exp(lambda / ((double) -N));
+            nrr[UTE2I(i2, j2)] = pbeta(lambda, a, b, TRUE, FALSE);
+          } else
+            nrr[UTE2I(i2, j2)] = 1.0 - pchisq(lambda, df, TRUE, FALSE);
+        }
+      }
+
+      k++;
+      if (startTime > 0 && k == nAdjEtime)
+        break;
+      pct = (int) ((k * 100) / n_adj);
+      if (pct != ppct) {
+        if (verbose && startTime == 0) {
+          SEXP s, t;
+          PROTECT(t = s = allocList(3));
+          SET_TYPEOF(s, LANGSXP);
+          SETCAR(t, install("setTxtProgressBar")); t=CDR(t);
+          SETCAR(t, pb);
+          SET_TAG(t, install("pb")); t=CDR(t);
+          SETCAR(t, ScalarReal(((double) pct) / 100.0));
+          SET_TAG(t, install("value"));
+          eval(s, R_GlobalEnv);
+          UNPROTECT(1); /* t s */
+        }
+        R_CheckUserInterrupt();
+#ifdef Win32
+        R_ProcessEvents();
+#endif
+#ifdef HAVE_AQUA
+        R_ProcessEvents();
+#endif
+        ppct = pct;
+      }
+    }
+    if (startTime > 0 && k == nAdjEtime)
+      break;
+  }
+
+  if (l_ini + l_jni > 0)
+    Free(pairup_ij_noint);
+
+  /* i-exclusive variables against j-exclusive variables */
+  if (startTime == 0 || k < 10) {
+    for (i=0; i < l_ini; i++) {
+      int i2 = pairup_i_noint[i] - 1;
+
+      for (j=0; j < l_jni; j++) {
+        int j2 = pairup_j_noint[j] - 1;
+
+        lambda = n_I == 0 ? qp_ci_test_std(S, n_var, N, i2, j2, Q, q, NULL) :
+                            qp_ci_test_hmgm(REAL(XR), n_var, N, I, n_I, INTEGER(n_levelsR),
+                                            Y, n_Y, ssdMat, mapX2ssd, i2, j2,
+                                            Q, q, USE_COMPLETE_OBS, 0.01, &df, &a, &b);
+        if (n_I == 0)
+          nrr[UTE2I(i2, j2)] = 2.0 * (1.0 - pt(fabs(lambda), N-q-2, 1, 0));
+        else {
+          if (!ISNAN(lambda)) {
+            if (INTEGER(exactTest)[0]) {
+              lambda = exp(lambda / ((double) -N));
+              nrr[UTE2I(i2, j2)] = pbeta(lambda, a, b, TRUE, FALSE);
+            } else
+              nrr[UTE2I(i2, j2)] = 1.0 - pchisq(lambda, df, TRUE, FALSE);
+          }
+        }
+
+        k++;
+        if (startTime > 0 && k == nAdjEtime)
+          break;
+        pct = (int) ((k * 100) / n_adj);
+        if (pct != ppct) {
+          if (verbose && startTime == 0) {
+            SEXP s, t;
+            PROTECT(t = s = allocList(3));
+            SET_TYPEOF(s, LANGSXP);
+            SETCAR(t, install("setTxtProgressBar")); t=CDR(t);
+            SETCAR(t, pb);
+            SET_TAG(t, install("pb")); t=CDR(t);
+            SETCAR(t, ScalarReal(((double) pct) / 100.0));
+            SET_TAG(t, install("value"));
+            eval(s, R_GlobalEnv);
+            UNPROTECT(1); /* t s */
+          }
+          R_CheckUserInterrupt();
+#ifdef Win32
+          R_ProcessEvents();
+#endif
+#ifdef HAVE_AQUA
+          R_ProcessEvents();
+#endif
+          ppct = pct;
+        }
+      }
+      if (startTime > 0 && k == nAdjEtime)
+        break;
+    }
+  }
+
+  /* intersection variables against themselves (avoiding pairing the same) */
+  if (startTime == 0 || k < 10) {
+    for (i = 0; i < l_int-1; i++) {
+      int i2 = pairup_ij_int[i] - 1;
+
+      for (j = i+1; j < l_int; j++) {
+        int j2 = pairup_ij_int[j] - 1;
+
+        lambda = n_I == 0 ? qp_ci_test_std(S, n_var, N, i2, j2, Q, q, NULL) :
+                            qp_ci_test_hmgm(REAL(XR), n_var, N, I, n_I, INTEGER(n_levelsR),
+                                            Y, n_Y, ssdMat, mapX2ssd, i2, j2,
+                                            Q, q, USE_COMPLETE_OBS, 0.01, &df, &a, &b);
+        if (n_I == 0)
+          nrr[UTE2I(i2, j2)] = 2.0 * (1.0 - pt(fabs(lambda), N-q-2, 1, 0));
+        else {
+          if (!ISNAN(lambda)) {
+            if (INTEGER(exactTest)[0]) {
+              lambda = exp(lambda / ((double) -N));
+              nrr[UTE2I(i2, j2)] = pbeta(lambda, a, b, TRUE, FALSE);
+            } else
+              nrr[UTE2I(i2, j2)] = 1.0 - pchisq(lambda, df, TRUE, FALSE);
+          }
+        }
+
+        k++;
+        if (startTime > 0 && k == nAdjEtime)
+          break;
+        pct = (int) ((k * 100) / n_adj);
+        if (pct != ppct) {
+          if (verbose && startTime == 0) {
+            SEXP s, t;
+            PROTECT(t = s = allocList(3));
+            SET_TYPEOF(s, LANGSXP);
+            SETCAR(t, install("setTxtProgressBar")); t=CDR(t);
+            SETCAR(t, pb);
+            SET_TAG(t, install("pb")); t=CDR(t);
+            SETCAR(t, ScalarReal(((double) pct) / 100.0));
+            SET_TAG(t, install("value"));
+            eval(s, R_GlobalEnv);
+            UNPROTECT(1); /* t s */
+          }
+          R_CheckUserInterrupt();
+#ifdef Win32
+          R_ProcessEvents();
+#endif
+#ifdef HAVE_AQUA
+          R_ProcessEvents();
+#endif
+          ppct = pct;
+        }
+      }
+      if (startTime > 0 && k == nAdjEtime)
+        break;
+    }
+  }
+
+  Free(S); /* = Free(ssdMat) */
+
+  if (n_I > 0) {
+    Free(mapX2ssd);
+    Free(Y);
+    Free(I);
+  }
+
+  if (QR != R_NilValue)
+    Free(Q);
+
+  if (verbose && startTime == 0) {
+    SEXP s, t;
+    PROTECT(t = s = allocList(2));
+    SET_TYPEOF(s, LANGSXP);
+    SETCAR(t, install("close")); t=CDR(t);
+    SETCAR(t, pb);
+    eval(s, R_GlobalEnv);
+    UNPROTECT(2); /* t s pb */
+  }
+
+  UNPROTECT(1);   /* nrrR */
+
+  if (startTime > 0) {
+    SEXP procTimeR;
+    double* procTime;
+    SEXP nm;
+    int* estimatedTime;
+    SEXP call;
+
+    PROTECT(call = lang1(install("proc.time")));
+    PROTECT(procTimeR = eval(call, env));
+    procTime = REAL(procTimeR);
+    elapsedTime = elapsedTime + ((procTime[2] - startTime) / (double) k) * (double) n_adj;
+    UNPROTECT(2); /* call procTimeR */
+
+    PROTECT(nrrR = allocVector(INTSXP, 4));
+    PROTECT(nm = allocVector(STRSXP, 4));
+    estimatedTime = INTEGER(nrrR);
+    estimatedTime[0] = (int) (elapsedTime / (24.0*3600.0));
+    estimatedTime[1] = (int) ((elapsedTime - estimatedTime[0]*24.0*3600.0) / 3600.0);
+    estimatedTime[2] = (int) ((elapsedTime - estimatedTime[0]*24.0*3600.0 -
+                               estimatedTime[1]*3600.0) / 60.0);
+    estimatedTime[3] = (int) (elapsedTime - estimatedTime[0]*24.0*3600.0 -
+                              estimatedTime[1]*3600.0 - estimatedTime[2]*60.0 + 1.0);
+    SET_STRING_ELT(nm, 0, mkChar("days"));
+    SET_STRING_ELT(nm, 1, mkChar("hours"));
+    SET_STRING_ELT(nm, 2, mkChar("minutes"));
+    SET_STRING_ELT(nm, 3, mkChar("seconds"));
+    setAttrib(nrrR, R_NamesSymbol, nm);
+
+    UNPROTECT(2); /* nrrR nm */
+  }
+
+  return nrrR;
+}
+
+
+
+/*
   FUNCTION: qp_fast_ci_test_std
   PURPOSE: wrapper of the R-C interface for calling the function that performs
            a test for conditional independence between variables i and j
@@ -2310,7 +2678,8 @@ qp_ci_test_opt(double* S, int n_var, int N, int i, int j, int* Q, int q,
 
 static SEXP
 qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
-                     SEXP mapX2ssdR, SEXP iR, SEXP jR, SEXP QR, SEXP exactTestR, SEXP use) {
+                     SEXP mapX2ssdR, SEXP iR, SEXP jR, SEXP QR, SEXP exactTestR,
+                     SEXP use, SEXP tol) {
   int     n = INTEGER(getAttrib(XR, R_DimSymbol))[0];
   int     p = INTEGER(getAttrib(XR, R_DimSymbol))[1];
   int     n_I = length(IR);
@@ -2373,7 +2742,8 @@ qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
   }
 
   lambda = qp_ci_test_hmgm(REAL(XR), p, n, I, n_I, INTEGER(n_levelsR), Y, n_Y,
-                           ssd, mapX2ssd, i, j, Q, q, INTEGER(use)[0], &df, &a, &b);
+                           ssd, mapX2ssd, i, j, Q, q, INTEGER(use)[0], REAL(tol)[0],
+                           &df, &a, &b);
 
   if (!ISNAN(lambda)) {
     if (exactTest) {
@@ -2468,7 +2838,7 @@ qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
 static double
 qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
                 int n_Y, double* ucond_ssd, int* mapX2ucond_ssd, int i, int j,
-                int* Q, int q, int use, double* df, double* a, double* b) {
+                int* Q, int q, int use, double tol, double* df, double* a, double* b) {
   int     k,l;
   int     n_co=n;
   int     n_I_int = 0;
@@ -2486,6 +2856,19 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
   double* ssd_mat;
   double  x;
   double  lr = 0.0;
+
+  /* if any of (i, j) is discrete it should be i */
+  k = 0;
+  while (j != I[k] && k < n_I)
+    k++;
+
+  if (k < n_I) {
+    int tmp;
+
+    tmp = i;
+    i = j;
+    j = tmp;
+  }
 
   /* I <- intersect(I, c(i, Q)) */
   k = 0;
@@ -2600,7 +2983,7 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
 
 /*
   Rprintf("ssd:\n");
-  m = 0;
+  int m = 0;
   for (k=0; k < n_Y; k++) {
     for (l=0; l <= k; l++) {
        Rprintf("%10.6f\t", ssd_mat[m++]);
@@ -2681,6 +3064,7 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
   if (x < -DBL_DIG)
     flag_zero = TRUE;
   final_sign *= sign;
+
 /*
   Rprintf("log(det(ssd_A))=%.5f\n", symmatlogdet(ssd_mat, n_Y_i, &sign));
   Rprintf("sign(log(det(ssd_A)))=%d\n", sign);
@@ -2713,7 +3097,7 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
       Free(tmp);
     }
 
-/*    
+/*
     Rprintf("ssd_j:\n");
     m = 0;
     for (k=0; k < n_Y_j; k++) {
@@ -2723,7 +3107,7 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
       }
       Rprintf("\n");
     }
-*/    
+*/ 
 
     x = symmatlogdet(ssd_mat, n_Y_j, &sign);
     lr -= x;
@@ -2731,10 +3115,10 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
       flag_zero = TRUE;
     final_sign *= sign;
 
-    /*
+/* 
     Rprintf("log(det(ssd_A))=%.5f\n", symmatlogdet(ssd_mat, n_Y_j, &sign));
     Rprintf("sign(log(det(ssd_A)))=%d\n", sign);
-    */
+*/
 
     n_Y_ij = n_Y_j;
     k = 0;
@@ -2763,7 +3147,7 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
         Free(tmp);
       }
 
-/*      
+/*
       Rprintf("ssd_ij:\n");
       m = 0;
       for (k=0; k < n_Y_ij; k++) {
@@ -2773,7 +3157,7 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
         }
         Rprintf("\n");
       }
-*/      
+*/
 
       x = symmatlogdet(ssd_mat, n_Y_ij, &sign);
       lr += x;
@@ -2781,10 +3165,10 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
         flag_zero = TRUE;
       final_sign *= sign;
 
-      /*
+/*
       Rprintf("log(det(ssd_A))=%.5f\n", symmatlogdet(ssd_mat, n_Y_ij, &sign));
       Rprintf("sign(log(det(ssd_A)))=%d\n", sign);
-      */
+*/
     }
 
   }
@@ -3363,7 +3747,7 @@ qp_edge_nrr_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y
 */
     lambda = qp_ci_test_hmgm(X, p, n, I, n_I, n_levels, Y, n_Y, ucond_ssd,
                              mapX2ucond_ssd, i, j, (int*) (q_by_T_samples+k*q),
-                             q, USE_COMPLETE_OBS, &df, &a, &b);
+                             q, USE_COMPLETE_OBS, 0.01, &df, &a, &b);
 
     if (!ISNAN(lambda) && a > 0.0 && b > 0.0) {
       if (exactTest) {

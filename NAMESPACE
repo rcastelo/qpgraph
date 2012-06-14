@@ -21,6 +21,7 @@ exportMethods("qpNrr",
               "qpPAC",
               "qpPCC",
               "qpCItest",
+              "qpAllCItests",
               "qpEdgeNrr",
               "qpFunctionalCoherence")
 
