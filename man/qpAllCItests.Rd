@@ -9,11 +9,11 @@ Tests of conditional independence
 Performs a test of conditional independence for every pair of variables.
 }
 \usage{
-\S4method{qAllCItests}{matrix}(X, I=NULL, Q=NULL, pairup.i=NULL, pairup.j=NULL,
-                               long.dim.are.variables=TRUE, exact.test=TRUE,
-                               use=c("complete.obs", "em"), tol=0.01, verbose=TRUE,
-                               R.code.only=FALSE, clusterSize=1, estimateTime=FALSE,
-                               nAdj2estimateTime=10)
+\S4method{qpAllCItests}{matrix}(X, I=NULL, Q=NULL, pairup.i=NULL, pairup.j=NULL,
+                                long.dim.are.variables=TRUE, exact.test=TRUE,
+                                use=c("complete.obs", "em"), tol=0.01, verbose=TRUE,
+                                R.code.only=FALSE, clusterSize=1, estimateTime=FALSE,
+                                nAdj2estimateTime=10)
 }
 \arguments{
   \item{X}{data set from where to estimate the non-rejection rates.
