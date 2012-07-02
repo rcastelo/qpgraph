@@ -11,7 +11,8 @@ Performs a test of conditional independence for every pair of variables.
 \usage{
 \S4method{qpAllCItests}{matrix}(X, I=NULL, Q=NULL, pairup.i=NULL, pairup.j=NULL,
                                 long.dim.are.variables=TRUE, exact.test=TRUE,
-                                use=c("complete.obs", "em"), tol=0.01, verbose=TRUE,
+                                use=c("complete.obs", "em"), tol=0.01,
+                                return.type=c("p.value", "statn", "all"), verbose=TRUE,
                                 R.code.only=FALSE, clusterSize=1, estimateTime=FALSE,
                                 nAdj2estimateTime=10)
 }
@@ -36,6 +37,12 @@ Performs a test of conditional independence for every pair of variables.
        or \code{"em"}.}
   \item{tol}{maximum tolerance controlling the convergence of the EM algorithm employed
              when the argument \code{use="em"}.}
+  \item{return.type}{type of value returned by this function. By default \code{"p.value"}
+       indicates that a list containing a matrix of p-values from all performed conditional
+       independence (CI) tests will be returned. If \code{return.type="statn"} then a list
+       containing the matrix of the statistics and the sample sizes on each CI test, will be
+       returned. If \code{return.type="all"} then all previous matrices of values will be
+       returned within a list.}
   \item{verbose}{show progress on the calculations.}
   \item{R.code.only}{logical; if \code{FALSE} then the faster C implementation is used
        (default); if \code{TRUE} then only R code is executed.}

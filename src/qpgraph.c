@@ -34,8 +34,13 @@
 
 #define E2I(v,w) (v > w ? ((int) (((double) ( v * (v - 1))) / 2.0)) + w : ((int) (((double) (w * (w - 1))) / 2.0)) + v) 
 #define UTE2I(v,w) (v > w ? ((int) (((double) ( v * (v - 1))) / 2.0)) + w + v : ((int) (((double) (w * (w - 1))) / 2.0)) + v + w) 
+
 #define USE_COMPLETE_OBS 1
 #define USE_EM           2
+
+#define RETURN_TYPE_PVALUE 1
+#define RETURN_TYPE_STATN  2
+#define RETURN_TYPE_ALL    3
 
 /* datatype definitions */
 
@@ -182,27 +187,28 @@ qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
 
 static double
 qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
-                int n_Y, double* ucond_ssd, int* mapX2ucond_ssd, int i, int j,
-                int* Q, int q, int use, double tol, double* df, double* a, double* b);
+                int n_Y, double* ucond_ssd, int* mapX2ucond_ssd, int i, int j, int* Q,
+                int q, int use, double tol, double* df, double* a, double* b, int* n_co);
 
 static double
 qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* XEP1q,
                     int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
-                    double* ucond_ssd, int* mapX2ucond_ssd, int i, int j, int* Q,
-                    int q, int use, double tol, double* df, double* a, double* b);
+                    double* ucond_ssd, int* mapX2ucond_ssd, int i, int j, int* Q, int q,
+                    int use, double tol, double* df, double* a, double* b, int* n_co);
 
 static SEXP
 qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
                      SEXP pairup_i_nointR, SEXP pairup_j_nointR, SEXP pairup_ij_intR,
-                     SEXP exactTest, SEXP use, SEXP tol, SEXP verboseR, SEXP startTimeR,
-                     SEXP nAdj2estimateTimeR, SEXP env);
+                     SEXP exactTest, SEXP use, SEXP tol, SEXP return_type, SEXP verboseR,
+                     SEXP startTimeR, SEXP nAdj2estimateTimeR, SEXP env);
 
 static SEXP
 qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
                          SEXP pairup_i_nointR, SEXP pairup_j_nointR,
                          SEXP pairup_ij_intR, SEXP exactTest, SEXP use, SEXP tol,
-                         SEXP verboseR, SEXP startTimeR, SEXP nAdj2estimateTimeR,
-                         SEXP myRankR, SEXP clSzeR, SEXP masterNode, SEXP env);
+                         SEXP return_type, SEXP verboseR, SEXP startTimeR,
+                         SEXP nAdj2estimateTimeR, SEXP myRankR, SEXP clSzeR,
+                         SEXP masterNode, SEXP env);
 
 boolean
 cliquer_cb_add_clique_to_list(set_t clique, graph_t* g, clique_options* opts);
@@ -331,8 +337,8 @@ callMethods[] = {
   {"qp_fast_ci_test_std", (DL_FUNC) &qp_fast_ci_test_std, 6},
   {"qp_fast_ci_test_opt", (DL_FUNC) &qp_fast_ci_test_opt, 6},
   {"qp_fast_ci_test_hmgm", (DL_FUNC) &qp_fast_ci_test_hmgm, 12},
-  {"qp_fast_all_ci_tests", (DL_FUNC) &qp_fast_all_ci_tests, 15},
-  {"qp_fast_all_ci_tests_par", (DL_FUNC) &qp_fast_all_ci_tests_par, 18},
+  {"qp_fast_all_ci_tests", (DL_FUNC) &qp_fast_all_ci_tests, 16},
+  {"qp_fast_all_ci_tests_par", (DL_FUNC) &qp_fast_all_ci_tests_par, 19},
   {"qp_fast_cliquer_get_cliques", (DL_FUNC) &qp_fast_cliquer_get_cliques, 3},
   {"qp_fast_update_cliques_removing", (DL_FUNC) &qp_fast_update_cliques_removing, 5},
   {"qp_clique_number_lb", (DL_FUNC) &qp_clique_number_lb, 4},
@@ -1863,9 +1869,9 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR,
 static SEXP
 qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
                      SEXP pairup_i_nointR, SEXP pairup_j_nointR, SEXP pairup_ij_intR,
-                     SEXP exactTest, SEXP use, SEXP tol, SEXP verboseR, SEXP startTimeR,
-                     SEXP nAdj2estimateTimeR, SEXP env) {
-  int     N;
+                     SEXP exactTest, SEXP useR, SEXP tol, SEXP return_typeR, SEXP verboseR,
+                     SEXP startTimeR, SEXP nAdj2estimateTimeR, SEXP env) {
+  int     n, n_co;
   int     n_var;
   double* S;
   double* ssdMat;
@@ -1884,24 +1890,31 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
   int*    pairup_ij_int = INTEGER(pairup_ij_intR);
   int*    pairup_ij_noint = NULL;
   int     i,j,k;
-  int     n_adj, pct, ppct;
-  SEXP    nrrR;
-  double* nrr;
+  int     use, n_adj, pct, ppct;
+  int     return_type;
+  SEXP    result, result_names;
+  int     result_n;
+  SEXP    p_valuesR, statistic_valuesR, n_valuesR;
+  double* p_values = NULL;
+  double* statistic_values = NULL;
+  int*    n_values = NULL;
   double  df, a, b, lambda;
   int     verbose;
   double  startTime, elapsedTime;
   int     nAdjEtime;
   SEXP    pb=NULL;
 
-  N           = INTEGER(getAttrib(XR, R_DimSymbol))[0];
+  n           = INTEGER(getAttrib(XR, R_DimSymbol))[0];
   n_var       = INTEGER(getAttrib(XR, R_DimSymbol))[1];
   verbose     = INTEGER(verboseR)[0];
   startTime   = REAL(startTimeR)[0];
   nAdjEtime   = INTEGER(nAdj2estimateTimeR)[0];
+  use         = INTEGER(useR)[0];
+  return_type = INTEGER(return_typeR)[0];
 
   if (n_I == 0) {
     S = ssdMat = Calloc((n_var*(n_var+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-    ssd(REAL(XR), n_var, N, NULL, n_var, NULL, N, 1, S);
+    ssd(REAL(XR), n_var, n, NULL, n_var, NULL, n, 1, S);
   } else {
     I = Calloc(n_I, int);
     for (i=0; i < n_I; i++)
@@ -1921,7 +1934,7 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
     }
 
     S = ssdMat = Calloc((n_Y*(n_Y+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-    ssd(REAL(XR), n_var, N, Y, n_Y, NULL, N, 1, ssdMat);
+    ssd(REAL(XR), n_var, n, Y, n_Y, NULL, n, 1, ssdMat);
 
   }
 
@@ -1934,8 +1947,8 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
     if (q < 0)
       error("q=%d < 0",q);
 
-    if (q > N-3)
-      error("q=%d > n-3=%d", q, N-3);
+    if (q > n-3)
+      error("q=%d > n-3=%d", q, n-3);
 
     Q = Calloc(q, int);
     for (i=0; i < q; i++)
@@ -1948,11 +1961,39 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
     Memcpy(pairup_ij_noint + l_ini, pairup_j_noint, (size_t) l_jni);
   }
 
-  PROTECT(nrrR = allocVector(REALSXP, (n_var*(n_var+1))/2)); /* diagonal should be allocated */
-  nrr = REAL(nrrR);
+  /* here we assume that RETURN_TYPE_PVALUE (1 elem), RETURN_TYPE_STATN (2 elem), RETURN_TYPE_ALL (3 elem) */
+  result_n = 0;
+  PROTECT(result = allocVector(VECSXP, return_type));
+  PROTECT(result_names = allocVector(STRSXP, return_type));
 
-  for (i=0;i < (n_var*(n_var+1))/2;i++)
-    nrr[i] = NA_REAL;
+  if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_PVALUE) {
+    SET_VECTOR_ELT(result, result_n, p_valuesR = allocVector(REALSXP, (n_var*(n_var+1))/2)); /* diagonal should be allocated */
+    SET_STRING_ELT(result_names, result_n, mkChar("p.value"));
+    p_values = REAL(VECTOR_ELT(result, result_n));
+    result_n++;
+  }
+
+  if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_STATN) {
+    SET_VECTOR_ELT(result, result_n, statistic_valuesR = allocVector(REALSXP, (n_var*(n_var+1))/2)); /* diagonal should be allocated */
+    SET_STRING_ELT(result_names, result_n, mkChar("statistic"));
+    statistic_values = REAL(VECTOR_ELT(result, result_n));
+    result_n++;
+    SET_VECTOR_ELT(result, result_n, n_valuesR = allocVector(INTSXP, (n_var*(n_var+1))/2));
+    SET_STRING_ELT(result_names, result_n, mkChar("n"));
+    n_values = INTEGER(VECTOR_ELT(result, result_n));
+    result_n++;
+  }
+
+  setAttrib(result, R_NamesSymbol, result_names);
+
+  for (i=0;i < (n_var*(n_var+1))/2;i++) {
+    if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_PVALUE)  
+      p_values[i] = NA_REAL;
+    if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_STATN) {  
+      statistic_values[i] = NA_REAL;
+      n_values[i] = NA_INTEGER;
+    }
+  }
 
   n_adj = l_int * (l_jni + l_ini) + l_ini * l_jni + l_int * (l_int - 1) / 2;
 
@@ -1990,20 +2031,36 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
     for (j=0; j < l_ini + l_jni; j++) {
       int j2 = pairup_ij_noint[j] - 1;
 
-      lambda = n_I == 0 ? qp_ci_test_std(S, n_var, N, i2, j2, Q, q, NULL) :
-                          qp_ci_test_hmgm(REAL(XR), n_var, N, I, n_I, INTEGER(n_levelsR),
+      lambda = n_I == 0 ? qp_ci_test_std(S, n_var, n, i2, j2, Q, q, NULL) :
+                          qp_ci_test_hmgm(REAL(XR), n_var, n, I, n_I, INTEGER(n_levelsR),
                                           Y, n_Y, ssdMat, mapX2ssd, i2, j2,
-                                          Q, q, INTEGER(use)[0], REAL(tol)[0], &df, &a, &b);
+                                          Q, q, use, REAL(tol)[0], &df, &a, &b, &n_co);
 
-      if (n_I == 0)
-        nrr[UTE2I(i2, j2)] = 2.0 * (1.0 - pt(fabs(lambda), N-q-2, 1, 0));
-      else {
+      if (n_I == 0) {
+        if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_PVALUE)
+          p_values[UTE2I(i2, j2)] = 2.0 * (1.0 - pt(fabs(lambda), n-q-2, 1, 0));
+        if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_STATN) {
+          statistic_values[UTE2I(i2, j2)] = lambda;
+          n_values[UTE2I(i2, j2)] = n;
+        }
+      } else {
         if (!ISNAN(lambda)) {
           if (INTEGER(exactTest)[0]) {
-            lambda = exp(lambda / ((double) -N));
-            nrr[UTE2I(i2, j2)] = pbeta(lambda, a, b, TRUE, FALSE);
-          } else
-            nrr[UTE2I(i2, j2)] = 1.0 - pchisq(lambda, df, TRUE, FALSE);
+            lambda = exp(lambda / ((double) -(use == USE_EM ? n : n_co)));
+            if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_PVALUE)
+              p_values[UTE2I(i2, j2)] = pbeta(lambda, a, b, TRUE, FALSE);
+            if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_STATN) {
+              statistic_values[UTE2I(i2, j2)] = lambda;
+              n_values[UTE2I(i2, j2)] = use == USE_EM ? n : n_co;
+            }
+          } else {
+            if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_PVALUE)
+              p_values[UTE2I(i2, j2)] = 1.0 - pchisq(lambda, df, TRUE, FALSE);
+            if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_STATN) {
+              statistic_values[UTE2I(i2, j2)] = lambda;
+              n_values[UTE2I(i2, j2)] = use == USE_EM ? n : n_co;
+            }
+          }
         }
       }
 
@@ -2049,19 +2106,35 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
       for (j=0; j < l_jni; j++) {
         int j2 = pairup_j_noint[j] - 1;
 
-        lambda = n_I == 0 ? qp_ci_test_std(S, n_var, N, i2, j2, Q, q, NULL) :
-                            qp_ci_test_hmgm(REAL(XR), n_var, N, I, n_I, INTEGER(n_levelsR),
+        lambda = n_I == 0 ? qp_ci_test_std(S, n_var, n, i2, j2, Q, q, NULL) :
+                            qp_ci_test_hmgm(REAL(XR), n_var, n, I, n_I, INTEGER(n_levelsR),
                                             Y, n_Y, ssdMat, mapX2ssd, i2, j2,
-                                            Q, q, INTEGER(use)[0], REAL(tol)[0], &df, &a, &b);
-        if (n_I == 0)
-          nrr[UTE2I(i2, j2)] = 2.0 * (1.0 - pt(fabs(lambda), N-q-2, 1, 0));
-        else {
+                                            Q, q, use, REAL(tol)[0], &df, &a, &b, &n_co);
+        if (n_I == 0) {
+          if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_PVALUE)
+            p_values[UTE2I(i2, j2)] = 2.0 * (1.0 - pt(fabs(lambda), n-q-2, 1, 0));
+          if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_STATN) {
+            statistic_values[UTE2I(i2, j2)] = lambda;
+            n_values[UTE2I(i2, j2)] = n;
+          }
+        } else {
           if (!ISNAN(lambda)) {
             if (INTEGER(exactTest)[0]) {
-              lambda = exp(lambda / ((double) -N));
-              nrr[UTE2I(i2, j2)] = pbeta(lambda, a, b, TRUE, FALSE);
-            } else
-              nrr[UTE2I(i2, j2)] = 1.0 - pchisq(lambda, df, TRUE, FALSE);
+              lambda = exp(lambda / ((double) -(use == USE_EM ? n : n_co)));
+              if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_PVALUE)
+                p_values[UTE2I(i2, j2)] = pbeta(lambda, a, b, TRUE, FALSE);
+              if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_STATN) {
+                statistic_values[UTE2I(i2, j2)] = lambda;
+                n_values[UTE2I(i2, j2)] = use == USE_EM ? n : n_co;
+              }
+            } else {
+              if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_PVALUE)
+                p_values[UTE2I(i2, j2)] = 1.0 - pchisq(lambda, df, TRUE, FALSE);
+              if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_STATN) {
+                statistic_values[UTE2I(i2, j2)] = lambda;
+                n_values[UTE2I(i2, j2)] = use == USE_EM ? n : n_co;
+              }
+            }
           }
         }
 
@@ -2105,19 +2178,35 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
       for (j = i+1; j < l_int; j++) {
         int j2 = pairup_ij_int[j] - 1;
 
-        lambda = n_I == 0 ? qp_ci_test_std(S, n_var, N, i2, j2, Q, q, NULL) :
-                            qp_ci_test_hmgm(REAL(XR), n_var, N, I, n_I, INTEGER(n_levelsR),
+        lambda = n_I == 0 ? qp_ci_test_std(S, n_var, n, i2, j2, Q, q, NULL) :
+                            qp_ci_test_hmgm(REAL(XR), n_var, n, I, n_I, INTEGER(n_levelsR),
                                             Y, n_Y, ssdMat, mapX2ssd, i2, j2,
-                                            Q, q, INTEGER(use)[0], REAL(tol)[0], &df, &a, &b);
-        if (n_I == 0)
-          nrr[UTE2I(i2, j2)] = 2.0 * (1.0 - pt(fabs(lambda), N-q-2, 1, 0));
-        else {
+                                            Q, q, use, REAL(tol)[0], &df, &a, &b, &n_co);
+        if (n_I == 0) {
+          if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_PVALUE)
+            p_values[UTE2I(i2, j2)] = 2.0 * (1.0 - pt(fabs(lambda), n-q-2, 1, 0));
+          if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_STATN) {
+            statistic_values[UTE2I(i2, j2)] = lambda;
+            n_values[UTE2I(i2, j2)] = n;
+          }
+        } else {
           if (!ISNAN(lambda)) {
             if (INTEGER(exactTest)[0]) {
-              lambda = exp(lambda / ((double) -N));
-              nrr[UTE2I(i2, j2)] = pbeta(lambda, a, b, TRUE, FALSE);
-            } else
-              nrr[UTE2I(i2, j2)] = 1.0 - pchisq(lambda, df, TRUE, FALSE);
+              lambda = exp(lambda / ((double) -(use == USE_EM ? n : n_co)));
+              if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_PVALUE)
+                p_values[UTE2I(i2, j2)] = pbeta(lambda, a, b, TRUE, FALSE);
+              if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_STATN) {
+                statistic_values[UTE2I(i2, j2)] = lambda;
+                n_values[UTE2I(i2, j2)] = use == USE_EM ? n : n_co;
+              }
+            } else {
+              if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_PVALUE)
+                p_values[UTE2I(i2, j2)] = 1.0 - pchisq(lambda, df, TRUE, FALSE);
+              if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_STATN) {
+                statistic_values[UTE2I(i2, j2)] = lambda;
+                n_values[UTE2I(i2, j2)] = use == USE_EM ? n : n_co;
+              }
+            }
           }
         }
 
@@ -2174,7 +2263,7 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
     UNPROTECT(2); /* t s pb */
   }
 
-  UNPROTECT(1);   /* nrrR */
+  UNPROTECT(2);   /* result result_names */
 
   if (startTime > 0) {
     SEXP procTimeR;
@@ -2189,9 +2278,9 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
     elapsedTime = elapsedTime + ((procTime[2] - startTime) / (double) k) * (double) n_adj;
     UNPROTECT(2); /* call procTimeR */
 
-    PROTECT(nrrR = allocVector(INTSXP, 4));
+    PROTECT(result = allocVector(INTSXP, 4));
     PROTECT(nm = allocVector(STRSXP, 4));
-    estimatedTime = INTEGER(nrrR);
+    estimatedTime = INTEGER(result);
     estimatedTime[0] = (int) (elapsedTime / (24.0*3600.0));
     estimatedTime[1] = (int) ((elapsedTime - estimatedTime[0]*24.0*3600.0) / 3600.0);
     estimatedTime[2] = (int) ((elapsedTime - estimatedTime[0]*24.0*3600.0 -
@@ -2202,12 +2291,12 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
     SET_STRING_ELT(nm, 1, mkChar("hours"));
     SET_STRING_ELT(nm, 2, mkChar("minutes"));
     SET_STRING_ELT(nm, 3, mkChar("seconds"));
-    setAttrib(nrrR, R_NamesSymbol, nm);
+    setAttrib(result, R_NamesSymbol, nm);
 
-    UNPROTECT(2); /* nrrR nm */
+    UNPROTECT(2); /* result nm */
   }
 
-  return nrrR;
+  return result;
 }
 
 
@@ -2226,10 +2315,11 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
 static SEXP
 qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
                          SEXP pairup_i_nointR, SEXP pairup_j_nointR,
-                         SEXP pairup_ij_intR, SEXP exactTest, SEXP use, SEXP tol,
-                         SEXP verboseR, SEXP startTimeR, SEXP nAdj2estimateTimeR,
-                         SEXP myRankR, SEXP clSzeR, SEXP masterNode, SEXP env) {
-  int     N;
+                         SEXP pairup_ij_intR, SEXP exactTest, SEXP useR, SEXP tol,
+                         SEXP return_typeR, SEXP verboseR, SEXP startTimeR,
+                         SEXP nAdj2estimateTimeR, SEXP myRankR, SEXP clSzeR,
+                         SEXP masterNode, SEXP env) {
+  int     n, n_co;
   int     n_var;
   double* S;
   double* ssdMat;
@@ -2248,12 +2338,16 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
   int*    pairup_ij_int = INTEGER(pairup_ij_intR);
   int*    pairup_ij_noint = NULL;
   int     i,j,k;
-  int     n_adj, n_adj_this_proc, pct, ppct;
-  SEXP    nrrR, idxR;
+  int     use, n_adj, n_adj_this_proc, pct, ppct;
+  int     return_type;
   SEXP    result, result_names;
-  double* nrr;
-  double  df, a, b, lambda;
+  int     result_n;
+  SEXP    idxR, p_valuesR, statistic_valuesR, n_valuesR;
   int*    idx;
+  double* p_values = NULL;
+  double* statistic_values = NULL;
+  int*    n_values = NULL;
+  double  df, a, b, lambda;
   int     verbose;
   int     myrank;
   int     clsze;
@@ -2280,17 +2374,19 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
   LOGICAL(VECTOR_ELT(progressReport,2))[0] = TRUE;
   SET_STRING_ELT(VECTOR_ELT(progressReport,3), 0, mkChar("UPDATE"));
 
-  N         = INTEGER(getAttrib(XR, R_DimSymbol))[0];
-  n_var     = INTEGER(getAttrib(XR, R_DimSymbol))[1];
-  verbose   = INTEGER(verboseR)[0];
-  startTime = REAL(startTimeR)[0];
-  nAdjEtime = INTEGER(nAdj2estimateTimeR)[0];
-  myrank    = INTEGER(myRankR)[0];
-  clsze     = INTEGER(clSzeR)[0];
+  n           = INTEGER(getAttrib(XR, R_DimSymbol))[0];
+  n_var       = INTEGER(getAttrib(XR, R_DimSymbol))[1];
+  verbose     = INTEGER(verboseR)[0];
+  startTime   = REAL(startTimeR)[0];
+  nAdjEtime   = INTEGER(nAdj2estimateTimeR)[0];
+  use         = INTEGER(useR)[0];
+  return_type = INTEGER(return_typeR)[0];
+  myrank      = INTEGER(myRankR)[0];
+  clsze       = INTEGER(clSzeR)[0];
 
   if (n_I == 0) {
     S = ssdMat = Calloc((n_var*(n_var+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-    ssd(REAL(XR), n_var, N, NULL, n_var, NULL, N, 1, S);
+    ssd(REAL(XR), n_var, n, NULL, n_var, NULL, n, 1, S);
   } else {
     I = Calloc(n_I, int);
     for (i=0; i < n_I; i++)
@@ -2310,7 +2406,7 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
     }
 
     S = ssdMat = Calloc((n_Y*(n_Y+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-    ssd(REAL(XR), n_var, N, Y, n_Y, NULL, N, 1, ssdMat);
+    ssd(REAL(XR), n_var, n, Y, n_Y, NULL, n, 1, ssdMat);
 
   }
 
@@ -2323,8 +2419,8 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
     if (q < 0)
       error("q=%d < 0",q);
 
-    if (q > N-3)
-      error("q=%d > n-3=%d", q, N-3);
+    if (q > n-3)
+      error("q=%d > n-3=%d", q, n-3);
 
     Q = Calloc(q, int);
     for (i=0; i < q; i++)
@@ -2350,15 +2446,34 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
 
   n_adj_this_proc = lastAdj - firstAdj + 1;
 
-  PROTECT(result = allocVector(VECSXP,2));
-  SET_VECTOR_ELT(result, 0, nrrR = allocVector(REALSXP, lastAdj-firstAdj+1));
-  SET_VECTOR_ELT(result, 1, idxR = allocVector(INTSXP, lastAdj-firstAdj+1));
-  PROTECT(result_names = allocVector(STRSXP, 2));
-  SET_STRING_ELT(result_names, 0, mkChar("nrr"));
-  SET_STRING_ELT(result_names, 1, mkChar("idx"));
+  /* here we assume that RETURN_TYPE_PVALUE (1 elem), RETURN_TYPE_STATN (2 elem), RETURN_TYPE_ALL (3 elem) */
+  result_n = 0;
+  PROTECT(result = allocVector(VECSXP, return_type+1));
+  PROTECT(result_names = allocVector(STRSXP, return_type+1));
+  SET_VECTOR_ELT(result, result_n, idxR = allocVector(INTSXP, lastAdj-firstAdj+1));
+  SET_STRING_ELT(result_names, result_n, mkChar("idx"));
+  idx = INTEGER(VECTOR_ELT(result, result_n));
+  result_n++;
+
+  if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_PVALUE || startTime > 0) {
+    SET_VECTOR_ELT(result, result_n, p_valuesR = allocVector(REALSXP, lastAdj-firstAdj+1));
+    SET_STRING_ELT(result_names, result_n, mkChar("p.value"));
+    p_values = REAL(VECTOR_ELT(result, result_n));
+    result_n++;
+  }
+
+  if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_STATN) {
+    SET_VECTOR_ELT(result, result_n, statistic_valuesR = allocVector(REALSXP, lastAdj-firstAdj+1));
+    SET_STRING_ELT(result_names, result_n, mkChar("statistic"));
+    statistic_values = REAL(VECTOR_ELT(result, result_n));
+    result_n++;
+    SET_VECTOR_ELT(result, result_n, n_valuesR = allocVector(INTSXP, lastAdj-firstAdj+1));
+    SET_STRING_ELT(result_names, result_n, mkChar("n"));
+    n_values = INTEGER(VECTOR_ELT(result, result_n));
+    result_n++;
+  }
+
   setAttrib(result, R_NamesSymbol, result_names);
-  nrr = REAL(VECTOR_ELT(result, 0));
-  idx = INTEGER(VECTOR_ELT(result, 1));
 
   elapsedTime = 0.0;
   if (startTime > 0.0) {
@@ -2392,23 +2507,38 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
       for (j=j_first; j < l_ini + l_jni && k <= lastAdj; j++) {
         int j2 = pairup_ij_noint[j] - 1;
 
-        lambda = n_I == 0 ? qp_ci_test_std(S, n_var, N, i2, j2, Q, q, NULL) :
-                            qp_ci_test_hmgm(REAL(XR), n_var, N, I, n_I,
+        lambda = n_I == 0 ? qp_ci_test_std(S, n_var, n, i2, j2, Q, q, NULL) :
+                            qp_ci_test_hmgm(REAL(XR), n_var, n, I, n_I,
                                             INTEGER(n_levelsR), Y, n_Y,
                                             ssdMat, mapX2ssd, i2, j2, Q, q,
-                                            INTEGER(use)[0], REAL(tol)[0],
-                                            &df, &a, &b);
+                                            use, REAL(tol)[0], &df, &a, &b, &n_co);
         idx[k-firstAdj] = UTE2I(i2, j2) + 1;
 
-        if (n_I == 0)
-          nrr[k-firstAdj] = 2.0 * (1.0 - pt(fabs(lambda), N-q-2, 1, 0));
-        else {
+        if (n_I == 0) {
+          if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_PVALUE)
+            p_values[k-firstAdj] = 2.0 * (1.0 - pt(fabs(lambda), n-q-2, 1, 0));
+          if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_STATN) {
+            statistic_values[k-firstAdj] = lambda;
+            n_values[k-firstAdj] = n;
+          }
+        } else {
           if (!ISNAN(lambda)) {
             if (INTEGER(exactTest)[0]) {
-              lambda = exp(lambda / ((double) -N));
-              nrr[k-firstAdj] = pbeta(lambda, a, b, TRUE, FALSE);
-            } else
-              nrr[k-firstAdj] = 1.0 - pchisq(lambda, df, TRUE, FALSE);
+              lambda = exp(lambda / ((double) -(use == USE_EM ? n : n_co)));
+              if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_PVALUE)
+                p_values[k-firstAdj] = pbeta(lambda, a, b, TRUE, FALSE);
+              if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_STATN) {
+                statistic_values[k-firstAdj] = lambda;
+                n_values[k-firstAdj] = use == USE_EM ? n : n_co;
+              }
+            } else {
+              if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_PVALUE)
+                p_values[k-firstAdj] = 1.0 - pchisq(lambda, df, TRUE, FALSE);
+              if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_STATN) {
+                statistic_values[k-firstAdj] = lambda;
+                n_values[k-firstAdj] = use == USE_EM ? n : n_co;
+              }
+            }
           }
         }
 
@@ -2454,23 +2584,38 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
       for (j=j_first; j < l_jni && k <= lastAdj; j++) {
         int j2 = pairup_j_noint[j] - 1;
 
-        lambda = n_I == 0 ? qp_ci_test_std(S, n_var, N, i2, j2, Q, q, NULL) :
-                            qp_ci_test_hmgm(REAL(XR), n_var, N, I, n_I,
+        lambda = n_I == 0 ? qp_ci_test_std(S, n_var, n, i2, j2, Q, q, NULL) :
+                            qp_ci_test_hmgm(REAL(XR), n_var, n, I, n_I,
                                             INTEGER(n_levelsR), Y, n_Y,
                                             ssdMat, mapX2ssd, i2, j2, Q, q,
-                                            INTEGER(use)[0], REAL(tol)[0],
-                                            &df, &a, &b);
+                                            use, REAL(tol)[0], &df, &a, &b, &n_co);
         idx[k-firstAdj] = UTE2I(i2, j2) + 1;
 
-        if (n_I == 0)
-          nrr[k-firstAdj] = 2.0 * (1.0 - pt(fabs(lambda), N-q-2, 1, 0));
-        else {
+        if (n_I == 0) {
+          if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_PVALUE)
+            p_values[k-firstAdj] = 2.0 * (1.0 - pt(fabs(lambda), n-q-2, 1, 0));
+          if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_STATN) {
+            statistic_values[k-firstAdj] = lambda;
+            n_values[k-firstAdj] = n;
+          }
+        } else {
           if (!ISNAN(lambda)) {
             if (INTEGER(exactTest)[0]) {
-              lambda = exp(lambda / ((double) -N));
-              nrr[k-firstAdj] = pbeta(lambda, a, b, TRUE, FALSE);
-            } else
-              nrr[k-firstAdj] = 1.0 - pchisq(lambda, df, TRUE, FALSE);
+              lambda = exp(lambda / ((double) -(use == USE_EM ? n : n_co)));
+              if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_PVALUE)
+                p_values[k-firstAdj] = pbeta(lambda, a, b, TRUE, FALSE);
+              if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_STATN) {
+                statistic_values[k-firstAdj] = lambda;
+                n_values[k-firstAdj] = use == USE_EM ? n : n_co;
+              }
+            } else {
+              if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_PVALUE)
+                p_values[k-firstAdj] = 1.0 - pchisq(lambda, df, TRUE, FALSE);
+              if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_STATN) {
+                statistic_values[k-firstAdj] = lambda;
+                n_values[k-firstAdj] = use == USE_EM ? n : n_co;
+              }
+            }
           }
         }
 
@@ -2513,24 +2658,40 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
       i2 = pairup_ij_int[i] - 1;
       j2 = pairup_ij_int[j] - 1;
 
-      lambda = n_I == 0 ? qp_ci_test_std(S, n_var, N, i2, j2, Q, q, NULL) :
-                          qp_ci_test_hmgm(REAL(XR), n_var, N, I, n_I,
+      lambda = n_I == 0 ? qp_ci_test_std(S, n_var, n, i2, j2, Q, q, NULL) :
+                          qp_ci_test_hmgm(REAL(XR), n_var, n, I, n_I,
                                           INTEGER(n_levelsR), Y, n_Y,
                                           ssdMat, mapX2ssd, i2, j2, Q, q,
-                                          INTEGER(use)[0], REAL(tol)[0],
-                                          &df, &a, &b);
+                                          use, REAL(tol)[0],
+                                          &df, &a, &b, &n_co);
 
       idx[k-firstAdj] = UTE2I(i2, j2) + 1;
 
-      if (n_I == 0)
-        nrr[k-firstAdj] = 2.0 * (1.0 - pt(fabs(lambda), N-q-2, 1, 0));
-      else {
+      if (n_I == 0) {
+        if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_PVALUE)
+          p_values[k-firstAdj] = 2.0 * (1.0 - pt(fabs(lambda), n-q-2, 1, 0));
+        if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_STATN) {
+          statistic_values[k-firstAdj] = lambda;
+          n_values[k-firstAdj] = n;
+         }
+      } else {
         if (!ISNAN(lambda)) {
           if (INTEGER(exactTest)[0]) {
-            lambda = exp(lambda / ((double) -N));
-            nrr[k-firstAdj] = pbeta(lambda, a, b, TRUE, FALSE);
-          } else
-            nrr[k-firstAdj] = 1.0 - pchisq(lambda, df, TRUE, FALSE);
+            lambda = exp(lambda / ((double) -(use == USE_EM ? n : n_co)));
+            if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_PVALUE)
+             p_values[k-firstAdj] = pbeta(lambda, a, b, TRUE, FALSE);
+            if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_STATN) {
+              statistic_values[k-firstAdj] = lambda;
+              n_values[k-firstAdj] = use == USE_EM ? n : n_co;
+            }
+          } else {
+            if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_PVALUE)
+              p_values[k-firstAdj] = 1.0 - pchisq(lambda, df, TRUE, FALSE);
+            if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_STATN) {
+              statistic_values[k-firstAdj] = lambda;
+              n_values[k-firstAdj] = use == USE_EM ? n : n_co;
+            }
+          }
         }
       }
 
@@ -2579,7 +2740,7 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
     elapsedTime = elapsedTime + ((procTime[2] - startTime) / (double) (k-firstAdj)) * (double) n_adj_this_proc;
     UNPROTECT(2); /* call procTimeR */
 
-    nrr[0] = elapsedTime; /* store in the first position of the nrr vector the estimated time */
+    p_values[0] = elapsedTime; /* store in the first position of the p_values vector the estimated time */
   }
 
   UNPROTECT(4);   /* result result_names progressReport progressReport_names */
@@ -3071,7 +3232,7 @@ qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
   int     n_I = length(IR);
   int     n_Y = length(YR);
   int     q = length(QR);
-  int     i,j,k;
+  int     i,j,k, n_co;
   int     exactTest = INTEGER(exactTestR)[0];
   int*    I;
   int*    Y;
@@ -3129,20 +3290,20 @@ qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
 
   lambda = qp_ci_test_hmgm(REAL(XR), p, n, I, n_I, INTEGER(n_levelsR), Y, n_Y,
                            ssd, mapX2ssd, i, j, Q, q, INTEGER(use)[0], REAL(tol)[0],
-                           &df, &a, &b);
+                           &df, &a, &b, &n_co);
 
   if (!ISNAN(lambda)) {
     if (exactTest) {
-      lambda = exp(lambda / ((double) -n));
+      lambda = exp(lambda / ((double) -(INTEGER(use)[0] == USE_EM ? n : n_co)));
       p_value = pbeta(lambda, a, b, TRUE, FALSE);
     } else
       p_value = 1.0 - pchisq(lambda, df, TRUE, FALSE);
   }
 
   PROTECT(result = allocVector(VECSXP,8));
-  SET_VECTOR_ELT(result,0,result_stat = allocVector(REALSXP,1));
-  SET_VECTOR_ELT(result,1,result_param = allocVector(REALSXP,exactTest ? 2 : 1));
-  SET_VECTOR_ELT(result,2,result_p_val = allocVector(REALSXP,1));
+  SET_VECTOR_ELT(result,0,result_stat = allocVector(REALSXP, 1));
+  SET_VECTOR_ELT(result,1,result_param = allocVector(REALSXP, exactTest ? 3 : 2));
+  SET_VECTOR_ELT(result,2,result_p_val = allocVector(REALSXP, 1));
   SET_VECTOR_ELT(result,3,R_NilValue); /* no estimated parameter, could be h = mu x Sigma^{-1} */
   SET_VECTOR_ELT(result,4,allocVector(REALSXP,1));
   SET_VECTOR_ELT(result,5,allocVector(STRSXP, 1));
@@ -3164,16 +3325,20 @@ qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
   SET_STRING_ELT(stat_name,0,exactTest ? mkChar("Lambda") : mkChar("-n log Lambda"));
   setAttrib(VECTOR_ELT(result,0),R_NamesSymbol,stat_name);
 
-  PROTECT(param_name = allocVector(STRSXP,exactTest ? 2 : 1));
+  PROTECT(param_name = allocVector(STRSXP, exactTest ? 3 : 2));
   if (exactTest) {
     REAL(VECTOR_ELT(result,1))[0] = a;
     REAL(VECTOR_ELT(result,1))[1] = b;
+    REAL(VECTOR_ELT(result,1))[2] = INTEGER(use)[0] == USE_EM ? n : n_co;
     SET_STRING_ELT(param_name,0,mkChar("a"));
     SET_STRING_ELT(param_name,1,mkChar("b"));
+    SET_STRING_ELT(param_name,2,mkChar("n"));
     setAttrib(VECTOR_ELT(result,1),R_NamesSymbol,param_name);
   } else {
     REAL(VECTOR_ELT(result,1))[0] = df;
+    REAL(VECTOR_ELT(result,1))[1] = INTEGER(use)[0] == USE_EM ? n : n_co;
     SET_STRING_ELT(param_name,0,mkChar("df"));
+    SET_STRING_ELT(param_name,1,mkChar("n"));
     setAttrib(VECTOR_ELT(result,1),R_NamesSymbol,param_name);
   }
 
@@ -3224,9 +3389,9 @@ qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
 static double
 qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
                 int n_Y, double* ucond_ssd, int* mapX2ucond_ssd, int i, int j,
-                int* Q, int q, int use, double tol, double* df, double* a, double* b) {
+                int* Q, int q, int use, double tol, double* df, double* a,
+                double* b, int* n_co) {
   int     k,l;
-  int     n_co=n;
   int     n_I_int = 0;
   int     n_Y_int = 0;
   int     n_I_i, n_Y_i, n_Y_j, n_Y_ij;
@@ -3242,6 +3407,8 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
   double* ssd_mat;
   double  x;
   double  lr = 0.0;
+
+  *n_co = n;
 
   /* if any of (i, j) is discrete it should be i */
   k = 0;
@@ -3354,7 +3521,7 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
 
   if (n_I > 0 || ucond_ssd == NULL) {
     idx_misobs = Calloc(n, int);
-    ssd_A(X, p, n, I, n_I, n_levels, Y, n_Y, NULL, ssd_mat, &n_co, idx_misobs);
+    ssd_A(X, p, n, I, n_I, n_levels, Y, n_Y, NULL, ssd_mat, n_co, idx_misobs);
   } else {
     int* tmp;
 
@@ -3567,10 +3734,10 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
   if (flag_zero || final_sign == -1)
     lr = R_NaN;
   else
-    lr = lr * ((double) -n);
+    lr = lr * ((double) -(*n_co));
 
   *df = 1.0;
-  *a = ((double) (n_co - n_Y - n_joint_levels + 1)) / 2.0; /* by now complete.obs w/ missing data */
+  *a = ((double) (*n_co - n_Y - n_joint_levels + 1)) / 2.0; /* by now complete.obs w/ missing data */
   if (mixed_edge) {
     *df = ((double) (n_joint_levels_i * (n_levels_i - 1)));
     *b = *df / 2.0;
@@ -3596,10 +3763,9 @@ static double
 qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* XEP1q,
                     int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
                     double* ucond_ssd, int* mapX2ucond_ssd, int i, int j, int* Q, int q,
-                    int use, double tol, double* df, double* a, double* b) {
+                    int use, double tol, double* df, double* a, double* b, int* n_co) {
   int     nChr = length(Xsml);
   int     k,l;
-  int     n_co = n;
   int*    I_int;
   int     n_I_int = 0;
   int     n_Y_int = 0;
@@ -3618,6 +3784,8 @@ qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* X
   double* ssd_mat;
   double  x;
   double  lr = 0.0;
+
+  *n_co = n;
 
   /* assume if any of (i, j) is discrete is always i */
 
@@ -3765,7 +3933,7 @@ qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* X
 
   if (n_I_int > 0 || ucond_ssd == NULL) {
     idx_misobs = Calloc(n, int);
-    ssd_A(XEP1q, p+s1q, n, I_int, n_I_int, n_levels_int, Y, n_Y, NULL, ssd_mat, &n_co, idx_misobs);
+    ssd_A(XEP1q, p+s1q, n, I_int, n_I_int, n_levels_int, Y, n_Y, NULL, ssd_mat, n_co, idx_misobs);
   } else {
     int* tmp;
 
@@ -3978,10 +4146,10 @@ qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* X
   if (flag_zero || final_sign == -1)
     lr = R_NaN;
   else
-    lr = lr * ((double) -n);
+    lr = lr * ((double) -(*n_co));
 
   *df = 1.0;
-  *a = ((double) (n_co - n_Y - n_joint_levels + 1)) / 2.0; /* by now complete.obs w/ missing data */
+  *a = ((double) (*n_co - n_Y - n_joint_levels + 1)) / 2.0; /* by now complete.obs w/ missing data */
   if (mixed_edge) {
     *df = ((double) (n_joint_levels_i * (n_levels_i - 1)));
     *b = *df / 2.0;
@@ -4095,7 +4263,7 @@ qp_edge_nrr_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y
   double thr=-1.0;
   double prev_thr, prev_df, prev_a, prev_b;
   int*   q_by_T_samples;
-  int    k;
+  int    k, n_co;
   int    nAcceptedTests = 0;
   int    nActualTests = 0;
   int*   problematicQ = NULL;
@@ -4133,7 +4301,7 @@ qp_edge_nrr_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y
 */
     lambda = qp_ci_test_hmgm(X, p, n, I, n_I, n_levels, Y, n_Y, ucond_ssd,
                              mapX2ucond_ssd, i, j, (int*) (q_by_T_samples+k*q),
-                             q, USE_COMPLETE_OBS, 0.01, &df, &a, &b);
+                             q, USE_COMPLETE_OBS, 0.01, &df, &a, &b, &n_co);
 
     if (!ISNAN(lambda) && a > 0.0 && b > 0.0) {
       if (exactTest) {
@@ -4209,7 +4377,7 @@ qp_edge_nrr_hmgm_sml(SEXP X, int* cumsum_sByChr, int s, int gLevels, double* XEP
   double thr=-1.0;
   double prev_thr, prev_df, prev_a, prev_b;
   int*   q_by_T_samples;
-  int    k;
+  int    k, n_co;
   int    nAcceptedTests = 0;
   int    nActualTests = 0;
   int*   problematicQ = NULL;
@@ -4251,7 +4419,7 @@ qp_edge_nrr_hmgm_sml(SEXP X, int* cumsum_sByChr, int s, int gLevels, double* XEP
     lambda = qp_ci_test_hmgm_sml(X, cumsum_sByChr, s, gLevels, XEP1q, p, n, I, n_I,
                                  n_levels, Y, n_Y, ucond_ssd, mapX2ucond_ssd, i, j,
                                  (int*) (q_by_T_samples+k*q), q, USE_COMPLETE_OBS,
-                                 0.01, &df, &a, &b);
+                                 0.01, &df, &a, &b, &n_co);
 
     if (!ISNAN(lambda) && a > 0.0 && b > 0.0) {
       if (exactTest) {

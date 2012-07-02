@@ -988,6 +988,10 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
 .qpCItestHMGM <- function(X, I, nLevels, Y, ssdMat, mapX2ssdMat, i, j, Q,
                           exact.test=TRUE, use=c("complete.obs", "em"), tol=0.01,
                           R.code.only=FALSE ) {
+
+  if (use == "em" && !R.code.only)
+    stop("use=\"em\" does not work yet with R.code.only=FALSE\n")
+ 
   if (!is.null(ssdMat)) {
     p <- (d <- dim(ssdMat))[1]
     if (p != d[2] || !isSymmetric(ssdMat))
@@ -1114,7 +1118,7 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
       }
       stat <- lr
       names(stat) <- "Lambda"
-      param <- c(a=a, b=b)
+      param <- c(a=a, b=b, n=ifelse(use == "em", n, n_co))
       n.value <- c("Lambda" = 1)
       method  <- "Conditional independence test for homogeneous mixed data using an exact likelihood ratio test"
       alt <- "less"
@@ -1125,7 +1129,7 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
         df <- prod(nLevels[DeltaStar])*(nLevels[intersect(Delta, c(i, j))]-1)
       stat <- lr
       names(stat) <- "-n log Lambda"
-      param <- c(df=df)
+      param <- c(df=df, n=ifelse(use == "em", n, n_co))
       p.value <- c(greater = 1 - pchisq(lr, df=df, lower.tail=TRUE))
       n.value <- c("-n log Lambda" = 0)
       method  <- "Conditional independence test for homogeneous mixed data using an asymptotic likelihood ratio test"
@@ -1151,11 +1155,12 @@ setGeneric("qpAllCItests", function(X, ...) standardGeneric("qpAllCItests"))
 setMethod("qpAllCItests", signature(X="matrix"),
           function(X, I=NULL, Q=NULL, pairup.i=NULL, pairup.j=NULL,
                    long.dim.are.variables=TRUE, exact.test=TRUE,
-                   use=c("complete.obs", "em"), tol=0.01, verbose=TRUE,
-                   R.code.only=FALSE, clusterSize=1, estimateTime=FALSE,
+                   use=c("complete.obs", "em"), tol=0.01, return.type=c("p.value", "statn", "all"),
+                   verbose=TRUE, R.code.only=FALSE, clusterSize=1, estimateTime=FALSE,
                    nAdj2estimateTime=10) {
 
             use <- match.arg(use)
+            return.type <-  match.arg(return.type)
 
             startTime <- c(user.self=0, sys.self=0, elapsed=0, user.child=0, sys.child=0)
             class(startTime) <- "proc_time"
@@ -1177,17 +1182,20 @@ setMethod("qpAllCItests", signature(X="matrix"),
               colnames(X) <- 1:ncol(X)
 
             qpgraph:::.qpAllCItests(X, I, Q, pairup.i, pairup.j,
-                                    exact.test, use, tol, verbose,
-                                    R.code.only, clusterSize,
+                                    exact.test, use, tol, return.type,
+                                    verbose, R.code.only, clusterSize,
                                     startTime, nAdj2estimateTime)
           })
 
 .qpAllCItests <- function(X, I=NULL, Q=NULL, pairup.i=NULL, pairup.j=NULL,
                           exact.test=TRUE, use=c("complete.obs", "em"), tol=0.01,
-                          verbose=TRUE, R.code.only=FALSE, clusterSize=1, startTime,
-                          nAdj2estimateTime=10) {
+                          return.type=c("p.value", "statn", "all"), verbose=TRUE,
+                          R.code.only=FALSE, clusterSize=1, startTime, nAdj2estimateTime=10) {
 
   cl <- NULL
+
+  if (use == "em" && !R.code.only)
+    stop("use=\"em\" does not work yet with R.code.only=FALSE\n")
  
   if (class(clusterSize)[1] == "numeric" || class(clusterSize)[1] == "integer") {
     if (clusterSize > 1) {
@@ -1303,7 +1311,7 @@ setMethod("qpAllCItests", signature(X="matrix"),
         stop("Some variables in Q do not form part of the variables of the data\n")
     }
 
-    ## variables in Q are removed from the pairs for which nrr values are estimated
+    ## variables in Q are removed from the pairs for which CI tests are performed
     pairup.i <- setdiff(pairup.i, Q)
     pairup.j <- setdiff(pairup.j, Q)
   }
@@ -1321,7 +1329,7 @@ setMethod("qpAllCItests", signature(X="matrix"),
   pairup.i.noint <- setdiff(pairup.i, pairup.ij.int)
   pairup.j.noint <- setdiff(pairup.j, pairup.ij.int)
 
-  nrrMatrix <- NULL
+  pvstatn <- list(p.value=NA, statistic=NA, n=NA)
 
   if (!R.code.only) {
     elapsedTime <- 0
@@ -1332,46 +1340,72 @@ setMethod("qpAllCItests", signature(X="matrix"),
 
     if (is.null(cl)) { ## single-processor execution
 
-      nrrMatrix <- qpgraph:::.qpFastAllCItests(X, I, Y, Q, pairup.i.noint,
-                                               pairup.j.noint, pairup.ij.int,
-                                               exact.test, use, tol, verbose,
-                                               startTime["elapsed"], nAdj2estimateTime)
+      cit <- qpgraph:::.qpFastAllCItests(X, I, Y, Q, pairup.i.noint,
+                                         pairup.j.noint, pairup.ij.int,
+                                         exact.test, use, tol, return.type, verbose,
+                                         startTime["elapsed"], nAdj2estimateTime)
 
-      if (startTime["elapsed"] == 0)
-        nrrMatrix <- new("dspMatrix", Dim=as.integer(c(n.var, n.var)),
-                         Dimnames=list(var.names, var.names), x=nrrMatrix)
+      if (startTime["elapsed"] == 0) {
+        if (return.type == "all" || return.type == "p.value") {
+          pvstatn$p.value <- new("dspMatrix", Dim=as.integer(c(n.var, n.var)),
+                                 Dimnames=list(var.names, var.names), x=cit$p.value)
+        }
+        if (return.type == "all" || return.type == "statn") {
+          pvstatn$statistic <- new("dspMatrix", Dim=as.integer(c(n.var, n.var)),
+                                   Dimnames=list(var.names, var.names), x=cit$statistic)
+          pvstatn$n <- new("dspMatrix", Dim=as.integer(c(n.var, n.var)),
+                           Dimnames=list(var.names, var.names), x=as.numeric(cit$n))
+        }
+      } else ## completion time estimation comes directly as a vector
+        pvstatn <- cit
 
     } else {           ## use a cluster !
       clCall <- get("clusterCall", mode="function")
-      nrrIdx <- list()
+      valIdx <- list()
       if (verbose && startTime["elapsed"] == 0) { ## no cluster progress-call when only estimating time
-        nrrIdx <- clPrCall(cl, qpgraph:::.qpFastAllCItestsPar, n.adj, X, I, Y, Q,
+        valIdx <- clPrCall(cl, qpgraph:::.qpFastAllCItestsPar, n.adj, X, I, Y, Q,
                            pairup.i.noint, pairup.j.noint, pairup.ij.int,
-                           exact.test, use, tol, verbose, FALSE, nAdj2estimateTime)
+                           exact.test, use, tol, return.type, verbose, FALSE, nAdj2estimateTime)
       } else {
-        nrrIdx <- clCall(cl, qpgraph:::.qpFastAllCItestsPar, X, I, Y, Q,
+        valIdx <- clCall(cl, qpgraph:::.qpFastAllCItestsPar, X, I, Y, Q,
                          pairup.i.noint, pairup.j.noint, pairup.ij.int,
-                         exact.test, use, tol, verbose, startTime["elapsed"] > 0,
+                         exact.test, use, tol, return.type, verbose, startTime["elapsed"] > 0,
                          nAdj2estimateTime)
       }
 
       if (startTime["elapsed"] > 0) {
         ## the following calculation makes important part of the estimation of the time
-        ## it assumes that the estimated time per processor is stored on the first position of 'nrr'
+        ## it assumes that the estimated time per processor is stored on the first position of 'p.value'
         ## and uses the median of the times estimated for each processor to try to be robust against
         ## fluctuations on the execution time taken in some processors
-        elapsedTime <- elapsedTime + median(sapply(nrrIdx, function(x) x$nrr[1]))
+        elapsedTime <- elapsedTime + median(sapply(valIdx, function(x) x$p.value[1]))
         startTime <- proc.time()
       }
 
       if (class(clusterSize)[1] == "numeric" || class(clusterSize)[1] == "integer")
         stopCl(cl)
 
-      nrrMatrix <- new("dspMatrix", Dim=as.integer(c(n.var, n.var)),
-                       Dimnames=list(var.names, var.names),
-                       x=rep(as.double(NA), n.var*(n.var-1)/2+n.var)) 
-      nrrMatrix@x[do.call("c", lapply(nrrIdx, function(x) x$idx))] <-
-        do.call("c", lapply(nrrIdx, function(x) x$nrr))
+        if (return.type == "all" || return.type == "p.value") {
+          pvstatn$p.value <- new("dspMatrix", Dim=as.integer(c(n.var, n.var)),
+                                 Dimnames=list(var.names, var.names),
+                                 x=rep(as.double(NA), n.var*(n.var-1)/2+n.var)) 
+          pvstatn$p.value@x[do.call("c", lapply(valIdx, function(x) x$idx))] <-
+            do.call("c", lapply(valIdx, function(x) x$p.value))
+        }
+
+        if (return.type == "all" || return.type == "statn") {
+          pvstatn$statistic <- new("dspMatrix", Dim=as.integer(c(n.var, n.var)),
+                                   Dimnames=list(var.names, var.names),
+                                   x=rep(as.double(NA), n.var*(n.var-1)/2+n.var)) 
+          pvstatn$statistic@x[do.call("c", lapply(valIdx, function(x) x$idx))] <-
+            do.call("c", lapply(valIdx, function(x) x$statistic))
+
+          pvstatn$n <- new("dspMatrix", Dim=as.integer(c(n.var, n.var)),
+                           Dimnames=list(var.names, var.names),
+                           x=rep(as.double(NA), n.var*(n.var-1)/2+n.var)) 
+          pvstatn$n@x[do.call("c", lapply(valIdx, function(x) x$idx))] <-
+            do.call("c", lapply(valIdx, function(x) as.numeric(x$n)))
+        }
 
       if (startTime["elapsed"] > 0) {
         elapsedTime <- elapsedTime + (proc.time() - startTime)["elapsed"]
@@ -1379,11 +1413,11 @@ setMethod("qpAllCItests", signature(X="matrix"),
         h <- as.vector(floor((elapsedTime-d*24*3600)/3600))
         m <- as.vector(floor((elapsedTime-d*24*3600-h*3600)/60))
         s <- as.vector(ceiling(elapsedTime-d*24*3600-h*3600-m*60))
-        nrrMatrix <- c(days=d, hours=h, minutes=m, seconds=s)
+        pvstatn <- c(days=d, hours=h, minutes=m, seconds=s)
       }
     }
 
-    return(nrrMatrix)
+    return(pvstatn)
   }
 
   S <- ssd <- mapX2ssd <- NULL
@@ -1394,10 +1428,21 @@ setMethod("qpAllCItests", signature(X="matrix"),
   } else             ## calculate sample covariance matrix
     S <- qpCov(X)
 
-  ## the idea is to return an efficiently stored symmetric matrix
-  nrrMatrix <- new("dspMatrix", Dim=as.integer(c(n.var, n.var)),
-                   Dimnames=list(var.names, var.names),
-                   x=rep(as.double(NA), n.var*(n.var-1)/2+n.var))
+  ## return an efficiently stored symmetric matrix
+  if (return.type == "all" || return.type == "p.value") {
+    pvstatn$p.value <- new("dspMatrix", Dim=as.integer(c(n.var, n.var)),
+                           Dimnames=list(var.names, var.names),
+                           x=rep(as.double(NA), n.var*(n.var-1)/2+n.var))
+  }
+
+  if (return.type == "all" || return.type == "statn") {
+    pvstatn$statistic <- new("dspMatrix", Dim=as.integer(c(n.var, n.var)),
+                             Dimnames=list(var.names, var.names),
+                             x=rep(as.double(NA), n.var*(n.var-1)/2+n.var))
+    pvstatn$n <- new("dspMatrix", Dim=as.integer(c(n.var, n.var)),
+                     Dimnames=list(var.names, var.names),
+                     x=rep(as.double(NA), n.var*(n.var-1)/2+n.var))
+  }
 
   elapsedTime <- 0
   if (startTime["elapsed"] > 0) {
@@ -1411,19 +1456,25 @@ setMethod("qpAllCItests", signature(X="matrix"),
   if (verbose && elapsedTime == 0)
     pb <- txtProgressBar(style=3)
 
-  nrr <- NA
+  cit <- NA ### build return object depending on return.type CONTINUE HERE !!!!
 
   ## intersection variables against ij-exclusive variables
   for (i in pairup.ij.int) {
     for (j in c(pairup.i.noint,pairup.j.noint)) {
 
       if (is.null(I))
-        nrr <- qpgraph:::.qpCItest(S, N, i, j, Q, R.code.only=TRUE)$p.value
+        cit <- qpgraph:::.qpCItest(S, N, i, j, Q, R.code.only=TRUE)
       else
-        nrr <- qpgraph:::.qpCItestHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
-                                       exact.test, use, tol, R.code.only=TRUE)$p.value
+        cit <- qpgraph:::.qpCItestHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
+                                       exact.test, use, tol, R.code.only=TRUE)
 
-      nrrMatrix[j,i] <- nrrMatrix[i,j] <- nrr
+      if (return.type == "all" || return.type == "p.value")
+        pvstatn$p.value[j,i] <- pvstatn$p.value[i,j] <- cit$p.value
+      if (return.type == "all" || return.type == "statn") {
+        pvstatn$statistic[j,i] <- pvstatn$statistic[i,j] <- cit$statistic
+        pvstatn$n[j,i] <- pvstatn$n[i,j] <- cit$param["n"]
+      }
+
       k <- k + 1
       if (elapsedTime > 0 && k == nAdj2estimateTime)
         break;
@@ -1443,12 +1494,18 @@ setMethod("qpAllCItests", signature(X="matrix"),
       for (j in pairup.j.noint) {
 
         if (is.null(I))
-          nrr <- qpgraph:::.qpCItest(S, N, i, j, Q, R.code.only=TRUE)$p.value
+          cit <- qpgraph:::.qpCItest(S, N, i, j, Q, R.code.only=TRUE)
         else
-          nrr <- qpgraph:::.qpCItestHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
-                                         exact.test, use, tol, R.code.only=TRUE)$p.value
+          cit <- qpgraph:::.qpCItestHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
+                                         exact.test, use, tol, R.code.only=TRUE)
 
-        nrrMatrix[j,i] <- nrrMatrix[i,j] <- nrr
+        if (return.type == "all" || return.type == "p.value")
+          pvstatn$p.value[j,i] <- pvstatn$p.value[i,j] <- cit$p.value
+        if (return.type == "all" || return.type == "statn") {
+          pvstatn$statistic[j,i] <- pvstatn$statistic[i,j] <- cit$statistic
+          pvstatn$n[j,i] <- pvstatn$n[i,j] <- cit$param["n"]
+        }
+
         k <- k + 1
         if (elapsedTime > 0 && k == nAdj2estimateTime)
           break;
@@ -1472,12 +1529,18 @@ setMethod("qpAllCItests", signature(X="matrix"),
         j2 <- pairup.ij.int[j]
 
         if (is.null(I))
-          nrr <- qpgraph:::.qpCItest(S, N, i2, j2, Q, R.code.only=TRUE)$p.value
+          cit <- qpgraph:::.qpCItest(S, N, i2, j2, Q, R.code.only=TRUE)
         else
-          nrr <- qpgraph:::.qpCItestHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i2, j2, Q,
-                                         exact.test, use, tol, R.code.only=TRUE)$p.value
+          cit <- qpgraph:::.qpCItestHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i2, j2, Q,
+                                         exact.test, use, tol, R.code.only=TRUE)
 
-        nrrMatrix[j2,i2] <- nrrMatrix[i2,j2] <- nrr
+        if (return.type == "all" || return.type == "p.value")
+          pvstatn$p.value[j2,i2] <- pvstatn$p.value[i2,j2] <- cit$p.value
+        if (return.type == "all" || return.type == "statn") {
+          pvstatn$statistic[j2,i2] <- pvstatn$statistic[i2,j2] <- cit$statistic
+          pvstatn$n[j2,i2] <- pvstatn$n[i2,j2] <- cit$param["n"]
+        }
+
         k <- k + 1
         if (elapsedTime > 0 && k == nAdj2estimateTime)
           break;
@@ -1502,7 +1565,7 @@ setMethod("qpAllCItests", signature(X="matrix"),
   }
 
   ## this is necessary till we find out how to properly assign values in a dspMatrix
-  nrrMatrix <- as(nrrMatrix, "dspMatrix")
+  ## nrrMatrix <- as(nrrMatrix, "dspMatrix")
 
   if (elapsedTime > 0) {
     elapsedTime <- elapsedTime + (proc.time()-startTime)["elapsed"]
@@ -1510,10 +1573,10 @@ setMethod("qpAllCItests", signature(X="matrix"),
     h <- as.vector(floor((elapsedTime-d*24*3600)/3600))
     m <- as.vector(floor((elapsedTime-d*24*3600-h*3600)/60))
     s <- as.vector(ceiling(elapsedTime-d*24*3600-h*3600-m*60))
-    nrrMatrix <- c(days=d, hours=h, minutes=m, seconds=s)
+    pvstatn <- c(days=d, hours=h, minutes=m, seconds=s)
   }
 
-  return(nrrMatrix)
+  return(pvstatn)
 }
 
 
@@ -1536,21 +1599,22 @@ setMethod("qpAllCItests", signature(X="matrix"),
 }
 
 .qpFastAllCItests <- function(X, I, Y, Q, pairup.i.noint, pairup.j.noint,
-                              pairup.ij.int, exact.test, use, tol, verbose,
-                              startTime, nAdj2estimateTime) {
+                              pairup.ij.int, exact.test, use, tol, return.type,
+                              verbose, startTime, nAdj2estimateTime) {
   nLevels <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
   return(.Call("qp_fast_all_ci_tests", X, as.integer(I), as.integer(nLevels),
                                       as.integer(Y), as.integer(Q),
                                       as.integer(pairup.i.noint), as.integer(pairup.j.noint),
                                       as.integer(pairup.ij.int), as.integer(exact.test),
-                                      as.integer(factor(use, levels=c("complete.obs", "em"))),
-                                      tol, as.integer(verbose), as.double(startTime),
+                                      as.integer(factor(use, levels=c("complete.obs", "em"))), tol,
+                                      as.integer(factor(return.type, levels=c("p.value", "statn", "all"))),
+                                      as.integer(verbose), as.double(startTime),
                                       as.integer(nAdj2estimateTime), .GlobalEnv))
 }
 
 .qpFastAllCItestsPar <- function(X, I, Y, Q, pairup.i.noint, pairup.j.noint,
-                                 pairup.ij.int, exact.test, use, tol, verbose,
-                                 estimateTime, nAdj2estimateTime) {
+                                 pairup.ij.int, exact.test, use, tol, return.type,
+                                 verbose, estimateTime, nAdj2estimateTime) {
   clOpt <- get("getClusterOption", mode="function")
   myMaster <- clOpt("masterNode")
 
@@ -1565,8 +1629,9 @@ setMethod("qpAllCItests", signature(X="matrix"),
                                            as.integer(Y), as.integer(Q),
                                            as.integer(pairup.i.noint), as.integer(pairup.j.noint),
                                            as.integer(pairup.ij.int), as.integer(exact.test),
-                                           as.integer(factor(use, levels=c("complete.obs", "em"))),
-                                           tol, as.integer(verbose), as.double(startTime),
+                                           as.integer(factor(use, levels=c("complete.obs", "em"))), tol,
+                                           as.integer(factor(return.type, levels=c("p.value", "statn", "all"))),
+                                           as.integer(verbose), as.double(startTime),
                                            as.integer(nAdj2estimateTime), as.integer(get("clusterRank")),
                                            as.integer(get("clusterSize")), myMaster, .GlobalEnv))
 }

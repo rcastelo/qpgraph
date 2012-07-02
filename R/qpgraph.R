@@ -247,6 +247,9 @@ setMethod("qpNrr", signature(X="matrix"),
                    identicalQs=TRUE, exact.test=TRUE, use=c("complete.obs", "em"),
                    tol=0.01, R.code.only=FALSE, clusterSize=1, startTime, nAdj2estimateTime=10) {
 
+  if (use == "em" && !R.code.only)
+    stop("use=\"em\" does not work yet with R.code.only=FALSE\n")
+
   cl <- NULL
  
   if (class(clusterSize)[1] == "numeric" || class(clusterSize)[1] == "integer") {
