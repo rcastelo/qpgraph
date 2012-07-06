@@ -5043,7 +5043,7 @@ clPrCall <- function(cl, fun, n.adj, ...) {
 qpCov <- function(X, corrected=TRUE) {
   return(new("dspMatrix", Dim=c(ncol(X), ncol(X)),
              Dimnames=list(colnames(X), colnames(X)),
-             x = .Call("qp_cov_upper_triangular",X,as.integer(corrected))))
+             x = .Call("qp_cov_upper_triangular", X, as.integer(corrected))))
 }
 
 ## function: qpRndHMGM

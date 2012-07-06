@@ -303,8 +303,12 @@ int
 e2i(int e_i, int e_j, int* i);
 
 void
+find_missing_obs(double* X, int p, int n, int* Y, int n_Y, int* idx_obs,
+                 int n_idx_obs, int* missing_mask, int* n_mis);
+
+void
 calculate_means(double* X, int p, int n, int* Y, int n_Y, int* idx_obs,
-                int n_idx_obs, double* meanv);
+                int n_idx_obs, int* missing_mask, int n_mis, double* meanv);
 
 void
 ssd(double* X, int p, int n, int* Y, int n_Y, int* idx_obs, int n_idx_obs,
@@ -435,7 +439,7 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
 
   if (n_I == 0) {
     S = ssdMat = Calloc((n_var*(n_var+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-    ssd(REAL(XR), n_var, N, NULL, n_var, NULL, N, 1, S);
+    ssd(REAL(XR), n_var, N, NULL, n_var, NULL, N, TRUE, S);
   } else {
     I = Calloc(n_I, int);
     for (i=0; i < n_I; i++)
@@ -455,7 +459,7 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
     }
 
     S = ssdMat = Calloc((n_Y*(n_Y+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-    ssd(REAL(XR), n_var, N, Y, n_Y, NULL, N, 1, ssdMat);
+    ssd(REAL(XR), n_var, N, Y, n_Y, NULL, N, TRUE, ssdMat);
 
   }
 
@@ -1213,7 +1217,7 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
 
   if (n_I == 0) {
     S = ssdMat = Calloc((n_var*(n_var+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-    ssd(REAL(XR), n_var, N, NULL, n_var, NULL, N, 1, S);
+    ssd(REAL(XR), n_var, N, NULL, n_var, NULL, N, TRUE, S);
   } else {
     I = Calloc(n_I, int);
     for (i=0; i < n_I; i++)
@@ -1233,7 +1237,7 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
     }
 
     S = ssdMat = Calloc((n_Y*(n_Y+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-    ssd(REAL(XR), n_var, N, Y, n_Y, NULL, N, 1, ssdMat);
+    ssd(REAL(XR), n_var, N, Y, n_Y, NULL, N, TRUE, ssdMat);
 
   }
 
@@ -1914,7 +1918,7 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
 
   if (n_I == 0) {
     S = ssdMat = Calloc((n_var*(n_var+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-    ssd(REAL(XR), n_var, n, NULL, n_var, NULL, n, 1, S);
+    ssd(REAL(XR), n_var, n, NULL, n_var, NULL, n, TRUE, S);
   } else {
     I = Calloc(n_I, int);
     for (i=0; i < n_I; i++)
@@ -1934,7 +1938,7 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
     }
 
     S = ssdMat = Calloc((n_Y*(n_Y+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-    ssd(REAL(XR), n_var, n, Y, n_Y, NULL, n, 1, ssdMat);
+    ssd(REAL(XR), n_var, n, Y, n_Y, NULL, n, TRUE, ssdMat);
 
   }
 
@@ -2386,7 +2390,7 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
 
   if (n_I == 0) {
     S = ssdMat = Calloc((n_var*(n_var+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-    ssd(REAL(XR), n_var, n, NULL, n_var, NULL, n, 1, S);
+    ssd(REAL(XR), n_var, n, NULL, n_var, NULL, n, TRUE, S);
   } else {
     I = Calloc(n_I, int);
     for (i=0; i < n_I; i++)
@@ -2406,7 +2410,7 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
     }
 
     S = ssdMat = Calloc((n_Y*(n_Y+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-    ssd(REAL(XR), n_var, n, Y, n_Y, NULL, n, 1, ssdMat);
+    ssd(REAL(XR), n_var, n, Y, n_Y, NULL, n, TRUE, ssdMat);
 
   }
 
@@ -6667,6 +6671,44 @@ e2i(int e_i, int e_j, int* i) {
 
 
 /*
+  FUNCTION: find_missing_obs
+  PURPOSE: create a logical mask indicating observations with at least one missing value
+  PARAMETERS: X - vector containing the column-major stored matrix of values
+              p - number of variables
+              n - number of observations
+              Y - vector containing the indices of the variables in X for which we
+                  want to calculate the mean
+              n_Y - number of elements in Y
+              idx_obs - indices of the observations for which we want to check missingness
+              n_idx_obs - number of observations for which we want to check missingness
+              meanv - output vector of n_Y mean values
+              missing_mask - logical mask where this function sets to 1 if a value is missing
+                             in an observation. it is assumed that initially is set to zeroes.
+*/
+
+void
+find_missing_obs(double* X, int p, int n, int* Y, int n_Y, int* idx_obs,
+                 int n_idx_obs, int* missing_mask, int* n_mis) {
+  int         i,j,k,l;
+
+  *n_mis=0;
+  for (i=0; i < n; i++) {
+    k = n_idx_obs < n ? idx_obs[i] : i;
+    j = 0;
+    while (!missing_mask[k] && j < n_Y) {
+      l = n_Y < p ? Y[j] : j;
+      if (ISNAN(X[l * n + k])) {
+        missing_mask[k] = 1;
+        (*n_mis)++;
+      }
+      j++;
+    }
+  }
+}
+
+
+
+/*
   FUNCTION: calculate_means
   PURPOSE: calculate the means of the values at the columns of the input matrix
            provided as a column-major vector
@@ -6679,27 +6721,33 @@ e2i(int e_i, int e_j, int* i) {
               idx_obs - indices of the observations to employ in the calculation of the mean
               n_idx_obs - number of observations to employ in the calculation of the mean
               meanv - output vector of n_Y mean values
+              missing_mask - logical mask indicating what observations contain at least one
+                             missing value
+              n_mis - number of missing observations
   RETURN: none
 */
 
 void
 calculate_means(double* X, int p, int n, int* Y, int n_Y, int* idx_obs,
-                int n_idx_obs, double* meanv) {
+                int n_idx_obs, int* missing_mask, int n_mis, double* meanv) {
   long double sum, tmp;
   double*     xx;
-  int         i, j;
+  int         i,j;
 
   for (i=0;i < n_Y;i++) {
     xx = n_Y < p ? &X[Y[i] * n] : &X[i * n];
     sum = 0.0;
     for (j=0;j < n_idx_obs;j++)
-      sum += n_idx_obs < n ? xx[idx_obs[j]] : xx[j];
-    tmp = sum / n_idx_obs;
+      if (!missing_mask[n_idx_obs < n ? idx_obs[j] : j])
+        sum += n_idx_obs < n ? xx[idx_obs[j]] : xx[j];
+    tmp = sum / (n_idx_obs-n_mis);
     if (R_FINITE((double) tmp)) {
       sum = 0.0;
-      for (j=0;j < n_idx_obs;j++)
-        sum += n_idx_obs < n ? (xx[idx_obs[j]] - tmp) : (xx[j] - tmp);
-      tmp = tmp + sum / n_idx_obs;
+      for (j=0;j < n_idx_obs;j++) {
+        if (!missing_mask[n_idx_obs < n ? idx_obs[j] : j])
+          sum += n_idx_obs < n ? (xx[idx_obs[j]] - tmp) : (xx[j] - tmp);
+      }
+      tmp = tmp + sum / (n_idx_obs-n_mis);
     }
     meanv[i] = tmp;
   }
@@ -6731,14 +6779,21 @@ void
 ssd(double* X, int p, int n, int* Y, int n_Y, int* idx_obs, int n_idx_obs,
     int corrected, double* ssd_mat) {
   double* meanv;
-  int     n1;
+  int*    missing_mask;
+  int     n1, n_mis=0;
   int     i,j,k,l;
 
   meanv = Calloc(n_Y, double);
+  missing_mask = Calloc(n, int); /* assume Calloc() memsets everything to zeroes */
 
-  calculate_means(X, p, n, Y, n_Y, idx_obs, n_idx_obs, meanv);
+  find_missing_obs(X, p, n, Y, n_Y, idx_obs, n_idx_obs, missing_mask, &n_mis);
 
-  n1 = n - 1;
+  calculate_means(X, p, n, Y, n_Y, idx_obs, n_idx_obs, missing_mask, n_mis, meanv);
+
+  n1 = n_idx_obs - n_mis - 1;
+
+  if (n1 < 1)
+    error("no complete observations available (n=%d, n_idx_obs=%d, n_mis=%d)\n", n1, n, n_idx_obs, n_mis);
 
   l = 0;
   for (i=0; i < n_Y; i++)
@@ -6753,7 +6808,8 @@ ssd(double* X, int p, int n, int* Y, int n_Y, int* idx_obs, int n_idx_obs,
       yym = meanv[j];
       sum = 0.0;
       for (k=0; k < n_idx_obs; k++)
-        sum += n_idx_obs < n ? (xx[idx_obs[k]] - xxm) * (yy[idx_obs[k]] - yym) : (xx[k] - xxm) * (yy[k] - yym);
+        if (n_mis == 0 || (!missing_mask[n_idx_obs < n ? idx_obs[k] : k]))
+          sum += n_idx_obs < n ? (xx[idx_obs[k]] - xxm) * (yy[idx_obs[k]] - yym) : (xx[k] - xxm) * (yy[k] - yym);
 
       /* here we assume that ssd_mat was properly initialized before the call to this function */
       ssd_mat[l] += corrected ? (double) (sum / ((long double) n1)) : (double) sum;

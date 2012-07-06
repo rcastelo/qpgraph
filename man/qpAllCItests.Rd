@@ -69,8 +69,12 @@ exact test for conditional independence is employed, otherwise an asymptotic one
 will be used. Full details on these features can be found in Tur and Castelo (2011).
 }
 \value{
-A \code{\link{dspMatrix-class}} symmetric matrix of p-values for the null
-hypothesis of coindtional independence with the diagonal set to \code{NA} values.
+A list with three entries called \code{p.value}, \code{statistic} and \code{n}
+corresponding to a \code{\link{dspMatrix-class}} symmetric matrix of p-values for the null
+hypothesis of coindtional independence with the diagonal set to \code{NA} values,
+an analogous matrix of the statistics of each test and of the sample sizes, respectively.
+These returned values, however, depend on the setting of argument \code{return.type} which,
+by default, enables only returning the matrix of p-values.
 If arguments \code{pairup.i} and \code{pairup.j} are employed, those cells outside
 the constrained pairs will get also a \code{NA} value.
 
@@ -105,13 +109,13 @@ A <- qpRndGraph(p=nVar, d=maxCon)
 Sigma <- qpG2Sigma(A, rho=0.5)
 X <- rmvnorm(nObs, sigma=as.matrix(Sigma))
 
-pvalues <- qpAllCItests(X, verbose=FALSE)
+alltests <- qpAllCItests(X, verbose=FALSE)
 
 ## distribution of p-values for the present edges
-summary(pvalues[upper.tri(pvalues) & A])
+summary(alltests$p.value[upper.tri(alltests$p.value) & A])
 
 ## distribution of p-values for the missing edges
-summary(pvalues[upper.tri(pvalues) & !A])
+summary(alltests$p.value[upper.tri(alltests$p.value) & !A])
 
 }
 \keyword{models}
