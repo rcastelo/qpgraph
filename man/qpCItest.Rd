@@ -4,6 +4,7 @@
 \alias{qpCItest,ExpressionSet-method}
 \alias{qpCItest,data.frame-method}
 \alias{qpCItest,matrix-method}
+\alias{qpCItest,SsdMatrix-method}
 
 \title{
 Conditional independence test
@@ -19,22 +20,22 @@ a conditioning set.
                                    tol=0.01, R.code.only=FALSE)
 \S4method{qpCItest}{data.frame}(X, i=1, j=2, Q=c(), I=NULL, long.dim.are.variables=TRUE,
                                 exact.test=TRUE, use=c("complete.obs", "em"), tol=0.01, R.code.only=FALSE)
-\S4method{qpCItest}{matrix}(X, i=1, j=2, Q=c(), I=NULL, n=NULL, long.dim.are.variables=TRUE,
+\S4method{qpCItest}{matrix}(X, i=1, j=2, Q=c(), I=NULL, long.dim.are.variables=TRUE,
                             exact.test=TRUE, use=c("complete.obs", "em"), tol=0.01, R.code.only=FALSE)
+\S4method{qpCItest}{SsdMatrix}(X, i=1, j=2, Q=c(), R.code.only=FALSE)
 }
 \arguments{
   \item{X}{data set where the test should be performed. It can be either an
-       \code{ExpressionSet} object, a data frame, or a matrix. If it is a matrix
-       and the matrix is squared then this function assumes the matrix corresponds
-       to the sample covariance matrix of the data and the sample size parameter
-       \code{n} should be provided.}
+       \code{smlSet} object, an \code{ExpressionSet} object, a data frame, a matrix
+       or an \code{\link{SsdMatrix-class}} object. In the latter case, the input
+       matrix should correspond to a sample covariance matrix of data on which we
+       want to test for conditional independence. The function \code{\link{qpCov}()}
+       can be used to estimate such matrices.}
   \item{i}{index or name of one of the two variables in \code{X} to test.}
   \item{j}{index or name of the other variable in \code{X} to test.}
   \item{Q}{indexes or names of the variables in \code{X} forming the conditioning set.}
   \item{I}{indexes or names of the variables in \code{X} that are discrete. See details
        below regarding this argument.}
-  \item{n}{number of observations in the data set. Only necessary when the
-       sample covariance matrix is provided through the \code{X} parameter.}
   \item{long.dim.are.variables}{logical; if TRUE it is assumed
        that when data are in a data frame or in a matrix, the longer dimension
        is the one defining the random variables (default); if FALSE, then random
@@ -52,8 +53,8 @@ a conditioning set.
        (default); if TRUE then only R code is executed.}
 }
 \details{
-When variables in \code{i, j} and \code{Q} are continuous this function performs a
-conditional independence test using a t test for zero partial regression coefficient
+When variables in \code{i, j} and \code{Q} are continuous and \code{I=NULL}, this function
+performs a conditional independence test using a t-test for zero partial regression coefficient
 (Lauritzen, 1996, pg. 150). Note that the size of possible \code{Q} sets should be in
 the range 1 to \code{min(p,n-3)}, where \code{p} is the number of variables and \code{n}
 the number of observations. The computational cost increases linearly with
@@ -72,8 +73,23 @@ it cannot be smaller than \code{p} plus the number of levels of the discrete var
 involved in the marginal distributions employed by the algorithm.
 }
 \value{
-A list with two members, the value of the statistic and its corresponding
-P-value of rejecting the null hypothesis of conditional independence.
+A list with class \code{"htest"} containing the following components:
+\item{statistic}{in case of pure continuous data and \code{I=NULL}, the t-statistic for
+  zero partial regression coefficient; when \code{I!=NULL}, the value \code{Lambda} of
+  the likelihood ratio if \code{exact.test=TRUE} and \code{-n log Lambda} otherwise.}
+\item{parameter}{in case of pure continuous data and \code{I=NULL}, the degrees of freedom
+  for the t-statistic (\code{n-q-2}); when \code{I!=NULL}, the degrees of freedom for
+  \code{-n log Lambda} of a chi-square distribution under the null hypothesis if
+  \code{exact.test=FALSE} and the \code{(a, b)} parameters of a beta distribution under
+  the null if \code{exact.test=TRUE}.}
+\item{p.value}{the p-value for the test.}
+\item{estimate}{in case of pure continuous data and \code{I=NULL}, the estimated partial
+  regression coefficient and no value, otherwise.}
+\item{alternative}{a character string describing the alternative hypothesis.}
+\item{method}{a character string indicating what type of conditional independence test was
+  performed.}
+\item{data.name}{a character string giving the name(s) of the random variables involved in
+  the conditional independence test.}
 }
 \references{
 Castelo, R. and Roverato, A. A robust procedure for
@@ -92,6 +108,7 @@ Barcelona, 2011.
 }
 \author{R. Castelo and A. Roverato}
 \seealso{
+  \code{\link{qpCov}}
   \code{\link{qpNrr}}
   \code{\link{qpEdgeNrr}}
 }

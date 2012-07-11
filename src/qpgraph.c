@@ -23,6 +23,7 @@
 
 #include <R.h>
 #include <Rinternals.h>
+#include <Rdefines.h>
 #include <Rmath.h>
 #include <R_ext/Rdynload.h>
 #include <R_ext/Lapack.h>
@@ -92,6 +93,17 @@ static SEXP installAttrib(SEXP vec, SEXP name, SEXP val)
     UNPROTECT(3);
     return val;
 }
+
+/* from Mutils.h */
+static R_INLINE
+SEXP ALLOC_SLOT(SEXP obj, SEXP nm, SEXPTYPE type, int length)
+{
+  SEXP val = allocVector(type, length);
+
+  SET_SLOT(obj, nm, val);
+  return val;
+}
+
 
 extern void R_FlushConsole(void);
 extern void R_CheckUserInterrupt(void);
@@ -310,12 +322,12 @@ void
 calculate_means(double* X, int p, int n, int* Y, int n_Y, int* idx_obs,
                 int n_idx_obs, int* missing_mask, int n_mis, double* meanv);
 
-void
+int
 ssd(double* X, int p, int n, int* Y, int n_Y, int* idx_obs, int n_idx_obs,
     int corrected, double* ssd_mat);
 
 static SEXP
-qp_cov_upper_triangular(SEXP XR, SEXP corrected);
+qp_fast_cov_upper_triangular(SEXP XR, SEXP corrected);
 
 static SEXP
 qp_fast_rnd_graph(SEXP pR, SEXP dR, SEXP excludeR, SEXP verbose);
@@ -326,6 +338,17 @@ calculate_xtab(double* X, int p, int n, int* I, int n_I, int* n_levels, int* xta
 void
 ssd_A(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
       int* idx_excobs, double* ssd_A, int* n_co, int* idx_misobs);
+
+/* Global variables */
+
+SEXP Matrix_DimNamesSym,
+     Matrix_DimSym,
+     Matrix_uploSym,
+     Matrix_xSym,
+     SsdMatrix_ssdSym,
+     SsdMatrix_nSym,
+
+     qpgraph_NS; /* the qpgraph namespace ('environment') */
 
 /* R-function register */
 
@@ -350,7 +373,7 @@ callMethods[] = {
   {"qp_fast_pac_se", (DL_FUNC) &qp_fast_pac_se, 2},
   {"qp_fast_ipf", (DL_FUNC) &qp_fast_ipf, 4},
   {"qp_fast_htf", (DL_FUNC) &qp_fast_htf, 4},
-  {"qp_cov_upper_triangular", (DL_FUNC) &qp_cov_upper_triangular, 2},
+  {"qp_fast_cov_upper_triangular", (DL_FUNC) &qp_fast_cov_upper_triangular, 2},
   {"qp_fast_rnd_graph", (DL_FUNC) &qp_fast_rnd_graph, 4},
   {NULL}
 };
@@ -359,6 +382,18 @@ void
 R_init_qpgraph(DllInfo* info) {
 
   R_registerRoutines(info,NULL,callMethods,NULL,0);
+
+  /* from the Matrix package init.c */
+  Matrix_DimNamesSym = install("Dimnames");
+  Matrix_DimSym = install("Dim");
+  Matrix_uploSym = install("uplo");
+  Matrix_xSym = install("x");
+  SsdMatrix_ssdSym = install("ssd");
+  SsdMatrix_nSym = install("n");
+
+  qpgraph_NS = R_FindNamespace(mkString("qpgraph"));
+  if (qpgraph_NS == R_UnboundValue)
+    error("missing 'qpgraph' namespace: should never happen");
 
   GetRNGstate(); /* initialize the R-builtin RNG */
 
@@ -380,7 +415,7 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
             SEXP fixQR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
             SEXP pairup_j_nointR, SEXP pairup_ij_intR, SEXP exactTest,
             SEXP verboseR, SEXP startTimeR, SEXP nAdj2estimateTimeR, SEXP env) {
-  int     N;
+  int     N, n_co;
   int     n_var;
   int     q;
   int     nTests;
@@ -413,7 +448,7 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
   int     nAdjEtime;
   SEXP    pb=NULL;
 
-  N           = INTEGER(getAttrib(XR, R_DimSymbol))[0];
+  N = n_co    = INTEGER(getAttrib(XR, R_DimSymbol))[0];
   n_var       = INTEGER(getAttrib(XR, R_DimSymbol))[1];
   q           = INTEGER(qR)[0];
   nTests      = INTEGER(nTestsR)[0];
@@ -439,7 +474,7 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
 
   if (n_I == 0) {
     S = ssdMat = Calloc((n_var*(n_var+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-    ssd(REAL(XR), n_var, N, NULL, n_var, NULL, N, TRUE, S);
+    n_co = ssd(REAL(XR), n_var, N, NULL, n_var, NULL, N, TRUE, S);
   } else {
     I = Calloc(n_I, int);
     for (i=0; i < n_I; i++)
@@ -459,8 +494,7 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
     }
 
     S = ssdMat = Calloc((n_Y*(n_Y+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-    ssd(REAL(XR), n_var, N, Y, n_Y, NULL, N, TRUE, ssdMat);
-
+    n_co = ssd(REAL(XR), n_var, N, Y, n_Y, NULL, N, TRUE, ssdMat);
   }
 
   if (restrictQR != R_NilValue) {
@@ -543,7 +577,7 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
         }
       }
 
-      nrr[UTE2I(i2, j2)] = n_I == 0 ? qp_edge_nrr(S, n_var, N, i2, j2, q, restrictQ,
+      nrr[UTE2I(i2, j2)] = n_I == 0 ? qp_edge_nrr(S, n_var, n_co, i2, j2, q, restrictQ,
                                                   n_rQ, fixQ, n_fQ, nTests, alpha) :
                                       qp_edge_nrr_hmgm(REAL(XR), n_var, N, I, n_I,
                                                        INTEGER(n_levelsR), Y, n_Y,
@@ -603,7 +637,7 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
           }
         }
 
-        nrr[UTE2I(i2, j2)] = n_I == 0 ? qp_edge_nrr(S, n_var, N, i2, j2, q, restrictQ,
+        nrr[UTE2I(i2, j2)] = n_I == 0 ? qp_edge_nrr(S, n_var, n_co, i2, j2, q, restrictQ,
                                                     n_rQ, fixQ, n_fQ, nTests, alpha) :
                                         qp_edge_nrr_hmgm(REAL(XR), n_var, N, I, n_I,
                                                          INTEGER(n_levelsR), Y, n_Y,
@@ -661,7 +695,7 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
           }
         }
 
-        nrr[UTE2I(i2, j2)] = n_I == 0 ? qp_edge_nrr(S, n_var, N, i2, j2, q, restrictQ,
+        nrr[UTE2I(i2, j2)] = n_I == 0 ? qp_edge_nrr(S, n_var, n_co, i2, j2, q, restrictQ,
                                                     n_rQ, fixQ, n_fQ, nTests, alpha) :
                                         qp_edge_nrr_hmgm(REAL(XR), n_var, N, I, n_I,
                                                          INTEGER(n_levelsR), Y, n_Y,
@@ -777,12 +811,11 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR, SEXP nTes
                         SEXP alphaR, SEXP pairup_i_nointR, SEXP pairup_j_nointR,
                         SEXP pairup_ij_intR, SEXP verboseR, SEXP startTimeR,
                         SEXP nAdj2estimateTimeR, SEXP env) {
-  int     N;
+  int     N, n_co;
   int     n_var;
   int     q;
   int     nTests;
   double  alpha;
-  SEXP    SR;
   double* S;
   int*    restrictQ = NULL;
   int     n_rQ = length(restrictQR);
@@ -808,14 +841,12 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR, SEXP nTes
   int     nAdjEtime;
   SEXP    pb=NULL;
 
-  PROTECT_INDEX Spi;
-
-  N       = INTEGER(getAttrib(XR, R_DimSymbol))[0];
-  n_var   = INTEGER(getAttrib(XR, R_DimSymbol))[1];
-  q       = INTEGER(qR)[0];
-  nTests  = INTEGER(nTestsR)[0];
-  alpha   = REAL(alphaR)[0];
-  verbose = INTEGER(verboseR)[0];
+  N = n_co  = INTEGER(getAttrib(XR, R_DimSymbol))[0];
+  n_var     = INTEGER(getAttrib(XR, R_DimSymbol))[1];
+  q         = INTEGER(qR)[0];
+  nTests    = INTEGER(nTestsR)[0];
+  alpha     = REAL(alphaR)[0];
+  verbose   = INTEGER(verboseR)[0];
   startTime = REAL(startTimeR)[0];
   nAdjEtime = INTEGER(nAdj2estimateTimeR)[0];
 
@@ -834,9 +865,8 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR, SEXP nTes
   if (alpha < 0.0 || alpha > 1.0)
     error("significance level alpha is %.2f and it should lie in the interval [0, 1]\n", alpha);
 
-  SR = qp_cov_upper_triangular(XR, ScalarInteger(TRUE));
-  PROTECT_WITH_INDEX(SR, &Spi);
-  S = REAL(SR);
+  S = Calloc((n_var*(n_var+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
+  n_co = ssd(REAL(XR), n_var, N, NULL, n_var, NULL, N, TRUE, S);
 
   if (n_rQ > 0) {
     restrictQ = Calloc(n_rQ, int);
@@ -940,7 +970,7 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR, SEXP nTes
       int j2 = pairup_ij_noint[j] - 1;
 
       nrr[UTE2I(i2, j2)] = qp_edge_nrr_identicalQs(S, n_var, q_by_T_samples, Qinv,
-                                                   N, i2, j2, q, nTests, alpha);
+                                                   n_co, i2, j2, q, nTests, alpha);
       k++;
       if (startTime > 0 && k == nAdjEtime)
         break;
@@ -984,7 +1014,7 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR, SEXP nTes
         int j2 = pairup_j_noint[j] - 1;
 
         nrr[UTE2I(i2, j2)] = qp_edge_nrr_identicalQs(S, n_var, q_by_T_samples, Qinv,
-                                                     N, i2, j2, q, nTests, alpha);
+                                                     n_co, i2, j2, q, nTests, alpha);
         k++;
         if (startTime > 0 && k == nAdjEtime)
           break;
@@ -1026,7 +1056,7 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR, SEXP nTes
         int j2 = pairup_ij_int[j] - 1;
 
         nrr[UTE2I(i2, j2)] = qp_edge_nrr_identicalQs(S, n_var, q_by_T_samples, Qinv,
-                                                     N, i2, j2, q, nTests, alpha);
+                                                     n_co, i2, j2, q, nTests, alpha);
         k++;
         if (startTime > 0 && k == nAdjEtime)
           break;
@@ -1059,6 +1089,7 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR, SEXP nTes
     }
   }
 
+  Free(S);
   Free(Qinv);
 
   if (restrictQR != R_NilValue)
@@ -1077,7 +1108,7 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR, SEXP nTes
     UNPROTECT(2); /* t s pb */
   }
 
-  UNPROTECT(2);   /* SR nrrR */
+  UNPROTECT(1);   /* nrrR */
 
   if (startTime > 0) {
     SEXP procTimeR;
@@ -1134,7 +1165,7 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
                 SEXP pairup_ij_intR, SEXP exactTest, SEXP verboseR,
                 SEXP startTimeR, SEXP nAdj2estimateTimeR, SEXP myRankR,
                 SEXP clSzeR, SEXP masterNode, SEXP env) {
-  int     N;
+  int     N, n_co;
   int     n_var;
   int     q;
   int     nTests;
@@ -1189,7 +1220,7 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
   LOGICAL(VECTOR_ELT(progressReport,2))[0] = TRUE;
   SET_STRING_ELT(VECTOR_ELT(progressReport,3), 0, mkChar("UPDATE"));
 
-  N         = INTEGER(getAttrib(XR, R_DimSymbol))[0];
+  N = n_co  = INTEGER(getAttrib(XR, R_DimSymbol))[0];
   n_var     = INTEGER(getAttrib(XR, R_DimSymbol))[1];
   q         = INTEGER(qR)[0];
   nTests    = INTEGER(nTestsR)[0];
@@ -1217,7 +1248,7 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
 
   if (n_I == 0) {
     S = ssdMat = Calloc((n_var*(n_var+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-    ssd(REAL(XR), n_var, N, NULL, n_var, NULL, N, TRUE, S);
+    n_co = ssd(REAL(XR), n_var, N, NULL, n_var, NULL, N, TRUE, S);
   } else {
     I = Calloc(n_I, int);
     for (i=0; i < n_I; i++)
@@ -1237,7 +1268,7 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
     }
 
     S = ssdMat = Calloc((n_Y*(n_Y+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-    ssd(REAL(XR), n_var, N, Y, n_Y, NULL, N, TRUE, ssdMat);
+    n_co = ssd(REAL(XR), n_var, N, Y, n_Y, NULL, N, TRUE, ssdMat);
 
   }
 
@@ -1331,7 +1362,7 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
           }
         }
 
-        nrr[k-firstAdj] = n_I == 0 ? qp_edge_nrr(S, n_var, N, i2, j2, q, restrictQ,
+        nrr[k-firstAdj] = n_I == 0 ? qp_edge_nrr(S, n_var, n_co, i2, j2, q, restrictQ,
                                                  n_rQ, fixQ, n_fQ, nTests, alpha) :
                                      qp_edge_nrr_hmgm(REAL(XR), n_var, N, I, n_I,
                                                       INTEGER(n_levelsR), Y, n_Y,
@@ -1392,7 +1423,7 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
           }
         }
 
-        nrr[k-firstAdj] = n_I == 0 ? qp_edge_nrr(S, n_var, N, i2, j2, q, restrictQ,
+        nrr[k-firstAdj] = n_I == 0 ? qp_edge_nrr(S, n_var, n_co, i2, j2, q, restrictQ,
                                                  n_rQ, fixQ, n_fQ, nTests, alpha) :
                                      qp_edge_nrr_hmgm(REAL(XR), n_var, N, I, n_I,
                                                       INTEGER(n_levelsR), Y, n_Y,
@@ -1450,7 +1481,7 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
         }
       }
 
-      nrr[k-firstAdj] = n_I == 0 ?  qp_edge_nrr(S, n_var, N, i2, j2, q, restrictQ,
+      nrr[k-firstAdj] = n_I == 0 ?  qp_edge_nrr(S, n_var, n_co, i2, j2, q, restrictQ,
                                                 n_rQ, fixQ, n_fQ, nTests, alpha) :
                                     qp_edge_nrr_hmgm(REAL(XR), n_var, N, I, n_I,
                                                      INTEGER(n_levelsR), Y, n_Y,
@@ -1534,12 +1565,11 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR,
                             SEXP pairup_j_nointR, SEXP pairup_ij_intR,
                             SEXP verboseR, SEXP startTimeR, SEXP nAdj2estimateTimeR,
                             SEXP myRankR, SEXP clSzeR, SEXP masterNode, SEXP env) {
-  int     N;
+  int     N, n_co;
   int     n_var;
   int     q;
   int     nTests;
   double  alpha;
-  SEXP    SR;
   double* S;
   int*    restrictQ = NULL;
   int     n_rQ = length(restrictQR);
@@ -1587,9 +1617,7 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR,
   LOGICAL(VECTOR_ELT(progressReport,2))[0] = TRUE;
   SET_STRING_ELT(VECTOR_ELT(progressReport,3), 0, mkChar("UPDATE"));
 
-  PROTECT_INDEX Spi;
-
-  N         = INTEGER(getAttrib(XR, R_DimSymbol))[0];
+  N = n_co  = INTEGER(getAttrib(XR, R_DimSymbol))[0];
   n_var     = INTEGER(getAttrib(XR, R_DimSymbol))[1];
   q         = INTEGER(qR)[0];
   nTests    = INTEGER(nTestsR)[0];
@@ -1609,9 +1637,8 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR,
   if (q > N-3)
     error("q=%d > N-3=%d", q, N-3);
 
-  SR = qp_cov_upper_triangular(XR, ScalarInteger(TRUE));
-  PROTECT_WITH_INDEX(SR, &Spi);
-  S = REAL(SR);
+  S = Calloc((n_var*(n_var+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
+  n_co = ssd(REAL(XR), n_var, N, NULL, n_var, NULL, N, TRUE, S);
 
   if (n_rQ > 0) {
     restrictQ = Calloc(n_rQ, int);
@@ -1721,7 +1748,7 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR,
         int j2 = pairup_ij_noint[j] - 1;
 
         nrr[k-firstAdj] = qp_edge_nrr_identicalQs(S, n_var, q_by_T_samples, Qinv,
-                                                  N, i2, j2, q, nTests, alpha);
+                                                  n_co, i2, j2, q, nTests, alpha);
         idx[k-firstAdj] = UTE2I(i2, j2) + 1;
         k++;
         if (startTime > 0 && k-firstAdj == 10)
@@ -1766,7 +1793,7 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR,
         int j2 = pairup_j_noint[j] - 1;
 
         nrr[k-firstAdj] = qp_edge_nrr_identicalQs(S, n_var, q_by_T_samples, Qinv,
-                                                  N, i2, j2, q, nTests, alpha);
+                                                  n_co, i2, j2, q, nTests, alpha);
         idx[k-firstAdj] = UTE2I(i2, j2) + 1;
         k++;
         if (startTime > 0 && k-firstAdj == 10)
@@ -1808,7 +1835,7 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR,
       j2 = pairup_ij_int[j] - 1;
 
       nrr[k-firstAdj] = qp_edge_nrr_identicalQs(S, n_var, q_by_T_samples, Qinv,
-                                                N, i2, j2, q, nTests, alpha);
+                                                n_co, i2, j2, q, nTests, alpha);
       idx[k-firstAdj] = UTE2I(i2, j2) + 1;
       k++;
       if (startTime > 0 && k-firstAdj == 10)
@@ -1833,6 +1860,7 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR,
     }
   }
 
+  Free(S);
   Free(Qinv);
 
   if (restrictQR != R_NilValue)
@@ -1855,7 +1883,7 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR,
     nrr[0] = elapsedTime; /* store in the first position of the nrr vector the estimated time */
   }
 
-  UNPROTECT(5);   /* SR result result_names progressReport progressReport_names */
+  UNPROTECT(4);   /* result result_names progressReport progressReport_names */
 
   return result;
 }
@@ -1908,7 +1936,7 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
   int     nAdjEtime;
   SEXP    pb=NULL;
 
-  n           = INTEGER(getAttrib(XR, R_DimSymbol))[0];
+  n = n_co    = INTEGER(getAttrib(XR, R_DimSymbol))[0];
   n_var       = INTEGER(getAttrib(XR, R_DimSymbol))[1];
   verbose     = INTEGER(verboseR)[0];
   startTime   = REAL(startTimeR)[0];
@@ -1918,7 +1946,7 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
 
   if (n_I == 0) {
     S = ssdMat = Calloc((n_var*(n_var+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-    ssd(REAL(XR), n_var, n, NULL, n_var, NULL, n, TRUE, S);
+    n_co = ssd(REAL(XR), n_var, n, NULL, n_var, NULL, n, TRUE, S);
   } else {
     I = Calloc(n_I, int);
     for (i=0; i < n_I; i++)
@@ -1939,17 +1967,16 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
 
     S = ssdMat = Calloc((n_Y*(n_Y+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
     ssd(REAL(XR), n_var, n, Y, n_Y, NULL, n, TRUE, ssdMat);
-
   }
 
   if (QR != R_NilValue) {
     q = length(QR);
 
     if (q > n_var-2)
-      error("q=%d > p-2=%d",q,n_var-2);
+      error("q=%d > p-2=%d", q, n_var-2);
 
     if (q < 0)
-      error("q=%d < 0",q);
+      error("q=%d < 0", q);
 
     if (q > n-3)
       error("q=%d > n-3=%d", q, n-3);
@@ -2035,17 +2062,17 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
     for (j=0; j < l_ini + l_jni; j++) {
       int j2 = pairup_ij_noint[j] - 1;
 
-      lambda = n_I == 0 ? qp_ci_test_std(S, n_var, n, i2, j2, Q, q, NULL) :
+      lambda = n_I == 0 ? qp_ci_test_std(S, n_var, n_co, i2, j2, Q, q, NULL) :
                           qp_ci_test_hmgm(REAL(XR), n_var, n, I, n_I, INTEGER(n_levelsR),
                                           Y, n_Y, ssdMat, mapX2ssd, i2, j2,
                                           Q, q, use, REAL(tol)[0], &df, &a, &b, &n_co);
 
       if (n_I == 0) {
         if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_PVALUE)
-          p_values[UTE2I(i2, j2)] = 2.0 * (1.0 - pt(fabs(lambda), n-q-2, 1, 0));
+          p_values[UTE2I(i2, j2)] = 2.0 * (1.0 - pt(fabs(lambda), n_co-q-2, 1, 0));
         if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_STATN) {
           statistic_values[UTE2I(i2, j2)] = lambda;
-          n_values[UTE2I(i2, j2)] = n;
+          n_values[UTE2I(i2, j2)] = n_co;
         }
       } else {
         if (!ISNAN(lambda)) {
@@ -2110,16 +2137,16 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
       for (j=0; j < l_jni; j++) {
         int j2 = pairup_j_noint[j] - 1;
 
-        lambda = n_I == 0 ? qp_ci_test_std(S, n_var, n, i2, j2, Q, q, NULL) :
+        lambda = n_I == 0 ? qp_ci_test_std(S, n_var, n_co, i2, j2, Q, q, NULL) :
                             qp_ci_test_hmgm(REAL(XR), n_var, n, I, n_I, INTEGER(n_levelsR),
                                             Y, n_Y, ssdMat, mapX2ssd, i2, j2,
                                             Q, q, use, REAL(tol)[0], &df, &a, &b, &n_co);
         if (n_I == 0) {
           if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_PVALUE)
-            p_values[UTE2I(i2, j2)] = 2.0 * (1.0 - pt(fabs(lambda), n-q-2, 1, 0));
+            p_values[UTE2I(i2, j2)] = 2.0 * (1.0 - pt(fabs(lambda), n_co-q-2, 1, 0));
           if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_STATN) {
             statistic_values[UTE2I(i2, j2)] = lambda;
-            n_values[UTE2I(i2, j2)] = n;
+            n_values[UTE2I(i2, j2)] = n_co;
           }
         } else {
           if (!ISNAN(lambda)) {
@@ -2182,16 +2209,16 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
       for (j = i+1; j < l_int; j++) {
         int j2 = pairup_ij_int[j] - 1;
 
-        lambda = n_I == 0 ? qp_ci_test_std(S, n_var, n, i2, j2, Q, q, NULL) :
+        lambda = n_I == 0 ? qp_ci_test_std(S, n_var, n_co, i2, j2, Q, q, NULL) :
                             qp_ci_test_hmgm(REAL(XR), n_var, n, I, n_I, INTEGER(n_levelsR),
                                             Y, n_Y, ssdMat, mapX2ssd, i2, j2,
                                             Q, q, use, REAL(tol)[0], &df, &a, &b, &n_co);
         if (n_I == 0) {
           if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_PVALUE)
-            p_values[UTE2I(i2, j2)] = 2.0 * (1.0 - pt(fabs(lambda), n-q-2, 1, 0));
+            p_values[UTE2I(i2, j2)] = 2.0 * (1.0 - pt(fabs(lambda), n_co-q-2, 1, 0));
           if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_STATN) {
             statistic_values[UTE2I(i2, j2)] = lambda;
-            n_values[UTE2I(i2, j2)] = n;
+            n_values[UTE2I(i2, j2)] = n_co;
           }
         } else {
           if (!ISNAN(lambda)) {
@@ -2390,7 +2417,7 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
 
   if (n_I == 0) {
     S = ssdMat = Calloc((n_var*(n_var+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-    ssd(REAL(XR), n_var, n, NULL, n_var, NULL, n, TRUE, S);
+    n_co = ssd(REAL(XR), n_var, n, NULL, n_var, NULL, n, TRUE, S);
   } else {
     I = Calloc(n_I, int);
     for (i=0; i < n_I; i++)
@@ -2411,17 +2438,16 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
 
     S = ssdMat = Calloc((n_Y*(n_Y+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
     ssd(REAL(XR), n_var, n, Y, n_Y, NULL, n, TRUE, ssdMat);
-
   }
 
   if (QR != R_NilValue) {
     q = length(QR);
 
     if (q > n_var-2)
-      error("q=%d > p-2=%d",q,n_var-2);
+      error("q=%d > p-2=%d", q, n_var-2);
 
     if (q < 0)
-      error("q=%d < 0",q);
+      error("q=%d < 0", q);
 
     if (q > n-3)
       error("q=%d > n-3=%d", q, n-3);
@@ -2511,7 +2537,7 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
       for (j=j_first; j < l_ini + l_jni && k <= lastAdj; j++) {
         int j2 = pairup_ij_noint[j] - 1;
 
-        lambda = n_I == 0 ? qp_ci_test_std(S, n_var, n, i2, j2, Q, q, NULL) :
+        lambda = n_I == 0 ? qp_ci_test_std(S, n_var, n_co, i2, j2, Q, q, NULL) :
                             qp_ci_test_hmgm(REAL(XR), n_var, n, I, n_I,
                                             INTEGER(n_levelsR), Y, n_Y,
                                             ssdMat, mapX2ssd, i2, j2, Q, q,
@@ -2520,10 +2546,10 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
 
         if (n_I == 0) {
           if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_PVALUE)
-            p_values[k-firstAdj] = 2.0 * (1.0 - pt(fabs(lambda), n-q-2, 1, 0));
+            p_values[k-firstAdj] = 2.0 * (1.0 - pt(fabs(lambda), n_co-q-2, 1, 0));
           if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_STATN) {
             statistic_values[k-firstAdj] = lambda;
-            n_values[k-firstAdj] = n;
+            n_values[k-firstAdj] = n_co;
           }
         } else {
           if (!ISNAN(lambda)) {
@@ -2588,7 +2614,7 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
       for (j=j_first; j < l_jni && k <= lastAdj; j++) {
         int j2 = pairup_j_noint[j] - 1;
 
-        lambda = n_I == 0 ? qp_ci_test_std(S, n_var, n, i2, j2, Q, q, NULL) :
+        lambda = n_I == 0 ? qp_ci_test_std(S, n_var, n_co, i2, j2, Q, q, NULL) :
                             qp_ci_test_hmgm(REAL(XR), n_var, n, I, n_I,
                                             INTEGER(n_levelsR), Y, n_Y,
                                             ssdMat, mapX2ssd, i2, j2, Q, q,
@@ -2597,10 +2623,10 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
 
         if (n_I == 0) {
           if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_PVALUE)
-            p_values[k-firstAdj] = 2.0 * (1.0 - pt(fabs(lambda), n-q-2, 1, 0));
+            p_values[k-firstAdj] = 2.0 * (1.0 - pt(fabs(lambda), n_co-q-2, 1, 0));
           if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_STATN) {
             statistic_values[k-firstAdj] = lambda;
-            n_values[k-firstAdj] = n;
+            n_values[k-firstAdj] = n_co;
           }
         } else {
           if (!ISNAN(lambda)) {
@@ -2662,7 +2688,7 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
       i2 = pairup_ij_int[i] - 1;
       j2 = pairup_ij_int[j] - 1;
 
-      lambda = n_I == 0 ? qp_ci_test_std(S, n_var, n, i2, j2, Q, q, NULL) :
+      lambda = n_I == 0 ? qp_ci_test_std(S, n_var, n_co, i2, j2, Q, q, NULL) :
                           qp_ci_test_hmgm(REAL(XR), n_var, n, I, n_I,
                                           INTEGER(n_levelsR), Y, n_Y,
                                           ssdMat, mapX2ssd, i2, j2, Q, q,
@@ -2673,10 +2699,10 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
 
       if (n_I == 0) {
         if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_PVALUE)
-          p_values[k-firstAdj] = 2.0 * (1.0 - pt(fabs(lambda), n-q-2, 1, 0));
+          p_values[k-firstAdj] = 2.0 * (1.0 - pt(fabs(lambda), n_co-q-2, 1, 0));
         if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_STATN) {
           statistic_values[k-firstAdj] = lambda;
-          n_values[k-firstAdj] = n;
+          n_values[k-firstAdj] = n_co;
          }
       } else {
         if (!ISNAN(lambda)) {
@@ -3000,7 +3026,7 @@ qp_fast_ci_test_opt(SEXP SR, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP QR) {
 */
 
 static double
-qp_ci_test_std(double* S, int n_var, int N, int i, int j, int* Q, int q, double* beta) {
+qp_ci_test_std(double* S, int n_var, int n, int i, int j, int* Q, int q, double* beta) {
   int*    subvars;
   int     subn = q + 2;
   int     k,l;
@@ -3068,14 +3094,14 @@ qp_ci_test_std(double* S, int n_var, int N, int i, int j, int* Q, int q, double*
   Memcpy(S22inv1col,S22inv,(size_t) (subn-1));
   matprod(S12,1,subn-1,S22inv1col,subn-1,1,&betahat);
 
-  /* sigma   <- sqrt((S11 - S12 %*% S22inv %*% S21) * (N - 1) / (N - q - 2)) */
+  /* sigma   <- sqrt((S11 - S12 %*% S22inv %*% S21) * (n - 1) / (n - q - 2)) */
   tmpmat = Calloc(subn-1,double);
   matprod(S22inv,subn-1,subn-1,S21,subn-1,1,tmpmat);
   matprod(S12,1,subn-1,tmpmat,subn-1,1,&tmpval);
   Free(tmpmat);
-  sigma = sqrt( (S11 - tmpval) * (N - 1) / (N - subn) );
-  /* se      <- sigma * sqrt(S22inv[1,1] / (N - 1)) */
-  se = sigma * sqrt(S22inv[0] / (N - 1));
+  sigma = sqrt( (S11 - tmpval) * (n - 1) / (n - subn) );
+  /* se      <- sigma * sqrt(S22inv[1,1] / (n - 1)) */
+  se = sigma * sqrt(S22inv[0] / (n - 1));
   /* t.value <- betahat / se */
   t_value = betahat / se;
 
@@ -6759,8 +6785,9 @@ calculate_means(double* X, int p, int n, int* Y, int n_Y, int* idx_obs,
   FUNCTION: ssd
   PURPOSE: calculate the, corrected or not, sum of squares and deviations matrix
            returning only the upper triangle of the matrix in column-major order
-           (for creating later a dspMatrix object). By now it assumes that the
-           continuous data are complete (i.e., no NAs)
+           (for creating later a dspMatrix object). In the presence of missing data
+           this function uses complete observations only and the returned value
+           corresponds to its number.
   PARAMETERS: X - vector containing the column-major stored matrix of values
               p - number of variables
               n - number of observations
@@ -6772,10 +6799,10 @@ calculate_means(double* X, int p, int n, int* Y, int n_Y, int* idx_obs,
                           should be n when idx_obs is NULL
               corrected - flag indicating whether the sum be corrected (=covariance)
               ssd_mat - pointer to the matrix where the result is returned
-  RETURN: none
+  RETURN: number of complete observations employed in the estimation
 */
 
-void
+int
 ssd(double* X, int p, int n, int* Y, int n_Y, int* idx_obs, int n_idx_obs,
     int corrected, double* ssd_mat) {
   double* meanv;
@@ -6818,54 +6845,73 @@ ssd(double* X, int p, int n, int* Y, int n_Y, int* idx_obs, int n_idx_obs,
 
   Free(meanv);
 
-  return;
+  return n_idx_obs - n_mis; /* return number of complete observations */
 }
 
 
 
 /*
-  FUNCTION: qp_cov_upper_triangular
+  FUNCTION: qp_fast_cov_upper_triangular
   PURPOSE: calculate a covariance matrix returning only the upper triangle
            of the matrix in column-major order (for creating later a dspMatrix object)
   PARAMETERS: XR - matrix of multivariate observations
               corrected - flag set to TRUE when calculating the sample covariance matrix
                           and set to FALSE when calculating the uncorrected sum of
                           squares and deviations
-  RETURN: cov_val covariance values
+  RETURN: an SsdMatrix object containing the (corrected) sum of squares and deviations and
+          the number of complete observations employed in the calculations
 */
 
 static SEXP
-qp_cov_upper_triangular(SEXP XR, SEXP corrected) {
-  SEXP          cov_valR;
+qp_fast_cov_upper_triangular(SEXP XR, SEXP corrected) {
+  SEXP          ssdR, dimX, dimNamesX, dimNamesSsd;
   double*       X;
-  double*       cov_val;
-  int           n_var, n, n_upper_tri;
+  double*       ssd_val;
+  int*          dim_ssd;
+  int           p, n, n_obs, n_upper_tri;
   PROTECT_INDEX Xpi;
 
   PROTECT_WITH_INDEX(XR,&Xpi);
 
   REPROTECT(XR  = coerceVector(XR,REALSXP),Xpi);
   X = REAL(XR);
+  dimX = getAttrib(XR, R_DimSymbol);
+  dimNamesX = getAttrib(XR, R_DimNamesSymbol);
 
   /* number of observations equals number of rows */
-  n = INTEGER(getAttrib(XR,R_DimSymbol))[0];
+  n = INTEGER(dimX)[0];
   /* number of variables equals number of columns */
-  n_var = INTEGER(getAttrib(XR,R_DimSymbol))[1];
+  p = INTEGER(dimX)[1];
   /* number of elements in the upper triangular matrix including diagonal */
-  n_upper_tri = (n_var * (n_var+1)) / 2;
+  n_upper_tri = (p * (p + 1)) / 2;
 
-  PROTECT(cov_valR = allocVector(REALSXP, n_upper_tri)); /* upper triangle includes diagonal */
-  cov_val = REAL(cov_valR);
+  ssdR = PROTECT(NEW_OBJECT(MAKE_CLASS("SsdMatrix")));
+
+  SET_SLOT(ssdR, SsdMatrix_ssdSym, NEW_OBJECT(MAKE_CLASS("dspMatrix")));
+
+  dim_ssd = INTEGER(ALLOC_SLOT(GET_SLOT(ssdR, SsdMatrix_ssdSym), Matrix_DimSym, INTSXP, 2));
+  dim_ssd[0] = dim_ssd[1] = INTEGER(dimX)[1];
+
+  if (dimNamesX != R_NilValue) {
+    dimNamesSsd = ALLOC_SLOT(GET_SLOT(ssdR, SsdMatrix_ssdSym), Matrix_DimNamesSym, VECSXP, 2);
+    SET_VECTOR_ELT(dimNamesSsd, 0, duplicate(VECTOR_ELT(dimNamesX, 1)));
+    SET_VECTOR_ELT(dimNamesSsd, 1, duplicate(VECTOR_ELT(dimNamesX, 1)));
+  }
+
+  ssd_val = REAL(ALLOC_SLOT(GET_SLOT(ssdR, SsdMatrix_ssdSym), Matrix_xSym, REALSXP, n_upper_tri));
+  SET_SLOT(GET_SLOT(ssdR, SsdMatrix_ssdSym), Matrix_uploSym, mkString("U"));
 
   /* the following line is needed before each call to ssd() where the last argument points
    * to a memory chunk allocated with anything that does not set the memory to zeroes */
-  memset(cov_val, 0, sizeof(double) * n_upper_tri);
+  memset(ssd_val, 0, sizeof(double) * n_upper_tri);
 
-  ssd(X, n_var, n, NULL, n_var, NULL, n, INTEGER(corrected)[0], cov_val);
+  n_obs = ssd(X, p, n, NULL, p, NULL, n, INTEGER(corrected)[0], ssd_val);
 
-  UNPROTECT(2); /* XR cov_valR */
+  SET_SLOT(ssdR, SsdMatrix_nSym, ScalarInteger(n_obs));
 
-  return(cov_valR);
+  UNPROTECT(2); /* XR ssdR */
+
+  return(ssdR);
 }
 
 
@@ -6980,14 +7026,15 @@ ssd_A(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
   }
 
   if (n_co != NULL)
-    *n_co = n - i; /* calculate number of complete observations */
+    *n_co = 0; /* calculate the number of complete observations */
+    /* *n_co = n - i; calculate number of complete observations */
 
   while (i < n_obs) {
     j = i;
     while (j < n_obs && global_xtab[obs_idx[i]] == global_xtab[obs_idx[j]])
       j++;
 
-    ssd(X, p, n, Y, n_Y, obs_idx+i, j-i, FALSE, ssd_A);
+    *n_co += ssd(X, p, n, Y, n_Y, obs_idx+i, j-i, FALSE, ssd_A);
 
     i = j;
   }

@@ -15,6 +15,8 @@ importFrom(AnnotationDbi, mget)
 importFrom(AnnotationDbi, revmap)
 importFrom(annotate, getAnnMap)
 
+exportClasses("SsdMatrix")
+
 exportMethods("qpNrr",
               "qpAvgNrr",
               "qpGenNrr",

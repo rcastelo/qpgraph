@@ -4,6 +4,7 @@
 \alias{qpEdgeNrr,ExpressionSet-method}
 \alias{qpEdgeNrr,data.frame-method}
 \alias{qpEdgeNrr,matrix-method}
+\alias{qpEdgeNrr,SsdMatrix-method}
 
 \title{
 Non-rejection rate estimation for a pair of variables
@@ -25,16 +26,20 @@ Estimates the non-rejection rate for one pair of variables.
                                  exact.test=TRUE, use=c("complete.obs", "em"), tol=0.01,
                                  R.code.only=FALSE)
 \S4method{qpEdgeNrr}{matrix}(X, i=1, j=2, q=1, I=NULL, restrict.Q=NULL, fix.Q=NULL,
-                             n=NULL, nTests=100, alpha=0.05, long.dim.are.variables=TRUE,
+                             nTests=100, alpha=0.05, long.dim.are.variables=TRUE,
                              exact.test=TRUE, use=c("complete.obs", "em"), tol=0.01,
                              R.code.only=FALSE)
+\S4method{qpEdgeNrr}{SsdMatrix}(X, i=1, j=2, q=1, restrict.Q=NULL, fix.Q=NULL,
+                                nTests=100, alpha=0.05, R.code.only=FALSE)
 }
 \arguments{
   \item{X}{data set from where the non-rejection rate should be estimated. It
-       can be either an \code{ExpressionSet} object, a \code{smlSet} object a
-       data frame, or a matrix. If it is a matrix and the matrix is squared
-       then this function assumes the matrix is the sample covariance matrix of
-       the data and the sample size parameter \code{n} should be provided.}
+       can be either an \code{smlSet} object , an \code{ExpressionSet} object a
+       data frame, a matrix or an \code{\link{SsdMatrix-class}} object. In the
+       latter case, the input matrix should correspond to a sample covariance matrix
+       of data from which we want to estimate the non-rejection rate for a pair of
+       variables. The function \code{\link{qpCov}()} can be used to estimate such
+       matrices.}
   \item{i}{index or name of one of the two variables in \code{X} to test.}
   \item{j}{index or name of the other variable in \code{X} to test.}
   \item{q}{order of the conditioning subsets employed in the calculation.}
@@ -44,8 +49,6 @@ Estimates the non-rejection rate for one pair of variables.
        restrict the sample space of conditioning subsets Q.}
   \item{fix.Q}{indexes or names of the variables in \code{X} that should be
        fixed within every conditioning conditioning subsets Q.}
-  \item{n}{number of observations in the data set. Only necessary when the
-       sample covariance matrix is provided through the \code{X} parameter.}
   \item{nTests}{number of tests to perform for each pair for variables.}
   \item{alpha}{significance level of each test.}
   \item{long.dim.are.variables}{logical; if TRUE it is assumed
@@ -66,8 +69,8 @@ Estimates the non-rejection rate for one pair of variables.
 }
 \details{
 The estimation of the non-rejection rate for a pair of variables is calculated
-as the fraction of tests that accept the null hypothesis of independence given a
-set of randomly sampled q-order conditionals.
+as the fraction of tests that accept the null hypothesis of conditional independence
+given a set of randomly sampled q-order conditionals.
 
 Note that the possible values of \code{q} should be in the range 1 to
 \code{min(p,n-3)}, where \code{p} is the number of variables and \code{n}
@@ -90,6 +93,7 @@ Gaussian graphical model search from microarray data with p larger than n,
   \code{\link{qpHist}}
   \code{\link{qpGraphDensity}}
   \code{\link{qpClique}}
+  \code{\link{qpCov}}
 }
 \examples{
 require(mvtnorm)

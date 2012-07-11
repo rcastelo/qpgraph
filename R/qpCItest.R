@@ -227,7 +227,7 @@ setMethod("qpCItest", signature(X="smlSet"),
 
             if (is.null(I)) {
               S <- qpCov(Xsub)
-              rval <- qpgraph:::.qpCItest(S, n, i, j, Q, R.code.only)
+              rval <- qpgraph:::.qpCItest(S, i, j, Q, R.code.only)
             } else {
               if (any(nLevels[I] == 1))
                 stop(sprintf("Discrete variable %s has only one level", colnames(Xsub)[I[nLevels[I]==1]]))
@@ -384,7 +384,7 @@ setMethod("qpCItest", signature(X="ExpressionSet"),
 
             if (is.null(I)) {
               S <- qpCov(Xsub)
-              rval <- qpgraph:::.qpCItest(S, n, i, j, Q, R.code.only)
+              rval <- qpgraph:::.qpCItest(S, i, j, Q, R.code.only)
             } else {
               missingData <- any(missingMask)
               ssd <- mapX2ssd <- NULL
@@ -473,7 +473,7 @@ setMethod("qpCItest", signature(X="data.frame"),
               S <- qpCov(X)
               n <- nrow(X)
 
-              rval <- qpgraph:::.qpCItest(S, n, i, j, Q, R.code.only)
+              rval <- qpgraph:::.qpCItest(S, i, j, Q, R.code.only)
             } else {
               if (!is.character(I) && !is.numeric(I) && !is.integer(I))
                 stop("I should be either variables names or indices\n")
@@ -523,7 +523,7 @@ setMethod("qpCItest", signature(X="data.frame"),
           
 ## X comes as a matrix
 setMethod("qpCItest", signature(X="matrix"),
-          function(X, i=1, j=2, Q=c(), I=NULL, n=NULL,
+          function(X, i=1, j=2, Q=c(), I=NULL,
                    long.dim.are.variables=TRUE, exact.test=TRUE,
                    use=c("complete.obs", "em"), tol=0.01, R.code.only=FALSE) {
 
@@ -576,68 +576,112 @@ setMethod("qpCItest", signature(X="matrix"),
 
             rval <- NA
 
-            # if the matrix is squared let's assume then that it is the sample
-            # covariance matrix and that the sample size is the next parameter
-            if (nrow(X) != ncol(X)) {
-              if (!is.null(n))
-                stop("If X is not a sample covariance matrix then N should not be set\n")
+            if (is.null(I)) {
+              S <- qpCov(X)
+              n <- nrow(X)
 
-              if (is.null(I)) {
-                S <- qpCov(X)
-                n <- nrow(X)
+              rval <- qpgraph:::.qpCItest(S, i, j, Q, R.code.only)
+            } else {
+              if (!is.character(I) && !is.numeric(I) && !is.integer(I))
+                stop("I should be either variables names or indices\n")
 
-                rval <- qpgraph:::.qpCItest(S, n, i, j, Q, R.code.only)
-              } else {
-                if (!is.character(I) && !is.numeric(I) && !is.integer(I))
-                  stop("I should be either variables names or indices\n")
+              Y <- colnames(X)
+              if (is.character(I))
+                Y <- setdiff(colnames(X), I)
+              else
+                Y <- (1:ncol(X))[-I]
 
-                Y <- colnames(X)
-                if (is.character(I))
-                  Y <- setdiff(colnames(X), I)
-                else
-                  Y <- (1:ncol(X))[-I]
-
-                if (is.character(Y)) {
-                  if (any(is.na(match(Y, colnames(X)))))
-                    stop(sprintf("Some variables in Y do not form part of the variable names in X\n",i))
-                  Y <- match(Y, colnames(X))
-                }
-
-                nLevels <- rep(NA_integer_, times=ncol(X))
-                nLevels[I] <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
-                if (any(nLevels[I] == 1))
-                  stop(sprintf("Discrete variable %s has only one level", colnames(X)[I[nLevels[I]==1]]))
-
-                missingMask <- apply(X[, I, drop=FALSE], 2, function(x) any(is.na(x)))
-                missingData <- any(missingMask)
-                ssd <- mapX2ssd <- NULL
-                if (!missingData) {
-                  ssd <- qpCov(X[, Y, drop=FALSE], corrected=FALSE)
-                  ## mapX2ssd <- match(colnames(X), colnames(ssd))
-                  ## names(mapX2ssd) <- colnames(X)
-                  mapX2ssd <- rep(NA, ncol(X))
-                  mapX2ssd[Y] <- 1:length(Y)
-                }
-
-                rval <- qpgraph:::.qpCItestHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
-                                                exact.test, use, tol, R.code.only)
-                if (is.nan(rval$statistic))
-                  warning(paste(sprintf("CI test unavailable for i=%s, j=%s and Q={",
-                                        colnames(X)[i], colnames(X)[j]),
-                                paste(colnames(X)[Q], collapse=", "),
-                                      "}. Try a smaller Q or increase n if you can\n"))
+              if (is.character(Y)) {
+                if (any(is.na(match(Y, colnames(X)))))
+                  stop(sprintf("Some variables in Y do not form part of the variable names in X\n",i))
+                Y <- match(Y, colnames(X))
               }
 
-            } else {
-              if (!is.null(I))
-                stop("If X is a sample covariance matrix then I should not be set\n")
+              nLevels <- rep(NA_integer_, times=ncol(X))
+              nLevels[I] <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
+              if (any(nLevels[I] == 1))
+                stop(sprintf("Discrete variable %s has only one level", colnames(X)[I[nLevels[I]==1]]))
 
-              if (is.null(rownames(X)))
-                rownames(X) <- colnames(X)
+              missingMask <- apply(X[, I, drop=FALSE], 2, function(x) any(is.na(x)))
+              missingData <- any(missingMask)
+              ssd <- mapX2ssd <- NULL
+              if (!missingData) {
+                ssd <- qpCov(X[, Y, drop=FALSE], corrected=FALSE)
+                ## mapX2ssd <- match(colnames(X), colnames(ssd))
+                ## names(mapX2ssd) <- colnames(X)
+                mapX2ssd <- rep(NA, ncol(X))
+                mapX2ssd[Y] <- 1:length(Y)
+              }
 
-              S <- X
-              rval <- qpgraph:::.qpCItest(S, n, i, j, Q, R.code.only)
+              rval <- qpgraph:::.qpCItestHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
+                                              exact.test, use, tol, R.code.only)
+              if (is.nan(rval$statistic))
+                warning(paste(sprintf("CI test unavailable for i=%s, j=%s and Q={",
+                                      colnames(X)[i], colnames(X)[j]),
+                              paste(colnames(X)[Q], collapse=", "),
+                                    "}. Try a smaller Q or increase n if you can\n"))
             }
+
+          class(rval) <- "htest" ## this is kind of redundant but otherwise
+                                 ## the object returned by the C function does
+                                 ## not print by default as a 'htest' object
+
+          return(rval)
+        })
+
+## X comes as an SsdMatrix (i.e., a covariance matrix calculated with qpCov())
+setMethod("qpCItest", signature(X="SsdMatrix"),
+          function(X, i=1, j=2, Q=c(), R.code.only=FALSE) {
+
+            use <- match.arg(use)
+
+            if (!is.double(X))
+              stop("X should be double-precision real numbers\n")
+
+            if (is.null(colnames(X)))
+              colnames(X) <- 1:ncol(X)
+
+            nam_i <- i
+            if (is.character(i)) {
+              if (is.na(match(i, colnames(X))))
+                stop(sprintf("i=%s does not form part of the variable names of the data\n",i))
+              i <- match(i,colnames(X))
+            }
+            i <- as.integer(i)
+            names(i) <- nam_i
+
+            nam_j <- j
+            if (is.character(j)) {
+              if (is.na(match(j, colnames(X))))
+                stop(sprintf("j=%s does not form part of the variable names of the data\n",j))
+              j <- match(j,colnames(X))
+            }
+            j <- as.integer(j)
+            names(j) <- nam_j
+
+            nam_Q <- Q
+            if (is.character(Q)) {
+              if (any(is.na(match(Q, colnames(X)))))
+                stop(sprintf("%s in Q does not form part of the variable names of the data\n",
+                     Q[is.na(match(Q, colnames(X)))]))
+              Q <- match(Q, colnames(X))
+            }
+            Q <- as.integer(Q)
+            names(Q) <- nam_Q
+
+            if (is.character(I)) {
+              if (any(is.na(match(I, colnames(X)))))
+                stop(sprintf("%s in I does not form part of the variable names of the data\n",
+                     I[is.na(match(I, colnames(X)))]))
+              I <- match(I, colnames(X))
+            }
+
+            rval <- NA
+
+            if (is.null(rownames(X)))
+              rownames(X) <- colnames(X)
+
+            rval <- qpgraph:::.qpCItest(X, i, j, Q, R.code.only)
 
             class(rval) <- "htest" ## this is kind of redundant but otherwise
                                    ## the object returned by the C function does
@@ -646,17 +690,21 @@ setMethod("qpCItest", signature(X="matrix"),
             return(rval)
           })
 
-.qpCItest <- function(S, n, i=1L, j=2L, Q=c(), R.code.only=FALSE) {
+.qpCItest <- function(S, i=1L, j=2L, Q=c(), R.code.only=FALSE) {
+
+  if (class(S) != "SsdMatrix")
+    stop("internal function qpgraph:::.qpCItest() expects an 'SsdMatrix' object as first argument\n");
 
   p <- (d <- dim(S))[1]
   if (p != d[2] || !isSymmetric(S))
     stop("S is not squared and symmetric. Is it really a covariance matrix?n")
+  n <- S@n
 
   if (!is.integer(i) || !is.integer(j) || (!is.null(Q) && !is.integer(Q)))
     stop("i, j and Q should contain only integer values when calling .qpCItest()")
 
   if (!R.code.only) {
-    return(qpgraph:::.qpFastCItestStd(S, n, i, j, Q));
+    return(qpgraph:::.qpFastCItestStd(S, i, j, Q));
   }
 
   q       <- length(Q)
@@ -1463,7 +1511,7 @@ setMethod("qpAllCItests", signature(X="matrix"),
     for (j in c(pairup.i.noint,pairup.j.noint)) {
 
       if (is.null(I))
-        cit <- qpgraph:::.qpCItest(S, N, i, j, Q, R.code.only=TRUE)
+        cit <- qpgraph:::.qpCItest(S, i, j, Q, R.code.only=TRUE)
       else
         cit <- qpgraph:::.qpCItestHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
                                        exact.test, use, tol, R.code.only=TRUE)
@@ -1494,7 +1542,7 @@ setMethod("qpAllCItests", signature(X="matrix"),
       for (j in pairup.j.noint) {
 
         if (is.null(I))
-          cit <- qpgraph:::.qpCItest(S, N, i, j, Q, R.code.only=TRUE)
+          cit <- qpgraph:::.qpCItest(S, i, j, Q, R.code.only=TRUE)
         else
           cit <- qpgraph:::.qpCItestHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
                                          exact.test, use, tol, R.code.only=TRUE)
@@ -1529,7 +1577,7 @@ setMethod("qpAllCItests", signature(X="matrix"),
         j2 <- pairup.ij.int[j]
 
         if (is.null(I))
-          cit <- qpgraph:::.qpCItest(S, N, i2, j2, Q, R.code.only=TRUE)
+          cit <- qpgraph:::.qpCItest(S, i2, j2, Q, R.code.only=TRUE)
         else
           cit <- qpgraph:::.qpCItestHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i2, j2, Q,
                                          exact.test, use, tol, R.code.only=TRUE)
@@ -1580,12 +1628,12 @@ setMethod("qpAllCItests", signature(X="matrix"),
 }
 
 
-.qpFastCItestStd <- function(S, n, i, j, Q) {
-  return(.Call("qp_fast_ci_test_std", S@x, nrow(S), as.integer(n), i, j, Q))
+.qpFastCItestStd <- function(S, i, j, Q) {
+  return(.Call("qp_fast_ci_test_std", S@ssd@x, nrow(S), as.integer(S@n), i, j, Q))
 }
 
 .qpFastCItestOpt <- function(S, n, i, j, Q) {
-  return(.Call("qp_fast_ci_test_opt", S@x, nrow(S), as.integer(n), i, j, Q))
+  return(.Call("qp_fast_ci_test_opt", S@ssd@x, nrow(S), as.integer(S@n), i, j, Q))
 }
 
 .qpFastCItestHMGM <- function(X, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
