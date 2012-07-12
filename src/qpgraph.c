@@ -3442,7 +3442,7 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
 
   /* if any of (i, j) is discrete it should be i */
   k = 0;
-  while (j != I[k] && k < n_I)
+  while (k < n_I && j != I[k])
     k++;
 
   if (k < n_I) {
@@ -6700,8 +6700,8 @@ e2i(int e_i, int e_j, int* i) {
   FUNCTION: find_missing_obs
   PURPOSE: create a logical mask indicating observations with at least one missing value
   PARAMETERS: X - vector containing the column-major stored matrix of values
-              p - number of variables
-              n - number of observations
+              p - number of variables in X
+              n - number of observations in X
               Y - vector containing the indices of the variables in X for which we
                   want to calculate the mean
               n_Y - number of elements in Y
@@ -6718,7 +6718,7 @@ find_missing_obs(double* X, int p, int n, int* Y, int n_Y, int* idx_obs,
   int         i,j,k,l;
 
   *n_mis=0;
-  for (i=0; i < n; i++) {
+  for (i=0; i < n_idx_obs; i++) {
     k = n_idx_obs < n ? idx_obs[i] : i;
     j = 0;
     while (!missing_mask[k] && j < n_Y) {
@@ -6985,7 +6985,7 @@ void
 ssd_A(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
       int* idx_excobs, double* ssd_A, int* n_co, int* idx_misobs) {
   int*    obs_idx;
-  int     n_obs;
+  int     n_obs, work_n_co;
   int     i,j;
 
   obs_idx = Calloc(n, int);
@@ -7025,19 +7025,21 @@ ssd_A(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
     i++;
   }
 
-  if (n_co != NULL)
-    *n_co = 0; /* calculate the number of complete observations */
-    /* *n_co = n - i; calculate number of complete observations */
+  work_n_co = 0;
 
   while (i < n_obs) {
     j = i;
     while (j < n_obs && global_xtab[obs_idx[i]] == global_xtab[obs_idx[j]])
       j++;
 
-    *n_co += ssd(X, p, n, Y, n_Y, obs_idx+i, j-i, FALSE, ssd_A);
+    work_n_co += ssd(X, p, n, Y, n_Y, obs_idx+i, j-i, FALSE, ssd_A);
 
     i = j;
   }
+
+  if (n_co != NULL)
+    *n_co = work_n_co; /* calculate the number of complete observations */
+    /* *n_co = n - i; calculate number of complete observations */
 
   Free(obs_idx);
   Free(global_xtab);
@@ -7138,7 +7140,7 @@ qp_fast_rnd_graph(SEXP pR, SEXP dR, SEXP excludeR, SEXP verboseR) {
       Memcpy(working_deg, deg, (size_t) p);
       qsort(working_deg, p, sizeof(IntWithIdx), int_cmp_desc_idx_incr);
       n_vtx_left=0;
-      while (working_deg[n_vtx_left].x < d && n_vtx_left < p) {
+      while (n_vtx_left < p && working_deg[n_vtx_left].x < d) {
         deg_diff[n_vtx_left] = (double) (d - working_deg[n_vtx_left].x);
         n_vtx_left++;
       }
