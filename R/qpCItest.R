@@ -1115,7 +1115,6 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
     ssd_j <- as.matrix(ssdMats$ssd_j)
     ssd_ij <- as.matrix(ssdMats$ssd_ij)
   }
-  cat("n_co=", n_co, "\n")
  
   ssd <- determinant(ssd)       ## watch out, when using Matrix::determinant(..., logarithm=TRUE)
   ssd_i <- determinant(ssd_i)   ## $modulus is always 0, don't know why. since this is its default
