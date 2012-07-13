@@ -2,6 +2,7 @@
 \docType{class}
 \alias{SsdMatrix-class}
 \alias{show,SsdMatrix-method}
+\alias{determinant,SsdMatrix-method}
 \alias{dim,SsdMatrix-method}
 \alias{dimnames,SsdMatrix-method}
 
@@ -35,9 +36,10 @@
 }
 \section{Methods}{
   \describe{
-    \item{show}{\code{signature(object = "SsdMatrix")}}
     \item{dim}{\code{signature(x = "SsdMatrix")}}
     \item{dimnames}{\code{signature(x = "SsdMatrix")}}
+    \item{show}{\code{signature(object = "SsdMatrix")}}
+    \item{determinant}{\code{signature(object = "SsdMatrix")}}
   }
 }
 \keyword{classes}

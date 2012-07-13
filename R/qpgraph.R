@@ -1634,8 +1634,9 @@ setMethod("qpEdgeNrr", signature(X="smlSet"),
             fix.Q <- param$fix.Q
 
             if (length(intersect(restrict.Q, Y)) > 0)
-              Y <- c(intersect(i, Y), intersect(j, Y),
-                     intersect(restrict.Q, Y), intersect(fix.Q, Y))
+              Y <- unique(c(intersect(i, Y), intersect(j, Y),
+                            intersect(restrict.Q, Y), intersect(fix.Q, Y)))
+
 
             if (is.null(I) && !is.null(restrict.Q) &&
                 all(c(i, j, restrict.Q, fix.Q) <= ph)) { ## only continuous variables are
@@ -1825,8 +1826,8 @@ setMethod("qpEdgeNrr", signature(X="ExpressionSet"),
               fix.Q <- param$fix.Q
 
               if (length(intersect(restrict.Q, Y)) > 0)
-                Y <- c(intersect(i, Y), intersect(j, Y),
-                       intersect(restrict.Q, Y), intersect(fix.Q, Y))
+                Y <- unique(c(intersect(i, Y), intersect(j, Y),
+                              intersect(restrict.Q, Y), intersect(fix.Q, Y)))
 
               ### CHECK WHETHER THERE ARE MISSING VALUES AND CALCULATE IT ONLY IF THERE ARE NOT !!!!!
               ssd <- qpCov(X[, Y, drop=FALSE], corrected=FALSE)
@@ -1903,7 +1904,8 @@ setMethod("qpEdgeNrr", signature(X="data.frame"),
               fix.Q <- param$fix.Q
 
               if (length(intersect(restrict.Q, Y)) > 0)
-                Y <- c(intersect(restrict.Q, Y), intersect(fix.Q, Y))
+                Y <- unique(c(intersect(i, Y), intersect(j, Y),
+                              intersect(restrict.Q, Y), intersect(fix.Q, Y)))
 
               ### CHECK WHETHER THERE ARE MISSING VALUES AND CALCULATE IT ONLY THERE THERE ARE NOT !!!!!
               ssd <- qpCov(X[, Y, drop=FALSE], corrected=FALSE)
@@ -1977,19 +1979,20 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
               fix.Q <- param$fix.Q
 
               if (length(intersect(restrict.Q, Y)) > 0)
-                Y <- c(intersect(restrict.Q, Y), intersect(fix.Q, Y))
+                Y <- unique(c(intersect(i, Y), intersect(j, Y),
+                              intersect(restrict.Q, Y), intersect(fix.Q, Y)))
 
               nLevels <- rep(NA_integer_, times=ncol(X))
               nLevels[I] <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
               if (any(nLevels[I] == 1))
                 stop(sprintf("Discrete variable %s has only one level", colnames(X)[I[nLevels[I]==1]]))
 
-              missingMask <- apply(X[, I, drop=FALSE], 2, function(x) any(is.na(x)))
+              missingMask <- apply(X, 2, function(x) any(is.na(x)))
               missingData <- any(missingMask)
               ssd <- mapX2ssd <- NULL
               if (!missingData) {
                 ssd <- qpCov(X[, Y, drop=FALSE], corrected=FALSE)
-                mapX2ssd <- match(colnames(X), colnames(ssd))
+                mapX2ssd <- match(varNames, colnames(ssd))
                 ## names(mapX2ssd) <- colnames(X) ## is this necessary ??
               }
 
@@ -2188,7 +2191,10 @@ setMethod("qpEdgeNrr", signature(X="SsdMatrix"),
   }
 
   if (!R.code.only) {
-    return(qpgraph:::.qpFastEdgeNrrHMGM(X, I, Y, ssdMat, mapX2ssdMat, i, j, q,
+    if (use == "em")
+      stop("The EM algorithm is not yet implemented in the fast C version of the code for qpEdgeNrr(). Please set either use=\"complete.obs\" (default value) or R.code.only=TRUE\n")
+
+    return(qpgraph:::.qpFastEdgeNrrHMGM(X, I, nLevels, Y, ssdMat, mapX2ssdMat, i, j, q,
                                         restrict.Q, fix.Q, nTests, alpha, exact.test))
   }
 
@@ -4978,12 +4984,8 @@ clPrCall <- function(cl, fun, n.adj, ...) {
                                   as.integer(nTests), as.double(alpha)))
 }
 
-.qpFastEdgeNrrHMGM <- function(X, I, Y, ssd, mapX2ssd, i, j, q, restrict.Q,
+.qpFastEdgeNrrHMGM <- function(X, I, nLevels, Y, ssd, mapX2ssd, i, j, q, restrict.Q,
                                fix.Q, nTests, alpha, exact.test) {
-  nLevels <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
-  if (any(nLevels == 1))
-    stop(sprintf("Phenotypic discrete variable %s has only one level", colnames(X)[I][which(nLevels == 1)]))
-
   ssdx <- NULL
   if (!is.null(ssd))
     ssdx <- ssd@x

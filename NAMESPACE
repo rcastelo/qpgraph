@@ -25,7 +25,12 @@ exportMethods("qpNrr",
               "qpCItest",
               "qpAllCItests",
               "qpEdgeNrr",
-              "qpFunctionalCoherence")
+              "qpFunctionalCoherence",
+              "show",
+              "determinant",
+              "dim",
+              "dimnames"
+             )
 
 export(qpHist,
        qpGraphDensity,

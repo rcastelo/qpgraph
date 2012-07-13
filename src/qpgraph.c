@@ -4600,28 +4600,32 @@ static SEXP
 qp_fast_edge_nrr_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
                       SEXP mapX2ssdR, SEXP iR, SEXP jR, SEXP qR, SEXP restrictQR,
                       SEXP fixQR, SEXP nTestsR, SEXP alphaR, SEXP exactTest) {
-  int    n = INTEGER(getAttrib(XR, R_DimSymbol))[0];
-  int    p = INTEGER(getAttrib(XR, R_DimSymbol))[1];
-  int    n_I = length(IR);
-  int    n_Y = length(YR);
-  int    q;
-  int    i,j,k;
-  int*   I;
-  int*   Y;
-  int*   mapX2ssd;
-  int*   restrictQ = NULL;
-  int    n_rQ = length(restrictQR);
-  int*   fixQ=NULL;
-  int    n_fQ=length(fixQR);
-  int    nTests;
-  double alpha;
-  SEXP   nrr;
+  int     n = INTEGER(getAttrib(XR, R_DimSymbol))[0];
+  int     p = INTEGER(getAttrib(XR, R_DimSymbol))[1];
+  int     n_I = length(IR);
+  int     n_Y = length(YR);
+  int     q;
+  int     i,j,k;
+  int*    I;
+  int*    Y;
+  double* ssdMat = NULL;
+  int*    mapX2ssd;
+  int*    restrictQ = NULL;
+  int     n_rQ = length(restrictQR);
+  int*    fixQ=NULL;
+  int     n_fQ=length(fixQR);
+  int     nTests;
+  double  alpha;
+  SEXP    nrr;
 
   PROTECT_INDEX ssd_pi;
 
   PROTECT_WITH_INDEX(ssdR,&ssd_pi);
 
-  REPROTECT(ssdR = coerceVector(ssdR,REALSXP), ssd_pi);
+  if (ssdR != R_NilValue) {
+    REPROTECT(ssdR = coerceVector(ssdR,REALSXP), ssd_pi);
+    ssdMat = REAL(ssdR);
+  }
 
   i = INTEGER(iR)[0] - 1;
   j = INTEGER(jR)[0] - 1;
@@ -4652,9 +4656,11 @@ qp_fast_edge_nrr_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
   for (k=0; k < n_Y; k++)
     Y[k] = INTEGER(YR)[k]-1;
 
-  mapX2ssd = Calloc(p, int);
-  for (k=0; k < p; k++)
-    mapX2ssd[k] = INTEGER(mapX2ssdR)[k]-1;
+  if (ssdR != R_NilValue) {
+    mapX2ssd = Calloc(p, int);
+    for (k=0; k < p; k++)
+      mapX2ssd[k] = INTEGER(mapX2ssdR)[k]-1;
+  }
 
   if (n_rQ > 0) {
     restrictQ = Calloc(n_rQ, int);
@@ -4671,10 +4677,13 @@ qp_fast_edge_nrr_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
   PROTECT(nrr = allocVector(REALSXP,1));
 
   REAL(nrr)[0] = qp_edge_nrr_hmgm(REAL(XR), p, n, I, n_I, INTEGER(n_levelsR), Y,
-                                  n_Y, REAL(ssdR), mapX2ssd, i, j, q, restrictQ,
+                                  n_Y, ssdMat, mapX2ssd, i, j, q, restrictQ,
                                   n_rQ, fixQ, n_fQ, nTests, alpha, INTEGER(exactTest)[0]);
 
-  UNPROTECT(2); /* ssd nrr */
+  UNPROTECT(1); /* nrr */
+
+  if (ssdR != R_NilValue)
+    UNPROTECT(1); /* ssdR */
 
   if (n_rQ > 0)
     Free(restrictQ);
@@ -6723,7 +6732,7 @@ find_missing_obs(double* X, int p, int n, int* Y, int n_Y, int* idx_obs,
     j = 0;
     while (!missing_mask[k] && j < n_Y) {
       l = n_Y < p ? Y[j] : j;
-      if (ISNAN(X[l * n + k])) {
+      if (ISNA(X[l * n + k])) {
         missing_mask[k] = 1;
         (*n_mis)++;
       }
@@ -6994,9 +7003,9 @@ ssd_A(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
   for (i=0; i < n; i++) {
     global_xtab[i] = 1;
     if (idx_excobs != NULL) {
-      if (!idx_excobs[i])      /* if obs is not excluded i use it */
+      if (!idx_excobs[i])      /* if obs is not excluded,  use it */
         obs_idx[n_obs++] = i;
-      else                     /* if obs is excluded i avoid using it later */
+      else                     /* if obs is excluded, avoid using it later */
         global_xtab[i] = -1;
     } else
       obs_idx[n_obs++] = i;

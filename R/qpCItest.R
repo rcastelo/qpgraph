@@ -602,7 +602,7 @@ setMethod("qpCItest", signature(X="matrix"),
               if (any(nLevels[I] == 1))
                 stop(sprintf("Discrete variable %s has only one level", colnames(X)[I[nLevels[I]==1]]))
 
-              missingMask <- apply(X[, I, drop=FALSE], 2, function(x) any(is.na(x)))
+              missingMask <- apply(X, 2, function(x) any(is.na(x)))
               missingData <- any(missingMask)
               ssd <- mapX2ssd <- NULL
               if (!missingData) {
@@ -738,26 +738,28 @@ setMethod("qpCItest", signature(X="SsdMatrix"),
 }
 
 ## calculate one ssd matrix using complete observations only
-.ssdStatsCompleteObs <- function(X, I, Y) {
+.ssdStatsCompleteObs <- function(X, I, Y, missingMask) {
 
   n <- nrow(X)
+  n.co <- n - sum(missingMask)
 
-  if (length(I) == 0)
-    return((n-1) * cov(X[, Y, drop=FALSE]))
-
-  missingMask <- apply(X[, I, drop=FALSE], 1, function(x) any(is.na(x)))
+  if (length(I) == 0) {
+    ssd <- qpCov(X[, Y, drop=FALSE], corrected=FALSE)
+    stopifnot(ssd@n == n.co) ## QC to verify the integrity of missingMask with the data
+    return(ssd)
+  }
 
   xtab <- tapply(1:n, as.data.frame(X[, I, drop=FALSE]))
   xtab[missingMask] <- -1 ## label missing observations
   xtab <- split(as.data.frame(X[, Y, drop=FALSE]), xtab)
   xtab <- xtab[as.integer(names(xtab)) > 0] ## remove missing observations
   xtab <- xtab[which(sapply(lapply(xtab, dim), "[", 1) > 0)]
-  ni <- sapply(lapply(xtab, dim), "[", 1)
+  ## ni <- sapply(lapply(xtab, dim), "[", 1)
   ssd <- Reduce("+",
                 lapply(as.list(1:length(xtab)),
-                       function(i, x) qpCov(as.matrix(x[[i]]), corrected=FALSE), xtab))
+                       function(i, x) qpCov(as.matrix(x[[i]]), corrected=FALSE)@ssd, xtab))
                         ##function(i, x, ni, n) (ni[i]-1)*cov(x[[i]]), xtab, ni, n))
-  ssd
+  new("SsdMatrix", ssd=ssd, n=n.co)
 }
 
 ## the following functions implement calculating all necessary ssd matrices
@@ -1046,21 +1048,8 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
       stop("ssdMat is not squared and symmetric. Is it really an ssd matrix?\n")
   }
 
-  ## not possible when considering restrict.Q != NULL
-  ## if (p != length(Y))
-  ##  stop("ssdMat is not the ssd matrix of the variables in Y\n")
-
-  ## not necessary if we assume .processParameters() is called before
-  ## if (!is.integer(i) || !is.integer(j) || (!is.null(Q) && !is.integer(Q)) || (!is.null(I) && !is.integer(I)) || !is.integer(Y))
-  ##   stop("i, j, Y, I and Q should contain only integer values when calling .qpCItestHMGM()")
-
   if (all(!is.na(match(c(i,j), I))))
     stop("i and j cannot be both discrete at the moment")
-
-  ## for the sake of speed assume the map is correct
-  ## if (is.null(rownames(ssdMat)) || is.null(colnames(ssdMat)) ||
-  ##     any(is.na(match(colnames(ssdMat), colnames(X)))))
-  ##   stop("ssdMat should have row and column names that match variables in X\n")
 
   if (!R.code.only) {
     return(qpgraph:::.qpFastCItestHMGM(X, I, nLevels, Y, ssdMat, mapX2ssdMat,
@@ -1079,62 +1068,63 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
   ssd <- ssd_i <- ssd_j <- ssd_ij <- diag(2) 
   n_co <- n <- nrow(X)
 
-  if (length(I) == 0) { ## dspMatrix -> matrix because det() still doesn't work with Matrix classes
-    ## when we'll handle missing continuous data too we'll have to consider calculating ssd
-    ssd <- as.matrix(ssdMat[mapX2ssdMat[Y], mapX2ssdMat[Y], drop=FALSE])
+  ## build logical mask of missing observations
+  missingMask <- apply(X[, c(I, Y), drop=FALSE], 1, function(x) any(is.na(x)))
+  missingData <- any(missingMask)
+
+  if (!missingData || use == "complete.obs") { ## either no missing data or use complete obs
+    n_co <- n - sum(missingMask)
+
+    if (!missingData && !is.null(ssdMat) && length(I) == 0)
+      ssd <- ssdMat[mapX2ssdMat[Y], mapX2ssdMat[Y], drop=FALSE]
+    else
+      ssd <- qpgraph:::.ssdStatsCompleteObs(X, I, Y, missingMask)
+
     ## ssd_i = ssd_Gamma when i is discrete or ssd_{Gamma\i} when i is continuous
-    ssd_i <- as.matrix(ssdMat[mapX2ssdMat[setdiff(Y, i)], mapX2ssdMat[setdiff(Y, i)], drop=FALSE])
+    if (!missingData && !is.null(ssdMat) && length(setdiff(I, i)) == 0)
+      ssd_i <- ssdMat[mapX2ssdMat[setdiff(Y, i)], mapX2ssdMat[setdiff(Y, i)], drop=FALSE]
+    else
+      ssd_i <- qpgraph:::.ssdStatsCompleteObs(X, setdiff(I, i), setdiff(Y, i), missingMask)
+
     if (length(setdiff(Y, j)) > 0) {
-      ssd_j <- as.matrix(ssdMat[mapX2ssdMat[setdiff(Y, j)], mapX2ssdMat[setdiff(Y, j)], drop=FALSE])
-      if (length(setdiff(Y, c(i, j))) > 0)
-        ssd_ij <- as.matrix(ssdMat[mapX2ssdMat[setdiff(Y, c(i, j))],
-                                   mapX2ssdMat[setdiff(Y, c(i, j))], drop=FALSE])
-    }
-  } else {
-    missingMask <- apply(X[, I, drop=FALSE], 1, function(x) any(is.na(x)))
-    missingData <- any(missingMask)
-    if (!missingData || use == "complete.obs") { ## either no missing data or use complete obs
-      n_co <- n - sum(missingMask)
+      if (!missingData && !is.null(ssdMat))
+        ssd_j <- ssdMat[mapX2ssdMat[setdiff(Y, j)], mapX2ssdMat[setdiff(Y, j)], drop=FALSE]
+      else
+        ssd_j <- qpgraph:::.ssdStatsCompleteObs(X, I, setdiff(Y, j), missingMask)
 
-      ssd <- qpgraph:::.ssdStatsCompleteObs(X[!missingMask, ], I, Y)
-      if (length(setdiff(I, i)) == 0 && !missingData && !is.null(ssdMat)) ## dspMatrix -> matrix because det() still doesn't work with Matrix classes
-        ssd_i <- as.matrix(ssdMat[mapX2ssdMat[setdiff(Y, i)], mapX2ssdMat[setdiff(Y, i)], drop=FALSE])
-      else ## ssd_i = ssd_Gamma when i is discrete or ssd_{Gamma\i} when i is continuous
-        ssd_i <- qpgraph:::.ssdStatsCompleteObs(X[!missingMask, ], setdiff(I, i), setdiff(Y, i))
-
-      if (length(setdiff(Y, j)) > 0) {
-        ssd_j <- qpgraph:::.ssdStatsCompleteObs(X[!missingMask, ], I, setdiff(Y, j))
-        if (length(setdiff(Y, c(i,j))) > 0) {
-          if (length(setdiff(I, i)) == 0 && !missingData && !is.null(ssdMat)) ## dspMatrix -> matrix because det() still doesn't work with Matrix classes
-            ssd_ij <- as.matrix(ssdMat[mapX2ssdMat[setdiff(Y, c(i, j))],
-                                       mapX2ssdMat[setdiff(Y, c(i, j))], drop=FALSE])
-          else
-            ssd_ij <- qpgraph:::.ssdStatsCompleteObs(X[!missingMask, ], setdiff(I, i), setdiff(Y, c(i, j)))
-        }
+      if (length(setdiff(Y, c(i,j))) > 0) {
+        if (!missingData && !is.null(ssdMat) && length(setdiff(I, i)) == 0)
+          ssd_ij <- ssdMat[mapX2ssdMat[setdiff(Y, c(i, j))],
+                           mapX2ssdMat[setdiff(Y, c(i, j))], drop=FALSE]
+        else
+          ssd_ij <- qpgraph:::.ssdStatsCompleteObs(X, setdiff(I, i), setdiff(Y, c(i, j)), missingMask)
       }
-    } else { ## missing data and should use the EM algorithm
-      mapX2Y <- rep(NA, ncol(X))
-      mapX2Y[Y] <- 1:length(Y)
-      mapX2I <- rep(NA, ncol(X))
-      mapX2I[I] <- 1:length(I)
-
-      idxMissingObs <- which(missingMask)
-      idxCompleteObs <- setdiff(1:n, idxMissingObs)
-      mapAllObs2MissingObs <- rep(NA, n)
-      mapAllObs2MissingObs[idxMissingObs] <- 1:length(idxMissingObs)
-      ssdMats <- qpgraph:::.ssdStatsEM(X, idxCompleteObs, idxMissingObs, mapAllObs2MissingObs,
-                                       I, mapX2I, nLevels, Y, mapX2Y, i, j, Q, tol)
-      ssd <- as.matrix(ssdMats$ssd)
-      ssd_i <- as.matrix(ssdMats$ssd_i)
-      ssd_j <- as.matrix(ssdMats$ssd_j)
-      ssd_ij <- as.matrix(ssdMats$ssd_ij)
     }
+  } else { ## missing data and should use the EM algorithm
+    if (I == 0)
+      stop("EM not implemented yet for missing values in continuous variables\n")
+
+    mapX2Y <- rep(NA, ncol(X))
+    mapX2Y[Y] <- 1:length(Y)
+    mapX2I <- rep(NA, ncol(X))
+    mapX2I[I] <- 1:length(I)
+
+    idxMissingObs <- which(missingMask)
+    idxCompleteObs <- setdiff(1:n, idxMissingObs)
+    mapAllObs2MissingObs <- rep(NA, n)
+    mapAllObs2MissingObs[idxMissingObs] <- 1:length(idxMissingObs)
+    ssdMats <- qpgraph:::.ssdStatsEM(X, idxCompleteObs, idxMissingObs, mapAllObs2MissingObs,
+                                       I, mapX2I, nLevels, Y, mapX2Y, i, j, Q, tol)
+    ssd <- as.matrix(ssdMats$ssd)
+    ssd_i <- as.matrix(ssdMats$ssd_i)
+    ssd_j <- as.matrix(ssdMats$ssd_j)
+    ssd_ij <- as.matrix(ssdMats$ssd_ij)
   }
  
-  ssd <- determinant(ssd, logarithm=TRUE)
-  ssd_i <- determinant(ssd_i, logarithm=TRUE)
-  ssd_j <- determinant(ssd_j, logarithm=TRUE)
-  ssd_ij <- determinant(ssd_ij, logarithm=TRUE)
+  ssd <- determinant(ssd)       ## watch out, when using Matrix::determinant(..., logarithm=TRUE)
+  ssd_i <- determinant(ssd_i)   ## $modulus is always 0, don't know why. since this is its default
+  ssd_j <- determinant(ssd_j)   ## we this argument is not being put explicitly in the call
+  ssd_ij <- determinant(ssd_ij)
   final_sign <- ssd$sign * ssd_ij$sign * ssd_j$sign *ssd_i$sign
 
   ## lr <- -n * log((det(ssd) * det(ssd_ij)) / 
