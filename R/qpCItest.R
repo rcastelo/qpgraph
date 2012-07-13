@@ -602,7 +602,7 @@ setMethod("qpCItest", signature(X="matrix"),
               if (any(nLevels[I] == 1))
                 stop(sprintf("Discrete variable %s has only one level", colnames(X)[I[nLevels[I]==1]]))
 
-              missingMask <- apply(X, 2, function(x) any(is.na(x)))
+              missingMask <- apply(X, 1, function(x) any(is.na(x)))
               missingData <- any(missingMask)
               ssd <- mapX2ssd <- NULL
               if (!missingData) {
@@ -740,14 +740,13 @@ setMethod("qpCItest", signature(X="SsdMatrix"),
 ## calculate one ssd matrix using complete observations only
 .ssdStatsCompleteObs <- function(X, I, Y, missingMask) {
 
-  n <- nrow(X)
-  n.co <- n - sum(missingMask)
-
   if (length(I) == 0) {
-    ssd <- qpCov(X[, Y, drop=FALSE], corrected=FALSE)
-    stopifnot(ssd@n == n.co) ## QC to verify the integrity of missingMask with the data
+    ssd <- qpCov(X[!missingMask, Y, drop=FALSE], corrected=FALSE)
     return(ssd)
   }
+
+  n <- nrow(X)
+  n.co <- n - sum(missingMask)
 
   xtab <- tapply(1:n, as.data.frame(X[, I, drop=FALSE]))
   xtab[missingMask] <- -1 ## label missing observations
@@ -759,7 +758,7 @@ setMethod("qpCItest", signature(X="SsdMatrix"),
                 lapply(as.list(1:length(xtab)),
                        function(i, x) qpCov(as.matrix(x[[i]]), corrected=FALSE)@ssd, xtab))
                         ##function(i, x, ni, n) (ni[i]-1)*cov(x[[i]]), xtab, ni, n))
-  new("SsdMatrix", ssd=ssd, n=n.co)
+  new("SsdMatrix", ssd=as(ssd, "dspMatrix"), n=n.co)
 }
 
 ## the following functions implement calculating all necessary ssd matrices
@@ -1087,11 +1086,7 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
       ssd_i <- qpgraph:::.ssdStatsCompleteObs(X, setdiff(I, i), setdiff(Y, i), missingMask)
 
     if (length(setdiff(Y, j)) > 0) {
-      if (!missingData && !is.null(ssdMat))
-        ssd_j <- ssdMat[mapX2ssdMat[setdiff(Y, j)], mapX2ssdMat[setdiff(Y, j)], drop=FALSE]
-      else
-        ssd_j <- qpgraph:::.ssdStatsCompleteObs(X, I, setdiff(Y, j), missingMask)
-
+      ssd_j <- qpgraph:::.ssdStatsCompleteObs(X, I, setdiff(Y, j), missingMask)
       if (length(setdiff(Y, c(i,j))) > 0) {
         if (!missingData && !is.null(ssdMat) && length(setdiff(I, i)) == 0)
           ssd_ij <- ssdMat[mapX2ssdMat[setdiff(Y, c(i, j))],
@@ -1101,7 +1096,7 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
       }
     }
   } else { ## missing data and should use the EM algorithm
-    if (I == 0)
+    if (length(I) == 0)
       stop("EM not implemented yet for missing values in continuous variables\n")
 
     mapX2Y <- rep(NA, ncol(X))
@@ -1120,6 +1115,7 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
     ssd_j <- as.matrix(ssdMats$ssd_j)
     ssd_ij <- as.matrix(ssdMats$ssd_ij)
   }
+  cat("n_co=", n_co, "\n")
  
   ssd <- determinant(ssd)       ## watch out, when using Matrix::determinant(..., logarithm=TRUE)
   ssd_i <- determinant(ssd_i)   ## $modulus is always 0, don't know why. since this is its default

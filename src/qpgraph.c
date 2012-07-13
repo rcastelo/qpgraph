@@ -324,7 +324,7 @@ calculate_means(double* X, int p, int n, int* Y, int n_Y, int* idx_obs,
 
 int
 ssd(double* X, int p, int n, int* Y, int n_Y, int* idx_obs, int n_idx_obs,
-    int corrected, double* ssd_mat);
+    int corrected, int* missing_mask, double* ssd_mat);
 
 static SEXP
 qp_fast_cov_upper_triangular(SEXP XR, SEXP corrected);
@@ -335,9 +335,9 @@ qp_fast_rnd_graph(SEXP pR, SEXP dR, SEXP excludeR, SEXP verbose);
 void
 calculate_xtab(double* X, int p, int n, int* I, int n_I, int* n_levels, int* xtab);
 
-void
+int
 ssd_A(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
-      int* idx_excobs, double* ssd_A, int* n_co, int* idx_misobs);
+      int* excobs_mask, int* missing_mask, double* ssd_A);
 
 /* Global variables */
 
@@ -474,7 +474,7 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
 
   if (n_I == 0) {
     S = ssdMat = Calloc((n_var*(n_var+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-    n_co = ssd(REAL(XR), n_var, N, NULL, n_var, NULL, N, TRUE, S);
+    n_co = ssd(REAL(XR), n_var, N, NULL, n_var, NULL, N, TRUE, NULL, S);
   } else {
     I = Calloc(n_I, int);
     for (i=0; i < n_I; i++)
@@ -494,7 +494,7 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
     }
 
     S = ssdMat = Calloc((n_Y*(n_Y+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-    n_co = ssd(REAL(XR), n_var, N, Y, n_Y, NULL, N, TRUE, ssdMat);
+    n_co = ssd(REAL(XR), n_var, N, Y, n_Y, NULL, N, TRUE, NULL, ssdMat);
   }
 
   if (restrictQR != R_NilValue) {
@@ -866,7 +866,7 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR, SEXP nTes
     error("significance level alpha is %.2f and it should lie in the interval [0, 1]\n", alpha);
 
   S = Calloc((n_var*(n_var+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-  n_co = ssd(REAL(XR), n_var, N, NULL, n_var, NULL, N, TRUE, S);
+  n_co = ssd(REAL(XR), n_var, N, NULL, n_var, NULL, N, TRUE, NULL, S);
 
   if (n_rQ > 0) {
     restrictQ = Calloc(n_rQ, int);
@@ -1248,7 +1248,7 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
 
   if (n_I == 0) {
     S = ssdMat = Calloc((n_var*(n_var+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-    n_co = ssd(REAL(XR), n_var, N, NULL, n_var, NULL, N, TRUE, S);
+    n_co = ssd(REAL(XR), n_var, N, NULL, n_var, NULL, N, TRUE, NULL, S);
   } else {
     I = Calloc(n_I, int);
     for (i=0; i < n_I; i++)
@@ -1268,7 +1268,7 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
     }
 
     S = ssdMat = Calloc((n_Y*(n_Y+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-    n_co = ssd(REAL(XR), n_var, N, Y, n_Y, NULL, N, TRUE, ssdMat);
+    n_co = ssd(REAL(XR), n_var, N, Y, n_Y, NULL, N, TRUE, NULL, ssdMat);
 
   }
 
@@ -1638,7 +1638,7 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR,
     error("q=%d > N-3=%d", q, N-3);
 
   S = Calloc((n_var*(n_var+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-  n_co = ssd(REAL(XR), n_var, N, NULL, n_var, NULL, N, TRUE, S);
+  n_co = ssd(REAL(XR), n_var, N, NULL, n_var, NULL, N, TRUE, NULL, S);
 
   if (n_rQ > 0) {
     restrictQ = Calloc(n_rQ, int);
@@ -1946,7 +1946,7 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
 
   if (n_I == 0) {
     S = ssdMat = Calloc((n_var*(n_var+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-    n_co = ssd(REAL(XR), n_var, n, NULL, n_var, NULL, n, TRUE, S);
+    n_co = ssd(REAL(XR), n_var, n, NULL, n_var, NULL, n, TRUE, NULL, S);
   } else {
     I = Calloc(n_I, int);
     for (i=0; i < n_I; i++)
@@ -1966,7 +1966,7 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
     }
 
     S = ssdMat = Calloc((n_Y*(n_Y+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-    ssd(REAL(XR), n_var, n, Y, n_Y, NULL, n, TRUE, ssdMat);
+    n_co = ssd(REAL(XR), n_var, n, Y, n_Y, NULL, n, TRUE, NULL, ssdMat);
   }
 
   if (QR != R_NilValue) {
@@ -2417,7 +2417,7 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
 
   if (n_I == 0) {
     S = ssdMat = Calloc((n_var*(n_var+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-    n_co = ssd(REAL(XR), n_var, n, NULL, n_var, NULL, n, TRUE, S);
+    n_co = ssd(REAL(XR), n_var, n, NULL, n_var, NULL, n, TRUE, NULL, S);
   } else {
     I = Calloc(n_I, int);
     for (i=0; i < n_I; i++)
@@ -2437,7 +2437,7 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
     }
 
     S = ssdMat = Calloc((n_Y*(n_Y+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-    ssd(REAL(XR), n_var, n, Y, n_Y, NULL, n, TRUE, ssdMat);
+    n_co = ssd(REAL(XR), n_var, n, Y, n_Y, NULL, n, TRUE, NULL, ssdMat);
   }
 
   if (QR != R_NilValue) {
@@ -3550,8 +3550,12 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
   ssd_mat = Calloc((n_Y * (n_Y + 1)) / 2, double);  /* upper triangle includes the diagonal */
 
   if (n_I > 0 || ucond_ssd == NULL) {
-    idx_misobs = Calloc(n, int);
-    ssd_A(X, p, n, I, n_I, n_levels, Y, n_Y, NULL, ssd_mat, n_co, idx_misobs);
+    idx_misobs = Calloc(n, int); /* assume Calloc() memsets everything to zeroes */
+
+    /* when calculating the larger ssd, the number of complete observations and the
+     * logical mask of missing observations is pulled out and employed in later calls
+     * to ssd_A */
+    *n_co = ssd_A(X, p, n, I, n_I, n_levels, Y, n_Y, NULL, idx_misobs, ssd_mat);
   } else {
     int* tmp;
 
@@ -3617,7 +3621,7 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
 
   if (n_I > 0 || ucond_ssd == NULL) {
     memset(ssd_mat, 0, ((n_Y_i * (n_Y_i + 1)) / 2) * sizeof(double));
-    ssd_A(X, p, n, I, n_I_i, n_levels, Y, n_Y_i, idx_misobs, ssd_mat, NULL, NULL);
+    ssd_A(X, p, n, I, n_I_i, n_levels, Y, n_Y_i, idx_misobs, NULL, ssd_mat);
   } else {
     int* tmp;
 
@@ -3667,7 +3671,7 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
 
     if (n_I > 0 || ucond_ssd == NULL) {
       memset(ssd_mat, 0, ((n_Y_j * (n_Y_j + 1)) / 2) * sizeof(double));
-      ssd_A(X, p, n, I, n_I, n_levels, Y, n_Y_j, idx_misobs, ssd_mat, NULL, NULL);
+      ssd_A(X, p, n, I, n_I, n_levels, Y, n_Y_j, idx_misobs, NULL, ssd_mat);
     } else {
       int* tmp;
 
@@ -3717,7 +3721,7 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
     if (n_Y_ij > 0) {
       if (n_I > 0 || ucond_ssd == NULL) {
         memset(ssd_mat, 0, ((n_Y_j * (n_Y_j + 1)) / 2) * sizeof(double));
-        ssd_A(X, p, n, I, n_I_i, n_levels, Y, n_Y_ij, idx_misobs, ssd_mat, NULL, NULL);
+        ssd_A(X, p, n, I, n_I_i, n_levels, Y, n_Y_ij, idx_misobs, NULL, ssd_mat);
       } else {
         int* tmp;
 
@@ -3963,7 +3967,11 @@ qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* X
 
   if (n_I_int > 0 || ucond_ssd == NULL) {
     idx_misobs = Calloc(n, int);
-    ssd_A(XEP1q, p+s1q, n, I_int, n_I_int, n_levels_int, Y, n_Y, NULL, ssd_mat, n_co, idx_misobs);
+
+    /* when calculating the larger ssd, the number of complete observations and the
+     * logical mask of missing observations is pulled out and employed in later calls
+     * to ssd_A */
+    *n_co = ssd_A(XEP1q, p+s1q, n, I_int, n_I_int, n_levels_int, Y, n_Y, NULL, idx_misobs, ssd_mat);
   } else {
     int* tmp;
 
@@ -4028,7 +4036,7 @@ qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* X
 
   if (n_I_int > 0 || ucond_ssd == NULL) {
     memset(ssd_mat, 0, ((n_Y_i * (n_Y_i + 1)) / 2) * sizeof(double));
-    ssd_A(XEP1q, p+s1q, n, I_int, n_I_i, n_levels_int, Y, n_Y_i, idx_misobs, ssd_mat, NULL, NULL);
+    ssd_A(XEP1q, p+s1q, n, I_int, n_I_i, n_levels_int, Y, n_Y_i, idx_misobs, NULL, ssd_mat);
   } else {
     int* tmp;
 
@@ -4077,7 +4085,7 @@ qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* X
 
     if (n_I_int > 0 || ucond_ssd == NULL) {
       memset(ssd_mat, 0, ((n_Y_j * (n_Y_j + 1)) / 2) * sizeof(double));
-      ssd_A(XEP1q, p+s1q, n, I_int, n_I_int, n_levels_int, Y, n_Y_j, idx_misobs, ssd_mat, NULL, NULL);
+      ssd_A(XEP1q, p+s1q, n, I_int, n_I_int, n_levels_int, Y, n_Y_j, idx_misobs, NULL, ssd_mat);
     } else {
       int* tmp;
 
@@ -4127,7 +4135,7 @@ qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* X
     if (n_Y_ij > 0) {
       if (n_I_int > 0 || ucond_ssd == NULL) {
         memset(ssd_mat, 0, ((n_Y_j * (n_Y_j + 1)) / 2) * sizeof(double));
-        ssd_A(XEP1q, p+s1q, n, I_int, n_I_i, n_levels_int, Y, n_Y_ij, idx_misobs, ssd_mat, NULL, NULL);
+        ssd_A(XEP1q, p+s1q, n, I_int, n_I_i, n_levels_int, Y, n_Y_ij, idx_misobs, NULL, ssd_mat);
       } else {
         int* tmp;
 
@@ -6718,7 +6726,14 @@ e2i(int e_i, int e_j, int* i) {
               n_idx_obs - number of observations for which we want to check missingness
               meanv - output vector of n_Y mean values
               missing_mask - logical mask where this function sets to 1 if a value is missing
-                             in an observation. it is assumed that initially is set to zeroes.
+                             in an observation. it is assumed that initially is set to zeroes
+                             on positions where observations are not missing.
+              n_mis - number of missing observations
+  DESCRIPTION: this function serves the purpose of identifying missing observations either all
+               throughout X, or throughout a subset of variables in Y, or throughout a subset
+               of observations in idx_obs, or both.
+  RETURN: by reference, a logical mask (missing_mask) with positions corresponding to missing
+          observations set to 1 and the number of missing observations in this logical mask.
 */
 
 void
@@ -6732,13 +6747,15 @@ find_missing_obs(double* X, int p, int n, int* Y, int n_Y, int* idx_obs,
     j = 0;
     while (!missing_mask[k] && j < n_Y) {
       l = n_Y < p ? Y[j] : j;
-      if (ISNA(X[l * n + k])) {
+      if (ISNA(X[l * n + k]))
         missing_mask[k] = 1;
-        (*n_mis)++;
-      }
       j++;
     }
+
+    if (missing_mask[k])
+      (*n_mis)++;
   }
+
 }
 
 
@@ -6807,20 +6824,26 @@ calculate_means(double* X, int p, int n, int* Y, int n_Y, int* idx_obs,
               n_idx_obs - number of observations to employ in the calculation of the ssd, it
                           should be n when idx_obs is NULL
               corrected - flag indicating whether the sum be corrected (=covariance)
+              missing_mask - logical mask indicating which observations are missing
               ssd_mat - pointer to the matrix where the result is returned
+  DESCRIPTION: this function skips missing observations and can work cooperatively with
+               ssd_A() to push through 'missing_mask' the detected missing observations
   RETURN: number of complete observations employed in the estimation
 */
 
 int
 ssd(double* X, int p, int n, int* Y, int n_Y, int* idx_obs, int n_idx_obs,
-    int corrected, double* ssd_mat) {
+    int corrected, int* missing_mask, double* ssd_mat) {
   double* meanv;
-  int*    missing_mask;
+  int     allocated_missing_mask = 0;
   int     n1, n_mis=0;
   int     i,j,k,l;
 
   meanv = Calloc(n_Y, double);
-  missing_mask = Calloc(n, int); /* assume Calloc() memsets everything to zeroes */
+  if (missing_mask == NULL) {
+    missing_mask = Calloc(n, int); /* assume Calloc() sets memory to zeroes */
+    allocated_missing_mask = 1;
+  }
 
   find_missing_obs(X, p, n, Y, n_Y, idx_obs, n_idx_obs, missing_mask, &n_mis);
 
@@ -6851,6 +6874,9 @@ ssd(double* X, int p, int n, int* Y, int n_Y, int* idx_obs, int n_idx_obs,
       ssd_mat[l] += corrected ? (double) (sum / ((long double) n1)) : (double) sum;
       l++;
     }
+
+  if (allocated_missing_mask)
+    Free(missing_mask);
 
   Free(meanv);
 
@@ -6914,7 +6940,7 @@ qp_fast_cov_upper_triangular(SEXP XR, SEXP corrected) {
    * to a memory chunk allocated with anything that does not set the memory to zeroes */
   memset(ssd_val, 0, sizeof(double) * n_upper_tri);
 
-  n_obs = ssd(X, p, n, NULL, p, NULL, n, INTEGER(corrected)[0], ssd_val);
+  n_obs = ssd(X, p, n, NULL, p, NULL, n, INTEGER(corrected)[0], NULL, ssd_val);
 
   SET_SLOT(ssdR, SsdMatrix_nSym, ScalarInteger(n_obs));
 
@@ -6936,7 +6962,7 @@ qp_fast_cov_upper_triangular(SEXP XR, SEXP corrected) {
   PARAMETERS: X - vector containing the column-major stored matrix of values
               p - number of variables
               n - number of values per variable
-              xtab - pointer to the matrix where the result is returned
+              xtab - pointer where the result is returned
   RETURN: none
 */
 
@@ -6976,10 +7002,9 @@ calculate_xtab(double* X, int p, int n, int* I, int n_I, int* n_levels, int* xta
               Y - vector containing the indices of the variables in X for which we
                   want to calculate the ssd
               n_Y - number of elements in Y
-              idx_excobs - indices to observations that should be excluded from the calculations
+              excobs_mask - logical mask of observations that should be excluded from the calculations
+              missing_mask - (output) logical mask of observations that contain missing values
               ssd_A - (output) pointer to the matrix where the result is returned
-              n_co - (output) number of complete observations
-              idx_misobs - (output) indices to observations that contain missing values
   RETURN: none
 */
 
@@ -6990,11 +7015,11 @@ indirect_int_cmp(const void *a, const void *b) {
   return ( global_xtab[*(int*)a] - global_xtab[*(int*)b] );
 }
 
-void
+int
 ssd_A(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
-      int* idx_excobs, double* ssd_A, int* n_co, int* idx_misobs) {
+      int* excobs_mask, int* missing_mask, double* ssd_A) {
   int*    obs_idx;
-  int     n_obs, work_n_co;
+  int     n_obs, n_co;
   int     i,j;
 
   obs_idx = Calloc(n, int);
@@ -7002,8 +7027,8 @@ ssd_A(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
   n_obs = 0;
   for (i=0; i < n; i++) {
     global_xtab[i] = 1;
-    if (idx_excobs != NULL) {
-      if (!idx_excobs[i])      /* if obs is not excluded,  use it */
+    if (excobs_mask != NULL) {
+      if (!excobs_mask[i])      /* if obs is not excluded,  use it */
         obs_idx[n_obs++] = i;
       else                     /* if obs is excluded, avoid using it later */
         global_xtab[i] = -1;
@@ -7012,12 +7037,12 @@ ssd_A(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
   }
 
   if (n_I == 0) {
-    ssd(X, p, n, Y, n_Y, obs_idx, n_obs, FALSE, ssd_A);
+    n_co = ssd(X, p, n, Y, n_Y, obs_idx, n_obs, FALSE, missing_mask, ssd_A);
 
     Free(obs_idx);
     Free(global_xtab);
 
-    return;
+    return n_co;
   }
 
   calculate_xtab(X, p, n, I, n_I, n_levels, global_xtab);
@@ -7029,31 +7054,27 @@ ssd_A(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
   /* skip missing discrete observations */
   i = 0;
   while (i < n_obs && global_xtab[obs_idx[i]] == -1) {
-    if (idx_misobs != NULL)
-      idx_misobs[obs_idx[i]] = 1;
+    if (missing_mask != NULL)
+      missing_mask[obs_idx[i]] = 1;
     i++;
   }
 
-  work_n_co = 0;
+  n_co = 0;
 
   while (i < n_obs) {
     j = i;
     while (j < n_obs && global_xtab[obs_idx[i]] == global_xtab[obs_idx[j]])
       j++;
 
-    work_n_co += ssd(X, p, n, Y, n_Y, obs_idx+i, j-i, FALSE, ssd_A);
+    n_co += ssd(X, p, n, Y, n_Y, obs_idx+i, j-i, FALSE, missing_mask, ssd_A);
 
     i = j;
   }
 
-  if (n_co != NULL)
-    *n_co = work_n_co; /* calculate the number of complete observations */
-    /* *n_co = n - i; calculate number of complete observations */
-
   Free(obs_idx);
   Free(global_xtab);
 
-  return;
+  return n_co;
 }
 
 
