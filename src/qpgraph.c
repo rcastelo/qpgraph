@@ -142,7 +142,7 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR,
                             SEXP masterNode, SEXP env);
 
 static SEXP
-qp_fast_edge_nrr(SEXP S, SEXP n_varR, SEXP nR, SEXP iR, SEXP jR, SEXP qR,
+qp_fast_edge_nrr(SEXP XR, SEXP S, SEXP n_varR, SEXP nR, SEXP iR, SEXP jR, SEXP qR,
                  SEXP restrictQR, SEXP fixQR, SEXP nTestsR, SEXP alphaR);
 
 static SEXP
@@ -157,8 +157,8 @@ qp_fast_edge_nrr_hmgm_sml(SEXP XR, SEXP cumsum_sByChrR, SEXP sR, SEXP gLevelsR,
                           SEXP fixQR, SEXP nTestsR, SEXP alphaR, SEXP exactTest);
 
 static double
-qp_edge_nrr(double* s, int p, int n, int i, int j, int q, int* restrictq, int n_rq,
-            int* fixq, int n_fq, int ntests, double alpha);
+qp_edge_nrr(double* X, double* S, int p, int n, int i, int j, int q,
+            int* restrictQ, int n_rQ, int* fixQ, int n_fQ, int nTests, double alpha);
 
 static double
 qp_edge_nrr_identicalQs(double* S, int n_var, int* Qs, double* Qinvs, int N, int i,
@@ -314,9 +314,12 @@ i2e(int i, int* e_i, int* e_j);
 int
 e2i(int e_i, int e_j, int* i);
 
-void
+int
+missing_obs(double* X, int p, int n, int* Y, int n_Y, int* idx_obs, int n_idx_obs);
+
+int
 find_missing_obs(double* X, int p, int n, int* Y, int n_Y, int* idx_obs,
-                 int n_idx_obs, int* missing_mask, int* n_mis);
+                 int n_idx_obs, int* missing_mask);
 
 void
 calculate_means(double* X, int p, int n, int* Y, int n_Y, int* idx_obs,
@@ -358,7 +361,7 @@ callMethods[] = {
   {"qp_fast_nrr_identicalQs", (DL_FUNC) &qp_fast_nrr_identicalQs, 13},
   {"qp_fast_nrr_par", (DL_FUNC) &qp_fast_nrr_par, 20},
   {"qp_fast_nrr_identicalQs_par", (DL_FUNC) &qp_fast_nrr_identicalQs_par, 16},
-  {"qp_fast_edge_nrr", (DL_FUNC) &qp_fast_edge_nrr, 10},
+  {"qp_fast_edge_nrr", (DL_FUNC) &qp_fast_edge_nrr, 11},
   {"qp_fast_edge_nrr_hmgm", (DL_FUNC) &qp_fast_edge_nrr_hmgm, 14},
   {"qp_fast_edge_nrr_hmgm_sml", (DL_FUNC) &qp_fast_edge_nrr_hmgm_sml, 18},
   {"qp_fast_ci_test_std", (DL_FUNC) &qp_fast_ci_test_std, 6},
@@ -415,13 +418,13 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
             SEXP fixQR, SEXP nTestsR, SEXP alphaR, SEXP pairup_i_nointR,
             SEXP pairup_j_nointR, SEXP pairup_ij_intR, SEXP exactTest,
             SEXP verboseR, SEXP startTimeR, SEXP nAdj2estimateTimeR, SEXP env) {
-  int     N, n_co;
+  int     N;
   int     n_var;
   int     q;
   int     nTests;
   double  alpha;
-  double* S;
-  double* ssdMat;
+  double* S = NULL;
+  double* ssdMat = NULL;
   int     n_I = length(IR);
   int     n_Y = length(YR);
   int*    restrictQ = NULL;
@@ -429,6 +432,7 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
   int*    fixQ = NULL;
   int     n_fQ = 0;
   int     isMatrix_restrictQ = FALSE;
+  int     work_with_margin = FALSE;
   int     l_ini = length(pairup_i_nointR);
   int     l_jni = length(pairup_j_nointR);
   int     l_int = length(pairup_ij_intR);
@@ -448,14 +452,14 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
   int     nAdjEtime;
   SEXP    pb=NULL;
 
-  N = n_co    = INTEGER(getAttrib(XR, R_DimSymbol))[0];
-  n_var       = INTEGER(getAttrib(XR, R_DimSymbol))[1];
-  q           = INTEGER(qR)[0];
-  nTests      = INTEGER(nTestsR)[0];
-  alpha       = REAL(alphaR)[0];
-  verbose     = INTEGER(verboseR)[0];
-  startTime   = REAL(startTimeR)[0];
-  nAdjEtime   = INTEGER(nAdj2estimateTimeR)[0];
+  N         = INTEGER(getAttrib(XR, R_DimSymbol))[0];
+  n_var     = INTEGER(getAttrib(XR, R_DimSymbol))[1];
+  q         = INTEGER(qR)[0];
+  nTests    = INTEGER(nTestsR)[0];
+  alpha     = REAL(alphaR)[0];
+  verbose   = INTEGER(verboseR)[0];
+  startTime = REAL(startTimeR)[0];
+  nAdjEtime = INTEGER(nAdj2estimateTimeR)[0];
 
   if (q > n_var-2)
     error("q=%d > p-2=%d",q,n_var-2);
@@ -472,9 +476,13 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
   if (alpha < 0.0 || alpha > 1.0)
     error("significance level alpha is %.2f and it should lie in the interval [0, 1]\n", alpha);
 
+
   if (n_I == 0) {
-    S = ssdMat = Calloc((n_var*(n_var+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-    n_co = ssd(REAL(XR), n_var, N, NULL, n_var, NULL, N, TRUE, NULL, S);
+    if (!missing_obs(REAL(XR), n_var, N, NULL, n_var, NULL, N)) {
+      S = ssdMat = Calloc((n_var*(n_var+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
+      ssd(REAL(XR), n_var, N, NULL, n_var, NULL, N, TRUE, NULL, S);
+    } else
+      work_with_margin = TRUE;
   } else {
     I = Calloc(n_I, int);
     for (i=0; i < n_I; i++)
@@ -484,17 +492,20 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
     for (i=0; i < n_Y; i++)
       Y[i] = INTEGER(YR)[i]-1;
 
-    mapX2ssd = Calloc(n_var, int);
-    for (i=0; i < n_var; i++) {
-      j = 0;
-      while (j < n_Y && i != Y[j])
-        j++;
+    if (!missing_obs(REAL(XR), n_var, N, Y, n_Y, NULL, N)) {
+      mapX2ssd = Calloc(n_var, int);
+      for (i=0; i < n_var; i++) {
+        j = 0;
+        while (j < n_Y && i != Y[j])
+          j++;
 
-      mapX2ssd[i] = j;
-    }
+        mapX2ssd[i] = j;
+      }
 
-    S = ssdMat = Calloc((n_Y*(n_Y+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-    n_co = ssd(REAL(XR), n_var, N, Y, n_Y, NULL, N, TRUE, NULL, ssdMat);
+      S = ssdMat = Calloc((n_Y*(n_Y+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
+      ssd(REAL(XR), n_var, N, Y, n_Y, NULL, N, TRUE, NULL, ssdMat);
+    } else
+      work_with_margin = TRUE;
   }
 
   if (restrictQR != R_NilValue) {
@@ -577,8 +588,8 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
         }
       }
 
-      nrr[UTE2I(i2, j2)] = n_I == 0 ? qp_edge_nrr(S, n_var, n_co, i2, j2, q, restrictQ,
-                                                  n_rQ, fixQ, n_fQ, nTests, alpha) :
+      nrr[UTE2I(i2, j2)] = n_I == 0 ? qp_edge_nrr(REAL(XR), S, n_var, N, i2, j2, q,
+                                                  restrictQ, n_rQ, fixQ, n_fQ, nTests, alpha) :
                                       qp_edge_nrr_hmgm(REAL(XR), n_var, N, I, n_I,
                                                        INTEGER(n_levelsR), Y, n_Y,
                                                        ssdMat, mapX2ssd, i2, j2, q,
@@ -637,8 +648,8 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
           }
         }
 
-        nrr[UTE2I(i2, j2)] = n_I == 0 ? qp_edge_nrr(S, n_var, n_co, i2, j2, q, restrictQ,
-                                                    n_rQ, fixQ, n_fQ, nTests, alpha) :
+        nrr[UTE2I(i2, j2)] = n_I == 0 ? qp_edge_nrr(REAL(XR), S, n_var, N, i2, j2, q,
+                                                    restrictQ, n_rQ, fixQ, n_fQ, nTests, alpha) :
                                         qp_edge_nrr_hmgm(REAL(XR), n_var, N, I, n_I,
                                                          INTEGER(n_levelsR), Y, n_Y,
                                                          ssdMat, mapX2ssd, i2, j2, q,
@@ -695,8 +706,8 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
           }
         }
 
-        nrr[UTE2I(i2, j2)] = n_I == 0 ? qp_edge_nrr(S, n_var, n_co, i2, j2, q, restrictQ,
-                                                    n_rQ, fixQ, n_fQ, nTests, alpha) :
+        nrr[UTE2I(i2, j2)] = n_I == 0 ? qp_edge_nrr(REAL(XR), S, n_var, N, i2, j2, q,
+                                                    restrictQ, n_rQ, fixQ, n_fQ, nTests, alpha) :
                                         qp_edge_nrr_hmgm(REAL(XR), n_var, N, I, n_I,
                                                          INTEGER(n_levelsR), Y, n_Y,
                                                          ssdMat, mapX2ssd, i2, j2, q,
@@ -734,10 +745,12 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
     }
   }
 
-  Free(S); /* = Free(ssdMat) */
+  if (!work_with_margin)
+    Free(S); /* = Free(ssdMat) */
 
   if (n_I > 0) {
-    Free(mapX2ssd);
+    if (!work_with_margin)
+      Free(mapX2ssd);
     Free(Y);
     Free(I);
   }
@@ -811,12 +824,12 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR, SEXP nTes
                         SEXP alphaR, SEXP pairup_i_nointR, SEXP pairup_j_nointR,
                         SEXP pairup_ij_intR, SEXP verboseR, SEXP startTimeR,
                         SEXP nAdj2estimateTimeR, SEXP env) {
-  int     N, n_co;
+  int     N;
   int     n_var;
   int     q;
   int     nTests;
   double  alpha;
-  double* S;
+  double* S = NULL;
   int*    restrictQ = NULL;
   int     n_rQ = length(restrictQR);
   int*    fixQ = NULL;
@@ -841,7 +854,7 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR, SEXP nTes
   int     nAdjEtime;
   SEXP    pb=NULL;
 
-  N = n_co  = INTEGER(getAttrib(XR, R_DimSymbol))[0];
+  N         = INTEGER(getAttrib(XR, R_DimSymbol))[0];
   n_var     = INTEGER(getAttrib(XR, R_DimSymbol))[1];
   q         = INTEGER(qR)[0];
   nTests    = INTEGER(nTestsR)[0];
@@ -857,7 +870,7 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR, SEXP nTes
     error("q=%d < 0",q);
 
   if (q > N-3)
-    error("q=%d > N-3=%d", q, N-3);
+    error("q=%d > n-3=%d", q, N-3);
 
   if (nTests < 1)
     error("nTests=%d < 1", nTests);
@@ -865,8 +878,11 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR, SEXP nTes
   if (alpha < 0.0 || alpha > 1.0)
     error("significance level alpha is %.2f and it should lie in the interval [0, 1]\n", alpha);
 
+  if (missing_obs(REAL(XR), n_var, N, NULL, n_var, NULL, N))
+    error("Missing values present in the data. The current setting identicalQs=TRUE speeds up calculations as long as data is complete. Please set identicalQs=FALSE or discard variables and/or observations with missing values from the input data.\n");
+
   S = Calloc((n_var*(n_var+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-  n_co = ssd(REAL(XR), n_var, N, NULL, n_var, NULL, N, TRUE, NULL, S);
+  ssd(REAL(XR), n_var, N, NULL, n_var, NULL, N, TRUE, NULL, S);
 
   if (n_rQ > 0) {
     restrictQ = Calloc(n_rQ, int);
@@ -970,7 +986,7 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR, SEXP nTes
       int j2 = pairup_ij_noint[j] - 1;
 
       nrr[UTE2I(i2, j2)] = qp_edge_nrr_identicalQs(S, n_var, q_by_T_samples, Qinv,
-                                                   n_co, i2, j2, q, nTests, alpha);
+                                                   N, i2, j2, q, nTests, alpha);
       k++;
       if (startTime > 0 && k == nAdjEtime)
         break;
@@ -1014,7 +1030,7 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR, SEXP nTes
         int j2 = pairup_j_noint[j] - 1;
 
         nrr[UTE2I(i2, j2)] = qp_edge_nrr_identicalQs(S, n_var, q_by_T_samples, Qinv,
-                                                     n_co, i2, j2, q, nTests, alpha);
+                                                     N, i2, j2, q, nTests, alpha);
         k++;
         if (startTime > 0 && k == nAdjEtime)
           break;
@@ -1056,7 +1072,7 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR, SEXP nTes
         int j2 = pairup_ij_int[j] - 1;
 
         nrr[UTE2I(i2, j2)] = qp_edge_nrr_identicalQs(S, n_var, q_by_T_samples, Qinv,
-                                                     n_co, i2, j2, q, nTests, alpha);
+                                                     N, i2, j2, q, nTests, alpha);
         k++;
         if (startTime > 0 && k == nAdjEtime)
           break;
@@ -1165,13 +1181,13 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
                 SEXP pairup_ij_intR, SEXP exactTest, SEXP verboseR,
                 SEXP startTimeR, SEXP nAdj2estimateTimeR, SEXP myRankR,
                 SEXP clSzeR, SEXP masterNode, SEXP env) {
-  int     N, n_co;
+  int     N;
   int     n_var;
   int     q;
   int     nTests;
   double  alpha;
-  double* S;
-  double* ssdMat;
+  double* S = NULL;
+  double* ssdMat = NULL;
   int     n_I = length(IR);
   int     n_Y = length(YR);
   int*    restrictQ = NULL;
@@ -1220,7 +1236,7 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
   LOGICAL(VECTOR_ELT(progressReport,2))[0] = TRUE;
   SET_STRING_ELT(VECTOR_ELT(progressReport,3), 0, mkChar("UPDATE"));
 
-  N = n_co  = INTEGER(getAttrib(XR, R_DimSymbol))[0];
+  N         = INTEGER(getAttrib(XR, R_DimSymbol))[0];
   n_var     = INTEGER(getAttrib(XR, R_DimSymbol))[1];
   q         = INTEGER(qR)[0];
   nTests    = INTEGER(nTestsR)[0];
@@ -1247,8 +1263,10 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
     error("significance level alpha is %.2f and it should lie in the interval [0, 1]\n", alpha);
 
   if (n_I == 0) {
-    S = ssdMat = Calloc((n_var*(n_var+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-    n_co = ssd(REAL(XR), n_var, N, NULL, n_var, NULL, N, TRUE, NULL, S);
+    if (!missing_obs(REAL(XR), n_var, N, NULL, n_var, NULL, N)) {
+      S = ssdMat = Calloc((n_var*(n_var+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
+      ssd(REAL(XR), n_var, N, NULL, n_var, NULL, N, TRUE, NULL, S);
+    }
   } else {
     I = Calloc(n_I, int);
     for (i=0; i < n_I; i++)
@@ -1258,18 +1276,19 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
     for (i=0; i < n_Y; i++)
       Y[i] = INTEGER(YR)[i]-1;
 
-    mapX2ssd = Calloc(n_var, int);
-    for (i=0; i < n_var; i++) {
-      j = 0;
-      while (j < n_Y && i != Y[j])
-        j++;
+    if (!missing_obs(REAL(XR), n_var, N, Y, n_Y, NULL, N)) {
+      mapX2ssd = Calloc(n_var, int);
+      for (i=0; i < n_var; i++) {
+        j = 0;
+        while (j < n_Y && i != Y[j])
+          j++;
 
-      mapX2ssd[i] = j;
+        mapX2ssd[i] = j;
+      }
+
+      S = ssdMat = Calloc((n_Y*(n_Y+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
+      ssd(REAL(XR), n_var, N, Y, n_Y, NULL, N, TRUE, NULL, ssdMat);
     }
-
-    S = ssdMat = Calloc((n_Y*(n_Y+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-    n_co = ssd(REAL(XR), n_var, N, Y, n_Y, NULL, N, TRUE, NULL, ssdMat);
-
   }
 
   if (restrictQR != R_NilValue) {
@@ -1362,7 +1381,7 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
           }
         }
 
-        nrr[k-firstAdj] = n_I == 0 ? qp_edge_nrr(S, n_var, n_co, i2, j2, q, restrictQ,
+        nrr[k-firstAdj] = n_I == 0 ? qp_edge_nrr(REAL(XR), S, n_var, N, i2, j2, q, restrictQ,
                                                  n_rQ, fixQ, n_fQ, nTests, alpha) :
                                      qp_edge_nrr_hmgm(REAL(XR), n_var, N, I, n_I,
                                                       INTEGER(n_levelsR), Y, n_Y,
@@ -1423,7 +1442,7 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
           }
         }
 
-        nrr[k-firstAdj] = n_I == 0 ? qp_edge_nrr(S, n_var, n_co, i2, j2, q, restrictQ,
+        nrr[k-firstAdj] = n_I == 0 ? qp_edge_nrr(REAL(XR), S, n_var, N, i2, j2, q, restrictQ,
                                                  n_rQ, fixQ, n_fQ, nTests, alpha) :
                                      qp_edge_nrr_hmgm(REAL(XR), n_var, N, I, n_I,
                                                       INTEGER(n_levelsR), Y, n_Y,
@@ -1481,7 +1500,7 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
         }
       }
 
-      nrr[k-firstAdj] = n_I == 0 ?  qp_edge_nrr(S, n_var, n_co, i2, j2, q, restrictQ,
+      nrr[k-firstAdj] = n_I == 0 ?  qp_edge_nrr(REAL(XR), S, n_var, N, i2, j2, q, restrictQ,
                                                 n_rQ, fixQ, n_fQ, nTests, alpha) :
                                     qp_edge_nrr_hmgm(REAL(XR), n_var, N, I, n_I,
                                                      INTEGER(n_levelsR), Y, n_Y,
@@ -1565,7 +1584,7 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR,
                             SEXP pairup_j_nointR, SEXP pairup_ij_intR,
                             SEXP verboseR, SEXP startTimeR, SEXP nAdj2estimateTimeR,
                             SEXP myRankR, SEXP clSzeR, SEXP masterNode, SEXP env) {
-  int     N, n_co;
+  int     N;
   int     n_var;
   int     q;
   int     nTests;
@@ -1617,7 +1636,7 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR,
   LOGICAL(VECTOR_ELT(progressReport,2))[0] = TRUE;
   SET_STRING_ELT(VECTOR_ELT(progressReport,3), 0, mkChar("UPDATE"));
 
-  N = n_co  = INTEGER(getAttrib(XR, R_DimSymbol))[0];
+  N         = INTEGER(getAttrib(XR, R_DimSymbol))[0];
   n_var     = INTEGER(getAttrib(XR, R_DimSymbol))[1];
   q         = INTEGER(qR)[0];
   nTests    = INTEGER(nTestsR)[0];
@@ -1637,8 +1656,11 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR,
   if (q > N-3)
     error("q=%d > N-3=%d", q, N-3);
 
+  if (missing_obs(REAL(XR), n_var, N, NULL, n_var, NULL, N))
+    error("Missing values present in the data. The current setting identicalQs=TRUE speeds up calculations as long as data is complete. Please set identicalQs=FALSE or discard variables and/or observations with missing values from the input data.\n");
+
   S = Calloc((n_var*(n_var+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-  n_co = ssd(REAL(XR), n_var, N, NULL, n_var, NULL, N, TRUE, NULL, S);
+  ssd(REAL(XR), n_var, N, NULL, n_var, NULL, N, TRUE, NULL, S);
 
   if (n_rQ > 0) {
     restrictQ = Calloc(n_rQ, int);
@@ -1748,7 +1770,7 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR,
         int j2 = pairup_ij_noint[j] - 1;
 
         nrr[k-firstAdj] = qp_edge_nrr_identicalQs(S, n_var, q_by_T_samples, Qinv,
-                                                  n_co, i2, j2, q, nTests, alpha);
+                                                  N, i2, j2, q, nTests, alpha);
         idx[k-firstAdj] = UTE2I(i2, j2) + 1;
         k++;
         if (startTime > 0 && k-firstAdj == 10)
@@ -1793,7 +1815,7 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR,
         int j2 = pairup_j_noint[j] - 1;
 
         nrr[k-firstAdj] = qp_edge_nrr_identicalQs(S, n_var, q_by_T_samples, Qinv,
-                                                  n_co, i2, j2, q, nTests, alpha);
+                                                  N, i2, j2, q, nTests, alpha);
         idx[k-firstAdj] = UTE2I(i2, j2) + 1;
         k++;
         if (startTime > 0 && k-firstAdj == 10)
@@ -1835,7 +1857,7 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR,
       j2 = pairup_ij_int[j] - 1;
 
       nrr[k-firstAdj] = qp_edge_nrr_identicalQs(S, n_var, q_by_T_samples, Qinv,
-                                                n_co, i2, j2, q, nTests, alpha);
+                                                N, i2, j2, q, nTests, alpha);
       idx[k-firstAdj] = UTE2I(i2, j2) + 1;
       k++;
       if (startTime > 0 && k-firstAdj == 10)
@@ -1905,12 +1927,15 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
                      SEXP startTimeR, SEXP nAdj2estimateTimeR, SEXP env) {
   int     n, n_co;
   int     n_var;
-  double* S;
-  double* ssdMat;
+  double* S = NULL;
+  double* ssdMat = NULL;
   int     n_I = length(IR);
   int     n_Y = length(YR);
+  int*    ijQ = NULL;
   int*    Q = NULL;
   int     q = 0;
+  int     n_upper_tri;
+  int     work_with_margin = FALSE;
   int     l_ini = length(pairup_i_nointR);
   int     l_jni = length(pairup_j_nointR);
   int     l_int = length(pairup_ij_intR);
@@ -1945,8 +1970,11 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
   return_type = INTEGER(return_typeR)[0];
 
   if (n_I == 0) {
-    S = ssdMat = Calloc((n_var*(n_var+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-    n_co = ssd(REAL(XR), n_var, n, NULL, n_var, NULL, n, TRUE, NULL, S);
+    if (!missing_obs(REAL(XR), n_var, n, NULL, n_var, NULL, n)) {
+      S = ssdMat = Calloc((n_var*(n_var+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
+      ssd(REAL(XR), n_var, n, NULL, n_var, NULL, n, TRUE, NULL, S);
+    } else
+      work_with_margin = TRUE;
   } else {
     I = Calloc(n_I, int);
     for (i=0; i < n_I; i++)
@@ -1956,18 +1984,24 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
     for (i=0; i < n_Y; i++)
       Y[i] = INTEGER(YR)[i]-1;
 
-    mapX2ssd = Calloc(n_var, int);
-    for (i=0; i < n_var; i++) {
-      j = 0;
-      while (j < n_Y && i != Y[j])
-        j++;
+    if (!missing_obs(REAL(XR), n_var, n, Y, n_Y, NULL, n)) {
+      mapX2ssd = Calloc(n_var, int);
+      for (i=0; i < n_var; i++) {
+        j = 0;
+        while (j < n_Y && i != Y[j])
+          j++;
 
-      mapX2ssd[i] = j;
-    }
+        mapX2ssd[i] = j;
+      }
 
-    S = ssdMat = Calloc((n_Y*(n_Y+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-    n_co = ssd(REAL(XR), n_var, n, Y, n_Y, NULL, n, TRUE, NULL, ssdMat);
+      S = ssdMat = Calloc((n_Y*(n_Y+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
+      ssd(REAL(XR), n_var, n, Y, n_Y, NULL, n, TRUE, NULL, ssdMat);
+    } else
+      work_with_margin = TRUE;
   }
+
+  if (work_with_margin)
+    ijQ = Calloc(q+2, int);
 
   if (QR != R_NilValue) {
     q = length(QR);
@@ -1983,8 +2017,17 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
 
     Q = Calloc(q, int);
     for (i=0; i < q; i++)
-      Q[i] = INTEGER(QR)[i] - 1;
+      if (work_with_margin) {
+        ijQ[i+2] = INTEGER(QR)[i] - 1;
+        Q[i] = 2+q;
+      } else
+        Q[i] = INTEGER(QR)[i] - 1;
   }
+
+  n_upper_tri = ( (q+2) * ((q+2)+1) ) / 2; /* this upper triangle includes the diagonal */
+
+  if (work_with_margin)
+    S = Calloc(n_upper_tri, double);
 
   if (l_ini + l_jni > 0) {
     pairup_ij_noint = Calloc(l_ini + l_jni, int);
@@ -2062,10 +2105,19 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
     for (j=0; j < l_ini + l_jni; j++) {
       int j2 = pairup_ij_noint[j] - 1;
 
-      lambda = n_I == 0 ? qp_ci_test_std(S, n_var, n_co, i2, j2, Q, q, NULL) :
-                          qp_ci_test_hmgm(REAL(XR), n_var, n, I, n_I, INTEGER(n_levelsR),
-                                          Y, n_Y, ssdMat, mapX2ssd, i2, j2,
-                                          Q, q, use, REAL(tol)[0], &df, &a, &b, &n_co);
+      if (n_I == 0) {
+        if (work_with_margin) {
+          ijQ[0] = i2;
+          ijQ[1] = j2;
+          memset(S, 0, sizeof(double) * n_upper_tri);
+          n_co = ssd(REAL(XR), n_var, n, ijQ, q+2, NULL, n, TRUE, NULL, S);
+          lambda = qp_ci_test_std(S, q+2, n, 0, 1, Q, q, NULL);
+        } else
+          lambda = qp_ci_test_std(S, n_var, n, i2, j2, Q, q, NULL);
+      } else
+        lambda = qp_ci_test_hmgm(REAL(XR), n_var, n, I, n_I, INTEGER(n_levelsR),
+                                 Y, n_Y, ssdMat, mapX2ssd, i2, j2,
+                                 Q, q, use, REAL(tol)[0], &df, &a, &b, &n_co);
 
       if (n_I == 0) {
         if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_PVALUE)
@@ -2137,10 +2189,20 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
       for (j=0; j < l_jni; j++) {
         int j2 = pairup_j_noint[j] - 1;
 
-        lambda = n_I == 0 ? qp_ci_test_std(S, n_var, n_co, i2, j2, Q, q, NULL) :
-                            qp_ci_test_hmgm(REAL(XR), n_var, n, I, n_I, INTEGER(n_levelsR),
-                                            Y, n_Y, ssdMat, mapX2ssd, i2, j2,
-                                            Q, q, use, REAL(tol)[0], &df, &a, &b, &n_co);
+        if (n_I == 0) {
+          if (work_with_margin) {
+            ijQ[0] = i2;
+            ijQ[1] = j2;
+            memset(S, 0, sizeof(double) * n_upper_tri);
+            n_co = ssd(REAL(XR), n_var, n, ijQ, q+2, NULL, n, TRUE, NULL, S);
+            lambda = qp_ci_test_std(S, q+2, n, 0, 1, Q, q, NULL);
+          } else
+            lambda = qp_ci_test_std(S, n_var, n, i2, j2, Q, q, NULL);
+        } else
+          lambda = qp_ci_test_hmgm(REAL(XR), n_var, n, I, n_I, INTEGER(n_levelsR),
+                                   Y, n_Y, ssdMat, mapX2ssd, i2, j2,
+                                   Q, q, use, REAL(tol)[0], &df, &a, &b, &n_co);
+
         if (n_I == 0) {
           if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_PVALUE)
             p_values[UTE2I(i2, j2)] = 2.0 * (1.0 - pt(fabs(lambda), n_co-q-2, 1, 0));
@@ -2209,10 +2271,20 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
       for (j = i+1; j < l_int; j++) {
         int j2 = pairup_ij_int[j] - 1;
 
-        lambda = n_I == 0 ? qp_ci_test_std(S, n_var, n_co, i2, j2, Q, q, NULL) :
-                            qp_ci_test_hmgm(REAL(XR), n_var, n, I, n_I, INTEGER(n_levelsR),
-                                            Y, n_Y, ssdMat, mapX2ssd, i2, j2,
-                                            Q, q, use, REAL(tol)[0], &df, &a, &b, &n_co);
+        if (n_I == 0) {
+          if (work_with_margin) {
+            ijQ[0] = i2;
+            ijQ[1] = j2;
+            memset(S, 0, sizeof(double) * n_upper_tri);
+            n_co = ssd(REAL(XR), n_var, n, ijQ, q+2, NULL, n, TRUE, NULL, S);
+            lambda = qp_ci_test_std(S, q+2, n, 0, 1, Q, q, NULL);
+          } else
+            lambda = qp_ci_test_std(S, n_var, n, i2, j2, Q, q, NULL);
+        } else
+          lambda = qp_ci_test_hmgm(REAL(XR), n_var, n, I, n_I, INTEGER(n_levelsR),
+                                   Y, n_Y, ssdMat, mapX2ssd, i2, j2,
+                                   Q, q, use, REAL(tol)[0], &df, &a, &b, &n_co);
+
         if (n_I == 0) {
           if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_PVALUE)
             p_values[UTE2I(i2, j2)] = 2.0 * (1.0 - pt(fabs(lambda), n_co-q-2, 1, 0));
@@ -2276,10 +2348,14 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
   Free(S); /* = Free(ssdMat) */
 
   if (n_I > 0) {
-    Free(mapX2ssd);
+    if (!work_with_margin)
+      Free(mapX2ssd);
     Free(Y);
     Free(I);
   }
+
+  if (work_with_margin)
+    Free(ijQ);
 
   if (QR != R_NilValue)
     Free(Q);
@@ -2352,12 +2428,15 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
                          SEXP masterNode, SEXP env) {
   int     n, n_co;
   int     n_var;
-  double* S;
-  double* ssdMat;
+  double* S = NULL;
+  double* ssdMat = NULL;
   int     n_I = length(IR);
   int     n_Y = length(YR);
+  int*    ijQ = NULL;
   int*    Q = NULL;
   int     q = 0;
+  int     n_upper_tri;
+  int     work_with_margin = FALSE;
   int     l_ini = length(pairup_i_nointR);
   int     l_jni = length(pairup_j_nointR);
   int     l_int = length(pairup_ij_intR);
@@ -2405,7 +2484,7 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
   LOGICAL(VECTOR_ELT(progressReport,2))[0] = TRUE;
   SET_STRING_ELT(VECTOR_ELT(progressReport,3), 0, mkChar("UPDATE"));
 
-  n           = INTEGER(getAttrib(XR, R_DimSymbol))[0];
+  n = n_co    = INTEGER(getAttrib(XR, R_DimSymbol))[0];
   n_var       = INTEGER(getAttrib(XR, R_DimSymbol))[1];
   verbose     = INTEGER(verboseR)[0];
   startTime   = REAL(startTimeR)[0];
@@ -2416,8 +2495,11 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
   clsze       = INTEGER(clSzeR)[0];
 
   if (n_I == 0) {
-    S = ssdMat = Calloc((n_var*(n_var+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-    n_co = ssd(REAL(XR), n_var, n, NULL, n_var, NULL, n, TRUE, NULL, S);
+    if (!missing_obs(REAL(XR), n_var, n, NULL, n_var, NULL, n)) {
+      S = ssdMat = Calloc((n_var*(n_var+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
+      ssd(REAL(XR), n_var, n, NULL, n_var, NULL, n, TRUE, NULL, S);
+    } else
+      work_with_margin = TRUE;
   } else {
     I = Calloc(n_I, int);
     for (i=0; i < n_I; i++)
@@ -2427,18 +2509,24 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
     for (i=0; i < n_Y; i++)
       Y[i] = INTEGER(YR)[i]-1;
 
-    mapX2ssd = Calloc(n_var, int);
-    for (i=0; i < n_var; i++) {
-      j = 0;
-      while (j < n_Y && i != Y[j])
-        j++;
+    if (!missing_obs(REAL(XR), n_var, n, Y, n_Y, NULL, n)) {
+      mapX2ssd = Calloc(n_var, int);
+      for (i=0; i < n_var; i++) {
+        j = 0;
+        while (j < n_Y && i != Y[j])
+          j++;
 
-      mapX2ssd[i] = j;
-    }
+        mapX2ssd[i] = j;
+      }
 
-    S = ssdMat = Calloc((n_Y*(n_Y+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-    n_co = ssd(REAL(XR), n_var, n, Y, n_Y, NULL, n, TRUE, NULL, ssdMat);
+      S = ssdMat = Calloc((n_Y*(n_Y+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
+      ssd(REAL(XR), n_var, n, Y, n_Y, NULL, n, TRUE, NULL, ssdMat);
+    } else
+      work_with_margin = TRUE;
   }
+
+  if (work_with_margin)
+    ijQ = Calloc(q+2, int);
 
   if (QR != R_NilValue) {
     q = length(QR);
@@ -2454,9 +2542,17 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
 
     Q = Calloc(q, int);
     for (i=0; i < q; i++)
-      Q[i] = INTEGER(QR)[i] - 1;
-
+      if (work_with_margin) {
+        ijQ[i+2] = INTEGER(QR)[i] - 1;
+        Q[i] = 2+q;
+      } else
+        Q[i] = INTEGER(QR)[i] - 1;
   }
+
+  n_upper_tri = ( (q+2) * ((q+2)+1) ) / 2; /* this upper triangle includes the diagonal */
+
+  if (work_with_margin)
+    S = Calloc(n_upper_tri, double);
 
   if (l_ini + l_jni > 0) {
     pairup_ij_noint = Calloc(l_ini + l_jni, int);
@@ -2537,11 +2633,19 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
       for (j=j_first; j < l_ini + l_jni && k <= lastAdj; j++) {
         int j2 = pairup_ij_noint[j] - 1;
 
-        lambda = n_I == 0 ? qp_ci_test_std(S, n_var, n_co, i2, j2, Q, q, NULL) :
-                            qp_ci_test_hmgm(REAL(XR), n_var, n, I, n_I,
-                                            INTEGER(n_levelsR), Y, n_Y,
-                                            ssdMat, mapX2ssd, i2, j2, Q, q,
-                                            use, REAL(tol)[0], &df, &a, &b, &n_co);
+        if (n_I == 0) {
+          if (work_with_margin) {
+            ijQ[0] = i2;
+            ijQ[1] = j2;
+            memset(S, 0, sizeof(double) * n_upper_tri);
+            n_co = ssd(REAL(XR), n_var, n, ijQ, q+2, NULL, n, TRUE, NULL, S);
+            lambda = qp_ci_test_std(S, q+2, n, 0, 1, Q, q, NULL);
+          } else
+            lambda = qp_ci_test_std(S, n_var, n, i2, j2, Q, q, NULL);
+        } else
+          lambda = qp_ci_test_hmgm(REAL(XR), n_var, n, I, n_I, INTEGER(n_levelsR),
+                                   Y, n_Y, ssdMat, mapX2ssd, i2, j2,
+                                   Q, q, use, REAL(tol)[0], &df, &a, &b, &n_co);
         idx[k-firstAdj] = UTE2I(i2, j2) + 1;
 
         if (n_I == 0) {
@@ -2614,11 +2718,19 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
       for (j=j_first; j < l_jni && k <= lastAdj; j++) {
         int j2 = pairup_j_noint[j] - 1;
 
-        lambda = n_I == 0 ? qp_ci_test_std(S, n_var, n_co, i2, j2, Q, q, NULL) :
-                            qp_ci_test_hmgm(REAL(XR), n_var, n, I, n_I,
-                                            INTEGER(n_levelsR), Y, n_Y,
-                                            ssdMat, mapX2ssd, i2, j2, Q, q,
-                                            use, REAL(tol)[0], &df, &a, &b, &n_co);
+        if (n_I == 0) {
+          if (work_with_margin) {
+            ijQ[0] = i2;
+            ijQ[1] = j2;
+            memset(S, 0, sizeof(double) * n_upper_tri);
+            n_co = ssd(REAL(XR), n_var, n, ijQ, q+2, NULL, n, TRUE, NULL, S);
+            lambda = qp_ci_test_std(S, q+2, n, 0, 1, Q, q, NULL);
+          } else
+            lambda = qp_ci_test_std(S, n_var, n, i2, j2, Q, q, NULL);
+        } else
+          lambda = qp_ci_test_hmgm(REAL(XR), n_var, n, I, n_I, INTEGER(n_levelsR),
+                                   Y, n_Y, ssdMat, mapX2ssd, i2, j2,
+                                   Q, q, use, REAL(tol)[0], &df, &a, &b, &n_co);
         idx[k-firstAdj] = UTE2I(i2, j2) + 1;
 
         if (n_I == 0) {
@@ -2688,13 +2800,19 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
       i2 = pairup_ij_int[i] - 1;
       j2 = pairup_ij_int[j] - 1;
 
-      lambda = n_I == 0 ? qp_ci_test_std(S, n_var, n_co, i2, j2, Q, q, NULL) :
-                          qp_ci_test_hmgm(REAL(XR), n_var, n, I, n_I,
-                                          INTEGER(n_levelsR), Y, n_Y,
-                                          ssdMat, mapX2ssd, i2, j2, Q, q,
-                                          use, REAL(tol)[0],
-                                          &df, &a, &b, &n_co);
-
+      if (n_I == 0) {
+        if (work_with_margin) {
+          ijQ[0] = i2;
+          ijQ[1] = j2;
+          memset(S, 0, sizeof(double) * n_upper_tri);
+          n_co = ssd(REAL(XR), n_var, n, ijQ, q+2, NULL, n, TRUE, NULL, S);
+          lambda = qp_ci_test_std(S, q+2, n, 0, 1, Q, q, NULL);
+        } else
+          lambda = qp_ci_test_std(S, n_var, n, i2, j2, Q, q, NULL);
+      } else
+        lambda = qp_ci_test_hmgm(REAL(XR), n_var, n, I, n_I, INTEGER(n_levelsR),
+                                 Y, n_Y, ssdMat, mapX2ssd, i2, j2,
+                                 Q, q, use, REAL(tol)[0], &df, &a, &b, &n_co);
       idx[k-firstAdj] = UTE2I(i2, j2) + 1;
 
       if (n_I == 0) {
@@ -2751,10 +2869,14 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
   Free(S); /* = Free(ssdMat) */
 
   if (n_I > 0) {
-    Free(mapX2ssd);
+    if (!work_with_margin)
+      Free(mapX2ssd);
     Free(Y);
     Free(I);
   }
+
+  if (work_with_margin)
+    Free(ijQ);
 
   if (QR != R_NilValue)
     Free(Q);
@@ -3547,6 +3669,7 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
   total_n_Y = n_Y;
   n_Y = n_Y_int;
 
+  /* the call below to ssd_A() assumes that this Calloc() memsets ssd_mat to zeroes */
   ssd_mat = Calloc((n_Y * (n_Y + 1)) / 2, double);  /* upper triangle includes the diagonal */
 
   if (n_I > 0 || ucond_ssd == NULL) {
@@ -3963,6 +4086,7 @@ qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* X
   total_n_Y = n_Y;
   n_Y = n_Y_int;
 
+  /* the call below to ssd_A() assumes that this Calloc() memsets ssd_mat to zeroes */
   ssd_mat = Calloc((n_Y * (n_Y + 1)) / 2, double);  /* upper triangle includes the diagonal */
 
   if (n_I_int > 0 || ucond_ssd == NULL) {
@@ -4208,12 +4332,27 @@ qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* X
 */
 
 static double
-qp_edge_nrr(double* S, int p, int n, int i, int j, int q, int* restrictQ, int n_rQ,
-            int* fixQ, int n_fQ, int nTests, double alpha) {
+qp_edge_nrr(double* X, double* S, int p, int n, int i, int j, int q,
+            int* restrictQ, int n_rQ, int* fixQ, int n_fQ, int nTests, double alpha) {
   double thr;
   int*   q_by_T_samples;
-  int    k;
+  int*   ijQ = NULL;
+  int*   Q = NULL;
+  int    k, n_upper_tri;
   int    nAcceptedTests = 0;
+  int    work_with_margin = FALSE;
+
+  n_upper_tri = ( (q+2) * ((q+2)+1) ) / 2; /* this upper triangle includes the diagonal */
+  if (S == NULL) {
+    S = Calloc(n_upper_tri, double);
+    ijQ = Calloc(q+2, int);
+    Q = Calloc(q, int);
+    ijQ[0] = i;
+    ijQ[1] = j;
+    for (k=0; k < q; k++)
+      Q[k] = k+2;
+    work_with_margin = TRUE;
+  }
 
   q_by_T_samples = Calloc(q * nTests, int);
 
@@ -4227,13 +4366,25 @@ qp_edge_nrr(double* S, int p, int n, int i, int j, int q, int* restrictQ, int n_
   for (k = 0; k < nTests; k++) {
     double t_value;
 
-    t_value = qp_ci_test_std(S, p, n, i, j, (int*) (q_by_T_samples+k*q), q, NULL);
+    if (work_with_margin) {
+      Memcpy((int*) (ijQ+2), (int*) (q_by_T_samples+k*q), (size_t) (q+2));
+      memset(S, 0, sizeof(double) * n_upper_tri);
+      n = ssd(X, p, n, ijQ, q+2, NULL, n, TRUE, NULL, S);
+      t_value = qp_ci_test_std(S, q+2, n, 0, 1, Q, q, NULL);
+    } else
+      t_value = qp_ci_test_std(S, p, n, i, j, (int*) (q_by_T_samples+k*q), q, NULL);
 
     if (fabs(t_value) < thr)
       nAcceptedTests++;
   }
 
   Free(q_by_T_samples);
+
+  if (work_with_margin) {
+    Free(S);
+    Free(ijQ);
+    Free(Q);
+  }
 
   return (double) ( ((double) nAcceptedTests) / ((double) nTests) );
 }
@@ -4523,25 +4674,35 @@ qp_edge_nrr_hmgm_sml(SEXP X, int* cumsum_sByChr, int s, int gLevels, double* XEP
 */
 
 static SEXP
-qp_fast_edge_nrr(SEXP S, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP qR,
+qp_fast_edge_nrr(SEXP XR, SEXP SR, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP qR,
                  SEXP restrictQR, SEXP fixQR, SEXP nTestsR, SEXP alphaR) {
-  int    i,j,k;
-  int    p = INTEGER(pR)[0];
-  int    n;
-  int    q;
-  int    nTests;
-  double alpha;
-  int*   restrictQ=NULL;
-  int    n_rQ=length(restrictQR);
-  int*   fixQ=NULL;
-  int    n_fQ=length(fixQR);
-  SEXP   nrr;
+  int     i,j,k;
+  int     p = INTEGER(pR)[0];
+  int     n;
+  int     q;
+  int     nTests;
+  double* X = NULL;
+  double* S = NULL;
+  double  alpha;
+  int*    restrictQ=NULL;
+  int     n_rQ=length(restrictQR);
+  int*    fixQ=NULL;
+  int     n_fQ=length(fixQR);
+  SEXP    nrr;
 
-  PROTECT_INDEX Spi;
+  PROTECT_INDEX Xpi, Spi;
 
-  PROTECT_WITH_INDEX(S,&Spi);
+  if (XR != R_NilValue) {
+    PROTECT_WITH_INDEX(XR, &Spi);
+    REPROTECT(XR = coerceVector(XR, REALSXP), Xpi);
+    X = REAL(XR);
+  }
 
-  REPROTECT(S = coerceVector(S,REALSXP),Spi);
+  if (SR != R_NilValue) {
+    PROTECT_WITH_INDEX(SR, &Spi);
+    REPROTECT(SR = coerceVector(SR, REALSXP), Spi);
+    S = REAL(SR);
+  }
 
   i = INTEGER(iR)[0] - 1;
   j = INTEGER(jR)[0] - 1;
@@ -4579,7 +4740,7 @@ qp_fast_edge_nrr(SEXP S, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP qR,
 
   PROTECT(nrr = allocVector(REALSXP,1));
 
-  REAL(nrr)[0] = qp_edge_nrr(REAL(S), p, n, i, j, q, restrictQ, n_rQ,
+  REAL(nrr)[0] = qp_edge_nrr(X, S, p, n, i, j, q, restrictQ, n_rQ,
                              fixQ, n_fQ, nTests, alpha);
 
   if (n_rQ > 0)
@@ -4588,7 +4749,13 @@ qp_fast_edge_nrr(SEXP S, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP qR,
   if (n_fQ > 0)
     Free(fixQ);
 
-  UNPROTECT(2); /* S nrr */
+  UNPROTECT(1); /* nrr */
+
+  if (XR != R_NilValue)
+    UNPROTECT(1); /* XR */
+
+  if (SR != R_NilValue)
+    UNPROTECT(1); /* SR */
 
   return nrr;
 }
@@ -4617,7 +4784,7 @@ qp_fast_edge_nrr_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
   int*    I;
   int*    Y;
   double* ssdMat = NULL;
-  int*    mapX2ssd;
+  int*    mapX2ssd = NULL;
   int*    restrictQ = NULL;
   int     n_rQ = length(restrictQR);
   int*    fixQ=NULL;
@@ -4628,10 +4795,9 @@ qp_fast_edge_nrr_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
 
   PROTECT_INDEX ssd_pi;
 
-  PROTECT_WITH_INDEX(ssdR,&ssd_pi);
-
   if (ssdR != R_NilValue) {
-    REPROTECT(ssdR = coerceVector(ssdR,REALSXP), ssd_pi);
+    PROTECT_WITH_INDEX(ssdR, &ssd_pi);
+    REPROTECT(ssdR = coerceVector(ssdR, REALSXP), ssd_pi);
     ssdMat = REAL(ssdR);
   }
 
@@ -4682,7 +4848,7 @@ qp_fast_edge_nrr_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
       fixQ[k] = INTEGER(fixQR)[k]-1;
   }
 
-  PROTECT(nrr = allocVector(REALSXP,1));
+  PROTECT(nrr = allocVector(REALSXP, 1));
 
   REAL(nrr)[0] = qp_edge_nrr_hmgm(REAL(XR), p, n, I, n_I, INTEGER(n_levelsR), Y,
                                   n_Y, ssdMat, mapX2ssd, i, j, q, restrictQ,
@@ -4690,8 +4856,10 @@ qp_fast_edge_nrr_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
 
   UNPROTECT(1); /* nrr */
 
-  if (ssdR != R_NilValue)
+  if (ssdR != R_NilValue) {
     UNPROTECT(1); /* ssdR */
+    Free(mapX2ssd);
+  }
 
   if (n_rQ > 0)
     Free(restrictQ);
@@ -4701,7 +4869,6 @@ qp_fast_edge_nrr_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
 
   Free(I);
   Free(Y);
-  Free(mapX2ssd);
 
   return nrr;
 }
@@ -4736,7 +4903,8 @@ qp_fast_edge_nrr_hmgm_sml(SEXP XR, SEXP cumsum_sByChrR, SEXP sR, SEXP gLevelsR,
   int*    I;
   int*    Y;
   double* XEP1q; /* store exp. profiles, phenotypic vars + up to (1+q) possible genotypes */
-  int*    mapX2ssd;
+  double* ssdMat = NULL;
+  int*    mapX2ssd = NULL;
   int*    restrictQ = NULL;
   int     n_rQ = length(restrictQR);
   int*    fixQ=NULL;
@@ -4747,9 +4915,11 @@ qp_fast_edge_nrr_hmgm_sml(SEXP XR, SEXP cumsum_sByChrR, SEXP sR, SEXP gLevelsR,
 
   PROTECT_INDEX ssd_pi;
 
-  PROTECT_WITH_INDEX(ssdR,&ssd_pi);
-
-  REPROTECT(ssdR = coerceVector(ssdR,REALSXP), ssd_pi);
+  if (ssdR != R_NilValue) {
+    PROTECT_WITH_INDEX(ssdR, &ssd_pi);
+    REPROTECT(ssdR = coerceVector(ssdR, REALSXP), ssd_pi);
+    ssdMat = REAL(ssdR);
+  }
 
   i = INTEGER(iR)[0] - 1;
   j = INTEGER(jR)[0] - 1;
@@ -4780,9 +4950,11 @@ qp_fast_edge_nrr_hmgm_sml(SEXP XR, SEXP cumsum_sByChrR, SEXP sR, SEXP gLevelsR,
   for (k=0; k < n_Y; k++)
     Y[k] = INTEGER(YR)[k]-1;
 
-  mapX2ssd = Calloc(p, int);
-  for (k=0; k < p; k++)
-    mapX2ssd[k] = INTEGER(mapX2ssdR)[k]-1;
+  if (ssdR != R_NilValue) {
+    mapX2ssd = Calloc(p, int);
+    for (k=0; k < p; k++)
+      mapX2ssd[k] = INTEGER(mapX2ssdR)[k]-1;
+  }
 
   if (n_rQ > 0) {
     restrictQ = Calloc(n_rQ, int);
@@ -4803,10 +4975,15 @@ qp_fast_edge_nrr_hmgm_sml(SEXP XR, SEXP cumsum_sByChrR, SEXP sR, SEXP gLevelsR,
 
   REAL(nrr)[0] = qp_edge_nrr_hmgm_sml(XR, INTEGER(cumsum_sByChrR), s, gLevels,
                                       XEP1q, p, n, I, n_I, INTEGER(n_levelsR),
-                                      Y, n_Y, REAL(ssdR), mapX2ssd, i, j, q, restrictQ,
+                                      Y, n_Y, ssdMat, mapX2ssd, i, j, q, restrictQ,
                                       n_rQ, fixQ, n_fQ, nTests, alpha, INTEGER(exactTest)[0]);
 
-  UNPROTECT(2); /* ssd nrr */
+  UNPROTECT(1); /* nrr */
+
+  if (ssdR != R_NilValue) {
+    UNPROTECT(1); /* ssdR */
+    Free(mapX2ssd);
+  }
 
   if (n_rQ > 0)
     Free(restrictQ);
@@ -6714,34 +6891,73 @@ e2i(int e_i, int e_j, int* i) {
 
 
 /*
+  FUNCTION: missing_obs
+  PURPOSE: check whether there are missing obserations
+  PARAMETERS: X - vector containing the column-major stored matrix of values
+              p - number of variables in X
+              n - number of observations in X
+              Y - vector containing the indices of the variables in X for which we
+                  want to find missing values
+              n_Y - number of elements in Y
+              idx_obs - indices of the observations for which we want to check missingness
+              n_idx_obs - number of observations for which we want to check missingness
+  DESCRIPTION: this function serves the purpose of checking whether there are missing observations
+               throughout X, or throughout a subset of variables in Y, or throughout a subset
+               of observations in idx_obs, or both.
+  RETURN: TRUE if there are missing observations; FALSE otherwise
+*/
+
+int
+missing_obs(double* X, int p, int n, int* Y, int n_Y, int* idx_obs, int n_idx_obs) {
+  int i,j,k,l;
+  int missing_flag = 0;
+
+  i = 0;
+  while (i < n_idx_obs && !missing_flag) {
+    k = n_idx_obs < n ? idx_obs[i] : i;
+    j = 0;
+    while (j < n_Y && !missing_flag) {
+      l = n_Y < p ? Y[j] : j;
+      if (ISNA(X[l * n + k]))
+        missing_flag = 1;
+      j++;
+    }
+
+    i++;
+  }
+
+  return missing_flag;
+}
+
+
+
+/*
   FUNCTION: find_missing_obs
   PURPOSE: create a logical mask indicating observations with at least one missing value
   PARAMETERS: X - vector containing the column-major stored matrix of values
               p - number of variables in X
               n - number of observations in X
               Y - vector containing the indices of the variables in X for which we
-                  want to calculate the mean
+                  want to find missing values
               n_Y - number of elements in Y
               idx_obs - indices of the observations for which we want to check missingness
               n_idx_obs - number of observations for which we want to check missingness
-              meanv - output vector of n_Y mean values
               missing_mask - logical mask where this function sets to 1 if a value is missing
                              in an observation. it is assumed that initially is set to zeroes
                              on positions where observations are not missing.
-              n_mis - number of missing observations
   DESCRIPTION: this function serves the purpose of identifying missing observations either all
                throughout X, or throughout a subset of variables in Y, or throughout a subset
                of observations in idx_obs, or both.
-  RETURN: by reference, a logical mask (missing_mask) with positions corresponding to missing
-          observations set to 1 and the number of missing observations in this logical mask.
+  RETURN: the number of missing observations and, by reference, a logical mask (missing_mask)
+           with positions corresponding to missing observations set to 1
 */
 
-void
+int
 find_missing_obs(double* X, int p, int n, int* Y, int n_Y, int* idx_obs,
-                 int n_idx_obs, int* missing_mask, int* n_mis) {
-  int         i,j,k,l;
+                 int n_idx_obs, int* missing_mask) {
+  int i,j,k,l;
+  int n_mis = 0;
 
-  *n_mis=0;
   for (i=0; i < n_idx_obs; i++) {
     k = n_idx_obs < n ? idx_obs[i] : i;
     j = 0;
@@ -6753,9 +6969,10 @@ find_missing_obs(double* X, int p, int n, int* Y, int n_Y, int* idx_obs,
     }
 
     if (missing_mask[k])
-      (*n_mis)++;
+      n_mis++;
   }
 
+  return n_mis;
 }
 
 
@@ -6845,7 +7062,7 @@ ssd(double* X, int p, int n, int* Y, int n_Y, int* idx_obs, int n_idx_obs,
     allocated_missing_mask = 1;
   }
 
-  find_missing_obs(X, p, n, Y, n_Y, idx_obs, n_idx_obs, missing_mask, &n_mis);
+  n_mis = find_missing_obs(X, p, n, Y, n_Y, idx_obs, n_idx_obs, missing_mask);
 
   calculate_means(X, p, n, Y, n_Y, idx_obs, n_idx_obs, missing_mask, n_mis, meanv);
 
@@ -6870,7 +7087,10 @@ ssd(double* X, int p, int n, int* Y, int n_Y, int* idx_obs, int n_idx_obs,
         if (n_mis == 0 || (!missing_mask[n_idx_obs < n ? idx_obs[k] : k]))
           sum += n_idx_obs < n ? (xx[idx_obs[k]] - xxm) * (yy[idx_obs[k]] - yym) : (xx[k] - xxm) * (yy[k] - yym);
 
-      /* here we assume that ssd_mat was properly initialized before the call to this function */
+      /* here we assume that ssd_mat was properly initialized to zeroes before the call
+         to this function, not because we could not memset() here but because of the
+         convinience of summing through the output argument ssd_mat when calculating an
+         ssd matrix from mixed data */
       ssd_mat[l] += corrected ? (double) (sum / ((long double) n1)) : (double) sum;
       l++;
     }

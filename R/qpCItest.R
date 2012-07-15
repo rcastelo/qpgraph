@@ -577,13 +577,16 @@ setMethod("qpCItest", signature(X="matrix"),
             rval <- NA
 
             if (is.null(I)) {
+              if (use == "em")
+                stop("EM not implemented yet for missing values in continuous variables. Please set use=\"complete.obs\"\n")
+
               S <- qpCov(X)
               n <- nrow(X)
 
               rval <- qpgraph:::.qpCItest(S, i, j, Q, R.code.only)
             } else {
               if (!is.character(I) && !is.numeric(I) && !is.integer(I))
-                stop("I should be either variables names or indices\n")
+                stop("argument I should contain either variables names or indices\n")
 
               Y <- colnames(X)
               if (is.character(I))
@@ -1096,8 +1099,9 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
       }
     }
   } else { ## missing data and should use the EM algorithm
-    if (length(I) == 0)
-      stop("EM not implemented yet for missing values in continuous variables\n")
+    missingMask <- apply(X[, Y, drop=FALSE], 1, function(x) any(is.na(x)))
+    if (length(I) == 0 || any(missingMask))
+      stop("EM not implemented yet for missing values in continuous variables. Please set use=\"complete.obs\"\n")
 
     mapX2Y <- rep(NA, ncol(X))
     mapX2Y[Y] <- 1:length(Y)

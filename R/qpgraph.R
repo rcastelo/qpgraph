@@ -533,12 +533,25 @@ setMethod("qpNrr", signature(X="matrix"),
   }
 
   S <- ssd <- mapX2ssd <- NULL
-  if (!is.null(I)) {  ## calculate the uncorrected sum of squares and deviations
-    ssd <- qpCov(X[, Y, drop=FALSE], corrected=FALSE)
-    mapX2ssd <- match(var.names, colnames(ssd))
-    ## names(mapX2ssd) <- colnames(X) ## is this necessary
-  } else             ## calculate sample covariance matrix
-    S <- qpCov(X)
+
+  missingMask <- apply(X, 1, function(x) any(is.na(x)))
+  missingData <- any(missingMask)
+
+  if (!missingData) {
+    if (!is.null(I)) {  ## calculate the uncorrected sum of squares and deviations
+      ssd <- qpCov(X[, Y, drop=FALSE], corrected=FALSE)
+      mapX2ssd <- match(var.names, colnames(ssd))
+      ## names(mapX2ssd) <- colnames(X) ## is this necessary
+    } else             ## calculate sample covariance matrix
+      S <- qpCov(X)
+  }
+
+  if (!is.null(I)) {
+    nLevels <- rep(NA_integer_, times=ncol(X))
+    nLevels[I] <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
+    if (any(nLevels[I] == 1))
+      stop(sprintf("Discrete variable %s has only one level", colnames(X)[I[nLevels[I]==1]]))
+  }
 
   ## the idea is to return an efficiently stored symmetric matrix
   nrrMatrix <- new("dspMatrix", Dim=as.integer(c(n.var, n.var)),
@@ -567,13 +580,13 @@ setMethod("qpNrr", signature(X="matrix"),
     for (j in c(pairup.i.noint,pairup.j.noint)) {
 
       if (is.null(I))
-        nrr <- qpgraph:::.qpEdgeNrr(S, i, j, q, rQs, fix.Q, nTests,
+        nrr <- qpgraph:::.qpEdgeNrr(X, S, i, j, q, rQs, fix.Q, nTests,
                                     alpha, R.code.only=TRUE)
       else {
         if (!is.null(restrict.Q) && is.matrix(restrict.Q))
             rQs <- union(which(restrict.Q[i, ]), which(restrict.Q[j, ]))
 
-        nrr <- qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i, j, q, rQs, fix.Q,
+        nrr <- qpgraph:::.qpEdgeNrrHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, q, rQs, fix.Q,
                                         nTests, alpha, exact.test, use, tol, R.code.only=TRUE)
       }
 
@@ -597,13 +610,13 @@ setMethod("qpNrr", signature(X="matrix"),
       for (j in pairup.j.noint) {
 
         if (is.null(I))
-          nrr <- qpgraph:::.qpEdgeNrr(S, i, j, q, rQs, fix.Q, nTests,
+          nrr <- qpgraph:::.qpEdgeNrr(X, S, i, j, q, rQs, fix.Q, nTests,
                                       alpha, R.code.only=TRUE)
         else {
           if (!is.null(restrict.Q) && is.matrix(restrict.Q))
             rQs <- union(which(restrict.Q[i, ]), which(restrict.Q[j, ]))
 
-          nrr <- qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i, j, q, rQs, fix.Q,
+          nrr <- qpgraph:::.qpEdgeNrrHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, q, rQs, fix.Q,
                                           nTests, alpha, exact.test, use, tol, R.code.only=TRUE)
         }
 
@@ -631,14 +644,15 @@ setMethod("qpNrr", signature(X="matrix"),
         j2 <- pairup.ij.int[j]
 
         if (is.null(I))
-          nrr <- qpgraph:::.qpEdgeNrr(S, i2, j2, q, rQs, fix.Q, nTests,
+          nrr <- qpgraph:::.qpEdgeNrr(X, S, i2, j2, q, rQs, fix.Q, nTests,
                                       alpha, R.code.only=TRUE)
         else {
           if (!is.null(restrict.Q) && is.matrix(restrict.Q))
             rQs <- union(which(restrict.Q[i2, ]), which(restrict.Q[j2, ]))
 
-          nrr <- qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i2, j2, q, rQs, fix.Q,
+          nrr <- qpgraph:::.qpEdgeNrrHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i2, j2, q, rQs, fix.Q,
                                           nTests, alpha, exact.test, use, tol, R.code.only=TRUE)
+
         }
 
         nrrMatrix[j2,i2] <- nrrMatrix[i2,j2] <- nrr
@@ -1647,9 +1661,10 @@ setMethod("qpEdgeNrr", signature(X="smlSet"),
               restrict.Q <- 2+seq(along=setdiff(restrict.Q, c(i, j)))
               fix.Q <- 2+length(restrict.Q)+seq(along=fix.Q)
 
-              S <- qpCov(XEP[, V, drop=FALSE])
+              ## S <- qpCov(XEP[, V, drop=FALSE]) ## here is faster to calculate S for each margin
+              S <- NULL
 
-              qpgraph:::.qpEdgeNrr(S, i, j, q, restrict.Q, fix.Q, nTests,
+              qpgraph:::.qpEdgeNrr(XEP[, V, drop=FALSE], S, i, j, q, restrict.Q, fix.Q, nTests,
                                    alpha, R.code.only)
             } else {
 
@@ -1805,9 +1820,10 @@ setMethod("qpEdgeNrr", signature(X="ExpressionSet"),
                 fix.Q <- 2+length(restrict.Q)+seq(along=fix.Q)
               }
 
-              S <- qpCov(X[, V, drop=FALSE])
+              ## S <- qpCov(X[, V, drop=FALSE]) ## here is faster to calculate S for each margin
+              S <- NULL
 
-              qpgraph:::.qpEdgeNrr(S, i, j, q, restrict.Q, fix.Q, nTests,
+              qpgraph:::.qpEdgeNrr(X[, V, drop=FALSE], S, i, j, q, restrict.Q, fix.Q, nTests,
                                    alpha, R.code.only)
             } else {
               Y <- varNames
@@ -1829,12 +1845,22 @@ setMethod("qpEdgeNrr", signature(X="ExpressionSet"),
                 Y <- unique(c(intersect(i, Y), intersect(j, Y),
                               intersect(restrict.Q, Y), intersect(fix.Q, Y)))
 
-              ### CHECK WHETHER THERE ARE MISSING VALUES AND CALCULATE IT ONLY IF THERE ARE NOT !!!!!
-              ssd <- qpCov(X[, Y, drop=FALSE], corrected=FALSE)
-              mapX2ssd <- match(varNames, colnames(ssd))
-              ## names(mapX2ssd) <- varNames ## is this necessary?
+              nLevels <- rep(NA_integer_, times=ncol(X))
+              nLevels[I] <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
+              if (any(nLevels[I] == 1))
+                stop(sprintf("Discrete variable %s has only one level", colnames(X)[I[nLevels[I]==1]]))
 
-              qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i, j, q,
+              ssd <- mapX2ssd <- NULL
+              ## here is faster to calculate ssd for each margin
+              ## missingMask <- apply(X, 2, function(x) any(is.na(x)))
+              ## missingData <- any(missingMask)
+              ## if (!missingData) {
+              ##   ssd <- qpCov(X[, Y, drop=FALSE], corrected=FALSE)
+              ##   mapX2ssd <- match(varNames, colnames(ssd))
+              ##   ## names(mapX2ssd) <- colnames(X) ## is this necessary ??
+              ## }
+
+              qpgraph:::.qpEdgeNrrHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, q,
                                        restrict.Q, fix.Q, nTests, alpha,
                                        exact.test, use, tol, R.code.only)
             }
@@ -1880,9 +1906,10 @@ setMethod("qpEdgeNrr", signature(X="data.frame"),
                 fix.Q <- 2+length(restrict.Q)+seq(along=fix.Q)
               }
 
-              S <- qpCov(X[, V, drop=FALSE])
+              ## S <- qpCov(X[, V, drop=FALSE]) ## here is faster to calculate S for each margin
+              S <- NULL
 
-              qpgraph:::.qpEdgeNrr(S, i, j, q, restrict.Q, fix.Q, nTests,
+              qpgraph:::.qpEdgeNrr(X[, V, drop=FALSE], S, i, j, q, restrict.Q, fix.Q, nTests,
                                    alpha, R.code.only)
             } else {
               if (!is.character(I) && !is.numeric(I) && !is.integer(I))
@@ -1907,12 +1934,22 @@ setMethod("qpEdgeNrr", signature(X="data.frame"),
                 Y <- unique(c(intersect(i, Y), intersect(j, Y),
                               intersect(restrict.Q, Y), intersect(fix.Q, Y)))
 
-              ### CHECK WHETHER THERE ARE MISSING VALUES AND CALCULATE IT ONLY THERE THERE ARE NOT !!!!!
-              ssd <- qpCov(X[, Y, drop=FALSE], corrected=FALSE)
-              mapX2ssd <- match(colnames(X), colnames(ssd))
-              ## names(mapX2ssd) <- colnames(X) ## is this necessary?
+              nLevels <- rep(NA_integer_, times=ncol(X))
+              nLevels[I] <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
+              if (any(nLevels[I] == 1))
+                stop(sprintf("Discrete variable %s has only one level", colnames(X)[I[nLevels[I]==1]]))
 
-              qpgraph:::.qpEdgeNrrHMGM(X, I, Y, ssd, mapX2ssd, i, j, q,
+              ssd <- mapX2ssd <- NULL
+              ## here is faster to calculate ssd for each margin
+              ## missingMask <- apply(X, 2, function(x) any(is.na(x)))
+              ## missingData <- any(missingMask)
+              ## if (!missingData) {
+              ##   ssd <- qpCov(X[, Y, drop=FALSE], corrected=FALSE)
+              ##   mapX2ssd <- match(varNames, colnames(ssd))
+              ##   ## names(mapX2ssd) <- colnames(X) ## is this necessary ??
+              ## }
+
+              qpgraph:::.qpEdgeNrrHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, q,
                                        restrict.Q, fix.Q, nTests, alpha,
                                        exact.test, use, tol, R.code.only)
             }
@@ -1955,9 +1992,10 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
                 fix.Q <- 2+length(restrict.Q)+seq(along=fix.Q)
               }
 
-              S <- qpCov(X[, V, drop=FALSE])
+              ## S <- qpCov(X[, V, drop=FALSE]) ## here is faster to calculate S for each margin
+              S <- NULL
 
-              qpgraph:::.qpEdgeNrr(S, i, j, q, restrict.Q, fix.Q, nTests,
+              qpgraph:::.qpEdgeNrr(X[, V, drop=FALSE], S, i, j, q, restrict.Q, fix.Q, nTests,
                                    alpha, R.code.only)
             } else {
               if (!is.character(I) && !is.numeric(I) && !is.integer(I))
@@ -1987,14 +2025,15 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
               if (any(nLevels[I] == 1))
                 stop(sprintf("Discrete variable %s has only one level", colnames(X)[I[nLevels[I]==1]]))
 
-              missingMask <- apply(X, 2, function(x) any(is.na(x)))
-              missingData <- any(missingMask)
               ssd <- mapX2ssd <- NULL
-              if (!missingData) {
-                ssd <- qpCov(X[, Y, drop=FALSE], corrected=FALSE)
-                mapX2ssd <- match(varNames, colnames(ssd))
-                ## names(mapX2ssd) <- colnames(X) ## is this necessary ??
-              }
+              ## here is faster to calculate ssd for each margin
+              ## missingMask <- apply(X, 2, function(x) any(is.na(x)))
+              ## missingData <- any(missingMask)
+              ## if (!missingData) {
+              ##   ssd <- qpCov(X[, Y, drop=FALSE], corrected=FALSE)
+              ##   mapX2ssd <- match(varNames, colnames(ssd))
+              ##   ## names(mapX2ssd) <- colnames(X) ## is this necessary ??
+              ## }
 
               qpgraph:::.qpEdgeNrrHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, q,
                                        restrict.Q, fix.Q, nTests, alpha,
@@ -2002,7 +2041,7 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
             }
           })
 
-# X comes as an SsdMatrix (i.e., a covariance matrix calculated with qpCov())
+# X comes as an SsdMatrix (i.e., a sample covariance matrix calculated with qpCov())
 setMethod("qpEdgeNrr", signature(X="SsdMatrix"),
           function(X, i=1, j=2, q=1, restrict.Q=NULL, fix.Q=NULL,
                    nTests=100, alpha=0.05, R.code.only=FALSE) {
@@ -2022,7 +2061,7 @@ setMethod("qpEdgeNrr", signature(X="SsdMatrix"),
             restrict.Q <- param$restrict.Q
             fix.Q <- param$fix.Q
 
-            qpgraph:::.qpEdgeNrr(X, i, j, q, restrict.Q, fix.Q, nTests,
+            qpgraph:::.qpEdgeNrr(NULL, X, i, j, q, restrict.Q, fix.Q, nTests,
                                  alpha, R.code.only)
           })
 
@@ -2108,15 +2147,24 @@ setMethod("qpEdgeNrr", signature(X="SsdMatrix"),
 ## IMPORTANT: .qpEdgeNrr() assumes that .processParameters() has been
 ##            previously called and all arguments related to variables
 ##            com as integers
-.qpEdgeNrr <- function(S, i=1, j=2, q=1, restrict.Q=NULL, fix.Q=NULL,
+.qpEdgeNrr <- function(X, S, i=1, j=2, q=1, restrict.Q=NULL, fix.Q=NULL,
                        nTests=100, alpha=0.05, R.code.only=FALSE) {
 
+  stopifnot(!is.null(X) || !is.null(S))
+
   if (!R.code.only) { ## assume restrict.Q and fix.Q are coordinately set!!!!
-    return(qpgraph:::.qpFastEdgeNrr(S, i, j, q, restrict.Q, fix.Q, nTests, alpha));
+    return(qpgraph:::.qpFastEdgeNrr(X, S, i, j, q, restrict.Q, fix.Q, nTests, alpha));
   }
 
-  p <- nrow(S)
-  n <- S@n
+  Qm <- NA
+  work.with.margin <- FALSE
+  if (is.null(S)) {
+    work.with.margin <- TRUE
+    Qm <- seq(3, q+2)
+  }
+
+  p <- ifelse(!is.null(X), ncol(X), ncol(S))
+  n <- ifelse(!is.null(X), nrow(X), S@n)
   V <- 1:p
   if (!is.null(restrict.Q))
     V <- restrict.Q
@@ -2137,8 +2185,12 @@ setMethod("qpEdgeNrr", signature(X="SsdMatrix"),
   lambda <- c()
   for (k in 1:nTests) {
     Q <- c(sample(V, q-q.fix, replace=FALSE), fix.Q)
-    cit <- qpgraph:::.qpCItest(S, as.integer(i), as.integer(j), as.integer(Q),
-                               R.code.only=TRUE)
+    if (work.with.margin) {
+      S <- qpgraph::qpCov(X[, c(i, j, Q)], corrected=TRUE)
+      cit <- qpgraph:::.qpCItest(S, 1L, 2L, Qm, R.code.only=TRUE)
+    } else
+      cit <- qpgraph:::.qpCItest(S, as.integer(i), as.integer(j),
+                                 as.integer(Q), R.code.only=TRUE)
     lambda  <- c(lambda, abs(cit$statistic))
   }
 
@@ -2147,7 +2199,7 @@ setMethod("qpEdgeNrr", signature(X="SsdMatrix"),
   return(nAcceptedTests / nTests)
 }
 
-## IMPORTANT: .qpEdgeNrr() assumes that .processParameters() has been
+## IMPORTANT: .qpEdgeNrrIdenticalQs() assumes that .processParameters() has been
 ##            previously called and all arguments related to variables
 ##            com as integers
 ## TODO: work with complete.obs on the margins
@@ -4907,7 +4959,12 @@ clPrCall <- function(cl, fun, n.adj, ...) {
                        pairup.i.noint, pairup.j.noint, pairup.ij.int,
                        exact.test, verbose, startTime, nAdj2estimateTime) {
 
-  nLevels <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
+  ## nLevels <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
+  nLevels <- rep(NA_integer_, times=ncol(X))
+  nLevels[I] <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
+  if (any(nLevels[I] == 1))
+    stop(sprintf("Discrete variable %s has only one level", colnames(X)[I[nLevels[I]==1]]))
+
   return(.Call("qp_fast_nrr", X, as.integer(I), as.integer(nLevels),
                              as.integer(Y), as.integer(q), restrict.Q, ## restrict.Q can be a matrix
                              as.integer(fix.Q), as.integer(nTests), as.double(alpha),
@@ -4941,7 +4998,11 @@ clPrCall <- function(cl, fun, n.adj, ...) {
   if (estimateTime)
     startTime <- proc.time()["elapsed"]
 
-  nLevels <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
+  ## nLevels <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
+  nLevels <- rep(NA_integer_, times=ncol(X))
+  nLevels[I] <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
+  if (any(nLevels[I] == 1))
+    stop(sprintf("Discrete variable %s has only one level", colnames(X)[I[nLevels[I]==1]]))
 
   ## clusterRank and clusterSize should have been defined by the master node
   return(.Call("qp_fast_nrr_par", X, as.integer(I), as.integer(nLevels),
@@ -4978,8 +5039,18 @@ clPrCall <- function(cl, fun, n.adj, ...) {
                                              myMaster, .GlobalEnv))
 }
 
-.qpFastEdgeNrr <- function(S, i, j, q, restrict.Q, fix.Q, nTests, alpha) {
-  return(.Call("qp_fast_edge_nrr", S@ssd@x, nrow(S), as.integer(S@n), as.integer(i), as.integer(j),
+.qpFastEdgeNrr <- function(X, S, i, j, q, restrict.Q, fix.Q, nTests, alpha) {
+  Sx <- n <- p <- NULL
+  if (!is.null(S)) {
+    Sx <- S@ssd@x
+    n <- S@n
+    p <- ncol(S)
+  } else {
+    p <- ncol(X)
+    n <- nrow(X)
+  }
+
+  return(.Call("qp_fast_edge_nrr", X, Sx, p, n, as.integer(i), as.integer(j),
                                   as.integer(q), as.integer(restrict.Q), as.integer(fix.Q),
                                   as.integer(nTests), as.double(alpha)))
 }
