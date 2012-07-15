@@ -4693,7 +4693,7 @@ qp_fast_edge_nrr(SEXP XR, SEXP SR, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP qR,
   PROTECT_INDEX Xpi, Spi;
 
   if (XR != R_NilValue) {
-    PROTECT_WITH_INDEX(XR, &Spi);
+    PROTECT_WITH_INDEX(XR, &Xpi);
     REPROTECT(XR = coerceVector(XR, REALSXP), Xpi);
     X = REAL(XR);
   }
