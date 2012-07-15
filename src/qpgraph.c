@@ -492,7 +492,7 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
     for (i=0; i < n_Y; i++)
       Y[i] = INTEGER(YR)[i]-1;
 
-    if (!missing_obs(REAL(XR), n_var, N, Y, n_Y, NULL, N)) {
+    if (!missing_obs(REAL(XR), n_var, N, NULL, n_var, NULL, N)) {
       mapX2ssd = Calloc(n_var, int);
       for (i=0; i < n_var; i++) {
         j = 0;
@@ -503,7 +503,7 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
       }
 
       S = ssdMat = Calloc((n_Y*(n_Y+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-      ssd(REAL(XR), n_var, N, Y, n_Y, NULL, N, TRUE, NULL, ssdMat);
+      ssd(REAL(XR), n_var, N, Y, n_Y, NULL, N, FALSE, NULL, ssdMat);
     } else
       work_with_margin = TRUE;
   }
@@ -1276,7 +1276,7 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
     for (i=0; i < n_Y; i++)
       Y[i] = INTEGER(YR)[i]-1;
 
-    if (!missing_obs(REAL(XR), n_var, N, Y, n_Y, NULL, N)) {
+    if (!missing_obs(REAL(XR), n_var, N, NULL, n_var, NULL, N)) {
       mapX2ssd = Calloc(n_var, int);
       for (i=0; i < n_var; i++) {
         j = 0;
@@ -1287,7 +1287,7 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
       }
 
       S = ssdMat = Calloc((n_Y*(n_Y+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-      ssd(REAL(XR), n_var, N, Y, n_Y, NULL, N, TRUE, NULL, ssdMat);
+      ssd(REAL(XR), n_var, N, Y, n_Y, NULL, N, FALSE, NULL, ssdMat);
     }
   }
 
@@ -1984,7 +1984,7 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
     for (i=0; i < n_Y; i++)
       Y[i] = INTEGER(YR)[i]-1;
 
-    if (!missing_obs(REAL(XR), n_var, n, Y, n_Y, NULL, n)) {
+    if (!missing_obs(REAL(XR), n_var, n, NULL, n_var, NULL, n)) {
       mapX2ssd = Calloc(n_var, int);
       for (i=0; i < n_var; i++) {
         j = 0;
@@ -1995,7 +1995,7 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
       }
 
       S = ssdMat = Calloc((n_Y*(n_Y+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-      ssd(REAL(XR), n_var, n, Y, n_Y, NULL, n, TRUE, NULL, ssdMat);
+      ssd(REAL(XR), n_var, n, Y, n_Y, NULL, n, FALSE, NULL, ssdMat);
     } else
       work_with_margin = TRUE;
   }
@@ -2509,7 +2509,7 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
     for (i=0; i < n_Y; i++)
       Y[i] = INTEGER(YR)[i]-1;
 
-    if (!missing_obs(REAL(XR), n_var, n, Y, n_Y, NULL, n)) {
+    if (!missing_obs(REAL(XR), n_var, n, NULL, n_var, NULL, n)) {
       mapX2ssd = Calloc(n_var, int);
       for (i=0; i < n_var; i++) {
         j = 0;
@@ -2520,7 +2520,7 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
       }
 
       S = ssdMat = Calloc((n_Y*(n_Y+1))/2, double); /* if this doesn't do memset(0) there'll be trouble */
-      ssd(REAL(XR), n_var, n, Y, n_Y, NULL, n, TRUE, NULL, ssdMat);
+      ssd(REAL(XR), n_var, n, Y, n_Y, NULL, n, FALSE, NULL, ssdMat);
     } else
       work_with_margin = TRUE;
   }
