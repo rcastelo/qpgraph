@@ -630,7 +630,7 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
     Free(pairup_ij_noint);
 
   /* i-exclusive variables against j-exclusive variables */
-  if (startTime == 0 || k < 10) {
+  if (startTime == 0 || k < nAdjEtime) {
     for (i=0; i < l_ini; i++) {
       int i2 = pairup_i_noint[i] - 1;
 
@@ -688,7 +688,7 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
   }
 
   /* intersection variables against themselves (avoiding pairing the same) */
-  if (startTime == 0 || k < 10) {
+  if (startTime == 0 || k < nAdjEtime) {
     for (i = 0; i < l_int-1; i++) {
       int i2 = pairup_ij_int[i] - 1;
 
@@ -1022,7 +1022,7 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR, SEXP nTes
     Free(pairup_ij_noint);
 
   /* i-exclusive variables against j-exclusive variables */
-  if (startTime == 0 || k < 10) {
+  if (startTime == 0 || k < nAdjEtime) {
     for (i=0; i < l_ini; i++) {
       int i2 = pairup_i_noint[i] - 1;
 
@@ -1064,7 +1064,7 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR, SEXP nTes
   }
 
   /* intersection variables against themselves (avoiding pairing the same) */
-  if (startTime == 0 || k < 10) {
+  if (startTime == 0 || k < nAdjEtime) {
     for (i = 0; i < l_int-1; i++) {
       int i2 = pairup_ij_int[i] - 1;
 
@@ -1390,7 +1390,7 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
                                                       nTests, alpha, INTEGER(exactTest)[0]);
         idx[k-firstAdj] = UTE2I(i2, j2) + 1;
         k++;
-        if (startTime > 0 && k-firstAdj == 10)
+        if (startTime > 0 && k-firstAdj == nAdjEtime)
           break;
         if (verbose && startTime == 0) {
           pct = (int) (((k-firstAdj) * 100) / n_adj_this_proc);
@@ -1410,7 +1410,7 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
           ppct = pct;
         }
       }
-      if (startTime > 0 && k-firstAdj == 10)
+      if (startTime > 0 && k-firstAdj == nAdjEtime)
         break;
       j_first = 0;
     }
@@ -1420,7 +1420,7 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
     Free(pairup_ij_noint);
 
   if (k <= lastAdj && k < l_int * (l_ini + l_jni) + l_ini * l_jni &&
-      (startTime == 0 || k-firstAdj < 10)) {
+      (startTime == 0 || k-firstAdj < nAdjEtime)) {
     int i_first = ((int) ((k - l_int * (l_ini + l_jni)) / l_jni));
     int j_first = (k - l_int * (l_ini + l_jni)) % l_jni;
 
@@ -1451,7 +1451,7 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
                                                       nTests, alpha, INTEGER(exactTest)[0]);
         idx[k-firstAdj] = UTE2I(i2, j2) + 1;
         k++;
-        if (startTime > 0 && k-firstAdj == 10)
+        if (startTime > 0 && k-firstAdj == nAdjEtime)
           break;
         if (verbose && startTime == 0) {
           pct = (int) (((k-firstAdj) * 100) / n_adj_this_proc);
@@ -1471,13 +1471,13 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
           ppct = pct;
         }
       }
-      if (startTime > 0 && k-firstAdj == 10)
+      if (startTime > 0 && k-firstAdj == nAdjEtime)
         break;
       j_first = 0;
     }
   }
 
-  if (k <= lastAdj && (startTime == 0 || k-firstAdj < 10)) {
+  if (k <= lastAdj && (startTime == 0 || k-firstAdj < nAdjEtime)) {
     int i_first = k - l_int * (l_ini + l_jni) - l_ini * l_jni;
     int l;
 
@@ -1509,7 +1509,7 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
                                                      nTests, alpha, INTEGER(exactTest)[0]);
       idx[k-firstAdj] = UTE2I(i2, j2) + 1;
       k++;
-      if (startTime > 0 && k-firstAdj == 10)
+      if (startTime > 0 && k-firstAdj == nAdjEtime)
         break;
       if (verbose && startTime == 0) {
         pct = (int) (((k-firstAdj) * 100) / n_adj_this_proc);
@@ -1773,7 +1773,7 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR,
                                                   N, i2, j2, q, nTests, alpha);
         idx[k-firstAdj] = UTE2I(i2, j2) + 1;
         k++;
-        if (startTime > 0 && k-firstAdj == 10)
+        if (startTime > 0 && k-firstAdj == nAdjEtime)
           break;
         if (verbose && startTime == 0) {
           pct = (int) (((k-firstAdj) * 100) / n_adj_this_proc);
@@ -1793,7 +1793,7 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR,
           ppct = pct;
         }
       }
-      if (startTime > 0 && k-firstAdj == 10)
+      if (startTime > 0 && k-firstAdj == nAdjEtime)
         break;
       j_first = 0;
     }
@@ -1803,7 +1803,7 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR,
     Free(pairup_ij_noint);
 
   if (k <= lastAdj && k < l_int * (l_ini + l_jni) + l_ini * l_jni &&
-      (startTime == 0 || k-firstAdj < 10)) {
+      (startTime == 0 || k-firstAdj < nAdjEtime)) {
     int i_first = ((int) ((k - l_int * (l_ini + l_jni)) / l_jni));
     int j_first = (k - l_int * (l_ini + l_jni)) % l_jni;
 
@@ -1818,7 +1818,7 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR,
                                                   N, i2, j2, q, nTests, alpha);
         idx[k-firstAdj] = UTE2I(i2, j2) + 1;
         k++;
-        if (startTime > 0 && k-firstAdj == 10)
+        if (startTime > 0 && k-firstAdj == nAdjEtime)
           break;
         if (verbose && startTime == 0) {
           pct = (int) (((k-firstAdj) * 100) / n_adj_this_proc);
@@ -1838,13 +1838,13 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR,
           ppct = pct;
         }
       }
-      if (startTime > 0 && k-firstAdj == 10)
+      if (startTime > 0 && k-firstAdj == nAdjEtime)
         break;
       j_first = 0;
     }
   }
 
-  if (k <= lastAdj && (startTime == 0 || k-firstAdj < 10)) {
+  if (k <= lastAdj && (startTime == 0 || k-firstAdj < nAdjEtime)) {
     int i_first = k - l_int * (l_ini + l_jni) - l_ini * l_jni;
     int l;
 
@@ -1860,7 +1860,7 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR,
                                                 N, i2, j2, q, nTests, alpha);
       idx[k-firstAdj] = UTE2I(i2, j2) + 1;
       k++;
-      if (startTime > 0 && k-firstAdj == 10)
+      if (startTime > 0 && k-firstAdj == nAdjEtime)
         break;
       if (verbose && startTime == 0) {
         pct = (int) (((k-firstAdj) * 100) / n_adj_this_proc);
@@ -2182,7 +2182,7 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
     Free(pairup_ij_noint);
 
   /* i-exclusive variables against j-exclusive variables */
-  if (startTime == 0 || k < 10) {
+  if (startTime == 0 || k < nAdjEtime) {
     for (i=0; i < l_ini; i++) {
       int i2 = pairup_i_noint[i] - 1;
 
@@ -2264,7 +2264,7 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
   }
 
   /* intersection variables against themselves (avoiding pairing the same) */
-  if (startTime == 0 || k < 10) {
+  if (startTime == 0 || k < nAdjEtime) {
     for (i = 0; i < l_int-1; i++) {
       int i2 = pairup_ij_int[i] - 1;
 
@@ -2677,7 +2677,7 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
         }
 
         k++;
-        if (startTime > 0 && k-firstAdj == 10)
+        if (startTime > 0 && k-firstAdj == nAdjEtime)
           break;
         if (verbose && startTime == 0) {
           pct = (int) (((k-firstAdj) * 100) / n_adj_this_proc);
@@ -2697,7 +2697,7 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
           ppct = pct;
         }
       }
-      if (startTime > 0 && k-firstAdj == 10)
+      if (startTime > 0 && k-firstAdj == nAdjEtime)
         break;
       j_first = 0;
     }
@@ -2707,7 +2707,7 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
     Free(pairup_ij_noint);
 
   if (k <= lastAdj && k < l_int * (l_ini + l_jni) + l_ini * l_jni &&
-      (startTime == 0 || k-firstAdj < 10)) {
+      (startTime == 0 || k-firstAdj < nAdjEtime)) {
     int i_first = ((int) ((k - l_int * (l_ini + l_jni)) / l_jni));
     int j_first = (k - l_int * (l_ini + l_jni)) % l_jni;
 
@@ -2762,7 +2762,7 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
         }
 
         k++;
-        if (startTime > 0 && k-firstAdj == 10)
+        if (startTime > 0 && k-firstAdj == nAdjEtime)
           break;
         if (verbose && startTime == 0) {
           pct = (int) (((k-firstAdj) * 100) / n_adj_this_proc);
@@ -2782,13 +2782,13 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
           ppct = pct;
         }
       }
-      if (startTime > 0 && k-firstAdj == 10)
+      if (startTime > 0 && k-firstAdj == nAdjEtime)
         break;
       j_first = 0;
     }
   }
 
-  if (k <= lastAdj && (startTime == 0 || k-firstAdj < 10)) {
+  if (k <= lastAdj && (startTime == 0 || k-firstAdj < nAdjEtime)) {
     int i_first = k - l_int * (l_ini + l_jni) - l_ini * l_jni;
     int l;
 
@@ -2844,7 +2844,7 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
       }
 
       k++;
-      if (startTime > 0 && k-firstAdj == 10)
+      if (startTime > 0 && k-firstAdj == nAdjEtime)
         break;
       if (verbose && startTime == 0) {
         pct = (int) (((k-firstAdj) * 100) / n_adj_this_proc);
@@ -3937,7 +3937,7 @@ qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* X
   int     n_joint_levels = 1;
   int     n_joint_levels_i = 1;
   int     n_levels_i = 0;
-  int*    idx_misobs;
+  int*    idx_misobs = NULL;
   double* ssd_mat;
   double  x;
   double  lr = 0.0;
@@ -4418,8 +4418,6 @@ qp_edge_nrr_identicalQs(double* S, int n_var, int* Qs, double* Qinvs, int N, int
       l++;
 
     if (l >= q) {
-      int* Q;
-      Q=Qs+k*q;
       t_value = qp_ci_test_opt(S, n_var, N, i, j, (int*) (Qs+k*q), q,
                                (double*) (Qinvs+k*q*q), NULL);
 
