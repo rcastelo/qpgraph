@@ -23,7 +23,7 @@ qpPlotNetwork(g, vertexSubset=graph::nodes(g), boundary=FALSE,
 }
 \details{
 This function acts as a wrapper for the functionality provided by the \code{Rgraphviz}
-package to plot graphs in R. It should be help to plot networks obtained with the \code{qpgraph}
+package to plot graphs in R. It should help to plot networks obtained with the \code{qpgraph}
 package methods.
 }
 \value{

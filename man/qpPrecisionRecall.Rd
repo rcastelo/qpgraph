@@ -10,7 +10,7 @@ association between all pairs of variables in a matrix.
 }
 \usage{
 qpPrecisionRecall(measurementsMatrix, refGraph, decreasing=TRUE, pairup.i=NULL,
-                  pairup.j=NULL, recallSteps=c(seq(0,0.1,0.005),seq(0.2,1.0,0.1)))
+                  pairup.j=NULL, recallSteps=seq(0, 1, by=0.1))
 }
 \arguments{
   \item{measurementsMatrix}{matrix containing the measure of association between
