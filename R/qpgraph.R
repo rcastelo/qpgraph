@@ -3928,7 +3928,7 @@ qpK2ParCor <- function(K) {
 
 qpPrecisionRecall <- function(measurementsMatrix, refGraph, decreasing=TRUE,
                               pairup.i=NULL, pairup.j=NULL,
-                              recallSteps=c(seq(0,0.1,0.005),seq(0.2,1.0,0.1))) {
+                              recallSteps=seq(0.0, 1.0, by=0.1)) {
 
   if (class(measurementsMatrix) != "matrix" && class(measurementsMatrix) != "dspMatrix" &&
       class(measurementsMatrix) != "dgeMatrix")
