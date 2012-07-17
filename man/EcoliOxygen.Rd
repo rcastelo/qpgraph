@@ -1,15 +1,17 @@
 \name{EcoliOxygen}
 \docType{data}
 \alias{EcoliOxygen}
-\alias{filtered.regulon6.1}
 \alias{gds680.eset}
+\alias{subset.gds680.eset}
+\alias{filtered.regulon6.1}
+\alias{subset.filtered.regulon6.1}
 
 \title{Preprocessed microarray oxygen deprivation data and filtered RegulonDB data}
 
-\description{The data consist of two objects, one containing normalized gene
-expression microarray data from Escherichia coli (E. coli) and the other
-containing a subset of filtered RegulonDB transcription regulatory relationships
-on E. coli.
+\description{The data consist of two classes of objects, one
+containing normalized gene expression microarray data from Escherichia
+coli (E. coli) and the other containing a subset of filtered RegulonDB
+transcription regulatory relationships on E. coli.
 }
 
 \usage{
@@ -33,6 +35,11 @@ data(EcoliOxygen)
          Identifiers and filtered such that the current \code{ExpressionSet}
          object contains a total of p=4205 genes. The slot \code{featureNames}
          has already the corresponding Entrez Gene IDs.\cr
+    \code{subset.gds680.eset}\tab \code{ExpressionSet} object corresponding to
+         a subset of \code{gds680.eset} defined by the transcription factor
+         genes that were knocked-out in the experiments by Covert et al. (2004)
+         and their putative targets according to the RegulonDB database version
+         6.1.\cr
     \code{filtered.regulon6.1}\tab Data frame object containing a subset of the
          E. coli transcriptional network from RegulonDB 6.1 (Gama-Castro et al,
          2008) obtained through the filtering steps described in (Castelo and
@@ -42,10 +49,15 @@ data(EcoliOxygen)
          respectively, and the following two correspond to the same genes but
          specified by Entrez Gene IDs. The fifth column contains the direction
          of the regulation according to RegulonDB.\cr
+    \code{subset.filtered.regulon6.1}\tab Subset of \code{filtered.regulon6.1}
+         containing the transcriptional regulatory relationships in RegulonDB
+         version 6.1 that involve the transcription factor genes which were
+         knocked-out in the experiments by Covert et al. (2004).\cr
   }
 }
 \examples{
 data(EcoliOxygen)
+ls()
 }
 \source{
 Covert, M.W., Knight, E.M., Reed, J.L., Herrgard, M.J., and Palsson, B.O.
