@@ -10,7 +10,7 @@ clique number or maximum clique size) as function of the non-rejection
 rate.
 }
 \usage{
-qpClique(nrrMatrix, N=NA, threshold.lim=c(0,1), breaks=5, plot=TRUE,
+qpClique(nrrMatrix, n=NA, threshold.lim=c(0,1), breaks=5, plot=TRUE,
          exact.calculation=TRUE, approx.iter=100,
          qpCliqueOutput=NULL, density.digits=0,
          logscale.clqsize=FALSE,
@@ -19,7 +19,7 @@ qpClique(nrrMatrix, N=NA, threshold.lim=c(0,1), breaks=5, plot=TRUE,
 }
 \arguments{
   \item{nrrMatrix}{matrix of non-rejection rates.}
-  \item{N}{number of observations from where the non-rejection rates were
+  \item{n}{number of observations from where the non-rejection rates were
        estimated.}
   \item{threshold.lim}{range of threshold values on the non-rejection rate.}
   \item{breaks}{either a number of threshold bins or a vector of threshold
@@ -57,7 +57,7 @@ it is recommended either to use the lower bound on the clique number
 A list with the maximum clique size and graph density as function of threshold,
 an estimate of the complexity of the resulting qp-graphs across the thresholds,
 the threshold on the non-rejection rate that provides a maximum clique size
-strictly smaller than the sample size N and the resulting maximum clique size.
+strictly smaller than the sample size n and the resulting maximum clique size.
 }
 \references{
 Castelo, R. and Roverato, A. A robust procedure for

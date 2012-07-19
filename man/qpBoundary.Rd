@@ -9,7 +9,7 @@ Calculates and plots the size of the largest vertex boundary
 as function of the non-rejection rate.
 }
 \usage{
-qpBoundary(nrrMatrix, N=NA, threshold.lim=c(0,1), breaks=5, plot=TRUE,
+qpBoundary(nrrMatrix, n=NA, threshold.lim=c(0,1), breaks=5, plot=TRUE,
            qpBoundaryOutput=NULL, density.digits=0,
            logscale.bdsize=FALSE,
            titlebd="Maximum boundary size as function of threshold",
@@ -17,7 +17,7 @@ qpBoundary(nrrMatrix, N=NA, threshold.lim=c(0,1), breaks=5, plot=TRUE,
 }
 \arguments{
   \item{nrrMatrix}{matrix of non-rejection rates.}
-  \item{N}{number of observations from where the non-rejection rates were
+  \item{n}{number of observations from where the non-rejection rates were
        estimated.}
   \item{threshold.lim}{range of threshold values on the non-rejection rate.}
   \item{breaks}{either a number of threshold bins or a vector of threshold
@@ -40,7 +40,7 @@ a given qp-graph.
 \value{
 A list with the maximum boundary size and graph density as function of threshold,
 the threshold on the non-rejection rate that provides a maximum boundary size
-strictly smaller than the sample size N and the resulting maximum boundary size.
+strictly smaller than the sample size n and the resulting maximum boundary size.
 }
 \references{
 Castelo, R. and Roverato, A. A robust procedure for

@@ -3008,7 +3008,7 @@ qpCliqueNumber <- function(g, exact.calculation=TRUE, return.vertices=FALSE,
 ## purpose: calculate and plot the maximum clique size as function of the
 ##          non-rejection rate
 ## parameters: nrrMatrix - matrix of non-rejection rates
-##             N - sample size
+##             n - sample size
 ##             threshold.lim - range of threshold values
 ##             breaks - either a number of threshold bins or a vector of
 ##                      threshold breakpoints
@@ -3034,9 +3034,9 @@ qpCliqueNumber <- function(g, exact.calculation=TRUE, return.vertices=FALSE,
 ##         of the threshold, an estimate of the complexity of the resulting
 ##         qp-graphs across the thresholds, the threshold on the non-rejection
 ##         rate that provides a maximum clique size strictly smaller than the
-##         sample size N, and the resulting maximum clique size
+##         sample size n, and the resulting maximum clique size
 
-qpClique <- function(nrrMatrix, N=NA, threshold.lim=c(0,1), breaks=5, plot=TRUE,
+qpClique <- function(nrrMatrix, n=NA, threshold.lim=c(0,1), breaks=5, plot=TRUE,
                      exact.calculation=TRUE, approx.iter=100,
                      qpCliqueOutput=NULL, density.digits=0,
                      logscale.clqsize=FALSE,
@@ -3079,15 +3079,15 @@ qpClique <- function(nrrMatrix, N=NA, threshold.lim=c(0,1), breaks=5, plot=TRUE,
       maxsize <- qpCliqueNumber(A, exact.calculation, approx.iter=approx.iter,
                                   verbose=verbose)
       mpctedclqsze[i,] <- c((n.edg / n.adj) * 100, maxsize, threshold)
-      if (!is.na(N)) {
-        if (maxsize > maxclqszeunderN && maxsize < N) {
+      if (!is.na(n)) {
+        if (maxsize > maxclqszeunderN && maxsize < n) {
           maxclqszeunderN <- maxsize
           thrmaxclqszeunderN <- threshold
         }
       }
     }
 
-    if (is.na(N))
+    if (is.na(n))
       maxclqszeunderN <- thrmaxclqszunderN <- NA
 
   } else {
@@ -3095,7 +3095,7 @@ qpClique <- function(nrrMatrix, N=NA, threshold.lim=c(0,1), breaks=5, plot=TRUE,
     mpctedclqsze <- qpCliqueOutput$data
     thrmaxclqszeunderN <- qpCliqueOutput$threshold
     maxclqszeunderN <- qpCliqueOutput$clqsizeunderN
-    N <- qpCliqueOutput$N
+    n <- qpCliqueOutput$N
     exact.calculation <- qpCliqueOutput$exact.calculation 
   }
 
@@ -3112,13 +3112,13 @@ qpClique <- function(nrrMatrix, N=NA, threshold.lim=c(0,1), breaks=5, plot=TRUE,
       logscale <- "y"
     }
     plot(br,mpctedclqsze[,2],type="o",xlim=threshold.lim,
-         ylim=range(1,N,mpctedclqsze[,2],na.rm=TRUE),lwd=2,lty=linetype,
+         ylim=range(1,n,mpctedclqsze[,2],na.rm=TRUE),lwd=2,lty=linetype,
          xlab="threshold",ylab="maximum clique size",main=titleclq,log=logscale)
-    if (!is.na(N))
-      abline(h=N,col="red",lwd=2)
+    if (!is.na(n))
+      abline(h=n,col="red",lwd=2)
     pct <- round(mpctedclqsze[,1],digits=density.digits)
     text(br,mpctedclqsze[,2],lab=paste(pct,"%",sep=""),pos=1,cex=.7)
-    legend(min(threshold.lim),max(N,mpctedclqsze[,2],na.rm=TRUE),label,lty=linetype,lwd=2,pch=1)
+    legend(min(threshold.lim),max(n,mpctedclqsze[,2],na.rm=TRUE),label,lty=linetype,lwd=2,pch=1)
   }
 
   m <- mpctedclqsze[,c(3,2)]
@@ -3127,7 +3127,7 @@ qpClique <- function(nrrMatrix, N=NA, threshold.lim=c(0,1), breaks=5, plot=TRUE,
   area <- integrate(f,min(m[,1]),max(m[,1]))
 
   invisible(list(data=mpctedclqsze,complexity=area$value,threshold=thrmaxclqszeunderN,
-                 clqsizeunderN=maxclqszeunderN,N=N,exact.calculation=exact.calculation))
+                 clqsizeunderN=maxclqszeunderN,n=n,exact.calculation=exact.calculation))
 }
 
 
@@ -3136,7 +3136,7 @@ qpClique <- function(nrrMatrix, N=NA, threshold.lim=c(0,1), breaks=5, plot=TRUE,
 ## purpose: calculate and plot the maximum clique size as function of the
 ##          non-rejection rate
 ## parameters: nrrMatrix - matrix of non-rejection rates
-##             N - sample size
+##             n - sample size
 ##             threshold.lim - range of threshold values
 ##             breaks - either a number of threshold bins or a vector of
 ##                      threshold breakpoints
@@ -3156,7 +3156,7 @@ qpClique <- function(nrrMatrix, N=NA, threshold.lim=c(0,1), breaks=5, plot=TRUE,
 ##         rate that provides a maximum clique size strictly smaller than the
 ##         sample size N, and the resulting maximum clique size
 
-qpBoundary <- function(nrrMatrix, N=NA, threshold.lim=c(0,1), breaks=5, plot=TRUE,
+qpBoundary <- function(nrrMatrix, n=NA, threshold.lim=c(0,1), breaks=5, plot=TRUE,
                        qpBoundaryOutput=NULL, density.digits=0,
                        logscale.bdsize=FALSE,
                        titlebd="Maximum boundary size as function of threshold",
@@ -3197,15 +3197,15 @@ qpBoundary <- function(nrrMatrix, N=NA, threshold.lim=c(0,1), breaks=5, plot=TRU
       dimnames(A) <- list(1:length(A[,1]), 1:length(A[1,]))
       maxsize <- max(rowSums(A))
       mpctedbdsze[i,] <- c((n.edg / n.adj) * 100, maxsize, threshold)
-      if (!is.na(N)) {
-        if (maxsize > maxbdszeunderN && maxsize < N) {
+      if (!is.na(n)) {
+        if (maxsize > maxbdszeunderN && maxsize < n) {
           maxbdszeunderN <- maxsize
           thrmaxbdszeunderN <- threshold
         }
       }
     }
 
-    if (is.na(N))
+    if (is.na(n))
       maxbdszeunderN <- thrmaxbdszunderN <- NA
 
   } else {
@@ -3213,7 +3213,7 @@ qpBoundary <- function(nrrMatrix, N=NA, threshold.lim=c(0,1), breaks=5, plot=TRU
     mpctedbdsze <- qpBoundaryOutput$data
     thrmaxbdszeunderN <- qpBoundaryOutput$threshold
     maxbdszeunderN <- qpBoundaryOutput$bdsizeunderN
-    N <- qpBoundaryOutput$N
+    n <- qpBoundaryOutput$n
   }
 
   linetype <- 1
@@ -3225,13 +3225,13 @@ qpBoundary <- function(nrrMatrix, N=NA, threshold.lim=c(0,1), breaks=5, plot=TRU
       logscale <- "y"
     }
     plot(br,mpctedbdsze[,2],type="o",xlim=threshold.lim,
-         ylim=range(1,N,mpctedbdsze[,2],na.rm=TRUE),lwd=2,lty=linetype,
+         ylim=range(1,n,mpctedbdsze[,2],na.rm=TRUE),lwd=2,lty=linetype,
          xlab="threshold",ylab="Maximum boundary size",main=titlebd,log=logscale)
-    if (!is.na(N))
-      abline(h=N,col="red",lwd=2)
+    if (!is.na(n))
+      abline(h=n,col="red",lwd=2)
     pct <- round(mpctedbdsze[,1],digits=density.digits)
     text(br,mpctedbdsze[,2],lab=paste(pct,"%",sep=""),pos=1,cex=.7)
-    legend(min(threshold.lim),max(N,mpctedbdsze[,2],na.rm=TRUE),label,lty=linetype,lwd=2,pch=1)
+    legend(min(threshold.lim),max(n,mpctedbdsze[,2],na.rm=TRUE),label,lty=linetype,lwd=2,pch=1)
   }
 
   m <- mpctedbdsze[,c(3,2)]
@@ -3240,7 +3240,7 @@ qpBoundary <- function(nrrMatrix, N=NA, threshold.lim=c(0,1), breaks=5, plot=TRU
   area <- integrate(f,min(m[,1]),max(m[,1]))
 
   invisible(list(data=mpctedbdsze,complexity=area$value,threshold=thrmaxbdszeunderN,
-                 bdsizeunderN=maxbdszeunderN,N=N))
+                 bdsizeunderN=maxbdszeunderN,n=n))
 }
 
 
@@ -4559,8 +4559,8 @@ qpTopPairs <- function(measurementsMatrix=NULL, refGraph=NULL, n=6L, file=NULL,
     syms <- unlist(AnnotationDbi::mget(unique(c(edgeRnk$i, edgeRnk$j)),
                      annotate::getAnnMap(map="SYMBOL", chip=annotation, type="db"),
                      ifnotfound=NA))
-    edgeRnk <- cbind(edgeRnk, iSymbol=syms[edgeRnk$i], stringsAsFactors=FALSE)
-    edgeRnk <- cbind(edgeRnk, jSymbol=syms[edgeRnk$j], stringsAsFactors=FALSE)
+    edgeRnk <- cbind(edgeRnk, iSymbol=as.vector(syms[edgeRnk$i]),
+                     jSymbol=as.vector(syms[edgeRnk$j]), stringsAsFactors=FALSE)
     edgeRnk <- edgeRnk[, c(1,2,4,5,3)]
   }
 

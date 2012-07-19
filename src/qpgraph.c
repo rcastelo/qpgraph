@@ -6039,17 +6039,17 @@ qp_fast_pac_se(SEXP Shat, SEXP I) {
     error("qpPACSE: Shat or I is not a matrix!");
   }
 
+  PROTECT_WITH_INDEX(Shat, &Spi);
+  PROTECT_WITH_INDEX(I, &Ipi);
+
+  REPROTECT(Shat = coerceVector(Shat,REALSXP), Spi);
+  REPROTECT(I = coerceVector(I,INTSXP), Ipi);
+
   n_edges = 0;
   for (i=0;i<n_var;i++)
     for (j=0;j<=i;j++)
       if (INTEGER(I)[i+j*n_var] != 0)
         n_edges++;
-
-  PROTECT_WITH_INDEX(Shat,&Spi);
-  PROTECT_WITH_INDEX(I,&Ipi);
-
-  REPROTECT(Shat = coerceVector(Shat,REALSXP),Spi);
-  REPROTECT(I = coerceVector(I,INTSXP),Ipi);
 
   r_nz = Calloc(n_edges+n_var,int);
   c_nz = Calloc(n_edges+n_var,int);
