@@ -1490,7 +1490,7 @@ setMethod("qpEdgeNrr", signature(X="smlSet"),
                    nTests=100, alpha=0.05, exact.test=TRUE,
                    use=c("complete.obs", "em"), tol=0.01, R.code.only=FALSE) {
 
-            use <- match.arg("complete.obs", "em")
+            use <- match.arg(use)
 
             p <- as.integer(nrow(X))
             h <- as.integer(ncol(Biobase::pData(X)))
