@@ -3709,6 +3709,8 @@ setMethod("qpPCC", signature(X="matrix"),
 ## purpose: samples a d-regular graph uniformly at random
 ## parameters: p - number of vertices
 ##             d - maximum boundary for every vertex
+##             exclude - vector of vertices inducing edges that should be
+##                       excluded from the sampled d-regular graph
 ## return: the adjacency matrix of the resulting graph
 
 qpRndGraph <- function(p=6, d=2, exclude=NULL, verbose=FALSE, R.code.only=FALSE) {
@@ -4409,7 +4411,7 @@ setMethod("qpFunctionalCoherence",
 qpTopPairs <- function(measurementsMatrix=NULL, refGraph=NULL, n=6L, file=NULL,
                        decreasing=FALSE, pairup.i=NULL, pairup.j=NULL,
                        annotation=NULL, fcOutput=NULL, fcOutput.na.rm=FALSE,
-                       digits=2) {
+                       digits=NULL) {
 
   haveMeasurements <- FALSE
 
@@ -4564,7 +4566,8 @@ qpTopPairs <- function(measurementsMatrix=NULL, refGraph=NULL, n=6L, file=NULL,
     edgeRnk <- edgeRnk[, c(1,2,4,5,3)]
   }
 
-  edgeRnk$x <- round(edgeRnk$x, digits=digits)
+  if (!is.null(digits))
+    edgeRnk$x <- round(edgeRnk$x, digits=digits)
 
   if (!haveMeasurements)
     edgeRnk <- edgeRnk[, -dim(edgeRnk)[2]]
@@ -4587,7 +4590,8 @@ qpTopPairs <- function(measurementsMatrix=NULL, refGraph=NULL, n=6L, file=NULL,
       edgeRnk$funCoherence[fcMask] <- fcOutput$functionalCoherenceValues[edgeRnk$i[fcMask]]
     }
 
-    edgeRnk$funCoherence <- round(edgeRnk$funCoherence, digits=digits)
+    if (!is.null(digits))
+      edgeRnk$funCoherence <- round(edgeRnk$funCoherence, digits=digits)
 
     if (fcOutput.na.rm) {
       if (!any(!is.na(edgeRnk$funCoherence)))
@@ -5141,10 +5145,8 @@ qpRndHMGM <- function(nDiscrete=1, nContinuous=3, d=2, mixedIntStrength=5, rho=0
     Delta <- paste("D", 1:nDiscrete, sep="")
     Gamma <- paste("C", 1:nContinuous, sep="")
     V <- c(Delta, Gamma)
-    G <- qpRndGraph(p=length(V), d=d)
+    G <- qpRndGraph(p=length(V), d=d, exclude=seq(along=Delta))
     rownames(G) <- colnames(G) <- V
-    G[Delta, Delta] <- FALSE
-    rownames(G) <- colnames(G) <- V ## somehow Matrix drops dimnames after the previous instruction
   } else {
     Delta <- colnames(G)[1:nDiscrete]
     Gamma <- colnames(G)[(nDiscrete+1):(nDiscrete+nContinuous)]

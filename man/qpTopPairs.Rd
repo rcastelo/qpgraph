@@ -5,14 +5,14 @@
 Report pairs of variables
 }
 \description{
-Report a top number of pairs of variables according to either an association measure and/or
+Report a top number of pairs of variables according to either some association measure and/or
 occurring in a given reference graph.
 }
 \usage{
 qpTopPairs(measurementsMatrix=NULL, refGraph=NULL, n=6L, file=NULL,
            decreasing=FALSE, pairup.i=NULL, pairup.j=NULL,
            annotation=NULL, fcOutput=NULL, fcOutput.na.rm=FALSE,
-           digits=2)
+           digits=NULL)
 }
 \arguments{
   \item{measurementsMatrix}{matrix containing the measure of association between
@@ -29,7 +29,9 @@ qpTopPairs(measurementsMatrix=NULL, refGraph=NULL, n=6L, file=NULL,
   \item{annotation}{name of an annotation package to transform gene identifiers into gene symbols when variables correspond to genes.}
   \item{fcOutput}{output of \code{\link{qpFunctionalCoherence}}.}
   \item{fcOutput.na.rm}{flag set to TRUE when pairs with \code{NA} values from \code{fcOutput} should not be reported; \code{FALSE} (default) otherwise.}
-  \item{digits}{number of decimal digits reported in the association measure and functional coherence values.}
+  \item{digits}{number of decimal digits reported in the values of \code{measurementsMatrix}
+        and functional coherence values. By default \code{digits=NULL}, and therefore, no
+        rounding is performed.}
 }
 \details{
 The \code{measurementsMatrix} should be symmetric and may have also contain
