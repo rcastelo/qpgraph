@@ -2629,12 +2629,15 @@ qpGraph <- function(nrrMatrix, threshold=NULL, topPairs=NULL, pairup.i=NULL,
     return(m)
   } else if (return.type == "graphNEL") {
     ## require(graph)
-    vertices <- unique(c(vertex.labels[row(A)[upper.tri(A) & A]], vertex.labels[col(A)[upper.tri(A) & A]]))
-    edL <- vector("list", length=length(vertices))
-    names(edL) <- vertices
-    for (v in vertices)
-      edL[[v]] <- list(edges=vertex.labels[A[v, ]], weights=rep(1, sum(A[v, ])))
-    g <- new("graphNEL",nodes=vertices, edgeL=edL, edgemode="undirected")
+    ## vertices <- unique(c(vertex.labels[row(A)[upper.tri(A) & A]], vertex.labels[col(A)[upper.tri(A) & A]]))
+    ## edL <- vector("list", length=length(vertices))
+    ## names(edL) <- vertices
+    ## for (v in vertices)
+    ##   edL[[v]] <- list(edges=vertex.labels[A[v, ]], weights=rep(1, sum(A[v, ])))
+    m <- cbind(vertex.labels[row(A)[upper.tri(A) & A]], vertex.labels[col(A)[upper.tri(A) & A]])
+    m <- rbind(m, m[, 2:1])
+    edL <- split(m[,1], m[,2])
+    g <- new("graphNEL", nodes=names(edL), edgeL=edL, edgemode="undirected")
     return(g)
   } else if (return.type == "graphAM") {
     ## require(graph)
@@ -4436,8 +4439,7 @@ qpTopPairs <- function(measurementsMatrix=NULL, refGraph=NULL, n=6L, file=NULL,
         stop("Row and column names of 'refGraph' should be the same\n")
     }
 
-    measurementsMatrix <- matrix(0, nrow=dim(refGraph)[1], ncol=dim(refGraph)[1],
-                                 dimnames=dimnames(refGraph))
+    measurementsMatrix <- matrix(0, nrow=nrow(refGraph), ncol=ncol(refGraph), dimnames=dimnames(refGraph))
   } else {
     if (class(measurementsMatrix) != "matrix" && class(measurementsMatrix) != "dspMatrix" &&
         class(measurementsMatrix) != "dgeMatrix")
@@ -4458,8 +4460,8 @@ qpTopPairs <- function(measurementsMatrix=NULL, refGraph=NULL, n=6L, file=NULL,
   }
 
   if (is.null(refGraph)) {
-    refGraph <- matrix(TRUE, nrow=dim(measurementsMatrix)[1],
-                       ncol=dim(measurementsMatrix)[2],
+    refGraph <- matrix(TRUE, nrow=nrow(measurementsMatrix),
+                       ncol=ncol(measurementsMatrix),
                        dimnames=dimnames(measurementsMatrix))
   } else {
     if (class(refGraph) != "matrix" && class(refGraph)!= "graphNEL" &&
@@ -4501,8 +4503,8 @@ qpTopPairs <- function(measurementsMatrix=NULL, refGraph=NULL, n=6L, file=NULL,
     stop("'pairup.i' and 'pairup.j' should both either be set to NULL or contain subsets of variables\n")
 
   if (!is.null(pairup.i) && !is.null(pairup.j))  {
-    if (sum(is.na(match(var.names, c(pairup.i, pairup.j)))) > 0)
-      warning("Some of the variables in 'measurementsMatrix' or 'refGraph' do not form part of 'pairup.i' nor 'pairup.j'\n")
+    if (any(is.na(match(c(pairup.i, pairup.j), var.names))))
+      warning("Some of the variables in 'pairup.i' or 'pairup.j' do not form part of 'measurementsMatrix' or 'refGraph'\n")
 
     pairup.i <- match(pairup.i, var.names)
     pairup.i <- pairup.i[!is.na(pairup.i)]
@@ -4558,9 +4560,22 @@ qpTopPairs <- function(measurementsMatrix=NULL, refGraph=NULL, n=6L, file=NULL,
   }
 
   if (!is.null(annotation)) {
-    syms <- unlist(AnnotationDbi::mget(unique(c(edgeRnk$i, edgeRnk$j)),
-                     annotate::getAnnMap(map="SYMBOL", chip=annotation, type="db"),
-                     ifnotfound=NA))
+    haveSYMBOL <- !is.na(match(paste0(gsub(".db", "", annotation), "SYMBOL"),
+                               ls(sprintf("package:%s", annotation))))
+    haveGNAME <- !is.na(match(paste0(gsub(".db", "", annotation), "GENENAME"),
+                              ls(sprintf("package:%s", annotation))))
+    if (!haveSYMBOL && !haveGNAME)
+      stop("No SYMBOL nor GENENAME mappings for the annotation package %s\n", annotation)
+
+    syms <- NA
+    if (haveSYMBOL)
+      syms <- unlist(AnnotationDbi::mget(unique(c(edgeRnk$i, edgeRnk$j)),
+                       annotate::getAnnMap(map="SYMBOL", chip=annotation, type="db"),
+                       ifnotfound=NA))
+    else
+      syms <- unlist(AnnotationDbi::mget(unique(c(edgeRnk$i, edgeRnk$j)),
+                       annotate::getAnnMap(map="GENENAME", chip=annotation, type="db"),
+                       ifnotfound=NA))
     edgeRnk <- cbind(edgeRnk, iSymbol=as.vector(syms[edgeRnk$i]),
                      jSymbol=as.vector(syms[edgeRnk$j]), stringsAsFactors=FALSE)
     edgeRnk <- edgeRnk[, c(1,2,4,5,3)]
@@ -4693,11 +4708,30 @@ qpPlotNetwork <- function(g, vertexSubset=graph::nodes(g), boundary=FALSE,
     g <- removeEdge(from=wrongEdges[, 1], to=wrongEdges[, 2], g)
 
     nodeLabels <- graph::nodes(g)
+    ## if (!is.null(annotation)) {
+    ##   nodeLabels <- unlist(AnnotationDbi::mget(graph::nodes(g),
+    ##                          annotate::getAnnMap(map="SYMBOL", chip=annotation, type="db"),
+    ##                          ifnotfound=NA))
+    ## }
     if (!is.null(annotation)) {
-      nodeLabels <- unlist(AnnotationDbi::mget(graph::nodes(g),
-                             annotate::getAnnMap(map="SYMBOL", chip=annotation, type="db"),
-                             ifnotfound=NA))
+      haveSYMBOL <- !is.na(match(paste0(gsub(".db", "", annotation), "SYMBOL"),
+                                 ls(sprintf("package:%s", annotation))))
+      haveGNAME <- !is.na(match(paste0(gsub(".db", "", annotation), "GENENAME"),
+                                ls(sprintf("package:%s", annotation))))
+      if (!haveSYMBOL && !haveGNAME)
+        stop("No SYMBOL nor GENENAME mappings for the annotation package %s\n", annotation)
+
+      syms <- NA
+      if (haveSYMBOL)
+        nodeLabels <- unlist(AnnotationDbi::mget(graph::nodes(g),
+                               annotate::getAnnMap(map="SYMBOL", chip=annotation, type="db"),
+                               ifnotfound=NA))
+      else
+        nodeLabels <- unlist(AnnotationDbi::mget(graph::nodes(g),
+                               annotate::getAnnMap(map="GENENAME", chip=annotation, type="db"),
+                               ifnotfound=NA))
     }
+
 
     pkg <- "Rgraphviz"
     if (!library(pkg, logical.return=TRUE, character.only=TRUE)) {
@@ -4732,6 +4766,83 @@ qpPlotNetwork <- function(g, vertexSubset=graph::nodes(g), boundary=FALSE,
 }
 
 
+
+## function: qpPlotMap
+## purpose: plot a map of associated pairs defined by adjusted p-values
+## parameters: p.valueMatrix - a squared symmetric matrix with raw p-values for all pairs
+##             markerPos - a two-column matrix containing chromosome and position of each feature
+##             genePos - a two-column matrix containing chromosome and position of each feature
+##             chrLen - a named vector with chromosome lengths
+##             p.value - adjusted p-value cutoff
+##             adjust.method - method employed to adjust the raw p-values. It is passed in a call
+##                             call to p.adjust() in its 'method' argument
+##             xlab - label for the x-axis
+##             ylab - label for the y-axis
+##             main - main title of the plot, set to the empty string by default
+
+qpPlotMap <- function(p.valueMatrix, markerPos, genePos, chrLen,
+                      p.value=0.05, adjust.method="holm",
+                      xlab="Ordered Markers", ylab="Ordered Genes",
+                      main="", ...) {
+
+  ## get all variables
+  var.names <- rownames(p.valueMatrix)
+
+  ## get positions ordered by chr
+  markerPos <- markerPos[order(markerPos[, 1], markerPos[,2]), ]
+  genePos <- genePos[order(genePos[, 1], genePos[,2]), ]
+
+  ## re-scale genes and marker positions between 0 and 1
+  chrRelLen <- chrLen/sum(chrLen)
+  chrRelCumLen <- c(0, cumsum(chrRelLen)[-length(chrRelLen)])
+  geneRelPos <- chrRelCumLen[genePos[ ,1]] +
+                chrRelLen[genePos[ ,1]]*(genePos[ ,2]/chrLen[genePos[ ,1]]) 
+  names(geneRelPos) <- rownames(genePos)
+  markerRelPos <- chrRelCumLen[markerPos[ ,1]] +
+                  chrRelLen[markerPos[ ,1]]*(markerPos[ ,2]/chrLen[markerPos[ ,1]])
+  names(markerRelPos) <- rownames(markerPos)
+
+  ## build map matrix
+  tp <- qpTopPairs(p.valueMatrix,
+                   pairup.i=intersect(names(markerRelPos), var.names),
+                   pairup.j=intersect(names(geneRelPos), var.names), n=Inf)
+  tp <- cbind(tp, padj=p.adjust(tp$x, method=adjust.method))
+  tp <- tp[tp$padj < p.value, ]
+  if (nrow(tp) == 0)
+    stop(sprintf("No association meets the p.value cutoff at %.2f. Increase the p.value or change the p-value adjusting method\n", p.value))
+
+  tp <- tp[(tp$i %in% names(markerRelPos)) & (tp$j %in% names(geneRelPos)), ]
+  colnames(tp) <- c("i", "j", "pval", "adjpval")
+
+  ## jitter a bit equal positions
+  lastIdx <- length(markerRelPos)
+  while(sum(markerRelPos - c(0, markerRelPos[-lastIdx]) == 0) > 0) {
+    wh.equal <- which(markerRelPos - c(0, markerRelPos[-lastIdx]) == 0)
+    markerRelPos[wh.equal] <- markerRelPos[wh.equal] +
+                            (markerRelPos[wh.equal + 1] - markerRelPos[wh.equal]) / 2
+  }
+
+  lastIdx <- length(geneRelPos)
+  while(sum(geneRelPos - c(0, geneRelPos[-lastIdx]) == 0) > 0) {
+    wh.equal <- which(geneRelPos - c(0, geneRelPos[-lastIdx]) == 0)
+    geneRelPos[wh.equal] <- geneRelPos[wh.equal] +
+                            (geneRelPos[wh.equal + 1] - geneRelPos[wh.equal]) / 2
+  }
+
+  ## plot the map
+  x <- markerRelPos[tp[, 1]]
+  y <- geneRelPos[tp[, 2]]
+  plot(x, y, pch=".", xlab=xlab, ylab=ylab, main=main,
+       axes=FALSE, xlim=range(x), ylim=range(y), ...)
+  segments(chrRelCumLen, 0, chrRelCumLen, 1, col=gray(0.75), lty="dotted", lwd=2)
+  segments(0, chrRelCumLen, 1, chrRelCumLen, col=gray(0.75), lty="dotted", lwd=2)
+  axis(1, at=(chrRelCumLen + c(chrRelCumLen[-1], 1))/2,
+       labels=names(chrLen), tick=FALSE, cex.axis=0.9)
+  axis(2, at=(chrRelCumLen + c(chrRelCumLen[-1], 1))/2,
+       labels=names(chrLen), tick=FALSE, cex.axis=0.9, las=1)
+
+  invisible(tp)
+}
 
 #####################
 # PRIVATE FUNCTIONS #

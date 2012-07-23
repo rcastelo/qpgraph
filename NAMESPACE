@@ -55,6 +55,7 @@ export(qpHist,
        qpImportNrr,
        qpTopPairs,
        qpPlotNetwork,
+       qpPlotMap,
        qpCov,
        qpRndHMGM,
        qpSampleFromHMGM)
