@@ -2636,7 +2636,7 @@ qpGraph <- function(nrrMatrix, threshold=NULL, topPairs=NULL, pairup.i=NULL,
     ##   edL[[v]] <- list(edges=vertex.labels[A[v, ]], weights=rep(1, sum(A[v, ])))
     m <- cbind(vertex.labels[row(A)[upper.tri(A) & A]], vertex.labels[col(A)[upper.tri(A) & A]])
     m <- rbind(m, m[, 2:1])
-    edL <- split(m[,1], m[,2])
+    edL <- lapply(split(m[,1], m[,2]), unique)
     g <- new("graphNEL", nodes=names(edL), edgeL=edL, edgemode="undirected")
     return(g)
   } else if (return.type == "graphAM") {
@@ -4576,9 +4576,11 @@ qpTopPairs <- function(measurementsMatrix=NULL, refGraph=NULL, n=6L, file=NULL,
       syms <- unlist(AnnotationDbi::mget(unique(c(edgeRnk$i, edgeRnk$j)),
                        annotate::getAnnMap(map="GENENAME", chip=annotation, type="db"),
                        ifnotfound=NA))
-    edgeRnk <- cbind(edgeRnk, iSymbol=as.vector(syms[edgeRnk$i]),
-                     jSymbol=as.vector(syms[edgeRnk$j]), stringsAsFactors=FALSE)
+    edgeRnk$iSymbol=as.character(as.vector(syms[edgeRnk$i]))
+    edgeRnk$jSymbol=as.character(as.vector(syms[edgeRnk$j]))
     edgeRnk <- edgeRnk[, c(1,2,4,5,3)]
+    edgeRnk$iSymbol[is.na(edgeRnk$iSymbol)] <- as.vector(edgeRnk$i[is.na(edgeRnk$iSymbol)])
+    edgeRnk$jSymbol[is.na(edgeRnk$jSymbol)] <- as.vector(edgeRnk$j[is.na(edgeRnk$jSymbol)])
   }
 
   if (!is.null(digits))
@@ -4672,6 +4674,8 @@ qpPlotNetwork <- function(g, vertexSubset=graph::nodes(g), boundary=FALSE,
       vertexSubset <- unique(c(vertexSubset, unlist(bd)))
     }
     g <- subGraph(vertexSubset, g)
+    if (numEdges(g) == 0)
+      stop("The resulting graph has no edges\n")
   }
 
   if (minimumSizeConnComp > 1) {
@@ -4679,8 +4683,11 @@ qpPlotNetwork <- function(g, vertexSubset=graph::nodes(g), boundary=FALSE,
     gCcOfMinSize <- gCc[sapply(gCc, length) >= minimumSizeConnComp]
     vertexSubset <- unique(unlist(gCcOfMinSize))
 
-    if (any(is.na(match(graph::nodes(g), vertexSubset))))
+    if (any(is.na(match(graph::nodes(g), vertexSubset)))) {
       g <- subGraph(vertexSubset, g)
+      if (numEdges(g) == 0)
+        stop("The resulting graph has no edges\n")
+    }
   }
 
   if ((!is.null(pairup.i) && is.null(pairup.j)) ||
@@ -4708,11 +4715,6 @@ qpPlotNetwork <- function(g, vertexSubset=graph::nodes(g), boundary=FALSE,
     g <- removeEdge(from=wrongEdges[, 1], to=wrongEdges[, 2], g)
 
     nodeLabels <- graph::nodes(g)
-    ## if (!is.null(annotation)) {
-    ##   nodeLabels <- unlist(AnnotationDbi::mget(graph::nodes(g),
-    ##                          annotate::getAnnMap(map="SYMBOL", chip=annotation, type="db"),
-    ##                          ifnotfound=NA))
-    ## }
     if (!is.null(annotation)) {
       haveSYMBOL <- !is.na(match(paste0(gsub(".db", "", annotation), "SYMBOL"),
                                  ls(sprintf("package:%s", annotation))))
@@ -4721,7 +4723,6 @@ qpPlotNetwork <- function(g, vertexSubset=graph::nodes(g), boundary=FALSE,
       if (!haveSYMBOL && !haveGNAME)
         stop("No SYMBOL nor GENENAME mappings for the annotation package %s\n", annotation)
 
-      syms <- NA
       if (haveSYMBOL)
         nodeLabels <- unlist(AnnotationDbi::mget(graph::nodes(g),
                                annotate::getAnnMap(map="SYMBOL", chip=annotation, type="db"),
@@ -4730,8 +4731,8 @@ qpPlotNetwork <- function(g, vertexSubset=graph::nodes(g), boundary=FALSE,
         nodeLabels <- unlist(AnnotationDbi::mget(graph::nodes(g),
                                annotate::getAnnMap(map="GENENAME", chip=annotation, type="db"),
                                ifnotfound=NA))
+      nodeLabels[is.na(nodeLabels)] <- graph::nodes(g)[is.na(nodeLabels)]
     }
-
 
     pkg <- "Rgraphviz"
     if (!library(pkg, logical.return=TRUE, character.only=TRUE)) {
@@ -4745,9 +4746,22 @@ qpPlotNetwork <- function(g, vertexSubset=graph::nodes(g), boundary=FALSE,
   } else {
     nodeLabels <- graph::nodes(g)
     if (!is.null(annotation)) {
-      nodeLabels <- unlist(AnnotationDbi::mget(graph::nodes(g),
-                             annotate::getAnnMap(map="SYMBOL", chip=annotation, type="db"),
-                             ifnotfound=NA))
+      haveSYMBOL <- !is.na(match(paste0(gsub(".db", "", annotation), "SYMBOL"),
+                                 ls(sprintf("package:%s", annotation))))
+      haveGNAME <- !is.na(match(paste0(gsub(".db", "", annotation), "GENENAME"),
+                                ls(sprintf("package:%s", annotation))))
+      if (!haveSYMBOL && !haveGNAME)
+        stop("No SYMBOL nor GENENAME mappings for the annotation package %s\n", annotation)
+
+      if (haveSYMBOL)
+        nodeLabels <- unlist(AnnotationDbi::mget(graph::nodes(g),
+                               annotate::getAnnMap(map="SYMBOL", chip=annotation, type="db"),
+                               ifnotfound=NA))
+      else
+        nodeLabels <- unlist(AnnotationDbi::mget(graph::nodes(g),
+                               annotate::getAnnMap(map="GENENAME", chip=annotation, type="db"),
+                               ifnotfound=NA))
+      nodeLabels[is.na(nodeLabels)] <- graph::nodes(g)[is.na(nodeLabels)]
     }
 
     pkg <- "Rgraphviz"
