@@ -10,7 +10,7 @@ Plots a graph using the \code{Rgraphviz} library
 \usage{
 qpPlotNetwork(g, vertexSubset=graph::nodes(g), boundary=FALSE,
               minimumSizeConnComp=2, pairup.i=NULL, pairup.j=NULL,
-              annotation=NULL)
+              highlight=NULL, annotation=NULL)
 }
 \arguments{
   \item{g}{graph to plot provided as a \code{graphNEL-class} object.}
@@ -19,6 +19,7 @@ qpPlotNetwork(g, vertexSubset=graph::nodes(g), boundary=FALSE,
   \item{minimumSizeConnComp}{minimum size of the connected components to be plotted.}
   \item{pairup.i}{subset of vertices to pair up with subset \code{pairup.j}.}
   \item{pairup.j}{subset of vertices to pair up with subset \code{pairup.i}.}
+  \item{highlight}{subset of vertices to highlight by setting the color font to red.}
   \item{annotation}{name of an annotation package to transform gene identifiers into gene symbols when vertices correspond to genes.}
 }
 \details{

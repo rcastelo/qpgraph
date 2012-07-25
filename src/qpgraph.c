@@ -3576,6 +3576,7 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
   }
 
   /* I <- intersect(I, c(i, Q)) */
+
   k = 0;
   while (k < n_I && i != I[k])
     k++;
@@ -3585,11 +3586,15 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
 
     I[k] = I[0];
     I[0] = i;
+    /*
     tmp = n_levels[k];
     n_levels[k] = n_levels[0];
     n_levels[0] = tmp;
     n_levels_i = n_levels[0];
     n_joint_levels = n_joint_levels * n_levels[0];
+    */
+    n_levels_i = n_levels[i];
+    n_joint_levels = n_joint_levels * n_levels[i];
 
     n_I_int++;
     mixed_edge = TRUE;
@@ -3606,11 +3611,15 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
       I[l] = I[n_I_int];
       I[n_I_int] = Q[k];
 
+      /*
       tmp = n_levels[l];
       n_levels[l] = n_levels[n_I_int];
       n_levels[n_I_int] = tmp;
       n_joint_levels = n_joint_levels * n_levels[n_I_int];
       n_joint_levels_i = n_joint_levels_i * n_levels[n_I_int];
+      */
+      n_joint_levels = n_joint_levels * n_levels[I[n_I_int]];
+      n_joint_levels_i = n_joint_levels_i * n_levels[I[n_I_int]];
 
       n_I_int++;
     }
@@ -3948,7 +3957,8 @@ qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* X
 
   /* I <- intersect(I, c(i, Q)) */
   I_int = Calloc(q+1, int);
-  n_levels_int = Calloc(q+1, int);
+  /* n_levels_int = Calloc(q+1, int); */
+  n_levels_int = Calloc(p+q+1, int);
 
   k = 0;
   if (i < p)
@@ -3958,7 +3968,8 @@ qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* X
   if (k < n_I || i >=p) { /* i is discrete */
     if (i < p) {
       I_int[n_I_int] = i;
-      n_levels_int[n_I_int] = n_levels[k];
+      /* n_levels_int[n_I_int] = n_levels[k]; */
+      n_levels_int[i] = n_levels[i];
     } else {
       int selChr=1;
       SEXP smR;
@@ -3980,14 +3991,17 @@ qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* X
         else
           XEP1q[p*n+l] = NA_REAL;
       }
-      n_levels_int[n_I_int] = gLevels;
+      /* n_levels_int[n_I_int] = gLevels; */
+      n_levels_int[p+n_I_int] = gLevels;
       I_int[n_I_int] = p+s1q;
       i = p+s1q;
       s1q++;
     }
 
-    n_levels_i = n_levels_int[n_I_int];
-    n_joint_levels = n_joint_levels * n_levels_int[n_I_int];
+    /* n_levels_i = n_levels_int[n_I_int]; */
+    n_levels_i = n_levels_int[p+n_I_int];
+    /* n_joint_levels = n_joint_levels * n_levels_int[n_I_int]; */
+    n_joint_levels = n_joint_levels * n_levels_int[p+n_I_int];
     n_I_int++;
     mixed_edge = TRUE;
   }
@@ -4001,7 +4015,8 @@ qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* X
     if (l < n_I || Q[k] >= p) {
       if (Q[k] < p) {
         I_int[n_I_int] = Q[k];
-        n_levels_int[n_I_int] = n_levels[l];
+        /* n_levels_int[n_I_int] = n_levels[l]; */
+        n_levels_int[Q[k]] = n_levels[Q[k]];
       } else {
         int selChr=0;
         SEXP smR;
@@ -4023,13 +4038,16 @@ qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* X
           else
             XEP1q[(p+s1q)*n+l] = NA_REAL;
         }
-        n_levels_int[n_I_int] = gLevels;
+        /* n_levels_int[n_I_int] = gLevels; */
+        n_levels_int[p+n_I_int] = gLevels;
         I_int[n_I_int] = p+s1q;
         Q[k] = p+s1q;
         s1q++;
       }
-      n_joint_levels = n_joint_levels * n_levels_int[n_I_int];
-      n_joint_levels_i = n_joint_levels_i * n_levels_int[n_I_int];
+      /* n_joint_levels = n_joint_levels * n_levels_int[n_I_int]; */
+      n_joint_levels = n_joint_levels * n_levels_int[p+n_I_int];
+      /* n_joint_levels_i = n_joint_levels_i * n_levels_int[n_I_int]; */
+      n_joint_levels_i = n_joint_levels_i * n_levels_int[p+n_I_int];
 
       n_I_int++;
     }
@@ -4142,9 +4160,11 @@ qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* X
     I_int[k] = I_int[n_I_int-1];
     I_int[n_I_int-1] = i;
     n_I_i = n_I_int - 1;
+    /*
     tmp = n_levels[k];
     n_levels[k] = n_levels[n_I_int-1];
     n_levels[n_I_int-1] = tmp;
+    */
   } else {       /* i is continuous */
     k = 0;
     while (i != Y[k] && k < n_Y)
@@ -4414,7 +4434,7 @@ qp_edge_nrr_identicalQs(double* S, int n_var, int* Qs, double* Qinvs, int N, int
     double t_value;
     int    l=0;
 
-    while (Qs[k*q+l] != i && Qs[k*q+l] !=j && l < q)
+    while (l < q && Qs[k*q+l] != i && Qs[k*q+l] != j)
       l++;
 
     if (l >= q) {
@@ -4966,7 +4986,7 @@ qp_fast_edge_nrr_hmgm_sml(SEXP XR, SEXP cumsum_sByChrR, SEXP sR, SEXP gLevelsR,
       fixQ[k] = INTEGER(fixQR)[k]-1;
   }
 
-  XEP1q = Calloc((p+q+1)*n, double);
+  XEP1q = Calloc((p+q+1)*n, double); /* allocate extra space for all genotypes that may enter */
   Memcpy(XEP1q, REAL(XEPR), (size_t) (p * n));
 
   PROTECT(nrr = allocVector(REALSXP,1));
@@ -7198,7 +7218,7 @@ calculate_xtab(double* X, int p, int n, int* I, int n_I, int* n_levels, int* xta
     for (j=0; j < n; j++)
       if (xtab[j] > 0)
         xtab[j] = ISNA(X[j + I[i] * n]) ? -1 : xtab[j] + base * ((int) (X[j + I[i] * n]-1.0));
-    base = base * n_levels[i];
+    base = base * n_levels[I[i]]; /* WAS n_levels[i] */
   }
 
   return;

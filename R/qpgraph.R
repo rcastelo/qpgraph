@@ -1728,7 +1728,7 @@ setMethod("qpEdgeNrr", signature(X="ExpressionSet"),
                     XP <- cbind(XP, as.numeric(x))
                   colnames(XP) <- c(cnames, j)
                 }
-              } else if (j > p) { ## then 'j' refers to a phenotypic variable (cont. or discrete)
+              } else if (j > p && j <= p+h) { ## then 'j' refers to a phenotypic variable (cont. or discrete)
                 x <- Biobase::pData(X)[, j-p]
                 cnames <- colnames(XP)
                 if (is.character(x) || is.factor(x) || is.logical(x)) {
@@ -1845,7 +1845,7 @@ setMethod("qpEdgeNrr", signature(X="ExpressionSet"),
                 Y <- unique(c(intersect(i, Y), intersect(j, Y),
                               intersect(restrict.Q, Y), intersect(fix.Q, Y)))
 
-              nLevels <- rep(NA_integer_, times=ncol(X))
+              nLevels <- rep(NA_integer_, times=p)
               nLevels[I] <- apply(X[, I, drop=FALSE], 2, function(x) nlevels(as.factor(x)))
               if (any(nLevels[I] == 1))
                 stop(sprintf("Discrete variable %s has only one level", colnames(X)[I[nLevels[I]==1]]))
@@ -2331,10 +2331,11 @@ setMethod("qpEdgeNrr", signature(X="SsdMatrix"),
   if (iDiscrete && jDiscrete)
     stop("i and j cannot be both discrete at the moment\n")
 
-  ssd <- qpCov(XEP[, Y, drop=FALSE], corrected=FALSE)
-  ## we need to map smlSet-level Y indices to the ssd dimension
-  mapY2ssd <- rep(NA, length=ph)
-  mapY2ssd[Y] <- 1:ncol(ssd)
+  ssd <- mapY2ssd <- NULL
+  ## ssd <- qpCov(XEP[, Y, drop=FALSE], corrected=FALSE)
+  ## ## we need to map smlSet-level Y indices to the ssd dimension
+  ## mapY2ssd <- rep(NA, length=ph)
+  ## mapY2ssd[Y] <- 1:ncol(ssd)
 
   if (!R.code.only) {
     return(qpgraph:::.qpFastEdgeNrrHMGMsml(X, cumsum_sByChr, s, gLevels, XEP, I, nLevels,
@@ -2346,9 +2347,9 @@ setMethod("qpEdgeNrr", signature(X="SsdMatrix"),
     tmp <- i
     i <- j
     j <- tmp
-    tmp <- nLevels[i]
-    nLevels[i] <- nLevels[j]
-    nLevels[j] <- tmp
+    ## tmp <- nLevels[i]
+    ## nLevels[i] <- nLevels[j]
+    ## nLevels[j] <- tmp
   }
 
   V <- 1:p
@@ -2421,15 +2422,15 @@ setMethod("qpEdgeNrr", signature(X="SsdMatrix"),
     }
  
     ## map2ssd maps columns of continuous variables in Xsub to columns in ssd
-    map2ssd <- rep(NA, length=q+2)
+    ## map2ssd <- rep(NA, length=q+2)
     Ysub <- (1:(q+2))
     if (length(Isub) > 0)
       Ysub <- Ysub[-Isub]
-    map2ssd[Ysub] <- mapY2ssd[intersect(c(Yij, Q), Y)] ## map Xsub coord. to ssd coord.
+    ## map2ssd[Ysub] <- mapY2ssd[intersect(c(Yij, Q), Y)] ## map Xsub coord. to ssd coord.
 
     Q <- 2+seq(along=Q)
 
-    cit <- qpgraph:::.qpCItestHMGM(Xsub, Isub, nLevelsSub, Ysub, ssd, map2ssd,
+    cit <- qpgraph:::.qpCItestHMGM(Xsub, Isub, nLevelsSub, Ysub, ssd, mapY2ssd,
                                    i, j, Q, exact.test, use, tol, R.code.only=TRUE)
     if (!is.nan(cit$statistic)) {
       lambda[k] <- cit$statistic
@@ -4645,12 +4646,13 @@ qpTopPairs <- function(measurementsMatrix=NULL, refGraph=NULL, n=6L, file=NULL,
 ##             minimumSizeConnComp - minimum size of the connected components we want to plot
 ##             pairup.i - subset of vertices to pair up with subset pairup.j
 ##             pairup.j - subset of vertices to pair up with subset pairup.i
+##             highlight - subset of vertices to highlight
 ##             annotation - name of an annotation package to transform gene identifiers
 ##                          into gene symbols
 
 qpPlotNetwork <- function(g, vertexSubset=graph::nodes(g), boundary=FALSE,
                           minimumSizeConnComp=2, pairup.i=NULL, pairup.j=NULL,
-                          annotation=NULL) {
+                          highlight=NULL, annotation=NULL) {
   require(graph)
 
   if (any(is.na(match(graph::nodes(g), vertexSubset)))) {
@@ -4741,7 +4743,8 @@ qpPlotNetwork <- function(g, vertexSubset=graph::nodes(g), boundary=FALSE,
     }
 
     mkNodeAttrs <- get("makeNodeAttrs", mode="function")
-    nodattr <- mkNodeAttrs(g, label=nodeLabels, shape="ellipse", fixedsize=FALSE, fillcolor=grey(0.9))
+    nodattr <- mkNodeAttrs(g, label=nodeLabels, shape="ellipse", fixedsize=FALSE,
+                           fillcolor=grey(0.9), fontcolor="black")
     nodattr$fillcolor[g.iNodes] <- grey(0.65)
   } else {
     nodeLabels <- graph::nodes(g)
@@ -4771,7 +4774,13 @@ qpPlotNetwork <- function(g, vertexSubset=graph::nodes(g), boundary=FALSE,
     }
 
     mkNodeAttrs <- get("makeNodeAttrs", mode="function")
-    nodattr <- mkNodeAttrs(g, label=nodeLabels, shape="ellipse", fixedsize=FALSE, fillcolor=grey(0.9))
+    nodattr <- mkNodeAttrs(g, label=nodeLabels, shape="ellipse", fixedsize=FALSE,
+                           fillcolor=grey(0.9), fontcolor="black")
+  }
+
+  if (!is.null(highlight)) {
+    g.hNodes <- graph::nodes(g)[!is.na(match(graph::nodes(g), highlight))]
+    nodattr$fontcolor[g.hNodes] <- "red"
   }
 
   plot(g, "twopi", nodeAttrs=nodattr, lwd=2)
@@ -5201,9 +5210,13 @@ clPrCall <- function(cl, fun, n.adj, ...) {
                                   ssd, mapX2ssd, i, j, q, restrict.Q, fix.Q,
                                   nTests, alpha, exact.test) {
 
+  ssdx <- NULL
+  if (!is.null(ssd))
+    ssdx <- ssd@x
+
   return(.Call("qp_fast_edge_nrr_hmgm_sml", X, as.integer(cumsum_sByChr), as.integer(s),
                                             as.integer(gLevels), XEP, as.integer(I),
-                                            as.integer(nLevels), as.integer(Y), ssd@x,
+                                            as.integer(nLevels), as.integer(Y), ssdx,
                                             as.integer(mapX2ssd), as.integer(i),
                                             as.integer(j), as.integer(q),
                                             as.integer(restrict.Q), as.integer(fix.Q),
