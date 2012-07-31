@@ -3920,7 +3920,7 @@ lr_em(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
      *                       Is=I_i, Ys=Y_i, levels_Is=levels_I_i) */
   }
 
-  if (n_I_ij  0) {
+  if (n_I_ij > 0) {
 
   }
 

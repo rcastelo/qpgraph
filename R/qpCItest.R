@@ -1099,8 +1099,8 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
       }
     }
   } else { ## missing data and should use the EM algorithm
-    missingMask <- apply(X[, Y, drop=FALSE], 1, function(x) any(is.na(x)))
-    if (length(I) == 0 || any(missingMask))
+    missingMask2 <- apply(X[, Y, drop=FALSE], 1, function(x) any(is.na(x)))
+    if (length(I) == 0 || any(missingMask2))
       stop("EM not implemented yet for missing values in continuous variables. Please set use=\"complete.obs\"\n")
 
     mapX2Y <- rep(NA, ncol(X))
