@@ -740,7 +740,9 @@ setMethod("qpCItest", signature(X="SsdMatrix"),
   RVAL
 }
 
-## calculate one ssd matrix using complete observations only
+##
+## calculate the ssd matrix using complete observations only
+##
 .ssdStatsCompleteObs <- function(X, I, Y, missingMask) {
 
   if (length(I) == 0) {
@@ -764,8 +766,9 @@ setMethod("qpCItest", signature(X="SsdMatrix"),
   new("SsdMatrix", ssd=as(ssd, "dspMatrix"), n=n.co)
 }
 
-## the following functions implement calculating all necessary ssd matrices
-## using the EM algorithm
+##
+## the following functions calculate the ssd matrix using the EM algorithm
+##
 
 ## k(i) = y^T\Sigma^{-1}\mu(i) - 1/2 * [y^T\Sigma^{-1} y + \mu(i)^T \Sigma^{-1}\mu(i)] + log p(i)
 Ki <- function(x, Ys, i, mapX2Y, Sigma, mu, p) {
@@ -1041,9 +1044,6 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
                           exact.test=TRUE, use=c("complete.obs", "em"), tol=0.01,
                           R.code.only=FALSE ) {
 
-  if (use == "em" && !R.code.only)
-    stop("use=\"em\" does not work yet with R.code.only=FALSE\n")
- 
   if (!is.null(ssdMat)) {
     p <- (d <- dim(ssdMat))[1]
     if (p != d[2] || !isSymmetric(ssdMat))
@@ -1120,10 +1120,10 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
     ssd_ij <- as.matrix(ssdMats$ssd_ij)
   }
  
-  ssd <- determinant(ssd)       ## watch out, when using Matrix::determinant(..., logarithm=TRUE)
-  ssd_i <- determinant(ssd_i)   ## $modulus is always 0, don't know why. since this is its default
-  ssd_j <- determinant(ssd_j)   ## we this argument is not being put explicitly in the call
-  ssd_ij <- determinant(ssd_ij)
+  ssd <- determinant(ssd)        ## WATCH OUT! when using Matrix::determinant(..., logarithm=TRUE)
+  ssd_i <- determinant(ssd_i)    ## $modulus is always 0, don't know why. since this is its default
+  ssd_j <- determinant(ssd_j)    ## this argument is not being put explicitly in the call
+  ssd_ij <- determinant(ssd_ij)  ## keep an eye in case the default ever changes
   final_sign <- ssd$sign * ssd_ij$sign * ssd_j$sign *ssd_i$sign
 
   ## lr <- -n * log((det(ssd) * det(ssd_ij)) / 

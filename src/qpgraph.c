@@ -198,6 +198,15 @@ qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
                      SEXP use, SEXP tol);
 
 static double
+lr_complete_obs(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
+                int n_Y, double* ucond_ssd, int* mapX2ucond_ssd, int total_n_Y,
+                int i, int j, int* Q, int q, int* n_co);
+
+static double
+lr_em(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
+      int i, int j, int* Q, int q, double tol);
+
+static double
 qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
                 int n_Y, double* ucond_ssd, int* mapX2ucond_ssd, int i, int j, int* Q,
                 int q, int use, double tol, double* df, double* a, double* b, int* n_co);
@@ -3539,22 +3548,14 @@ qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
 */
 
 static double
-qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
-                int n_Y, double* ucond_ssd, int* mapX2ucond_ssd, int i, int j,
-                int* Q, int q, int use, double tol, double* df, double* a,
-                double* b, int* n_co) {
-  int     k,l;
-  int     n_I_int = 0;
-  int     n_Y_int = 0;
+lr_complete_obs(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
+                int n_Y, double* ucond_ssd, int* mapX2ucond_ssd, int total_n_Y,
+                int i, int j, int* Q, int q, int* n_co) {
+  int     k;
   int     n_I_i, n_Y_i, n_Y_j, n_Y_ij;
-  int     total_n_Y;
   int     sign;
   int     final_sign = 1;
-  int     flag_zero = 0;
-  int     mixed_edge = FALSE;
-  int     n_joint_levels = 1;
-  int     n_joint_levels_i = 1;
-  int     n_levels_i = 0;
+  int     flag_zero = FALSE;
   int*    idx_misobs=NULL;
   double* ssd_mat;
   double  x;
@@ -3562,122 +3563,7 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
 
   *n_co = n;
 
-  /* if any of (i, j) is discrete it should be i */
-  k = 0;
-  while (k < n_I && j != I[k])
-    k++;
-
-  if (k < n_I) {
-    int tmp;
-
-    tmp = i;
-    i = j;
-    j = tmp;
-  }
-
-  /* I <- intersect(I, c(i, Q)) */
-
-  k = 0;
-  while (k < n_I && i != I[k])
-    k++;
-
-  if (k < n_I) {
-    int tmp;
-
-    I[k] = I[0];
-    I[0] = i;
-    /*
-    tmp = n_levels[k];
-    n_levels[k] = n_levels[0];
-    n_levels[0] = tmp;
-    n_levels_i = n_levels[0];
-    n_joint_levels = n_joint_levels * n_levels[0];
-    */
-    n_levels_i = n_levels[i];
-    n_joint_levels = n_joint_levels * n_levels[i];
-
-    n_I_int++;
-    mixed_edge = TRUE;
-  }
-
-  for (k=0; k < q; k++) {
-    l = 0;
-    while (l < n_I && Q[k] != I[l])
-      l++;
-
-    if (l < n_I) {
-      int tmp;
-
-      I[l] = I[n_I_int];
-      I[n_I_int] = Q[k];
-
-      /*
-      tmp = n_levels[l];
-      n_levels[l] = n_levels[n_I_int];
-      n_levels[n_I_int] = tmp;
-      n_joint_levels = n_joint_levels * n_levels[n_I_int];
-      n_joint_levels_i = n_joint_levels_i * n_levels[n_I_int];
-      */
-      n_joint_levels = n_joint_levels * n_levels[I[n_I_int]];
-      n_joint_levels_i = n_joint_levels_i * n_levels[I[n_I_int]];
-
-      n_I_int++;
-    }
-  }
-
-  n_I = n_I_int;
-
-  /* Y <- intersect(Y, c(i, j, Q)) */
-  if (n_I > 0) {
-    if (I[0] != i) {  /* i is continuous */
-      k = 0;
-      while (k < n_Y && i != Y[k])
-        k++;
-
-      if (k < n_Y) {
-        Y[k] = Y[0];
-        Y[0] = i;
-        n_Y_int++;
-      }
-    }
-  } else { /* no discrete variables, then i is continuous */
-    k = 0;
-    while (k < n_Y && i != Y[k])
-      k++;
-
-    if (k < n_Y) {
-      Y[k] = Y[0];
-      Y[0] = i;
-      n_Y_int++;
-    }
-  }
-
-  k = 0;
-  while (k < n_Y && j != Y[k])
-    k++;
-
-  if (k < n_Y) {
-    Y[k] = Y[n_Y_int];
-    Y[n_Y_int] = j;
-    n_Y_int++;
-  }
-
-
-  for (k=0; k < q; k++) {
-    l = 0;
-    while (l < n_Y && Q[k] != Y[l])
-      l++;
-
-    if (l < n_Y) {
-      Y[l] = Y[n_Y_int];
-      Y[n_Y_int] = Q[k];
-      n_Y_int++;
-    }
-  }
-
-  total_n_Y = n_Y;
-  n_Y = n_Y_int;
-
+  /* in order to save memory we will use ssd_mat for calculating each ssd matrix */
   /* the call below to ssd_A() assumes that this Calloc() memsets ssd_mat to zeroes */
   ssd_mat = Calloc((n_Y * (n_Y + 1)) / 2, double);  /* upper triangle includes the diagonal */
 
@@ -3704,6 +3590,7 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
   Rprintf("ssd:\n");
   int m = 0;
   for (k=0; k < n_Y; k++) {
+    int l;
     for (l=0; l <= k; l++) {
        Rprintf("%10.6f\t", ssd_mat[m++]);
     }
@@ -3770,6 +3657,7 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
   Rprintf("ssd_i:\n");
   m = 0;
   for (k=0; k < n_Y_i; k++) {
+    int l;
     Rprintf("%d", Y[k]+1);
     for (l=0; l <= k; l++) {
        Rprintf("\t%10.6f", ssd_mat[m++]);
@@ -3820,13 +3708,14 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
     Rprintf("ssd_j:\n");
     m = 0;
     for (k=0; k < n_Y_j; k++) {
+      int l;
       Rprintf("%d", Y[k]+1);
       for (l=0; l <= k; l++) {
          Rprintf("\t%10.6f", ssd_mat[m++]);
       }
       Rprintf("\n");
     }
-*/ 
+*/
 
     x = symmatlogdet(ssd_mat, n_Y_j, &sign);
     lr -= x;
@@ -3870,6 +3759,7 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
       Rprintf("ssd_ij:\n");
       m = 0;
       for (k=0; k < n_Y_ij; k++) {
+        int l;
         Rprintf("%d", Y[k]+1);
         for (l=0; l <= k; l++) {
            Rprintf("\t%10.6f", ssd_mat[m++]);
@@ -3902,8 +3792,285 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
   else
     lr = lr * ((double) -(*n_co));
 
+  return lr;
+}
+
+    /* comStat_i <- stat_com(X, idxCompleteObs, idxMissingObs, mapAllObs2MissingObs,
+     *                       Is=I_i, Ys=Y_i, levels_Is=levels_I_i) */
+/* complete sufficient statistics: calculate sufficient statistics (En, Es and Ess)
+ * of those observations that do not have missing values */
+/*
+void
+stat_com(double* X, int p, int n, int* missing_mask, int n_mis, int* Is, int n_Is,
+         int *Ys, int n_Ys, int* n_levels) {
+
+  if (n-n_mis > 0) {
+
+    global_xtab = Calloc(n, int);
+    calculate_xtab(X, p, n, Is, n_Is, n_levels, global_xtab);
+
+    Free(global_xtab);
+  }
+
+  if (n_Ys > 0) {
+
+  }
+}
+*/
+
+/* this function assumes that all discrete variables specified in I and all continuous
+ * variables specified in Y are involved in the calculations, i.e., Y=I=c(i,j,Q) */
+static double
+lr_em(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
+      int i, int j, int* Q, int q, double tol) {
+  double* p0;
+  double* mu0;
+  double* Sigma0;
+  int*    Y_i = NULL;
+  int*    Y_j = NULL;
+  int*    I_ij = NULL;
+  int*    Y_ij = NULL;
+  int*    missing_mask;
+  double  mdiff;
+  int     k, l, n_I_i, n_Y_i, n_Y_j, n_I_ij, n_Y_ij;
+  int     n_mis, n_upper_tri, n_joint_levels=1;
+
+  error("EM not implemented yet in C code\n");
+
+  if (missing_obs(X, p, n, Y, n_Y, NULL, n))
+    error("EM not implemented yet for missing continuous values\n");
+
+  missing_mask = Calloc(n, int);
+  n_mis = find_missing_obs(X, p, n, I, n_I, NULL, n, missing_mask);
+
+  l = -1;
+  for (k=0; k < n_I; k++) {
+    n_joint_levels = n_joint_levels * n_levels[I[k]];
+    if (I[k] == i)
+      l = k;
+  }
+  n_upper_tri = (n_Y * (n_Y+1)) / 2;
+
+  /* I_i <- intersect(I, c(j, Q)) */
+  /* I_j <- intersect(I, c(i, Q)) */
+  /* we'll be assuming that j is never discrete, and therefore, I_j = I and Y_j = Y \ j */
+  /* exchange i with the last in I, if i is in I */
+
+  n_I_i = n_I;
+  if (l >= 0) {
+    int tmp;
+
+    tmp = I[n_I-1];
+    I[n_I-1] = I[l];
+    I[l] = tmp;
+    n_I_i--; /* we'll re-use n_I with n_I_i */
+  }
+
+  p0 = Calloc(n_joint_levels, double); /* WATCH OUT, this grows exponentially in the # of discrete vars */
+  for (k=0; k < n_joint_levels; k++) /* p0 initialized to the uniform distribution */
+    p0[k] = 1.0 / n_joint_levels;
+
+  /* mu0 initialized to zeroes, assuming that memset initializes content to zeroes */
+  mu0 = Calloc(n_Y * n_joint_levels, double);
+  Sigma0 = Calloc(n_upper_tri, double); /* storing the upper triangle, incl. diagonal, only */
+
+  /* Y_i <- intersect(Y, c(j, Q)) */
+  Y_i = Calloc(n_Y, int);
+  n_Y_i = 0;
+  l = -1;
+  /* Sigma0 initialized to the diagonal matrix, simultaneously, we initialize Y_i and find j in Y */
+  for (k=0; k < n_Y; k++) {
+    Sigma0[UTE2I(k, k)] = 1.0;
+    if (Y[k] == j)
+      l = k;
+    if (Y[k] != i)
+      Y_i[n_Y_i++] = Y[k];
+  }
+
+  /* Y_j <- intersect(Y, c(i, Q)) */
+  n_Y_j = n_Y - 1; /* re-use Y for Y_j by putting j at the end of Y */
+  if (l >= 0) {
+    int tmp;
+
+    tmp = Y[n_Y-1];
+    Y[n_Y-1] = Y[l];
+    Y[l] = tmp;
+  }
+
+  I_ij = Calloc(q, int);
+  Y_ij = Calloc(q, int);
+  /* I_ij <- intersect(I, Q)
+   * Y_ij <- intersect(Y, Q) */
+  n_I_ij = n_Y_ij = 0;
+  for (k=0; k < q; k++) {
+    l = 0;
+    while (l < n_I && I[l] != Q[k])
+      l++;
+    if (l < n_I)
+      I_ij[n_I_ij++] = Q[k];
+    l = 0;
+    while (l < n_Y && Y[l] != Y[k])
+      l++;
+    if (l < n_I)
+      Y_ij[n_Y_ij++] = Q[k];
+  }
+
+  if (n_I_i > 0) {
+    /* comStat_i <- stat_com(X, idxCompleteObs, idxMissingObs, mapAllObs2MissingObs,
+     *                       Is=I_i, Ys=Y_i, levels_Is=levels_I_i) */
+  }
+
+  if (n_I_ij  0) {
+
+  }
+
+  /* first round */
+  mdiff = 1.0;
+  while (mdiff > tol) {
+
+  }
+
+  Free(Y_ij);
+  Free(I_ij);
+  Free(Y_i);
+  Free(Sigma0);
+  Free(mu0);
+  Free(p0);
+  Free(missing_mask);
+
+  return R_NaN;
+}
+
+static double
+qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
+                int n_Y, double* ucond_ssd, int* mapX2ucond_ssd, int i, int j,
+                int* Q, int q, int use, double tol, double* df, double* a,
+                double* b, int* n_co) {
+  int     k,l;
+  int     n_I_int = 0;
+  int     n_Y_int = 0;
+  int     total_n_Y;
+  int     mixed_edge = FALSE;
+  int     n_joint_levels = 1;
+  int     n_joint_levels_i = 1;
+  int     n_levels_i = 0;
+  double  lr = 0.0;
+
+  *n_co = n;
+
+  /* if any of (i, j) is discrete it should be i */
+  k = 0;
+  while (k < n_I && j != I[k])
+    k++;
+
+  if (k < n_I) {
+    int tmp;
+
+    tmp = i;
+    i = j;
+    j = tmp;
+  }
+
+  /* I <- intersect(I, c(i, Q)) */
+
+  k = 0;
+  while (k < n_I && i != I[k])
+    k++;
+
+  if (k < n_I) {
+    I[k] = I[0];
+    I[0] = i;
+    n_levels_i = n_levels[i];
+    n_joint_levels = n_joint_levels * n_levels[i];
+
+    n_I_int++;
+    mixed_edge = TRUE;
+  }
+
+  for (k=0; k < q; k++) {
+    l = 0;
+    while (l < n_I && Q[k] != I[l])
+      l++;
+
+    if (l < n_I) {
+      I[l] = I[n_I_int];
+      I[n_I_int] = Q[k];
+
+      n_joint_levels = n_joint_levels * n_levels[I[n_I_int]];
+      n_joint_levels_i = n_joint_levels_i * n_levels[I[n_I_int]];
+
+      n_I_int++;
+    }
+  }
+
+  n_I = n_I_int;
+
+  /* Y <- intersect(Y, c(i, j, Q)) */
+  if (n_I > 0) {
+    if (I[0] != i) {  /* i is continuous */
+      k = 0;
+      while (k < n_Y && i != Y[k])
+        k++;
+
+      if (k < n_Y) {
+        Y[k] = Y[0];
+        Y[0] = i;
+        n_Y_int++;
+      }
+    }
+  } else { /* no discrete variables, then i is continuous */
+    k = 0;
+    while (k < n_Y && i != Y[k])
+      k++;
+
+    if (k < n_Y) {
+      Y[k] = Y[0];
+      Y[0] = i;
+      n_Y_int++;
+    }
+  }
+
+  k = 0;
+  while (k < n_Y && j != Y[k])
+    k++;
+
+  if (k < n_Y) {
+    Y[k] = Y[n_Y_int];
+    Y[n_Y_int] = j;
+    n_Y_int++;
+  }
+
+
+  for (k=0; k < q; k++) {
+    l = 0;
+    while (l < n_Y && Q[k] != Y[l])
+      l++;
+
+    if (l < n_Y) {
+      Y[l] = Y[n_Y_int];
+      Y[n_Y_int] = Q[k];
+      n_Y_int++;
+    }
+  }
+
+  total_n_Y = n_Y;
+  n_Y = n_Y_int;
+
+  lr = R_NaN;
+  switch(use) {
+    case USE_COMPLETE_OBS:
+      lr = lr_complete_obs(X, p, n, I, n_I, n_levels, Y, n_Y, ucond_ssd,
+                           mapX2ucond_ssd, total_n_Y, i, j, Q, q, n_co);
+      break;
+    case USE_EM:
+      lr = lr_em(X, p, n, I, n_I, n_levels, Y, n_Y, i, j, Q, q, tol);
+      break;
+    default:
+      error("wrong 'use' argument in the internal call to qp_ci_test_hmgm()\n");
+  }
+
   *df = 1.0;
-  *a = ((double) (*n_co - n_Y - n_joint_levels + 1)) / 2.0; /* by now complete.obs w/ missing data */
+  *a = ((double) ((use == USE_EM ? n : *n_co) - n_Y - n_joint_levels + 1)) / 2.0;
   if (mixed_edge) {
     *df = ((double) (n_joint_levels_i * (n_levels_i - 1)));
     *b = *df / 2.0;
@@ -4155,16 +4322,9 @@ qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* X
   n_I_i = n_I_int;
   n_Y_i = n_Y;
   if (k < n_I_int) {  /* i is discrete */
-    int tmp;
-
     I_int[k] = I_int[n_I_int-1];
     I_int[n_I_int-1] = i;
     n_I_i = n_I_int - 1;
-    /*
-    tmp = n_levels[k];
-    n_levels[k] = n_levels[n_I_int-1];
-    n_levels[n_I_int-1] = tmp;
-    */
   } else {       /* i is continuous */
     k = 0;
     while (i != Y[k] && k < n_Y)
@@ -6678,6 +6838,8 @@ symmatlogdet(double* M, int n, int* sign) {
   int*    jpvt;
   int     info;
 
+  /* blowing up the memory footprint, it would be nice to
+   * make these calculations directly on a symmetric matrix */
   A = Calloc(n*n, double);
   for (i=0; i < n; i++)
     for (j=0; j <= i; j++)
