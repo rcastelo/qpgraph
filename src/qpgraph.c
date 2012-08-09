@@ -61,6 +61,12 @@ typedef struct {
   int       n;
 } clique_set_t;
 
+typedef struct {
+  double* Es_com;
+  double* Ess_com;
+  int*    n_com;
+} com_stats_t;
+
 /* function prototypes */
 
 static SEXP installAttrib(SEXP, SEXP, SEXP);
@@ -201,6 +207,16 @@ static double
 lr_complete_obs(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
                 int n_Y, double* ucond_ssd, int* mapX2ucond_ssd, int total_n_Y,
                 int i, int j, int* Q, int q, int* n_co);
+
+com_stats_t
+new_com_stats(int n_joint_levels, int n_Y);
+
+void
+free_com_stats(com_stats_t cs);
+
+com_stats_t
+stat_com(double* X, int p, int n, int* missing_mask, int n_mis, int* Is, int n_Is,
+         int *Y, int n_Y, int* n_levels, int n_joint_levels);
 
 static double
 lr_em(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
@@ -361,6 +377,14 @@ SEXP Matrix_DimNamesSym,
      SsdMatrix_nSym,
 
      qpgraph_NS; /* the qpgraph namespace ('environment') */
+
+int* global_xtab; /* for cross-classifying joint levels of discrete variables */
+
+/* for comparing cross-classified joint levels */
+int
+indirect_int_cmp(const void *a, const void *b) {
+  return ( global_xtab[*(int*)a] - global_xtab[*(int*)b] );
+}
 
 /* R-function register */
 
@@ -3795,51 +3819,121 @@ lr_complete_obs(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
   return lr;
 }
 
-    /* comStat_i <- stat_com(X, idxCompleteObs, idxMissingObs, mapAllObs2MissingObs,
-     *                       Is=I_i, Ys=Y_i, levels_Is=levels_I_i) */
 /* complete sufficient statistics: calculate sufficient statistics (En, Es and Ess)
  * of those observations that do not have missing values */
-/*
+
+com_stats_t
+new_com_stats(int n_joint_levels, int n_Y) {
+  com_stats_t cs = { NULL, NULL, NULL};
+
+  if (n_joint_levels > 0 && n_Y > 0)
+    cs.Es_com = Calloc(n_joint_levels * n_Y, double);
+
+  if (n_Y > 0)
+    cs.Ess_com = Calloc(n_Y * n_Y, double);
+
+  if (n_joint_levels > 0)
+    cs.n_com = Calloc(n_joint_levels, int); /* assuming this memsets to zeroes */
+
+  return cs;
+}
+
 void
+free_com_stats(com_stats_t cs) {
+  if (cs.Es_com != NULL)
+    Free(cs.Es_com);
+
+  if (cs.Ess_com != NULL)
+    Free(cs.Ess_com);
+
+  if (cs.n_com != NULL)
+    Free(cs.n_com);
+}
+
+com_stats_t
 stat_com(double* X, int p, int n, int* missing_mask, int n_mis, int* Is, int n_Is,
-         int *Ys, int n_Ys, int* n_levels) {
+         int *Y, int n_Y, int* n_levels, int n_joint_levels) {
+  int         i,j,k,l,m;
+  int         n_obs=0;
+  com_stats_t cs;
 
-  if (n-n_mis > 0) {
+  cs = new_com_stats(n_joint_levels, n_Y);
 
+  if (n-n_mis > 0 && n_Y > 0) {
+    int* obs_idx;
+
+    obs_idx = Calloc(n, int);
     global_xtab = Calloc(n, int);
+    for (i=0; i < n; i++) {
+      global_xtab[i] = 1;
+      if (missing_mask[i])
+        global_xtab[i] = -1;
+      else
+        obs_idx[n_obs++] = i;
+    }
     calculate_xtab(X, p, n, Is, n_Is, n_levels, global_xtab);
 
+    /* group together observations from the same joint discrete level putting the *
+     * observations from missing discrete levels at the beginning                 */
+    qsort(obs_idx, n_obs, sizeof(int), indirect_int_cmp);
+
+    /* skip missing discrete observations */
+    i = 0;
+    while (i < n_obs && global_xtab[obs_idx[i]] < 1)
+      i++;
+
+    l=0; /* counts distinct levels with complete observations */
+    /* sum continuous variables through complete obs per level. figure out how to
+     * assign 0 to the unobserved levels and whether that's necessary at all */
+    while (i < n_obs) {
+      j = i;
+      while (j < n_obs && global_xtab[obs_idx[i]] == global_xtab[obs_idx[j]]) {
+        for (k=0; k < n_Y; k++) {
+          cs.Es_com[k*n_joint_levels+l] += X[Y[k]*n+obs_idx[j]];
+          for (m=0; m < n_Y; m++) {
+            cs.Ess_com[k*n_Y+m] += X[Y[k]*n+obs_idx[j]]*X[Y[m]*n+obs_idx[j]];
+          }
+        }
+        j++;
+      }
+
+      cs.n_com[l] = j-i;
+      l++;
+      i = j;
+    }
+
     Free(global_xtab);
+    Free(obs_idx);
   }
 
-  if (n_Ys > 0) {
-
-  }
+  return cs;
 }
-*/
 
 /* this function assumes that all discrete variables specified in I and all continuous
  * variables specified in Y are involved in the calculations, i.e., Y=I=c(i,j,Q) */
 static double
 lr_em(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
       int i, int j, int* Q, int q, double tol) {
-  double* p0;
-  double* mu0;
-  double* Sigma0;
-  int*    Y_i = NULL;
-  int*    Y_j = NULL;
-  int*    I_ij = NULL;
-  int*    Y_ij = NULL;
-  int*    missing_mask;
-  double  mdiff;
-  int     k, l, n_I_i, n_Y_i, n_Y_j, n_I_ij, n_Y_ij;
-  int     n_mis, n_upper_tri, n_joint_levels=1;
+  double*     p0;
+  double*     mu0;
+  double*     Sigma0;
+  com_stats_t comStats_i, comStats_j, comStats_ij;
+  int*        Y_i = NULL;
+  int*        Y_j = NULL;
+  int*        I_ij = NULL;
+  int*        Y_ij = NULL;
+  int*        missing_mask;
+  double      mdiff;
+  int         k, l, n_I_i, n_Y_i, n_Y_j, n_I_ij, n_Y_ij;
+  int         n_mis, n_upper_tri, n_joint_levels=1;
+  int         n_joint_levels_i, n_joint_levels_j, n_joint_levels_ij;
 
-  error("EM not implemented yet in C code\n");
+  /* error("EM not implemented yet in C code\n"); */
 
   if (missing_obs(X, p, n, Y, n_Y, NULL, n))
     error("EM not implemented yet for missing continuous values\n");
 
+  comStats_i = comStats_j = comStats_ij = (com_stats_t) {NULL, NULL, NULL};
   missing_mask = Calloc(n, int);
   n_mis = find_missing_obs(X, p, n, I, n_I, NULL, n, missing_mask);
 
@@ -3856,10 +3950,13 @@ lr_em(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
   /* we'll be assuming that j is never discrete, and therefore, I_j = I and Y_j = Y \ j */
   /* exchange i with the last in I, if i is in I */
 
+  n_joint_levels_i = n_joint_levels_j = n_joint_levels_ij = n_joint_levels;
   n_I_i = n_I;
   if (l >= 0) {
     int tmp;
 
+    n_joint_levels_i = n_joint_levels / n_levels[I[l]];
+    n_joint_levels_ij = n_joint_levels / n_levels[I[l]];
     tmp = I[n_I-1];
     I[n_I-1] = I[l];
     I[l] = tmp;
@@ -3909,27 +4006,92 @@ lr_em(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
     if (l < n_I)
       I_ij[n_I_ij++] = Q[k];
     l = 0;
-    while (l < n_Y && Y[l] != Y[k])
+    while (l < n_Y && Y[l] != Q[k])
       l++;
-    if (l < n_I)
+    if (l < n_Y)
       Y_ij[n_Y_ij++] = Q[k];
   }
 
   if (n_I_i > 0) {
     /* comStat_i <- stat_com(X, idxCompleteObs, idxMissingObs, mapAllObs2MissingObs,
      *                       Is=I_i, Ys=Y_i, levels_Is=levels_I_i) */
+    /* note here we're reusing I for I_i via n_I_i */
+    comStats_i = stat_com(X, p, n, missing_mask, n_mis, I, n_I_i, Y_i, n_Y_i,
+                          n_levels, n_joint_levels_i);
+    Rprintf("Es_com_i=\n");
+    for (k=0; k < n_joint_levels_i; k++) {
+      for (l=0; l < n_Y; l++)
+        Rprintf("%.5f\t", comStats_i.Es_com[l*n_joint_levels_j+k]);
+      Rprintf("\n");
+    }
+    Rprintf("Ess_com_i=\n");
+    for (k=0; k < n_Y_i; k++) {
+      for (l=0; l < n_Y_i; l++)
+        Rprintf("%.5f\t", comStats_i.Ess_com[l*n_Y+k]);
+      Rprintf("\n");
+    }
+    Rprintf("n_com_i=\n");
+    for (k=0; k < n_joint_levels_i; k++)
+      Rprintf("%d\t", comStats_i.n_com[k]);
+    Rprintf("\n");
+  }
+
+  if (n_I > 0) { /* assuming n_I_j = n_I because j should never be discrete */
+    /* comStat_j <- stat_com(X, idxCompleteObs, idxMissingObs, mapAllObs2MissingObs,
+     *                       Is=I_j, Ys=Y_j, levels_Is=levels_I_j) */
+    /* note here we're reusing Y for Y_j via n_Y_j */
+    comStats_j = stat_com(X, p, n, missing_mask, n_mis, I, n_I, Y, n_Y_j,
+                          n_levels, n_joint_levels_j);
+    Rprintf("Es_com_j=\n");
+    for (k=0; k < n_joint_levels_j; k++) {
+      for (l=0; l < n_Y_j; l++)
+        Rprintf("%.5f\t", comStats_j.Es_com[l*n_joint_levels_j+k]);
+      Rprintf("\n");
+    }
+    Rprintf("Ess_com_j=\n");
+    for (k=0; k < n_Y_j; k++) {
+      for (l=0; l < n_Y_j; l++)
+        Rprintf("%.5f\t", comStats_j.Ess_com[l*n_Y+k]);
+      Rprintf("\n");
+    }
+    Rprintf("n_com_j=\n");
+    for (k=0; k < n_joint_levels_j; k++)
+      Rprintf("%d\t", comStats_j.n_com[k]);
+    Rprintf("\n");
   }
 
   if (n_I_ij > 0) {
-
+    /* comStat_ij <- stat_com(X, idxCompleteObs, idxMissingObs, mapAllObs2MissingObs,
+     *                        Is=I_ij, Ys=Y_ij, levels_Is=levels_I_ij) */
+    comStats_ij = stat_com(X, p, n, missing_mask, n_mis, I_ij, n_I_ij, Y_ij, n_Y_ij,
+                           n_levels, n_joint_levels_ij);
+    Rprintf("Es_com_ij=\n");
+    for (k=0; k < n_joint_levels_ij; k++) {
+      for (l=0; l < n_Y_ij; l++)
+        Rprintf("%.5f\t", comStats_ij.Es_com[l*n_joint_levels_ij+k]);
+      Rprintf("\n");
+    }
+    Rprintf("Ess_com_ij=\n");
+    for (k=0; k < n_Y_ij; k++) {
+      for (l=0; l < n_Y_ij; l++)
+        Rprintf("%.5f\t", comStats_ij.Ess_com[l*n_Y+k]);
+      Rprintf("\n");
+    }
+    Rprintf("n_com_ij=\n");
+    for (k=0; k < n_joint_levels_ij; k++)
+      Rprintf("%d\t", comStats_ij.n_com[k]);
+    Rprintf("\n");
   }
 
   /* first round */
   mdiff = 1.0;
   while (mdiff > tol) {
-
+    mdiff = 0.0;
   }
 
+  free_com_stats(comStats_i);
+  free_com_stats(comStats_j);
+  free_com_stats(comStats_ij);
   Free(Y_ij);
   Free(I_ij);
   Free(Y_i);
@@ -7379,7 +7541,8 @@ calculate_xtab(double* X, int p, int n, int* I, int n_I, int* n_levels, int* xta
   for (i=0; i < n_I; i++) {
     for (j=0; j < n; j++)
       if (xtab[j] > 0)
-        xtab[j] = ISNA(X[j + I[i] * n]) ? -1 : xtab[j] + base * ((int) (X[j + I[i] * n]-1.0));
+        xtab[j] = ISNA(X[j + I[i] * n]) ? -1 :
+                                          xtab[j] + base * ((int) (X[j + I[i] * n]-1.0));
     base = base * n_levels[I[i]]; /* WAS n_levels[i] */
   }
 
@@ -7407,13 +7570,6 @@ calculate_xtab(double* X, int p, int n, int* I, int n_I, int* n_levels, int* xta
               ssd_A - (output) pointer to the matrix where the result is returned
   RETURN: none
 */
-
-int*    global_xtab;
-
-int
-indirect_int_cmp(const void *a, const void *b) {
-  return ( global_xtab[*(int*)a] - global_xtab[*(int*)b] );
-}
 
 int
 ssd_A(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,

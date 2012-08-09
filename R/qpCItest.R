@@ -971,6 +971,11 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
     ## colnames(levels_I_j) <- I_j
     comStat_j <- stat_com(X, idxCompleteObs, idxMissingObs, mapAllObs2MissingObs,
                           Is=I_j, Ys=Y_j, levels_Is=levels_I_j)
+    cat("Es_com_j=\n")
+    print(comStat_j$Es_com)
+    cat("Ess_com_j=\n")
+    print(comStat_j$Ess_com)
+    cat("n_com_j=", comStat_j$n_com,"\n")
   }
 
   I_i <- intersect(I, c(j, Q))
@@ -982,6 +987,11 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
     ## colnames(levels_I_i) <- I_i
     comStat_i <- stat_com(X, idxCompleteObs, idxMissingObs, mapAllObs2MissingObs,
                           Is=I_i, Ys=Y_i, levels_Is=levels_I_i)
+    cat("Es_com_i=\n")
+    print(comStat_i$Es_com)
+    cat("Ess_com_i=\n")
+    print(comStat_i$Ess_com)
+    cat("n_com_i=", comStat_i$n_com,"\n")
   }
 
   I_ij <- intersect(I, Q)
@@ -992,6 +1002,11 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
     ## colnames(levels_I_ij) <- I_ij
     comStat_ij <- stat_com(X, idxCompleteObs, idxMissingObs, mapAllObs2MissingObs,
                            Is=I_ij, Ys=Y_ij, levels_Is=levels_I_ij)
+    cat("Es_com_ij=\n")
+    print(comStat_ij$Es_com)
+    cat("Ess_com_ij=\n")
+    print(comStat_ij$Ess_com)
+    cat("n_com_ij=", comStat_ij$n_com,"\n")
   }
 
   mdiff <- 1
