@@ -67,6 +67,14 @@ typedef struct {
   int*    n_com;
 } com_stats_t;
 
+typedef struct {
+  double* ssd;
+  double* K;
+  double* h;
+  double* m;
+  double* bar_y;
+} suf_stats_t;
+
 /* function prototypes */
 
 static SEXP installAttrib(SEXP, SEXP, SEXP);
@@ -3909,6 +3917,116 @@ stat_com(double* X, int p, int n, int* missing_mask, int n_mis, int* Is, int n_I
   return cs;
 }
 
+/* sufficient statistics from missing data: perform the E step for the observations
+ * with missing values */
+
+ /* sufstat_i <- stat_mis(X, I_i, Y_i, levels_I_i, comStat_i, I, levels_I, mapX2I, Y, mapX2Y, p, mu, Sigma) */
+
+suf_stats_t
+new_suf_stats(int n_joint_levels, int n_Y) {
+  suf_stats_t ss = { NULL, NULL, NULL, NULL};
+
+  if (n_joint_levels > 0 && n_Y > 0) {
+    ss.h = Calloc(n_joint_levels * n_Y, double);
+    ss.bar_y = Calloc(n_joint_levels * n_Y, double);
+  }
+
+  if (n_Y > 0) {
+    ss.ssd = Calloc(n_Y * n_Y, double);
+    ss.K = Calloc(n_Y * n_Y, double);
+  }
+
+  if (n_joint_levels > 0)
+    ss.m = Calloc(n_joint_levels, double);
+
+  return ss;
+}
+
+void
+free_suf_stats(suf_stats_t ss) {
+  if (ss.h != NULL)
+    Free(ss.h);
+
+  if (ss.bar_y != NULL)
+    Free(ss.bar_y);
+
+  if (ss.ssd != NULL)
+    Free(ss.ssd);
+
+  if (ss.K != NULL)
+    Free(ss.K);
+
+  if (ss.m != NULL)
+    Free(ss.m);
+}
+
+/* calculate the probability of I=i for each observation with missing values
+ * pr(I=i' | (i_{obs}, y}^{(\nu)}) exp k(i') / \sum_{s\in{\cal S}} exp k(s) */
+double*
+prob_i(double* X, int p, int n, int * missing_mask, int n_mis, int* I, int n_I, int* Is, int n_Is,
+       int *Y, int n_Y, int* n_levels, int n_joint_levels, int k, double* pr, double* mu, double* Sigma) {
+  int     i,j,l;
+  int*    idx_I_obs;
+  int     n_idx_I_obs=0;
+  int*    index_S;
+  int     n_index_S;
+  double* pr_i;
+
+  pr_i = Calloc(n_mis, double); /* must be freed outside */
+  idx_I_obs = Calloc(n_I, int);
+
+  for (i=0; i < n; i++) {
+    if (missing_mask[i]) {
+      int base = 1;
+      int joint_level_Is_obs=1; /* SHOULD THIS BE ZERO ?? */ 
+      int joint_level_k=1;
+
+      for (j=0; j < n_Is; j++) {
+        int k2 = (int) (k % (base * n_levels[I[j]]));
+        if (!ISNA(X[Is[j]*n + i])) {
+          idx_I_obs[n_idx_I_obs++] = j;
+          joint_level_Is_obs = joint_level_Is_obs + base * ((int) (X[Is[j]*n + i] - 1.0));
+          joint_level_k = joint_level_k + base * k2;
+        }
+        base = base * n_levels[I[j]];
+      }
+
+      if (n_idx_I_obs > 0 && joint_level_Is_obs != joint_level_k) {
+        pr_i[i] = 0.0;
+      } else {
+        n_index_S = 0;
+        index_S = Calloc(n_joint_levels, int);
+        if (n_idx_I_obs == 0)
+          for (j=0; j < n_joint_levels; j++)
+            index_S[j] = j;
+        else {
+          error("implementation not finished yet\n");
+        }
+      }
+    }
+  }
+
+  Free(idx_I_obs);
+
+  return pr_i;
+}
+
+suf_stats_t
+stat_mis(double* X, int p, int n, int* missing_mask, int n_mis, int* I, int n_I, int* Is, int n_Is,
+         int *Y, int n_Y, int* n_levels, int n_joint_levels, com_stats_t com_stats,
+         double* pr, double* mu, double* Sigma) {
+  int         i,j,k;
+  suf_stats_t ss;
+
+  /* QUESTION: DO WE NEED TO MAP Y TO Sigma ?????? (AS IN THE R CODE?) */
+  /* if (n_I > 0) {
+    for (i=0; i < n_joint_levels; i++) */
+      /* QUESTION: HOW DO WE DO THE LEVEL MATCHING FROM THE i-th JOINT LEVEL TO WHATEVER OTHER ONE ?? */ 
+  /* } */
+
+  return ss;
+}
+
 /* this function assumes that all discrete variables specified in I and all continuous
  * variables specified in Y are involved in the calculations, i.e., Y=I=c(i,j,Q) */
 static double
@@ -3928,7 +4046,7 @@ lr_em(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
   int         n_mis, n_upper_tri, n_joint_levels=1;
   int         n_joint_levels_i, n_joint_levels_j, n_joint_levels_ij;
 
-  /* error("EM not implemented yet in C code\n"); */
+  error("EM not implemented yet in C code\n");
 
   if (missing_obs(X, p, n, Y, n_Y, NULL, n))
     error("EM not implemented yet for missing continuous values\n");
@@ -4709,7 +4827,7 @@ qp_edge_nrr(double* X, double* S, int p, int n, int i, int j, int q,
     double t_value;
 
     if (work_with_margin) {
-      Memcpy((int*) (ijQ+2), (int*) (q_by_T_samples+k*q), (size_t) (q+2));
+      Memcpy((int*) (ijQ+2), (int*) (q_by_T_samples+k*q), (size_t) q);
       memset(S, 0, sizeof(double) * n_upper_tri);
       n = ssd(X, p, n, ijQ, q+2, NULL, n, TRUE, NULL, S);
       t_value = qp_ci_test_std(S, q+2, n, 0, 1, Q, q, NULL);
@@ -7520,7 +7638,7 @@ qp_fast_cov_upper_triangular(SEXP XR, SEXP corrected) {
            should be encoded as natural numbers 1, 2, ... just as the encoding
            of factor variables in R. Missing values encoded as NAs are treated
            by setting to -1 the cross-classified observation.
-  IMPORTANT: it assumes the argument xtab has all its positions set to the value of 1
+  IMPORTANT: it assumes the argument xtab has all its positions set to the value of 1 <- SHOULD BE 0 ??
   PARAMETERS: X - vector containing the column-major stored matrix of values
               p - number of variables
               n - number of values per variable
