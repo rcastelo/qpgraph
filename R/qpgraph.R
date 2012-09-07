@@ -3144,6 +3144,8 @@ qpClique <- function(nrrMatrix, n=NA, threshold.lim=c(0,1), breaks=5, plot=TRUE,
 ##             threshold.lim - range of threshold values
 ##             breaks - either a number of threshold bins or a vector of
 ##                      threshold breakpoints
+##             vertexSubset - subset of vertices for which we calculate
+##                            their maximum boundary with respect to all other vertices
 ##             plot - flag that when set it makes a plot of the result
 ##             qpBoundaryOutput - output from a previous call to qpClique, this
 ##                              allows one to plot the result changing some of
@@ -3160,8 +3162,8 @@ qpClique <- function(nrrMatrix, n=NA, threshold.lim=c(0,1), breaks=5, plot=TRUE,
 ##         rate that provides a maximum clique size strictly smaller than the
 ##         sample size N, and the resulting maximum clique size
 
-qpBoundary <- function(nrrMatrix, n=NA, threshold.lim=c(0,1), breaks=5, plot=TRUE,
-                       qpBoundaryOutput=NULL, density.digits=0,
+qpBoundary <- function(nrrMatrix, n=NA, threshold.lim=c(0,1), breaks=5, vertexSubset=NULL,
+                       plot=TRUE, qpBoundaryOutput=NULL, density.digits=0,
                        logscale.bdsize=FALSE,
                        titlebd="Maximum boundary size as function of threshold",
                        verbose=FALSE) {
@@ -3198,8 +3200,11 @@ qpBoundary <- function(nrrMatrix, n=NA, threshold.lim=c(0,1), breaks=5, plot=TRU
                        # will be the complete undirected graph but
                        # still it should have no loops
       n.edg <- sum(A) / 2
-      dimnames(A) <- list(1:length(A[,1]), 1:length(A[1,]))
+      ## dimnames(A) <- list(1:length(A[,1]), 1:length(A[1,])) WHY THIS ???
       maxsize <- max(rowSums(A))
+      if (!is.null(vertexSubset))
+        maxsize <- max(rowSums(A[vertexSubset, ]))
+
       mpctedbdsze[i,] <- c((n.edg / n.adj) * 100, maxsize, threshold)
       if (!is.na(n)) {
         if (maxsize > maxbdszeunderN && maxsize < n) {
@@ -3218,6 +3223,7 @@ qpBoundary <- function(nrrMatrix, n=NA, threshold.lim=c(0,1), breaks=5, plot=TRU
     thrmaxbdszeunderN <- qpBoundaryOutput$threshold
     maxbdszeunderN <- qpBoundaryOutput$bdsizeunderN
     n <- qpBoundaryOutput$n
+    vertexSubset <- qpBoundaryOutput$vertexSubset
   }
 
   linetype <- 1
@@ -3243,8 +3249,8 @@ qpBoundary <- function(nrrMatrix, n=NA, threshold.lim=c(0,1), breaks=5, plot=TRU
   f <- approxfun(m)
   area <- integrate(f,min(m[,1]),max(m[,1]))
 
-  invisible(list(data=mpctedbdsze,complexity=area$value,threshold=thrmaxbdszeunderN,
-                 bdsizeunderN=maxbdszeunderN,n=n))
+  invisible(list(data=mpctedbdsze, complexity=area$value, threshold=thrmaxbdszeunderN,
+                 bdsizeunderN=maxbdszeunderN, n=n, vertexSubset=vertexSubset))
 }
 
 

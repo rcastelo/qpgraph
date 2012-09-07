@@ -9,11 +9,9 @@ Calculates and plots the size of the largest vertex boundary
 as function of the non-rejection rate.
 }
 \usage{
-qpBoundary(nrrMatrix, n=NA, threshold.lim=c(0,1), breaks=5, plot=TRUE,
-           qpBoundaryOutput=NULL, density.digits=0,
-           logscale.bdsize=FALSE,
-           titlebd="Maximum boundary size as function of threshold",
-           verbose=FALSE)
+qpBoundary(nrrMatrix, n=NA, threshold.lim=c(0,1), breaks=5, vertexSubset=NULL,
+           plot=TRUE, qpBoundaryOutput=NULL, density.digits=0, logscale.bdsize=FALSE,
+           titlebd="Maximum boundary size as function of threshold", verbose=FALSE)
 }
 \arguments{
   \item{nrrMatrix}{matrix of non-rejection rates.}
@@ -22,6 +20,8 @@ qpBoundary(nrrMatrix, n=NA, threshold.lim=c(0,1), breaks=5, plot=TRUE,
   \item{threshold.lim}{range of threshold values on the non-rejection rate.}
   \item{breaks}{either a number of threshold bins or a vector of threshold
        breakpoints.}
+  \item{vertexSubset}{subset of vertices for which their maximum boundary size
+       is calculated with respect to all other vertices.}
   \item{plot}{logical; if TRUE makes a plot of the result; if FALSE it does not.}
   \item{qpBoundaryOutput}{output from a previous call to \code{\link{qpBoundary}}.
        This allows one to plot the result changing some of the plotting
