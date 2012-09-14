@@ -1,9 +1,19 @@
+CHANGES IN VERSION 1.14
+-----------------------
+
+NEW FEATURES
+
+    o new qpPlotMap() function to show associations between genetic markers and gene expression profiles using their positions along the genome
+
+    o conditional independence tests and non-rejection rate estimation with missing data via complete-case analysis and the EM algorithm
+ 
+
 CHANGES IN VERSION 1.12
 -----------------------
 
 NEW FEATURES
 
-    o Results of conditional independence tests with qpCItest() are now returned using the R standard htest class
+    o results of conditional independence tests with qpCItest() are now returned using the R standard htest class
 
     o qpCItest() allows one to test mixed interactions involving phenotypic data variables and expression profiles in ExpressionSet objects, and phenotypic/genetic variables and expression profiles in smlSet objects
 
@@ -53,7 +63,7 @@ NEW FEATURES
 
     o a new function qpCov() and its man page to calculate sample covariance matrices returning them as 'dspMatrix' objects. Fixed some NAMESPACE and dependence issues
 
-    o network reporting through qpPlotNetwork
+    o network reporting through qpPlotNetwork()
 
     o network reporting through qpTopPairs
 

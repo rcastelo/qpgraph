@@ -3960,16 +3960,77 @@ free_suf_stats(suf_stats_t ss) {
     Free(ss.m);
 }
 
+/* k(i) = y^T\Sigma^{-1}\mu(i) - 1/2 * [y^T\Sigma^{-1} y + \mu(i)^T \Sigma^{-1}\mu(i)] + log p(i) */
+double
+Ki(double* X, int p, int n, int i, int* Y, int n_Y, int j, double* Sigma, double* mu, int n_joint_levels, double* pr) {
+  int     k,l;
+  double  aux;
+  double* xYs;
+  double* t_xYs;
+  double* sigmaYs;
+  double* inv_sigmaYs;
+  double* muYs;
+  double* t_muYs;
+  double* tmp;
+  double  t1,t2,t3;
+
+  aux = pr[j];
+  if (n_Y > 0) {
+    xYs = Calloc(n_Y, double);
+    t_xYs = Calloc(n_Y, double);
+    sigmaYs = Calloc(n_Y*n_Y, double);
+    inv_sigmaYs = Calloc(n_Y*n_Y, double);
+    muYs = Calloc(n_Y, double);
+    t_muYs = Calloc(n_Y, double);
+    tmp = Calloc(n_Y*n_Y, double);
+
+    for (k=0; k < n_Y; k++)
+      xYs[k] = X[n * Y[k] + i];
+    mattran(t_xYs, xYs, 1, n_Y);
+    for (k=0; k < n_Y; k++)
+      for (l=0; l < n_Y; l++)
+        sigmaYs[n_Y * k + l] = Sigma[n * Y[k] + l];
+    matinv(inv_sigmaYs, sigmaYs, n_Y, n_Y);
+    for (k=0; k < n_Y; k++)
+      muYs[k] = mu[n_joint_levels * k + j];
+    mattran(t_muYs, muYs, 1, n_Y);
+
+    matprod(t_xYs, 1, n_Y, inv_sigmaYs, n_Y, n_Y, tmp);
+    matprod(tmp, 1, n_Y, muYs, n_Y, 1, &t1);
+
+    matprod(tmp, 1, n_Y, xYs, n_Y, 1, &t2);
+
+    matprod(t_muYs, 1, n_Y, inv_sigmaYs, n_Y, n_Y, tmp);
+    matprod(tmp, 1, n_Y, muYs, n_Y, 1, &t3);
+
+    aux = exp(t1 - 0.5 * (t2 + t3) + log(pr[j]));
+
+    Free(tmp);
+    Free(t_muYs);
+    Free(muYs);
+    Free(inv_sigmaYs);
+    Free(sigmaYs);
+    Free(t_xYs);
+    Free(xYs);
+
+  }
+
+  return aux;
+}
+
 /* calculate the probability of I=i for each observation with missing values
  * pr(I=i' | (i_{obs}, y}^{(\nu)}) exp k(i') / \sum_{s\in{\cal S}} exp k(s) */
 double*
-prob_i(double* X, int p, int n, int * missing_mask, int n_mis, int* I, int n_I, int* Is, int n_Is,
-       int *Y, int n_Y, int* n_levels, int n_joint_levels, int k, double* pr, double* mu, double* Sigma) {
-  int     i,j,l;
+prob_i(double* X, int p, int n, int * missing_mask, int n_mis, int* I, int n_I,
+       int* Is, int n_Is, int *Y, int n_Y, int* n_levels, int n_joint_levels,
+       int k, double* pr, double* mu, double* Sigma) {
+  int     i,j;
   int*    idx_I_obs;
   int     n_idx_I_obs=0;
   int*    index_S;
-  int     n_index_S;
+  int*    index_Si;
+  int     n_index_S, n_index_Si;
+  double  K_den;
   double* pr_i;
 
   pr_i = Calloc(n_mis, double); /* must be freed outside */
@@ -3979,7 +4040,7 @@ prob_i(double* X, int p, int n, int * missing_mask, int n_mis, int* I, int n_I, 
     if (missing_mask[i]) {
       int base = 1;
       int joint_level_Is_obs=1; /* SHOULD THIS BE ZERO ?? */ 
-      int joint_level_k=1;
+      int joint_level_k=1; /* SHOULD THIS BE ZERO ?? */
 
       for (j=0; j < n_Is; j++) {
         int k2 = (int) (k % (base * n_levels[I[j]]));
@@ -3996,12 +4057,37 @@ prob_i(double* X, int p, int n, int * missing_mask, int n_mis, int* I, int n_I, 
       } else {
         n_index_S = 0;
         index_S = Calloc(n_joint_levels, int);
-        if (n_idx_I_obs == 0)
+        if (n_idx_I_obs == 0) {
           for (j=0; j < n_joint_levels; j++)
             index_S[j] = j;
-        else {
+          n_index_S = n_joint_levels;
+        } else {
+          for (j=0; j < n_idx_I_obs; j++) {
+            if (idx_I_obs[j] == joint_level_k) /* is this correct ???? */
+              index_S[n_index_S++] = j;
+          }
           error("implementation not finished yet\n");
         }
+        n_index_Si = 0;
+        index_Si = Calloc(n_joint_levels, int);
+        for (j=0; j < n_index_S; j++)
+          if (index_S[j] == joint_level_k)
+            index_Si[n_index_Si++] = index_S[j];
+        if (n_index_Si == n_index_S)
+          pr_i[i] = 1.0;
+        else {
+          /* K_den <- sum(sapply(index_S, function(i) {Ki(x, Ys, i, mapX2Y, Sigma, mu, p)})) */
+          K_den = 0.0;
+          for (j=0; j < n_index_S; j++)
+            K_den = K_den + Ki(X, p, n, i, Y, n_Y, index_S[j], Sigma, mu, n_joint_levels, pr);
+          pr_i[i] = 0.0;
+          if (K_den != 0) {
+            for (j=0; j < n_index_Si; j++)
+              pr_i[i] = pr_i[i] + Ki(X, p, n, i, Y, n_Y, index_Si[j], Sigma, mu, n_joint_levels, pr) / K_den;
+          }
+        }
+        Free(index_S);
+        Free(index_Si);
       }
     }
   }
@@ -4012,30 +4098,50 @@ prob_i(double* X, int p, int n, int * missing_mask, int n_mis, int* I, int n_I, 
 }
 
 suf_stats_t
-stat_mis(double* X, int p, int n, int* missing_mask, int n_mis, int* I, int n_I, int* Is, int n_Is,
-         int *Y, int n_Y, int* n_levels, int n_joint_levels, com_stats_t com_stats,
-         double* pr, double* mu, double* Sigma) {
+stat_mis(double* X, int p, int n, int* missing_mask, int n_mis, int* I, int n_I,
+         int* Is, int n_Is, int *Y, int n_Y, int* n_levels, int n_joint_levels,
+         com_stats_t com_stats, double* pr, double* mu, double* Sigma) {
   int         i,j,k;
   suf_stats_t ss;
+  double*     m;
+  double*     h;
+  double*     bar_y;
+  double*     K;
+
+  m = Calloc(n_joint_levels, double);
+  h = Calloc(n_joint_levels*n_Y, double);
+  bar_y = Calloc(n_joint_levels*n_Y, double);
+  K = Calloc((n_Y+(n_Y+1))/2, double);
+
+  ss = new_suf_stats(n_joint_levels, n_Y);
 
   /* QUESTION: DO WE NEED TO MAP Y TO Sigma ?????? (AS IN THE R CODE?) */
-  /* if (n_I > 0) {
-    for (i=0; i < n_joint_levels; i++) */
-      /* QUESTION: HOW DO WE DO THE LEVEL MATCHING FROM THE i-th JOINT LEVEL TO WHATEVER OTHER ONE ?? */ 
-  /* } */
+  /* YES!! JUST AS IN qp_ci_test_hmgm() AND WE SHOULD USE symmatsubm() !!!! */
+  /* HOW DO WE DO THE LEVEL MATCHING FROM THE i-th JOINT LEVEL TO WHATEVER OTHER ONE ?? */ 
+  if (n_Is > 0) {
+  }
+
+  Free(K);
+  Free(bar_y);
+  Free(h);
+  Free(m);
 
   return ss;
 }
 
 /* this function assumes that all discrete variables specified in I and all continuous
- * variables specified in Y are involved in the calculations, i.e., Y=I=c(i,j,Q) */
+ * variables specified in Y are involved in the calculations, i.e., Y~I~c(i,j,Q) */
 static double
 lr_em(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
       int i, int j, int* Q, int q, double tol) {
-  double*     p0;
+  double*     pr0;
+  double*     pr;
   double*     mu0;
+  double*     mu;
   double*     Sigma0;
+  double*     Sigma;
   com_stats_t comStats_i, comStats_j, comStats_ij;
+  suf_stats_t sufStats_i, sufStats_j, sufStats_ij;
   int*        Y_i = NULL;
   int*        Y_j = NULL;
   int*        I_ij = NULL;
@@ -4081,13 +4187,16 @@ lr_em(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
     n_I_i--; /* we'll re-use n_I with n_I_i */
   }
 
-  p0 = Calloc(n_joint_levels, double); /* WATCH OUT, this grows exponentially in the # of discrete vars */
-  for (k=0; k < n_joint_levels; k++) /* p0 initialized to the uniform distribution */
-    p0[k] = 1.0 / n_joint_levels;
+  pr0 = Calloc(n_joint_levels, double); /* WATCH OUT, this grows exponentially in the # of discrete vars */
+  pr = Calloc(n_joint_levels, double); /* WATCH OUT, this grows exponentially in the # of discrete vars */
+  for (k=0; k < n_joint_levels; k++) /* pr0 initialized to the uniform distribution */
+    pr[k] = pr0[k] = 1.0 / n_joint_levels;
 
   /* mu0 initialized to zeroes, assuming that memset initializes content to zeroes */
   mu0 = Calloc(n_Y * n_joint_levels, double);
+  mu = Calloc(n_Y * n_joint_levels, double);
   Sigma0 = Calloc(n_upper_tri, double); /* storing the upper triangle, incl. diagonal, only */
+  Sigma = Calloc(n_upper_tri, double); /* storing the upper triangle, incl. diagonal, only */
 
   /* Y_i <- intersect(Y, c(j, Q)) */
   Y_i = Calloc(n_Y, int);
@@ -4095,7 +4204,7 @@ lr_em(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
   l = -1;
   /* Sigma0 initialized to the diagonal matrix, simultaneously, we initialize Y_i and find j in Y */
   for (k=0; k < n_Y; k++) {
-    Sigma0[UTE2I(k, k)] = 1.0;
+    Sigma[UTE2I(k, k)] = Sigma0[UTE2I(k, k)] = 1.0;
     if (Y[k] == j)
       l = k;
     if (Y[k] != i)
@@ -4204,6 +4313,15 @@ lr_em(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
   /* first round */
   mdiff = 1.0;
   while (mdiff > tol) {
+    sufStats_i = stat_mis(X, p, n, missing_mask, n_mis, I, n_I, I, n_I_i, Y_i,
+                          n_Y_i, n_levels, n_joint_levels, comStats_i,
+                          pr, mu, Sigma);
+    sufStats_j = stat_mis(X, p, n, missing_mask, n_mis, I, n_I, I, n_I, Y,
+                          n_Y_j, n_levels, n_joint_levels, comStats_j,
+                          pr, mu, Sigma);
+    sufStats_ij = stat_mis(X, p, n, missing_mask, n_mis, I, n_I, I_ij, n_I_ij,
+                           Y_ij, n_Y_ij, n_levels, n_joint_levels, comStats_ij,
+                           pr, mu, Sigma);
     mdiff = 0.0;
   }
 
@@ -4213,9 +4331,12 @@ lr_em(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
   Free(Y_ij);
   Free(I_ij);
   Free(Y_i);
+  Free(Sigma);
   Free(Sigma0);
+  Free(mu);
   Free(mu0);
-  Free(p0);
+  Free(pr);
+  Free(pr0);
   Free(missing_mask);
 
   return R_NaN;
