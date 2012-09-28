@@ -4655,11 +4655,14 @@ qpTopPairs <- function(measurementsMatrix=NULL, refGraph=NULL, n=6L, file=NULL,
 ##             highlight - subset of vertices to highlight
 ##             annotation - name of an annotation package to transform gene identifiers
 ##                          into gene symbols
+##             layout - layout employed by Rgraphviz
 
 qpPlotNetwork <- function(g, vertexSubset=graph::nodes(g), boundary=FALSE,
                           minimumSizeConnComp=2, pairup.i=NULL, pairup.j=NULL,
-                          highlight=NULL, annotation=NULL) {
+                          highlight=NULL, annotation=NULL, layout=c("twopi", "dot", "neato", "circo", "fdp")) {
   require(graph)
+
+  layout <- match.arg(layout)
 
   if (any(is.na(match(graph::nodes(g), vertexSubset)))) {
     vertexSubsetNoMatch <- vertexSubset[is.na(match(vertexSubset, graph::nodes(g)))]
@@ -4789,7 +4792,7 @@ qpPlotNetwork <- function(g, vertexSubset=graph::nodes(g), boundary=FALSE,
     nodattr$fontcolor[g.hNodes] <- "red"
   }
 
-  plot(g, "twopi", nodeAttrs=nodattr, lwd=2)
+  plot(g, layout, nodeAttrs=nodattr, lwd=2)
 
   invisible(g)
 }

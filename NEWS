@@ -6,7 +6,10 @@ NEW FEATURES
     o new qpPlotMap() function to show associations between genetic markers and gene expression profiles using their positions along the genome
 
     o conditional independence tests and non-rejection rate estimation with missing data via complete-case analysis and the EM algorithm
- 
+
+    o new qpAllCItests() function to perform multiple conditional independence tests with a fixed conditioning set.
+
+    o new arguments fix.Q and restrict.Q for functions estimating the non-rejection rate in order to restrict and fix variables in the conditioning subsets of the independence tests.
 
 CHANGES IN VERSION 1.12
 -----------------------

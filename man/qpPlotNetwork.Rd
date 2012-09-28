@@ -10,7 +10,7 @@ Plots a graph using the \code{Rgraphviz} library
 \usage{
 qpPlotNetwork(g, vertexSubset=graph::nodes(g), boundary=FALSE,
               minimumSizeConnComp=2, pairup.i=NULL, pairup.j=NULL,
-              highlight=NULL, annotation=NULL)
+              highlight=NULL, annotation=NULL, layout=c("twopi", "dot", "neato", "circo", "fdp"))
 }
 \arguments{
   \item{g}{graph to plot provided as a \code{graphNEL-class} object.}
@@ -21,11 +21,12 @@ qpPlotNetwork(g, vertexSubset=graph::nodes(g), boundary=FALSE,
   \item{pairup.j}{subset of vertices to pair up with subset \code{pairup.i}.}
   \item{highlight}{subset of vertices to highlight by setting the color font to red.}
   \item{annotation}{name of an annotation package to transform gene identifiers into gene symbols when vertices correspond to genes.}
+  \item{layout}{layout argument for the Rgraphviz library that plots the network. Possible values are \code{twopi} (default), \code{dot}, \code{neato}, \code{circo}, \code{fdp}.}
 }
 \details{
 This function acts as a wrapper for the functionality provided by the \code{Rgraphviz}
-package to plot graphs in R. It should help to plot networks obtained with the \code{qpgraph}
-package methods.
+package to plot graphs in R. It should help to plot networks obtained with methods from
+the\code{qpgraph} package.
 }
 \value{
 The plotted graph is invisibly returned as a \code{graphNEL-class} object.
