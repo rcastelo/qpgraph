@@ -8,14 +8,18 @@ Undirected random d-regular graphs
 Samples an undirected d-regular graph approximately uniformly at random.
 }
 \usage{
-qpRndGraph(p=6, d=2, exclude=NULL, verbose=FALSE, R.code.only=FALSE)
+qpRndGraph(p=6, d=2, labels=1:p, exclude=NULL, verbose=FALSE,
+           return.type=c("adjacency.matrix", "edge.list", "graphBAM", "graphNEL"),
+           R.code.only=FALSE)
 }
 \arguments{
   \item{p}{number of vertices.}
   \item{d}{degree of every vertex.}
+  \item{labels}{vertex labels.}
   \item{exclude}{vector of vertices inducing edges that should be
                  excluded from the sampled d-regular graph.}
   \item{verbose}{show progress on the calculations.}
+  \item{return.type}{class of object to be returned by the function}
   \item{R.code.only}{logical; if \code{FALSE} then the faster C implementation is used
        (default); if \code{TRUE} then only R code is executed.}
 }
@@ -56,12 +60,9 @@ Steger, A. and Wormald, N.C. Generating random regular graphs quickly,
   \code{\link{qpG2Sigma}}
 }
 \examples{
-nVar <- 50  ## number of vertices
-maxCon <- 5 ## maximum connectivity per vertex
-
 set.seed(123)
 
-A <- qpRndGraph(p=nVar, d=maxCon)
+A <- qpRndGraph(p=50, d=3)
 
 summary(apply(A, 1, sum))
 }

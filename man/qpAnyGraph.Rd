@@ -10,7 +10,7 @@ Obtains an undirected graph from a matrix of pairwise measurements
 \usage{
 qpAnyGraph(measurementsMatrix, threshold=NULL, remove=c("below", "above"),
            topPairs=NULL, decreasing=TRUE, pairup.i=NULL, pairup.j=NULL,
-           return.type=c("adjacency.matrix", "edge.list", "graphNEL", "graphAM"))
+           return.type=c("adjacency.matrix", "edge.list", "graphNEL", "graphAM", "graphBAM"))
 }
 \arguments{
   \item{measurementsMatrix}{matrix of pairwise measurements.}
@@ -32,11 +32,12 @@ qpAnyGraph(measurementsMatrix, threshold=NULL, remove=c("below", "above"),
        set to TRUE when the two indexing variables are connected in the graph
        (default), or a list of edges in a matrix where each row corresponds to
        one edge and the two columns contain the two vertices defining each edge,
-       or a \code{graphNEL-class} object, or a \code{graphAM-class} object.}
+       or a \code{graphNEL-class} object, or a \code{graphAM-class} object,
+       or a \code{graphBAM-class} object.}
 }
 \details{
-This function requires the \code{graph} package when \code{return.type=graphNEL}
-or \code{return.type=graphAM}.
+This function requires the \code{graph} package when \code{return.type="graphNEL"},
+\code{return.type="graphAM"} or \code{return.type="graphBAM"}.
 }
 \value{
 The resulting undirected graph as either an adjacency matrix, a \code{graphNEL}

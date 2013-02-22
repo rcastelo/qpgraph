@@ -1,9 +1,9 @@
 ## qpgraph package - this R code implements functions to learn qp-graphs from
-##                   data, to estimate Pearson and partial correlations and
-##                   to interact with microarray data in order to build network
-##                   models of molecular regulation
+##                   data, to estimate partial correlations, simulate undirected Gaussian
+##                   graphical models and deal with microarray and genetic data in order
+##                   to build network models of molecular regulation
 ##
-## Copyright (C) 2012 R. Castelo and A. Roverato, with contributions of Inma Tur.
+## Copyright (C) 2013 R. Castelo and A. Roverato, with contributions from Inma Tur.
 ## This program is free software; you can redistribute it and/or
 ## modify it under the terms of the GNU General Public License
 ## as published by the Free Software Foundation; either version 2
@@ -2540,13 +2540,13 @@ qpHist <- function(nrrMatrix, A=NULL,
 ##             pairup.j - subset of vertices to pair up with subset pairup.i
 ##             return.type - type of data structure on which the graph
 ##                           should be returned, either an adjacency matrix,
-##                           a matrix with the list of edges, a graphNEL structure
-##                           or a graphAM structure
+##                           a matrix with the list of edges, a graphNEL object
+##                           a graphAM object or a graphBAM object
 ## return: adjacency matrix of the qp-graph
 
 qpGraph <- function(nrrMatrix, threshold=NULL, topPairs=NULL, pairup.i=NULL,
                     pairup.j=NULL, return.type=c("adjacency.matrix", "edge.list",
-                    "graphNEL", "graphAM")) {
+                    "graphNEL", "graphAM", "graphBAM")) {
 
   return.type <- match.arg(return.type)
 
@@ -2644,6 +2644,12 @@ qpGraph <- function(nrrMatrix, threshold=NULL, topPairs=NULL, pairup.i=NULL,
     ## require(graph)
     g <- new("graphAM", adjMat=A+0, edgemode="undirected", values=list(weight=1))
     return(g)
+  } else if (return.type == "graphBAM") {
+    m <- cbind(vertex.labels[row(A)[upper.tri(A) & A]], vertex.labels[col(A)[upper.tri(A) & A]])
+    m <- rbind(m, m[, 2:1])
+    edL <- lapply(split(m[,1], m[,2]), unique)
+    g <- new("graphNEL", nodes=names(edL), edgeL=edL, edgemode="undirected")
+    return(as(g, "graphBAM"))
   }
 
   return(NA)
@@ -2667,14 +2673,14 @@ qpGraph <- function(nrrMatrix, threshold=NULL, topPairs=NULL, pairup.i=NULL,
 ##             pairup.j - subset of vertices to pair up with subset pairup.i
 ##             return.type - type of data structure on which the graph
 ##                           should be returned, either an adjacency matrix,
-##                           a matrix with the list of edges, a graphNEL structure
-##                           or a graphAM structure
+##                           a matrix with the list of edges, a graphNEL object,
+##                           a graphAM object or a graphBAM object
 ## return: adjacency matrix of the qp-graph
 
 qpAnyGraph <- function(measurementsMatrix, threshold=NULL, remove=c("below", "above"),
                        topPairs=NULL, decreasing=TRUE, pairup.i=NULL, pairup.j=NULL,
                        return.type=c("adjacency.matrix", "edge.list", "graphNEL",
-                                     "graphAM")) {
+                                     "graphAM", "graphBAM")) {
 
   remove <- match.arg(remove)
   return.type <- match.arg(return.type)
@@ -2779,6 +2785,14 @@ qpAnyGraph <- function(measurementsMatrix, threshold=NULL, remove=c("below", "ab
     ## require(graph)
     g <- new("graphAM", adjMat=A+0, edgemode="undirected", values=list(weight=1))
     return(g)
+  } else if (return.type == "graphAM") {
+    vertices <- unique(c(vertex.labels[row(A)[upper.tri(A) & A]], vertex.labels[col(A)[upper.tri(A) & A]]))
+    edL <- vector("list", length=length(vertices))
+    names(edL) <- vertices
+    for (v in vertices)
+      edL[[v]] <- list(edges=vertex.labels[A[v, ]], weights=rep(1, sum(A[v, ])))
+    g <- new("graphNEL",nodes=vertices, edgeL=edL, edgemode="undirected")
+    return(as(g, "graphBAM"))
   }
 
   return(NA)
@@ -2868,7 +2882,7 @@ qpGraphDensity <- function(nrrMatrix, threshold.lim=c(0,1), breaks=5,
 
 ## function: qpCliqueNumber
 ## purpose: calculate the size of the largest maximal clique in a given undirected graph
-## parameters: g - either a graphNEL, graphAM object or an adjacency matrix of the graph
+## parameters: g - either a graphNEL, graphAM, graphBAM object or an adjacency matrix of the graph
 ##             exact.calculation - flag that when set to TRUE the exact maximum clique
 ##                                 size is calculated and when set to FALSE a lower
 ##                                 bound is calculated instead
@@ -2885,7 +2899,7 @@ qpGraphDensity <- function(nrrMatrix, threshold.lim=c(0,1), breaks=5,
 qpCliqueNumber <- function(g, exact.calculation=TRUE, return.vertices=FALSE,
                            approx.iter=100, verbose=TRUE, R.code.only=FALSE) {
 
-  if (class(g) == "graphNEL" || class(g) == "graphAM") {
+  if (class(g) == "graphNEL" || class(g) == "graphAM" || class(g) == "graphBAM") {
     ## require(graph)
     if (graph::edgemode(g) != "undirected")
       stop("g should be an undirected graph\n")
@@ -2895,12 +2909,12 @@ qpCliqueNumber <- function(g, exact.calculation=TRUE, return.vertices=FALSE,
     A <- g
     p <- (d <- dim(A))[1]
     if (p != d[2])
-      stop("g is not an squared adjacency matrix nor a graphNEL or graphAM object\n")
+      stop("g is not an squared adjacency matrix nor a graphNEL, graphAM or graphBAM object\n")
 
     if (!isSymmetric(A))
-      stop("g is not a symmetric adjacency matrix nor a graphNEL or graphAM object\n")
+      stop("g is not a symmetric adjacency matrix nor a graphNEL, graphAM or graphBAM object\n")
   } else
-    stop("g should be either a graphNEL object, a graphAM object or a boolean adjacency matrix\n")
+    stop("g should be either a graphNEL object, a graphAM object, a graphBAM object or a boolean adjacency matrix\n")
 
   if (exact.calculation && R.code.only)
     stop("R code is only available for the lower bound approximation and not for the exact calculation\n");
@@ -3273,7 +3287,7 @@ qpBoundary <- function(nrrMatrix, n=NA, threshold.lim=c(0,1), breaks=5, vertexSu
 
 qpGetCliques <- function(g, clqspervtx=FALSE, verbose=TRUE) {
 
-  if (class(g) == "graphNEL" || class(g) == "graphAM") {
+  if (class(g) == "graphNEL" || class(g) == "graphAM" || class(g) == "graphBAM") {
     ## require(graph)
     if (graph::edgemode(g) != "undirected")
       stop("g should be an undirected graph\n")
@@ -3288,7 +3302,7 @@ qpGetCliques <- function(g, clqspervtx=FALSE, verbose=TRUE) {
     if (!isSymmetric(A))
       stop("g is not a symmetric matrix nor a graphNEL object\n")
   } else
-    stop("g should be either a graphNEL object, a graphAM object or a boolean adjacency matrix\n")
+    stop("g should be either a graphNEL object, a graphAM object, a graphBAM object or a boolean adjacency matrix\n")
 
   p <- dim(A)[1]
   nEd <- sum(A)/2
@@ -3333,7 +3347,7 @@ qpGetCliques <- function(g, clqspervtx=FALSE, verbose=TRUE) {
 ## return: an updated list of maximal cliques
 
 qpUpdateCliquesRemoving <- function(g, clqlst, v, w, verbose=TRUE) {
-  if (class(g) == "graphNEL" || class(g) == "graphAM") {
+  if (class(g) == "graphNEL" || class(g) == "graphAM" || class(g) == "graphBAM") {
     ## require(graph)
     if (graph::edgemode(g) != "undirected")
       stop("g should be an undirected graph\n")
@@ -3348,7 +3362,7 @@ qpUpdateCliquesRemoving <- function(g, clqlst, v, w, verbose=TRUE) {
     if (!isSymmetric(A))
       stop("g is not a symmetric matrix nor a graphNEL object\n")
   } else
-    stop("g should be either a graphNEL object, a graphAM object or a boolean adjacency matrix\n")
+    stop("g should be either a graphNEL object, a graphAM object, a graphBAM object or a boolean adjacency matrix\n")
 
   if (is.character(v)) {
     v <- match(v, colnames(A))
@@ -3451,14 +3465,14 @@ qpHTF <- function(S, g, tol = 0.001, verbose = FALSE,
     ## but in the future this should be working with the more memory-efficient dspMatrix class
     A <- as.matrix(A)
   }
-  if (class(g) == "graphNEL" || class(g) == "graphAM") {
+  if (class(g) == "graphNEL" || class(g) == "graphAM" || class(g) == "graphBAM") {
     n.var <- length(graph::nodes(g))
     var.names <- nodes(g)
     A <- as(g, "matrix") == 1 ## get a logical adjacency matrix
   }
 
   if (is.null(n.var))
-    stop("'g' is neither an adjacency matrix, nor a graphNEL, nor graphAM object.\n")
+    stop("'g' is neither an adjacency matrix, a graphNEL, a graphAM or a graphBAM object.\n")
 
   if (verbose)
     cat("qpHTF: maximum boundary =", max(rowSums(A)), "\n") 
@@ -3572,7 +3586,7 @@ setMethod("qpPAC", signature(X="matrix"),
   matrix.completion <- match.arg(matrix.completion)
 
   A <- matrix(FALSE, nrow=ncol(X), ncol=ncol(X), dimnames=list(colnames(X), colnames(X)))
-  if (class(g) == "graphNEL" || class(g) == "graphAM") {
+  if (class(g) == "graphNEL" || class(g) == "graphAM" || class(g) == "graphBAM") {
     ## require(graph)
     if (graph::edgemode(g) != "undirected")
       stop("g should be an undirected graph\n")
@@ -3715,193 +3729,6 @@ setMethod("qpPCC", signature(X="matrix"),
 
 
 
-## function: qpRndGraph
-## purpose: samples a d-regular graph uniformly at random
-## parameters: p - number of vertices
-##             d - maximum boundary for every vertex
-##             exclude - vector of vertices inducing edges that should be
-##                       excluded from the sampled d-regular graph
-## return: the adjacency matrix of the resulting graph
-
-qpRndGraph <- function(p=6, d=2, exclude=NULL, verbose=FALSE, R.code.only=FALSE) {
-
-  if ((p*d) %% 2 != 0)
-    stop("The number of vertices p times the degree d of each vertex, i.e., the product p x d, should be even in order to sample a d-regular graph on p vertices uniformly at random\n")
-
-  if (d > sqrt(p))
-    warning("Steger and Wormald (1999, see help page of this function) believe that when d >> sqrt(p) the resulting d-regular graph on p vertices may no longer be sampled from a approximately uniform probability distribution.\n")
-
-  if (!is.null(exclude)) {
-    if (!is.integer(exclude) || any(exclude < 1))
-      stop("The argument exclude must be a vector of positive integers\n")
-    if (any(is.na(match(exclude, 1:p))))
-      stop("The argument exclude contains vertices outside range 1:p\n")
-    if (any(duplicated(exclude)))
-      stop("The argument exclude contains duplicated vertices\n")
-  }
-
-  if (!R.code.only) {
-    return(qpgraph:::.qpFastRndGraph(p, d, exclude, verbose))
-  }
-
-  if (verbose)
-    pb <- txtProgressBar(style=3, min=0, max=p)
-
-  G <- Gex <- matrix(FALSE, nrow=p, ncol=p)
-  if (!is.null(exclude)) {
-    Gex[exclude, exclude] <- TRUE
-  }
-  
-  while (any(rowSums(G) != d)) {
-    G <- matrix(FALSE, nrow=p, ncol=p, dimnames=list(1:p, 1:p))
-    S <- TRUE
-    
-    while (!all(is.na(S))) {
-      dG <- rowSums(G) ## calculate degree
-      dG[dG > d-1] <- NA ## select pairs where both vertices have
-                         ## degree at most d-1
-      S <- (d - dG) %o% (d - dG)
-      S[G] <- NA ## exclude adjacent pairs of vertices
-
-      if (!all(is.na(S))) { ## if there are missing edges to add
-        S <- S / sum(S[upper.tri(S) & !Gex], na.rm=TRUE)
-        ridx <- row(S)[upper.tri(S) & !is.na(S) & !Gex]
-        cidx <- col(S)[upper.tri(S) & !is.na(S) & !Gex]
-        S <- S[upper.tri(S) & !is.na(S) & !Gex]
-        cdf <- sort(S, decreasing=TRUE, index.return=TRUE) ## build CDF
-        r <- runif(1, min=0, max=1)
-        i <- cdf$ix[sum(r > cumsum(cdf$x))+1] ## sample one edge from the CDF
-        G[ridx[i], cidx[i]] <- G[cidx[i], ridx[i]] <- TRUE ## add it
-      }
-
-      if (verbose)
-        setTxtProgressBar(pb, sum(rowSums(G) == d))
-    }
-  }
-
-  if (verbose)
-    close(pb)
-
-  G <- as(G, "lspMatrix")
-  dimnames(G) <- list(1:p, 1:p)
-
-  return(G)
-}
-
-
-
-## function: qpRndWishart
-## purpose: Random generation for the (n.var x n.var) Wishart distribution with
-##          matrix parameter A=diag(delta)%*%P%*%diag(delta) and degrees of
-##          freedom df
-## parameters: delta - a numeric vector of n.var positive values. If a scalar
-##                     is provided then this is extended to form a vector.
-##             P - a (n.var x n.var) positive definite matrix with unit
-##                 diagonal. If a scalar is provided then this number is used
-##                 as constant off-diagonal entry for P
-##             df - degrees of freedom
-##             n.var - dimension of the Wishart matrix. It is required only when
-##                     both delta and P are scalar
-## return: a list of two (n.var x n.var) matrices rW and meanW where rW is a
-##         random value from the Wishart and meanW is the expected value of the
-##         distribution
-
-qpRndWishart <- function(delta=1, P=0, df=NULL, n.var=NULL) {
-
-  if (length(delta) == 1 && length(P) == 1 && is.null(n.var))
-    stop("The value of n.var is not specified and both delta and P are scalar")
-
-  if (is.null(n.var)) n.var=max(length(delta), dim(P)[1])
-
-  if (length(P) == 1) {
-    P <- matrix(P, n.var, n.var)
-    diag(P) <- 1
-  } 
-
-  if (max(abs(P) > 1) || min(eigen(P)$values)<=0 || !identical(P, t(P))) {
-    stop("P should be either a (symmetric) positive definite matrix\n or a scalar larger than -(n.var-1)^(-1) and smaller than 1")
-  } 
-
-  if (length(delta) == 1) delta=rep(delta, length=n.var)
-  if (min(delta) <= 0) stop("All entries of delta should be positive")
-  if (is.null(df)) df <- n.var
-  if (df <= (n.var-1)) stop("The value of df should be larger than (n.var-1)")
-
-  Delta <- diag(delta)
-  V <- Delta %*% P %*% Delta
-  CV <- chol(V)
-  CWS <- matrix(0, n.var, n.var)
-  CWS[row(CWS) < col(CWS)] <- rnorm(n.var * (n.var - 1) / 2)
-  diag(CWS) <- sqrt(rchisq(n.var, (df + 1)-(1:n.var)))
-  CW <- CWS %*% CV
-  W <- t(CW) %*% CW
-
-  return(list(rW=as(W, "dspMatrix"), meanW=df * V))
-}
-
-
-
-## function: qpG2Sigma
-## purpose: builds a random covariance matrix from an undirected graph
-## parameters: G - undirected graph (either adjacency matrix or graphNEL object)
-##             rho - real number between 1/(n.var-1) and 1
-##             matrix.completion - algorithm to perform matrix completion operations
-##             verbose - output progress
-##             R.code.only - flag set to FALSE when using the C implementation
-## return: a random covariance matrix whose inverse contains zeroes at the
-##         missing edges in G
-
-qpG2Sigma <- function (g, rho=0, matrix.completion=c("HTF", "IPF"), verbose=FALSE,
-                       R.code.only = FALSE) {
-  matrix.completion <- match.arg(matrix.completion)
-  n.var <- NULL
-  var.names <- NULL
-  if (class(g) == "matrix" || length(grep("Matrix", class(g))) > 0) {
-    n.var <- nrow(g)
-    var.names <- rownames(g)
-    if (is.null(rownames(var.names)))
-      var.names <- 1:n.var
-  }
-  if (class(g) == "graphNEL" || class(g) == "graphAM") {
-    n.var <- length(graph::nodes(g))
-    var.names <- nodes(g)
-  }
-
-  if (is.null(n.var))
-    stop("'g' is neither an adjacency matrix, nor a graphNEL, nor graphAM object.\n")
-
-  W <- qpRndWishart(delta=sqrt(1 / n.var), P=rho, n.var=n.var)$rW
-
-  Sigma <- NULL
-  if (matrix.completion == "IPF") {
-    clqlst <- qpGetCliques(g, verbose=verbose)
-    Sigma <- qpIPF(W, clqlst, verbose=verbose, R.code.only=R.code.only)
-  } else
-    Sigma <- qpHTF(W, g, verbose=verbose, R.code.only=R.code.only)
-
-  rownames(Sigma) <- colnames(Sigma) <- var.names
-
-  return(as(Sigma, "dspMatrix"))
-}
-
-
-
-## function: qpUnifRndAssociation
-## purpose: builds a matrix of uniformly random correlation values between -1 and +1
-## parameters: n.var - number of variables
-##             var.names - names of the variables to put as dimension names
-## return: a matrix of uniformly random correlation values between -1 and +1 for
-##         every pair of variables
-
-qpUnifRndAssociation <- function (n.var, var.names=1:n.var) {
-  n.var <- as.integer(n.var)
-  x=runif((n.var*(n.var-1))/2+n.var, min=-1, max=+1)
-  x[cumsum(1:n.var)] <- 1
-  rndcor <- new("dspMatrix", Dim=c(n.var, n.var),
-                Dimnames=list(var.names, var.names), x=x)
-
-  return(rndcor)
-}
 
 
 
@@ -3926,7 +3753,7 @@ qpK2ParCor <- function(K) {
 ##                                  between all pairs of variables
 ##             refGraph - a reference graph from which to calculate the precision-recall
 ##                        curve provided either as an adjacency matrix, a two-column matrix
-##                        of edges, a graphNEL object or a graphAM object
+##                        of edges, a graphNEL object, a graphAM object or a graphBAM object
 ##             decreasing - logical; if TRUE then the measurements are ordered
 ##                          in decreasing order; if FALSE then in increasing
 ##                          order
@@ -3951,9 +3778,10 @@ qpPrecisionRecall <- function(measurementsMatrix, refGraph, decreasing=TRUE,
     stop("measurementsMatrix should be a squared matrix\n")
 
   if (class(refGraph) != "data.frame" && class(refGraph) != "matrix" &&
-      class(refGraph)!= "graphNEL" && class(refGraph) != "graphAM" &&
+      class(refGraph) != "graphNEL" && class(refGraph) != "graphAM" &&
+      class(refGraph) != "graphBAM" &&
       length(grep("Matrix", class(refGraph))) == 0)
-    stop("refGraph should be provided either as an adjacency matrix, a two-column matrix of edges, a graphNEL object, or a graphAM object\n")
+    stop("refGraph should be provided either as an adjacency matrix, a two-column matrix of edges, a graphNEL object, a graphAM object or a graphBAM object\n")
 
   if (class(refGraph) == "data.frame" || class(refGraph) == "matrix" ||
       length(grep("Matrix", class(refGraph))) > 0) {
@@ -3981,7 +3809,7 @@ qpPrecisionRecall <- function(measurementsMatrix, refGraph, decreasing=TRUE,
         stop("measurementsMatrix and refGraph should have the same dimensions\n")
     }
 
-  } else { ## graphNEL or graphAM
+  } else { ## graphNEL, graphAM or graphBAM
     if (any(is.na(match(graph::nodes(refGraph), rownames(measurementsMatrix)))) ||
         length(graph::nodes(refGraph) != dim(measurementsMatrix)[1]))
       stop("The vertex set in refGraph does not correspond to the row and column names in measurementsMatrix\n")
@@ -4188,7 +4016,9 @@ setMethod("qpFunctionalCoherence",
 setMethod("qpFunctionalCoherence",
           signature(object="matrix"),
           function(object, TFgenes, geneUniverse=rownames(object), chip, minRMsize=5, verbose=FALSE, clusterSize=1) {
-  require(GOstats)
+
+  if (!qpgraph:::.qpIsPackageLoaded("GOstats"))
+    stop("qpFunctionalCoherence() requires first loading Bioconductor package GOstats")
 
   if (clusterSize > 1 &&
       (!qpgraph:::.qpIsPackageLoaded("rlecuyer") || !qpgraph:::.qpIsPackageLoaded("snow")))
@@ -4224,7 +4054,6 @@ setMethod("qpFunctionalCoherence",
           signature(object="list"),
           function(object, geneUniverse=unique(c(names(object), unlist(object, use.names=FALSE))),
                    chip, minRMsize=5, verbose=FALSE, clusterSize=1) {
-  require(GOstats)
 
   if (clusterSize > 1 &&
       (!qpgraph:::.qpIsPackageLoaded("rlecuyer") || !qpgraph:::.qpIsPackageLoaded("snow")))
@@ -4244,6 +4073,11 @@ setMethod("qpFunctionalCoherence",
 .qpFunctionalCoherence <- function(txRegNet, geneUniverse, chip, minRMsize, verbose, clusterSize) {
   TFgenes <- names(txRegNet)
   regModuleSize <- unlist(lapply(txRegNet, length))
+
+  hpTest <- get("hyperGTest", mode="function")
+  goGraph <- get("GOGraph", mode="function")
+  simui <- get("simUI", mode="function")
+  sigcat <- get("sigCategories", mode="function")
 
   geneBPuniverse <- qpgraph:::.qpFilterByGO(geneUniverse, chip, "BP")
 
@@ -4291,10 +4125,10 @@ setMethod("qpFunctionalCoherence",
                                                       annotation=chip, ontology="BP",
                                                       pvalueCutoff=0.05, conditional=TRUE,
                                                       testDirection="over")
-                                  goHypGcond <- hyperGTest(goHypGparams)
+                                  goHypGcond <- hpTest(goHypGparams)
                                   res <- list(TGgenesWithGO=TFgeneTGsWithGO,
                                               goBPcondResult=goHypGcond,
-                                              goBPcondResultSigCat=sigCategories(goHypGcond))
+                                              goBPcondResultSigCat=sigcat(goHypGcond))
                                 }
                                 res
                              }, geneBPuniverse, chip)
@@ -4315,10 +4149,10 @@ setMethod("qpFunctionalCoherence",
                             annotation=chip, ontology="BP",
                             pvalueCutoff=0.05, conditional=TRUE,
                             testDirection="over")
-        goHypGcond <- hyperGTest(goHypGparams)
+        goHypGcond <- hpTest(goHypGparams)
         txRegNetGO[[TFgene]] <- list(TGgenesWithGO=TFgeneTGsWithGO,
                                      goBPcondResult=goHypGcond,
-                                     goBPcondResultSigCat=sigCategories(goHypGcond))
+                                     goBPcondResultSigCat=sigcat(goHypGcond))
       }
     }
   }
@@ -4378,11 +4212,11 @@ setMethod("qpFunctionalCoherence",
         else { # otherwise the functional coherence is estimated as the similarity
                # between the GO graphs associated to the transcription factor GO
                # annotations and the GO over-represented terms in the target gene set
-          gTF <- GOGraph(TFgoAnnot, goBPparentsEnv)
+          gTF <- goGraph(TFgoAnnot, goBPparentsEnv)
           gTF <- removeNode("all", gTF)
-          gTG <- GOGraph(txRegNetGO[[TFgene]]$goBPcondResultSigCat, goBPparentsEnv)
+          gTG <- goGraph(txRegNetGO[[TFgene]]$goBPcondResultSigCat, goBPparentsEnv)
           gTG <- removeNode("all", gTG)
-          sUI <- simUI(gTF, gTG)
+          sUI <- simui(gTF, gTG)
         }
       }
     }
@@ -4403,7 +4237,7 @@ setMethod("qpFunctionalCoherence",
 ##          graph and possibly adding annotation and other information
 ## parameters: measurementsMatrix - matrix of pairwise associations
 ##             refGraph - undirected graph of selected interactions provided either as
-##                        an adjacency matrix, a graphNEL object or a graphAM object
+##                        an adjacency matrix, a graphNEL object, a graphAM object or a graphBAM object
 ##             n - number of pairs to report
 ##             file - file name to dump the pairs information as tab-separated column text
 ##             decreasing - logical; if TRUE then the measurements are ordered
@@ -4429,9 +4263,10 @@ qpTopPairs <- function(measurementsMatrix=NULL, refGraph=NULL, n=6L, file=NULL,
     stop("A proper value for either 'measurementsMatrix' or 'refGraph' should be provided\n")
 
   if (is.null(measurementsMatrix)) {
-    if (class(refGraph) != "matrix" && class(refGraph)!= "graphNEL" &&
-        class(refGraph) != "graphAM" && length(grep("Matrix", class(refGraph))) == 0)
-      stop("refGraph should be provided either as an adjacency matrix, a graphNEL object, or a graphAM object\n")
+    if (class(refGraph) != "matrix" && class(refGraph) != "graphNEL" &&
+        class(refGraph) != "graphAM" && class(refGraph) != "graphBAM" &&
+        length(grep("Matrix", class(refGraph))) == 0)
+      stop("refGraph should be provided either as an adjacency matrix, a graphNEL object, a graphAM object or a graphBAM object\n")
 
     refGraph <- as(refGraph, "matrix")
 
@@ -4471,11 +4306,12 @@ qpTopPairs <- function(measurementsMatrix=NULL, refGraph=NULL, n=6L, file=NULL,
                        ncol=ncol(measurementsMatrix),
                        dimnames=dimnames(measurementsMatrix))
   } else {
-    if (class(refGraph) != "matrix" && class(refGraph)!= "graphNEL" &&
-        class(refGraph) != "graphAM" && length(grep("Matrix", class(refGraph))) == 0)
-      stop("'refGraph' should be provided either as an adjacency matrix, a graphNEL object, or a graphAM object\n")
+    if (class(refGraph) != "matrix" && class(refGraph) != "graphNEL" &&
+        class(refGraph) != "graphAM" && class(refGraph) != "graphBAM" &&
+        length(grep("Matrix", class(refGraph))) == 0)
+      stop("'refGraph' should be provided either as an adjacency matrix, a graphNEL object, a graphAM object or a graphBAM object\n")
 
-    if (class(refGraph) == "graphNEL" || class(refGraph) == "graphAM")
+    if (class(refGraph) == "graphNEL" || class(refGraph) == "graphAM" || class(refGraph) == "graphBAM")
       refGraph <- graph::ugraph(refGraph)
 
     refGraph <- as(refGraph, "matrix")
@@ -4660,7 +4496,7 @@ qpTopPairs <- function(measurementsMatrix=NULL, refGraph=NULL, n=6L, file=NULL,
 qpPlotNetwork <- function(g, vertexSubset=graph::nodes(g), boundary=FALSE,
                           minimumSizeConnComp=2, pairup.i=NULL, pairup.j=NULL,
                           highlight=NULL, annotation=NULL, layout=c("twopi", "dot", "neato", "circo", "fdp")) {
-  require(graph)
+  ## require(graph)
 
   layout <- match.arg(layout)
 
@@ -5261,13 +5097,6 @@ clPrCall <- function(cl, fun, n.adj, ...) {
  return(.Call("qp_clique_number_os", A, return.vertices, verbose))
 }
 
-.qpFastRndGraph <- function(p, d, exclude, verbose) {
-  return(new("lspMatrix", Dim=c(as.integer(p), as.integer(p)),
-             Dimnames=list(1:p, 1:p),
-             x = .Call("qp_fast_rnd_graph", as.integer(p), as.integer(d),
-                       as.integer(exclude), as.integer(verbose))))
-}
-
 qpCov <- function(X, corrected=TRUE) {
   ## return(new("dspMatrix", Dim=c(ncol(X), ncol(X)),
   ##            Dimnames=list(colnames(X), colnames(X)),
@@ -5275,106 +5104,3 @@ qpCov <- function(X, corrected=TRUE) {
   return(.Call("qp_fast_cov_upper_triangular", X, as.integer(corrected)))
 }
 
-## function: qpRndHMGM
-## purpose: builds a random homogeneous mixed graphical Markov model
-##          and for every vertex its boundary <= d
-## parameters: nDiscrete - number of discrete variables
-##             nContinuous - number of continuous variables
-##             d - degree of every vertex
-##             mixedIntStrength - strength of the mixed interactions
-##             rho - marginal correlation of the quadratic interactions
-##             G - input graph, if given
-## return: a list with the HMGM
-
-qpRndHMGM <- function(nDiscrete=1, nContinuous=3, d=2, mixedIntStrength=5, rho=0.5, G=NULL) {
-
-  if (is.null(G)) {
-    Delta <- paste("D", 1:nDiscrete, sep="")
-    Gamma <- paste("C", 1:nContinuous, sep="")
-    V <- c(Delta, Gamma)
-    G <- qpRndGraph(p=length(V), d=d, exclude=seq(along=Delta))
-    rownames(G) <- colnames(G) <- V
-  } else {
-    Delta <- colnames(G)[1:nDiscrete]
-    Gamma <- colnames(G)[(nDiscrete+1):(nDiscrete+nContinuous)]
-  }
-  discreteLevels <- rep(2, nDiscrete)
-  nDiscreteLevels <- prod(discreteLevels)
-
-  ## p(i)
-  pDelta <- rep(1/prod(discreteLevels), times=nDiscreteLevels)
-
-  ## Sigma
-  Sigma <- qpG2Sigma(G[Gamma, Gamma, drop=FALSE], rho=rho)
-  rownames(Sigma) <- colnames(Sigma) <- Gamma
-
-  ## h(i)
-  h <- matrix(0, nrow=nContinuous, ncol=nDiscreteLevels)
-  rownames(h) <- Gamma
-  colnames(h) <- 1:nDiscreteLevels
-  ## edL <- apply(matrix(as.matrix(G[Delta, Gamma]), nrow=length(Delta),
-  ##                    ncol=length(Gamma), dimnames=list(Delta, Gamma)),
-  ##             2, which)
-  edL <- apply(G[Delta, Gamma, drop=FALSE], 2, which)
-  edL <- edL[which(sapply(edL, length) > 0)]
-
-  if (length(edL) > 0) {
-    levelsDelta <- do.call("expand.grid", rep(list(1:2), nDiscrete))
-    colnames(levelsDelta) <- Delta
-
-    h[names(edL), ] <- 
-      t(sapply(edL,
-               function(whichDiscreteVars, levelsDelta) {
-                 if (length(whichDiscreteVars) > 1) {
-                   whichLevelsDiffer <- lapply(lapply(split(levelsDelta[, whichDiscreteVars],
-                                                            levelsDelta[, whichDiscreteVars]),
-                                                      rownames),
-                                               as.integer)
-                 } else {
-                   whichLevelsDiffer <- split(1:nDiscreteLevels, levelsDelta[, whichDiscreteVars])
-                 }
-                 x <- rep(rnorm(length(whichLevelsDiffer), sd=mixedIntStrength),
-                          times=sapply(whichLevelsDiffer, length))
-                 x[sort(unlist(whichLevelsDiffer, use.names=FALSE), index.return=TRUE)$ix]
-               }, levelsDelta))
-  }
-
-  ## mu
-  mu <- Sigma %*% h
-
-  list(Delta=Delta, Gamma=Gamma, G=G, dLevels=discreteLevels, h=h, p_i=pDelta,
-       Sigma=Sigma, mean_i=mu)
-}
-
-
-## function: qpSampleFromHMGM
-## purpose: samples synthetic data from a homogeneous mixed graphical Markov model
-## parameters: n - number of observations
-##             hmgm - model as generated by the function qpRndHMGM()
-## return: the sampled synthetic data
-
-qpSampleFromHMGM <- function(n=10, hmgm=qpRndHMGM()) {
-  require(mvtnorm)
-
-  nDiscreteLevels <- prod(hmgm$dLevels)
-  nDiscrete <- length(hmgm$Delta)
-  nContinuous <- length(hmgm$Gamma)
-  levelsDelta <- do.call("expand.grid", rep(list(1:2), nDiscrete))
-  colnames(levelsDelta) <- hmgm$Delta
-
-  sampleData <- matrix(0, nrow = n, ncol = (nDiscrete + nContinuous),
-                       dimnames = list((1:n), c(hmgm$Delta, hmgm$Gamma)))
-  discreteValues <- sample(1:nDiscreteLevels, size=n, prob=hmgm$p_i, replace=TRUE)
-  whatLevels <- split(1:n, discreteValues)
-
-  continuousObs <- do.call("rbind",
-                           lapply(as.list(names(whatLevels)),
-                                  function(x) rmvnorm(length(whatLevels[[x]]),
-                                                      mean=hmgm$mean_i[, as.integer(x)],
-                                                      sigma=as.matrix(hmgm$Sigma))))
-
-  sampleData[, hmgm$Delta] <- as.matrix(levelsDelta[discreteValues, ])
-  sampleData[unlist(whatLevels, use.names=FALSE), hmgm$Gamma] <- continuousObs
-
-  sampleData
-}

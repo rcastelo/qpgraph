@@ -9,7 +9,7 @@ Obtains a qp-graph from a matrix of non-rejection rates
 }
 \usage{
 qpGraph(nrrMatrix, threshold=NULL, topPairs=NULL, pairup.i=NULL, pairup.j=NULL,
-        return.type=c("adjacency.matrix", "edge.list", "graphNEL", "graphAM"))
+        return.type=c("adjacency.matrix", "edge.list", "graphNEL", "graphAM", "graphBAM"))
 }
 \arguments{
   \item{nrrMatrix}{matrix of non-rejection rates.}
@@ -26,11 +26,12 @@ qpGraph(nrrMatrix, threshold=NULL, topPairs=NULL, pairup.i=NULL, pairup.j=NULL,
        set to TRUE when the two indexing variables are connected in the qp-graph
        (default), or a list of edges in a matrix where each row corresponds to
        one edge and the two columns contain the two vertices defining each edge,
-       or a \code{graphNEL-class} object, or a \code{graphAM-class} object.}
+       or a \code{graphNEL-class} object, or a \code{graphAM-class} object,
+       or a \code{graphBAM-class} object.}
 }
 \details{
-This function requires the \code{graph} package when \code{return.type=graphNEL}
-or \code{return.type=graphAM}.
+This function requires the \code{graph} package when \code{return.type="graphNEL"},
+\code{return.type="graphAM"} or \code{return.type="graphBAM"}.
 }
 \value{
 The resulting qp-graph as either an adjacency matrix, a \code{graphNEL} object or

@@ -11,7 +11,8 @@ graph G. The inverse of the resulting matrix contains zeroes at the missing
 edges of the given undirected graph G.
 }
 \usage{
-qpG2Sigma(g, rho=0, matrix.completion=c("HTF", "IPF"), verbose=FALSE, R.code.only=FALSE)
+qpG2Sigma(g, rho=0, matrix.completion=c("HTF", "IPF"), tol=0.001,
+          verbose=FALSE, R.code.only=FALSE)
 }
 \arguments{
   \item{g}{undirected graph specified either as a \code{graphNEL} object or as
@@ -21,9 +22,11 @@ qpG2Sigma(g, rho=0, matrix.completion=c("HTF", "IPF"), verbose=FALSE, R.code.onl
   \item{matrix.completion}{algorithm to employ in the matrix completion operations
                            employed to construct a positive definite matrix with the
                            zero pattern specified in \code{g}}
+  \item{tol}{tolerance under which the matrix completion algorithm stops.}
   \item{verbose}{show progress on the calculations.}
   \item{R.code.only}{logical; if FALSE then the faster C implementation is used
-       in the internal call to the IPF algorithm (default); if TRUE then only R code is executed.}
+       in the internal call to the HTF, or IPF, algorithm (default); if TRUE then
+       only R code is executed.}
 }
 \details{
 The random covariance matrix is built by first generating a random matrix

@@ -1,21 +1,57 @@
 useDynLib(qpgraph)
 
-import(methods)
-import(Matrix)
-importClassesFrom(Biobase, ExpressionSet)
-importClassesFrom(graph, graphNEL)
-importClassesFrom(GGBase, smlSet)
-importFrom(Biobase, exprs)
-importFrom(Biobase, pData)
-importFrom(GGBase, smList)
-importFrom(graph, nodes)
-importFrom(graph, edges)
-importFrom(graph, edgemode)
-importFrom(AnnotationDbi, mget)
-importFrom(AnnotationDbi, revmap)
-importFrom(annotate, getAnnMap)
+import(graph)
 
-exportClasses("SsdMatrix")
+import(methods)
+
+import(Matrix)
+
+importClassesFrom(Biobase,
+                  ExpressionSet)
+
+importClassesFrom(GGBase,
+                  smlSet)
+
+importMethodsFrom(Biobase,
+                  exprs,
+                  pData,
+                  featureNames,
+                  sampleNames,
+                  varLabels)
+
+importMethodsFrom(GGBase,
+                  smList)
+
+importMethodsFrom(AnnotationDbi,
+                  mget,
+                  revmap)
+
+importFrom(Biobase,
+           subListExtract)
+
+importFrom(annotate,
+           getAnnMap)
+
+importFrom(mvtnorm,
+           rmvnorm)
+
+importFrom(qtl,
+           sim.cross)
+
+importFrom(Rgraphviz,
+           layoutGraph,
+           renderGraph,
+           plot)
+
+exportClasses("SsdMatrix",
+              "UGgmm",
+              "HMgmm",
+              "eQTLcross")
+
+S3method(rmvnorm, UGgmm)
+S3method(rmvnorm, numeric)
+S3method(sim.cross, eQTLcross)
+S3method(sim.cross, matrix)
 
 exportMethods("qpNrr",
               "qpAvgNrr",
@@ -29,8 +65,19 @@ exportMethods("qpNrr",
               "show",
               "determinant",
               "dim",
-              "dimnames"
-             )
+              "dimnames",
+              "summary",
+              "rmvnorm",
+              "rcmvnorm",
+              "sim.cross",
+              "plot",
+              "UGgmm",
+              "HMgmm",
+              "$",
+              "eQTLcross",
+              "alleQTL",
+              "ciseQTL",
+              "transeQTL")
 
 export(qpHist,
        qpGraphDensity,
@@ -58,4 +105,9 @@ export(qpHist,
        qpPlotMap,
        qpCov,
        qpRndHMGM,
-       qpSampleFromHMGM)
+       qpSampleFromHMGM,
+       qpSimulateEqtl,
+       qpSampleFromEqtl,
+       rUGgmm,
+       rHMgmm,
+       reQTLcross)

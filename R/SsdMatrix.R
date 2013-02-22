@@ -1,16 +1,3 @@
-## class SsdMatrix to store matrices with sum of squares of deviations (ssd)
-## these are dspMatrix objects with an additional slot 'n' indicating the
-## sample size from where these ssd matrices were estimated. the main use
-## of this extra slot is to inform the user of the sample size when the
-## function qpCov() was called with use="complete.obs" on data with missing
-## values
-
-setClass("SsdMatrix",
-         representation(ssd = "dspMatrix",
-                        n = "numeric"),
-         prototype(ssd=new("dspMatrix"), n=0),
-         contains = "dspMatrix")
-
 setValidity("SsdMatrix",
             function(object) {
               x <- prod(dim(object@ssd))

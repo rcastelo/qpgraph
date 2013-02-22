@@ -1,3 +1,26 @@
+## qpgraph package - this R code implements functions to learn qp-graphs from
+##                   data, to estimate partial correlations, simulate undirected Gaussian
+##                   graphical models and deal with microarray and genetic data in order
+##                   to build network models of molecular regulation
+##
+## Copyright (C) 2013 R. Castelo and A. Roverato, with contributions from Inma Tur.
+## This program is free software; you can redistribute it and/or
+## modify it under the terms of the GNU General Public License
+## as published by the Free Software Foundation; either version 2
+## of the License, or (at your option) any later version.
+##
+## This program is distributed in the hope that it will be useful,
+## but WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+## GNU General Public License for more details.
+## 
+## You should have received a copy of the GNU General Public License
+## along with this program; if not, you can obtain one via WWW at
+## http://www.gnu.org/copyleft/gpl.html, or by writing to the Free Software
+## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+
+
+
 ## function: qpCItest
 ## purpose: perform a conditional independence test between two variables given
 ##          a conditioning set
@@ -1078,6 +1101,7 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
     i <- j
     j <- tmp
   }
+  cat ("\n", i, "ci", j,"\n")
 
   I <- intersect(I, c(i, Q))
   Y <- intersect(Y, c(i, j, Q))
@@ -1096,21 +1120,29 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
       ssd <- ssdMat[mapX2ssdMat[Y], mapX2ssdMat[Y], drop=FALSE]
     else
       ssd <- qpgraph:::.ssdStatsCompleteObs(X, I, Y, missingMask)
+    cat("ssd:\n")
+    print(as.matrix(ssd))
 
     ## ssd_i = ssd_Gamma when i is discrete or ssd_{Gamma\i} when i is continuous
     if (!missingData && !is.null(ssdMat) && length(setdiff(I, i)) == 0)
       ssd_i <- ssdMat[mapX2ssdMat[setdiff(Y, i)], mapX2ssdMat[setdiff(Y, i)], drop=FALSE]
     else
       ssd_i <- qpgraph:::.ssdStatsCompleteObs(X, setdiff(I, i), setdiff(Y, i), missingMask)
+    cat("ssd_i:\n")
+    print(as.matrix(ssd_i))
 
     if (length(setdiff(Y, j)) > 0) {
       ssd_j <- qpgraph:::.ssdStatsCompleteObs(X, I, setdiff(Y, j), missingMask)
+      cat("ssd_j:\n")
+      print(ssd_j)
       if (length(setdiff(Y, c(i,j))) > 0) {
         if (!missingData && !is.null(ssdMat) && length(setdiff(I, i)) == 0)
           ssd_ij <- ssdMat[mapX2ssdMat[setdiff(Y, c(i, j))],
                            mapX2ssdMat[setdiff(Y, c(i, j))], drop=FALSE]
         else
           ssd_ij <- qpgraph:::.ssdStatsCompleteObs(X, setdiff(I, i), setdiff(Y, c(i, j)), missingMask)
+        cat("ssd_j:\n")
+        print(ssd_ij)
       }
     }
   } else { ## missing data and should use the EM algorithm
@@ -1574,7 +1606,8 @@ setMethod("qpAllCItests", signature(X="matrix"),
 
   ## intersection variables against themselves (avoiding pairing of the same)
   if (elapsedTime == 0 || k < nAdj2estimateTime) {
-    for (i in 1:(l.int-1)) {
+    for (i in seq(along=l.int[-1])) {
+    ## for (i in 1:(l.int-1)) { ## CHANGE THIS IN THE OTHER FUNCTIONS DOING THIS !!!!!!
       i2 <- pairup.ij.int[i]
 
       for (j in (i+1):l.int) {

@@ -81,6 +81,7 @@ networks from microarray data with qp-graphs. \emph{J. Comp. Biol.},
   \code{\link{qpGraph}}
 }
 \examples{
+library(GOstats)
 library(org.EcK12.eg.db)
 
 # load RegulonDB data from this package

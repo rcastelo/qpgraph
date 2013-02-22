@@ -1,0 +1,8 @@
+setGeneric("UGgmm", function(g, ...) standardGeneric("UGgmm"))
+setGeneric("HMgmm", function(g, ...) standardGeneric("HMgmm"))
+setGeneric("eQTLcross", function(map, genes, model, ...) standardGeneric("eQTLcross"))
+setGeneric("alleQTL", function(x, ...) standardGeneric("alleQTL"))
+setGeneric("ciseQTL", function(x, cisr, ...) standardGeneric("ciseQTL"))
+setGeneric("transeQTL", function(x, cisr, ...) standardGeneric("transeQTL"))
+setGeneric("rcmvnorm", function(n, model, ...) standardGeneric("rcmvnorm"))
+## setGeneric("sim.cross", function(map, model, ...) standardGeneric("sim.cross"))

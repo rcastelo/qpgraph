@@ -43,7 +43,7 @@ Gaussian graphical model search from microarray data with p larger than n,
   \code{\link{qpSampleFromHMGM}}
 }
 \examples{
-qpRndHMGM()
+## qpRndHMGM()
 }
 \keyword{models}
 \keyword{multivariate}

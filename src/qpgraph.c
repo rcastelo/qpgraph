@@ -2041,9 +2041,6 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
       work_with_margin = TRUE;
   }
 
-  if (work_with_margin)
-    ijQ = Calloc(q+2, int);
-
   if (QR != R_NilValue) {
     q = length(QR);
 
@@ -2056,14 +2053,18 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
     if (q > n-3)
       error("q=%d > n-3=%d", q, n-3);
 
+    if (work_with_margin)
+      ijQ = Calloc(q+2, int);
+
     Q = Calloc(q, int);
     for (i=0; i < q; i++)
       if (work_with_margin) {
         ijQ[i+2] = INTEGER(QR)[i] - 1;
-        Q[i] = 2+q;
+        Q[i] = n_I == 0 ? 2+i : INTEGER(QR)[i] - 1;
       } else
         Q[i] = INTEGER(QR)[i] - 1;
-  }
+  } else
+    ijQ = Calloc(2, int);
 
   n_upper_tri = ( (q+2) * ((q+2)+1) ) / 2; /* this upper triangle includes the diagonal */
 
@@ -3619,7 +3620,7 @@ lr_complete_obs(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
   }
 
 /*
-  Rprintf("ssd:\n");
+  Rprintf("ssd (n_Y=%d):\n", n_Y);
   int m = 0;
   for (k=0; k < n_Y; k++) {
     int l;
@@ -3628,8 +3629,8 @@ lr_complete_obs(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
     }
     Rprintf("\n");
   }
+  Rprintf("n=%d\n", *n_co);
 */
-
   lr = x = symmatlogdet(ssd_mat, n_Y, &sign);
   if (x < -DBL_DIG)
     flag_zero = TRUE;
@@ -3686,7 +3687,7 @@ lr_complete_obs(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
   }
 
 /*
-  Rprintf("ssd_i:\n");
+  Rprintf("ssd_i(n_Y_i=%d):\n", n_Y_i);
   m = 0;
   for (k=0; k < n_Y_i; k++) {
     int l;
@@ -4371,7 +4372,9 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
     i = j;
     j = tmp;
   }
-
+/*
+  Rprintf("\n%d ci %d\n", i+1, j+1);
+*/
   /* I <- intersect(I, c(i, Q)) */
 
   k = 0;
@@ -4803,7 +4806,7 @@ qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* X
       Free(tmp);
     }
 
-    /*
+/*
     Rprintf("ssd_j:\n");
     m = 0;
     for (k=0; k < n_Y_j; k++) {
@@ -4813,7 +4816,7 @@ qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* X
       }
       Rprintf("\n");
     }
-    */
+*/
 
     x = symmatlogdet(ssd_mat, n_Y_j, &sign);
     lr -= x;
@@ -4853,7 +4856,7 @@ qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* X
         Free(tmp);
       }
 
-      /*
+/*
       Rprintf("ssd_ij:\n");
       m = 0;
       for (k=0; k < n_Y_ij; k++) {
@@ -4863,7 +4866,7 @@ qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* X
         }
         Rprintf("\n");
       }
-      */
+*/
 
       x = symmatlogdet(ssd_mat, n_Y_ij, &sign);
       lr += x;
@@ -4871,10 +4874,10 @@ qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* X
         flag_zero = TRUE;
       final_sign *= sign;
 
-      /*
+/*
       Rprintf("log(det(ssd_A))=%.5f\n", symmatlogdet(ssd_mat, n_Y_ij, &sign));
       Rprintf("sign(log(det(ssd_A)))=%d\n", sign);
-      */
+*/
     }
 
   }
@@ -7650,7 +7653,7 @@ ssd(double* X, int p, int n, int* Y, int n_Y, int* idx_obs, int n_idx_obs,
   n1 = n_idx_obs - n_mis - 1;
 
   if (n1 < 1)
-    error("no complete observations available (n=%d, n_idx_obs=%d, n_mis=%d)\n", n1, n, n_idx_obs, n_mis);
+    error("no complete observations available (n1=%d, n_idx_obs=%d, n_mis=%d)\n", n1, n_idx_obs, n_mis);
 
   l = 0;
   for (i=0; i < n_Y; i++)
