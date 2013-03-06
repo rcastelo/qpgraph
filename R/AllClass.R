@@ -1,3 +1,68 @@
+## virtual class graphParam to hold parameters to simulate graphs
+setClass("graphParam",
+         representation(p="integer",
+                        labels="character"),
+         prototype(p=5L,
+                   labels=as.character(1:5)))
+
+## virtual class markedGraphParam to hold parameters to simulate marked graphs
+## where a marked graph is a graph with marked vertices
+setClass("markedGraphParam",
+         representation(pI="integer",
+                        pY="integer",
+                        Ilabels="character",
+                        Ylabels="character"),
+         prototype(pI=1L,
+                   pY=4L,
+                   Ilabels="I1",
+                   Ylabels=paste0("Y", 2:5)))
+
+## class erGraphParam to hold parameters to simulate Erdos-Renyi graphs
+setClass("erGraphParam",
+         contains="graphParam",
+         representation(m="integer",
+                        prob="numeric"),
+         prototype(p=5L,
+                   m=5L,
+                   prob=NA_real_,
+                   labels=as.character(1:5)))
+
+## class dRegularGraphParam to hold parameters to simulate d-regular graphs
+setClass("dRegularGraphParam",
+         contains="graphParam",
+         representation(d="integer",
+                        exclude="integer"),
+         prototype(p=5L,
+                   d=2L,
+                   exclude=as.integer(NULL),
+                   labels=as.character(1:5)))
+
+## class erMarkedGraphParam to hold parameters to simulate Erdos-Renyi marked graphs
+setClass("erMarkedGraphParam",
+         contains=c("markedGraphParam", "erGraphParam"),
+         representation(),
+         prototype(p=5L,
+                   pI=1L,
+                   pY=4L,
+                   Ilabels="I1",
+                   Ylabels=paste0("Y", 2:5),
+                   labels=c("I1", paste0("Y", 2:5)),
+                   m=5L,
+                   prob=NA_real_))
+
+## class dRegularMarkedGraphParam to hold parameters to simulate d-regular marked graphs
+setClass("dRegularMarkedGraphParam",
+         contains=c("markedGraphParam", "dRegularGraphParam"),
+         representation(),
+         prototype(p=5L,
+                   pI=1L,
+                   pY=4L,
+                   Ilabels="I1",
+                   Ylabels=paste0("Y", 2:5),
+                   labels=c("I1", paste0("Y", 2:5)),
+                   d=2L,
+                   exclude=as.integer(NULL)))
+
 ## class UGgmm to simulate an undirected Gaussian graphical Markov model
 setClass("UGgmm",
          representation(p="integer",
@@ -58,12 +123,22 @@ setClass("HMgmmSummary",
                         a="numeric"))
 
 
+setOldClass(c("bc", "cross"))
+setOldClass("map")
+
+## class eQTLcrossParam to hold parameters to simulate eQTLcross objects
+setClass("eQTLcrossParam",
+         representation(map="map",
+                        type="character",
+                        cis="numeric",
+                        trans="integer",
+                        cisr="numeric",
+                        d2m="numeric",
+                        networkParam="graphParam"))
+
 ## class eQTLcross to hold an experimental cross involving genotype markers
 ## and gene expression profiles with some underlying expression
 ## quantitative trait loci (eQTL) and some underlying regulatory network between genes
-
-setOldClass(c("bc", "cross"))
-setOldClass("map")
 setClass("eQTLcross",
          representation(map="map",
                         genes="matrix",

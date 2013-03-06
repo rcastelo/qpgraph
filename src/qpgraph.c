@@ -3426,7 +3426,7 @@ qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
   int     n_I = length(IR);
   int     n_Y = length(YR);
   int     q = length(QR);
-  int     i,j,k, n_co;
+  int     i,j,k,l, n_co;
   int     exactTest = INTEGER(exactTestR)[0];
   int*    I;
   int*    Y;
@@ -4375,6 +4375,7 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
 /*
   Rprintf("\n%d ci %d\n", i+1, j+1);
 */
+
   /* I <- intersect(I, c(i, Q)) */
 
   k = 0;

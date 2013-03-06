@@ -5041,8 +5041,11 @@ clPrCall <- function(cl, fun, n.adj, ...) {
 .qpFastEdgeNrrHMGM <- function(X, I, nLevels, Y, ssd, mapX2ssd, i, j, q, restrict.Q,
                                fix.Q, nTests, alpha, exact.test) {
   ssdx <- NULL
-  if (!is.null(ssd))
-    ssdx <- ssd@x
+  if (!is.null(ssd)) {
+    if (class(ssd) != "SsdMatrix")
+      stop("qpgraph:::.qpFastEdgeNrrHMGM: the ssd argument should be an object of class SsdMatrix\n")
+    ssdx <- ssd@ssd@x
+  }
 
   return(.Call("qp_fast_edge_nrr_hmgm", X, as.integer(I), as.integer(nLevels),
                                         as.integer(Y), ssdx, as.integer(mapX2ssd),
@@ -5056,8 +5059,11 @@ clPrCall <- function(cl, fun, n.adj, ...) {
                                   nTests, alpha, exact.test) {
 
   ssdx <- NULL
-  if (!is.null(ssd))
-    ssdx <- ssd@x
+  if (!is.null(ssd)) {
+    if (class(ssd) != "SsdMatrix")
+      stop("qpgraph:::.qpFastEdgeNrrHMGM: the ssd argument should be an object of class SsdMatrix\n")
+    ssdx <- ssd@ssd@x
+  }
 
   return(.Call("qp_fast_edge_nrr_hmgm_sml", X, as.integer(cumsum_sByChr), as.integer(s),
                                             as.integer(gLevels), XEP, as.integer(I),

@@ -123,6 +123,97 @@ qpRndGraph <- function(p=6, d=2, labels=1:p, exclude=NULL, verbose=FALSE,
 }
 
 
+qpRndRegularGraph <- function(p=6, d=2, labels=1:p, exclude=NULL, verbose=FALSE,
+                              return.type=c("adjacency.matrix", "edge.list", "graphBAM", "graphNEL"), R.code.only=FALSE) {
+  return.type <- match.arg(return.type)
+
+  if ((p*d) %% 2 != 0)
+    stop("The number of vertices p times the degree d of each vertex, i.e., the product p x d, should be even in order to sample a d-regular graph on p vertices uniformly at random\n")
+
+  if (d > sqrt(p))
+    warning("Steger and Wormald (1999, see help page of this function) believe that when d >> sqrt(p) the resulting d-regular graph on p vertices may no longer be sampled from a approximately uniform probability distribution.\n")
+
+  if (!is.null(exclude)) {
+    if (!is.integer(exclude) || any(exclude < 1))
+      stop("The argument exclude must be a vector of positive integers\n")
+    if (any(is.na(match(exclude, 1:p))))
+      stop("The argument exclude contains vertices outside range 1:p\n")
+    if (any(duplicated(exclude)))
+      stop("The argument exclude contains duplicated vertices\n")
+  }
+
+  G <- matrix(FALSE, nrow=p, ncol=p)
+
+  if (!R.code.only) {
+    G <- qpgraph:::.qpFastRndGraph(p, d, exclude, verbose)
+  } else {
+
+    if (verbose)
+      pb <- txtProgressBar(style=3, min=0, max=p)
+
+    Gex <- matrix(FALSE, nrow=p, ncol=p)
+    if (!is.null(exclude)) {
+      Gex[exclude, exclude] <- TRUE
+    }
+  
+    while (any(rowSums(G) != d)) {
+      G <- matrix(FALSE, nrow=p, ncol=p, dimnames=list(1:p, 1:p))
+      S <- TRUE
+    
+      while (!all(is.na(S))) {
+        dG <- rowSums(G) ## calculate degree
+        dG[dG > d-1] <- NA ## select pairs where both vertices have
+                           ## degree at most d-1
+        S <- (d - dG) %o% (d - dG)
+        S[G] <- NA ## exclude adjacent pairs of vertices
+
+        if (!all(is.na(S))) { ## if there are missing edges to add
+          S <- S / sum(S[upper.tri(S) & !Gex], na.rm=TRUE)
+          ridx <- row(S)[upper.tri(S) & !is.na(S) & !Gex]
+          cidx <- col(S)[upper.tri(S) & !is.na(S) & !Gex]
+          S <- S[upper.tri(S) & !is.na(S) & !Gex]
+          cdf <- sort(S, decreasing=TRUE, index.return=TRUE) ## build CDF
+          r <- runif(1, min=0, max=1)
+          i <- cdf$ix[sum(r > cumsum(cdf$x))+1] ## sample one edge from the CDF
+          G[ridx[i], cidx[i]] <- G[cidx[i], ridx[i]] <- TRUE ## add it
+        }
+  
+        if (verbose)
+          setTxtProgressBar(pb, sum(rowSums(G) == d))
+      }
+    }
+
+    if (verbose)
+      close(pb)
+  }
+
+  if (return.type == "edge.list") {
+    m <- cbind(labels[row(G)[upper.tri(G) & G]], labels[col(G)[upper.tri(G) & G]])
+    colnames(m) <- c("i", "j")
+    return (m)
+  } else if (return.type == "graphBAM") {
+    df <- data.frame(from=labels[row(G)[upper.tri(G) & G]],
+                     to=labels[col(G)[upper.tri(G) & G]],
+                     weight = rep(1, sum(G)/2))
+    Gbam <- graphBAM(df, edgemode = "undirected", nodes=labels)
+    return (Gbam)
+  } else if (return.type == "graphNEL") {
+    df <- data.frame(from=labels[row(G)[upper.tri(G) & G]],
+                     to=labels[col(G)[upper.tri(G) & G]],
+                     weight = rep(1, sum(G)/2))
+    Gnel <- as(graphBAM(df, edgemode = "undirected", nodes=labels), "graphNEL")
+    return (Gnel)
+  }
+
+
+  ## return.type == "adjacency.matrix" using a memory-efficient lspMatrix-classs object
+  G <- as(G, "lspMatrix")
+  dimnames(G) <- list(1:p, 1:p)
+
+  return(G)
+}
+
+
 
 .qpFastRndGraph <- function(p, d, exclude, verbose) {
   ## return(new("lspMatrix", Dim=c(as.integer(p), as.integer(p)),
@@ -251,24 +342,7 @@ qpG2Sigma <- function (g, rho=0, matrix.completion=c("HTF", "IPF"), tol=0.001,
   return(Sigma)
 }
 
-
-
-## function: rUGgmm
-## purpose: random generation of an undirected Gaussian graphical Markov model (UGGMM)
-## parameters: n - number of UGGMMs to simulate, by default only one
-##             p - number of r.v.'s
-##             d - degree of every vertex in the undirected graph
-##             rho - mean marginal correlations for the present edges
-##             g - given graph, if only the covariance matrix needs to be simulated, by
-##                 default is NULL which implies that a random graph is also simulated
-##             tol - maximum tolerance used by the matrix completion algorithm when
-##                   simulating a random covariance matrix
-##             verbose - show progress on the calculations, specially useful for
-##                       high dimensional UGGMs with p > 500
-## return: an UGgmm object containing the simulated UGGMM if n=1 and a list of UGgmm objects
-##         with the simulated UGGMMs if n > 1
-
-rUGgmm <- function(n=1L, p=5L, d=2L, labels=sprintf("%02d", 1:p), rho=0.5, g=NULL, tol=0.001, verbose=FALSE) {
+oldrUGgmm <- function(n=1L, p=5L, d=2L, labels=sprintf("%d", 1:p), rho=0.5, g=NULL, tol=0.001, verbose=FALSE) {
   p <- as.integer(p)
   d <- as.integer(d)
 
@@ -318,8 +392,8 @@ rUGgmm <- function(n=1L, p=5L, d=2L, labels=sprintf("%02d", 1:p), rho=0.5, g=NUL
 ## return: an HMgmm object containing the simulated HMGMM if n=1 and a list of HMgmm objects
 ##         with the simulated HMGMMs if n > 1
 
-rHMgmm <- function(n=1L, pI=1L, pY=4L, d=2L, labels=c(sprintf("I%02d", 1:pI), sprintf("Y%02d", 1:pY)),
-                   rho=0.5, a=1, dLevels=2L, g=NULL, tol=0.001, verbose=FALSE) {
+oldrHMgmm <- function(n=1L, pI=1L, pY=4L, d=2L, labels=c(sprintf("I%d", 1:pI), sprintf("Y%d", 1:pY)),
+                      rho=0.5, a=1, dLevels=2L, g=NULL, tol=0.001, verbose=FALSE) {
   if (pI < 1)
     stop("pI should be equal or larger than 1.")
   if (pY < 1)
@@ -428,210 +502,6 @@ rHMgmm <- function(n=1L, pI=1L, pY=4L, d=2L, labels=c(sprintf("I%02d", 1:pI), sp
   sim
 } 
 
-## genes: # of genes or vector of cM positions, each element corresponding to distinct gene
-## cis: fraction of genes with eQTL in cis
-## trans: vector of integer numbers, each element corresponding to a trans-eQTL and its value
-##        is the number of genes linked to this eQTL
-## cisr: cis radius, maximum distance in cM that defines a QTL in cis wrt to a gene
-## d2m: distance of every gene or eQTL to a marker, default 0 implies eQTLs and genes are located at markers,
-##      and therefore, the maximum number of eQTL is bounded by the number of markers
-reQTLcross <- function(n=1L, map, type=c("bc"), genes=100, cis=1, trans=c(), cisr=1, d2m=0,
-                       d=2, g=NULL, rho=0.5, a=1, tol=0.001, verbose=FALSE) {
-  type <- match.arg(type)
-
-  if (class(n) != "numeric" && class(n) != "integer")
-    stop("argument 'n' should contain the number of eQTLcross models to simulate (default=1).")
-
-  if (cis < 0 || cis > 1)
-    stop("argument 'cis' should be a real number between 0 and 1.")
-
-  nm <- qtl::totmar(map)                 ## total number of markers
-  nmbychr <- qtl::nmar(map)              ## number of markers per chromosome
-  csnmbychr <- cumsum(nmbychr)           ## cumulative sum of the number of markers per chromosome
-  mcmloc <- unlist(map, use.names=FALSE) ## location of markers in cM
-  cmlenbychr <- sapply(map, max)         ## chromosome length in cM
-  cscmlenbychr <- cumsum(cmlenbychr)     ## cumulative sum of chromosome length in cM
-
-  pY <- length(genes)
-  if (length(genes) == 1)
-    pY <- genes
-
-  if (pY > nm && d2m == 0)
-    stop("more genes than markers. Either, increase marker density in the genetic map, increase d2m or decrease the number of genes.")
-
-  Y <- sprintf("g%d", 1:pY)
-
-  chr.genes <- NA
-  ## simulate gene locations in cM
-  if (length(genes) == 1) {
-    nocis <- FALSE
-    i <- 0
-    ## enforce genes being located at least 2 x cisr cM apart
-    while (!nocis && i < 10) {
-      tmpg <- sample(1:nm, size=genes, replace=FALSE)
-      chr.genes <- sapply(tmpg, function(i, cs) sum(cs < i)+1, csnmbychr)
-      tmpg <- mcmloc[tmpg] + d2m
-      nocis <- sapply(split(tmpg, chr.genes), function(gxc, cisr) {
-                                             nocis <- TRUE
-                                             if (length(gxc) > 1)
-                                               nocis <- all(combn(gxc, 2, function(x) abs(x[1]-x[2])) > 2*cisr)
-                                             nocis
-                                           }, cisr)
-      nocis <- all(nocis)
-      if (nocis)
-        genes <- tmpg
-
-      i <- i + 1
-    }
-
-    if (!nocis)
-      stop("impossible to simulate genes. Either decrease cisr, decrease the number of genes, or increase marker density in the genetic map.")
-  }
-
-  ## build gene annotation matrix
-  n.genes <- length(genes)
-  genes <- cbind(chr.genes, genes)
-  genes <- genes[order(genes[, 1], genes[, 2]), ]
-  colnames(genes) <- c("chr", "location")
-  rownames(genes) <- Y
-
-  n.cisQTL <- floor(n.genes * cis)       ## number of cisQTL
-  n.transQTL <- length(trans)            ## number of transQTL
-
-  if (n.cisQTL+n.transQTL > nm && d2m == 0)
-    stop("more eQTL than markers. Either, increase marker density in the genetic map, increase d2m or decrease the number of eQTL.")
-
-  if ((class(a) == "numeric" || class(a) == "integer") && length(a) > 1 && length(a) != n.cisQTL + n.transQTL)
-    stop(sprintf("argument 'a' contains %d values of eQTL additive effects while arguments 'genes', 'cis' and 'trans' determine a total number of %d eQTL.", length(a), n.cisQTL+n.transQTL))
-
-  if (class(a) == "function" && length(formals(a)) != 1)
-    stop("when argument 'a' is a function it should contain one argument taking the number of eQTL.")
-
-  ## function to search markers (m) in cis to a gene (g) within a radius (r)
-  cism <- function(markers, gene, radius) which(markers >= gene-radius & markers <= gene+radius)
-
-  pI <- n.cisQTL + n.transQTL
-  I <- sprintf("QTL%d", 1:pI)
-
-  dLevels <- switch(type, bc=2, NA)
-
-  sim <- list()
-  for (i in 1:n) {
-    ## simulate cis-QTL associations
-    cisQTL <- matrix(NA, nrow=0, ncol=3)
-    cisQTLgenes <- sample(1:n.genes, size=n.cisQTL, replace=FALSE) ## which genes should this cis-markers associated to?
-    cisQTLgenes <- split(cisQTLgenes, names(map)[genes[cisQTLgenes, "chr"]])
-    for (chr in names(cisQTLgenes)) {
-      loc.genes <- genes[cisQTLgenes[[chr]], "location"]
-      markers <- map[[chr]] + d2m
-      allcm <- sapply(loc.genes, function(gene, markers, cisr) cism(markers, gene, cisr),
-                      markers, cisr, simplify=FALSE) ## all cis-markers
-      cm <- c(1, 1)
-      j <- 1
-      while (any(duplicated(cm)) && j < 10) {
-        cm <- sapply(allcm, function(x) { if (length(x) > 1) x <- sample(x, size=1) ; x}) ## select one cis-marker
-        j <- j + 1
-      }
-      if (any(duplicated(cm)))
-        stop("impossible to simulate cis-eQTL. Either decrease cisr or increase marker density in the genetic map.")
-
-      cisQTL <- rbind(cisQTL, cbind(rep(match(chr, names(map)), times=length(cm)), markers[cm], cisQTLgenes[[chr]]))
-    }
-
-    ## simulate trans-QTL associations
-    transQTL <- matrix(NA, nrow=0, ncol=3)
-    transgenes <- setdiff(1:n.genes, cisQTL[, 3])
-    if (sum(trans) > length(transgenes))
-      stop("not enough genes to simulate trans-QTL associations. Either decrease the number of trans-QTL associations or decrease 'cis'.")
-
-    for (ng in trans) {
-      tmpmap <- map
-      transQTLgenes <- sample(transgenes, size=ng, replace=FALSE)
-      transgenes <- setdiff(transgenes, transQTLgenes) ## removed sampled trans-genes
-      transQTLgenes <- split(transQTLgenes, names(tmpmap)[genes[transQTLgenes, "chr"]])
-      for (chr in names(transQTLgenes)) {
-        loc.genes <- genes[transQTLgenes[[chr]], "location"]
-        allcm <- sapply(loc.genes, function(g, m, cisr) cism(m, g, cisr), tmpmap[[chr]]+d2m, cisr) ## all cis-markers
-        tmpmap[[chr]] <- tmpmap[[chr]][-allcm] ## remove all cis-markers
-      }
-      tmpmcmloc <- unlist(tmpmap, use.names=FALSE) + d2m
-      tmpnmbychr <- qtl::nmar(tmpmap)
-      tmpcsnmbychr <- cumsum(tmpnmbychr)
-      tm <- sample(sum(tmpnmbychr), size=1, replace=FALSE)
-      chr.tm <- sum(tmpcsnmbychr < tm) + 1
-      transQTL <- rbind(transQTL, cbind(rep(chr.tm, times=ng), rep(tmpmcmloc[tm], times=ng),
-                                        unlist(transQTLgenes, use.names=FALSE)))
-    }
-    
-    ## simulate gene network
-    sim.g <- g
-    if (is.null(sim.g))
-      sim.g <- qpRndGraph(p=pY, d=d, labels=Y, return.type="graphBAM", verbose=verbose)
-    edges <- graph::edges(sim.g)
-    edges <- cbind(rep(names(edges), times=sapply(edges, length)),
-                   unlist(edges, use.names=FALSE))
-    edges <- unique(t(apply(edges, 1, sort)))
-    edges <- cbind(match(edges[, 1], Y), match(edges[, 2], Y))
-
-    ## simulate conditional covariance matrix
-    sim.sigma <- qpG2Sigma(g=sim.g, rho=rho, tol=tol, verbose=verbose)
-
-    ## simulate additive effect in QTL
-    qtl <- rbind(cisQTL, transQTL)
-
-    if ((class(a) == "numeric" || class(a) == "integer") && length(a) == 1)
-      a <- rep(a, times=nrow(qtl))
-    else if (class(a) == "function")
-      a <- a(nrow(qtl))
-
-    qtl <- cbind(qtl, a)
-
-    sim[[i]] <- eQTLcross(map, genes=genes, model=qtl, type=type, nGenes=pY,
-                          geneNetwork=edges, rho=rho, sigma=sim.sigma)
-  }
-
-  if (n == 1)
-    sim <- sim[[1]]
-
-  sim
-}
-
-## overload sim.cross() from the qtl package to enable simulateing eQTL data from
-## an experimental cross
-
-sim.cross <- function(map, model, ...) UseMethod("sim.cross", model)
-sim.cross.default <- function(map, model, ...) qtl::sim.cross(map, model, ...)
-sim.cross.matrix <- function(map, model, ...) qtl::sim.cross(map, model, ...)
-setMethod("sim.cross", c(map="map", model="matrix"), sim.cross.matrix)
-
-sim.cross.eQTLcross <- function(map, model, n.ind=100, ...) {
-            crossModel <- unique(alleQTL(model)[, c("chrom", "location")])
-            crossModel <- cbind(crossModel, dummya=rep(1, nrow(crossModel)))
-            cross <- qtl::sim.cross(map=map, model=crossModel, type=model$type, n.ind=n.ind, ...)
-
-            ## we use the same data matrix X to store the mean values employed
-            ## during the simulation process.
-            I <- model@model$I
-            Y <- model@model$Y
-            stopifnot(identical(I, colnames(cross$qtlgeno)))
-            cross$pheno <- qpgraph:::calculateCondMean(model@model, cross$qtlgeno) 
-            rownames(cross$pheno) <- 1:n.ind
-            colnames(cross$pheno) <- Y
-            cross$pheno <- as.data.frame(cross$pheno)
-
-            YxI <- Y[which(sapply(graph::edges(model@model$g)[Y], function(xYi, vt) sum(vt[xYi] == "discrete"), model@model@vtype) > 0)]
-            xtab <- tapply(1:n.ind, apply(cross$pheno[, YxI, drop=FALSE], 1, function(i) paste(i, collapse="")))
-            xtab <- split(as.data.frame(cross$qtlgeno[, I]), xtab)
-            for (i in 1:length(xtab)) {
-              li <- xtab[[i]]
-              which_n <- as.numeric(rownames(li))
-              cross$pheno[which_n, Y] <- mvtnorm::rmvnorm(length(which_n), mean=as.numeric(cross$pheno[which_n[1], Y]),
-                                                          sigma=as.matrix(model@model$sigma))
-            }
-
-            cross
-          }
-setMethod("sim.cross", signature(map="map", model="eQTLcross"), sim.cross.eQTLcross)
 
 ## function: qpRndHMGM
 ## purpose: builds a random homogeneous mixed graphical Markov model

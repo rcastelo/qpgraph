@@ -1,0 +1,654 @@
+setValidity("eQTLcross",
+            function(object) {
+              valid <- TRUE
+
+              if (object@type == "bc" && object@model@dLevels != 2)
+                valid <- "when 'type'=\"bc\" the 'HMgmm' object should have 2 levels for the discrete variables."
+
+              valid
+            })
+
+## constructor methods
+setMethod("eQTLcross", signature(map="map", genes="missing", model="missing"),
+          function(map, genes, model, type="bc",
+                   nGenes=100, geneNetwork=matrix(NA, nrow=0, ncol=2),
+                   rho=0.5, sigma=diag(nGenes)) {
+            genes <- matrix(NA, nrow=0, ncol=2)
+            model <- matrix(NA, nrow=0, ncol=4)
+            eQTLcross(map, genes, model, type, nGenes, geneNetwork, rho, sigma)
+          })
+
+## model is a matrix where each row corresponds to a different eQTL, and
+## gives the chromosome number, cM position, gene and additive effect of the eQTL
+setMethod("eQTLcross", signature(map="map", genes="missing", model="matrix"),
+          function(map, genes, model, type="bc",
+                   nGenes=100, geneNetwork=matrix(NA, nrow=0, ncol=2),
+                   rho=0.5, sigma=diag(nGenes)) {
+            genes <- matrix(NA, nrow=0, ncol=2)
+            eQTLcross(map, genes, model, type, nGenes, geneNetwork, rho, sigma)
+          })
+
+setMethod("eQTLcross", signature(map="map", genes="matrix", model="matrix"),
+          function(map, genes, model, type="bc",
+                   nGenes=100, geneNetwork=matrix(NA, nrow=0, ncol=2),
+                   rho=0.5, sigma=diag(nGenes)) {
+
+            if (nGenes < 1)
+              stop("nGenes < 1.")
+
+            dVertexLabels <- c()
+            cVertexLabels <- paste0("g", 1:nGenes)
+            edges <- as.data.frame(matrix(NA, nrow=0, ncol=3,
+                                          dimnames=list(NULL, c("from", "to", "weight"))),
+                                   stringsAsFactors=FALSE)
+            if (nrow(model) > 0) {
+              model <- model[order(model[, 1], model[, 2]), ]             ## sort eQTL by chromosome and location
+              rownames(model) <- NULL                                     ## remove rownames, if any
+              eQTLtag <- rle(apply(model[, 1:2], 1, paste, collapse="_")) ## tag every different eQTL location
+              nQTL <- length(eQTLtag$values)                              ## count the number of different QTL
+              model <- cbind(model, rep(1:nQTL, times=eQTLtag$lengths))   ## add QTL number to each different QTL
+              dVertexLabels <- paste0("QTL", 1:nQTL)                      ## assign QTL names to each different QTL
+              edges <- data.frame(from=paste0("QTL", model[, 5]),
+                                  to=paste0("g", model[, 3]),
+                                  weight=1, stringsAsFactors=FALSE)
+            }
+            
+            if (nrow(geneNetwork) > 0)
+              edges <- rbind(edges,
+                             data.frame(from=paste0("g", geneNetwork[, 1]),
+                                        to=paste0("g", geneNetwork[, 2]),
+                                        weight=rep(1, nrow(geneNetwork)),
+                                        stringsAsFactors=FALSE))
+
+            g <- graph::graphBAM(edges, nodes=c(dVertexLabels, cVertexLabels))
+            graph::nodeDataDefaults(g, "type") <- "continuous"
+            graph::nodeDataDefaults(g, "chr") <- NA_integer_
+            graph::nodeDataDefaults(g, "loc") <- NA_real_
+            graph::edgeDataDefaults(g, "a") <- NA_real_
+
+            if (nrow(model) > 0) {
+              qtlchr <- unique(model[, c(1, 5)])
+              qtlloc <- unique(model[, c(2, 5)])
+              qtlchr <- do.call("names<-", list(qtlchr[, 1], paste0("QTL", qtlchr[, 2])))
+              qtlloc <- do.call("names<-", list(qtlloc[, 1], paste0("QTL", qtlloc[, 2])))
+              graph::nodeData(g, dVertexLabels, "type") <- "discrete"
+              graph::nodeData(g, dVertexLabels, "chr") <- qtlchr[dVertexLabels]
+              graph::nodeData(g, dVertexLabels, "loc") <- qtlloc[dVertexLabels]
+              if (nrow(model) > 0) {
+                mixedEdgeMask <- !is.na(match(edges$from, dVertexLabels))
+                graph::edgeData(g, from=edges[mixedEdgeMask, ]$from, to=edges[mixedEdgeMask, ]$to, "a") <- model[, 4]
+                ## 21/2/2013 because of the attribute bug in graphBAM by now we store additive effects in the weight attribute
+                ## graph::edgeData(g, from=edges[mixedEdgeMask, ]$from, to=edges[mixedEdgeMask, ]$to, "weight") <- model[, 4]
+              }
+            }
+
+            eQTLcross(map=map, genes=genes, model=g, type=type, rho=rho, sigma=sigma)
+          })
+
+setMethod("eQTLcross", signature(map="map", genes="matrix", model="graphBAM"),
+          function(map, genes, model,
+                   type="bc",
+                   rho=0.5,
+                   sigma=diag(sum(unlist(graph::nodeData(model, graph::nodes(model), attr="type"), use.names=FALSE) == "continuous"))) {
+            type <- match.arg(type)
+
+            dLevels <- switch(type,
+                              bc=2L)
+
+            maskcvertex <- unlist(graph::nodeData(model, graph::nodes(model), attr="type"), use.names=FALSE) == "continuous"
+            cVertexLabels <- graph::nodes(model)[maskcvertex]
+            maskpositivedeg <- graph::degree(model, cVertexLabels) > 0
+
+            ## additive effects per gene are the sum of additive effects from each eQTL
+            a <- do.call("names<-", list(rep(0, length(cVertexLabels)), cVertexLabels))
+            a[maskpositivedeg] <- sapply(cVertexLabels[maskpositivedeg],
+                                         function(v) sum(unlist(edgeData(model, to=v, attr="a"), use.names=FALSE),
+                                                         na.rm=TRUE))
+
+            if (is.null(rownames(sigma)) || is.null(colnames(sigma)))
+              rownames(sigma) <- colnames(sigma) <- cVertexLabels
+
+            gmm <- HMgmm(model, dLevels=dLevels, a=a, rho=rho, sigma=sigma)
+            eQTLcross(map, genes=genes, model=gmm, type=type)
+          })
+
+setMethod("eQTLcross", signature(map="map", genes="missing", model="HMgmm"),
+          function(map, genes, model, type) {
+
+            eQTLcross(map, matrix(NA, nrow=0, ncol=2), model, type)
+          })
+
+setMethod("eQTLcross", signature(map="map", genes="matrix", model="HMgmm"),
+          function(map, genes, model, type) {
+
+            new("eQTLcross", map=map, genes=genes, model=model, type=type)
+          })
+
+## $ accessor operator
+setMethod("$", signature(x="eQTLcross"),
+          function(x, name) {
+              switch(name,
+                     type=x@type,
+                     map=x@map,
+                     model=x@model,
+                     g=x@model$g,
+                     stop("unknown eQTLcross slot or parameter. Use names() to find out which are the valid ones.")
+                     )
+          })
+
+## names method
+setMethod("names", signature(x="eQTLcross"),
+          function(x) {
+            c("g", "map", "model", "type")
+          })
+
+## alleQTL method
+setMethod("alleQTL", signature(x="eQTLcross"),
+          function(x) {
+            eQTLedges <- graph::edges(x@model$g)[x@model$I]
+            qtlvertices <- rep(names(eQTLedges), times=sapply(eQTLedges, length))
+            genevertices <- unlist(eQTLedges, use.names=FALSE)
+            chr <- unlist(nodeData(x@model$g, n=qtlvertices, attr="chr"), use.names=FALSE)
+            loc <- unlist(nodeData(x@model$g, n=qtlvertices, attr="loc"), use.names=FALSE)
+            a <- unlist(edgeData(x@model$g, from=qtlvertices, to=genevertices, attr="a"),
+                        use.names=FALSE)
+            df <- data.frame(chrom=chr, location=loc, QTL=qtlvertices, gene=genevertices, a=a,
+                             stringsAsFactors=FALSE)
+            df <- df[order(df$chrom, df$location), ]
+            df
+          })
+
+## ciseQTL method
+setMethod("ciseQTL", signature(x="eQTLcross", cisr="missing"),
+          function(x, cisr) {
+            ciseQTL(x, 1)
+          })
+
+setMethod("ciseQTL", signature(x="eQTLcross", cisr="numeric"),
+          function(x, cisr) {
+            alleqtl <- alleQTL(x)
+
+            if (any(is.na(match(alleqtl$gene, rownames(x@genes)))))
+              stop("some eQTL genes do not match to annotated genes.")
+
+            ciseqtl <- cbind(alleqtl, genechrom=x@genes[alleqtl$gene, 1],
+                             geneloc=x@genes[alleqtl$gene, 2])
+            ciseqtl <- ciseqtl[ciseqtl$chrom == ciseqtl$genechrom &
+                               abs(ciseqtl$location-ciseqtl$geneloc) <= cisr, ]
+
+            ciseqtl[, 1:5]
+          })
+
+setMethod("transeQTL", signature(x="eQTLcross", cisr="missing"),
+          function(x, cisr) {
+            transeQTL(x, 1)
+          })
+
+setMethod("transeQTL", signature(x="eQTLcross", cisr="numeric"),
+          function(x, cisr) {
+            alleqtl <- alleQTL(x)
+
+            if (any(is.na(match(alleqtl$gene, rownames(x@genes)))))
+              stop("some eQTL genes do not match to annotated genes.")
+
+            transeqtl <- cbind(alleqtl, genechrom=x@genes[alleqtl$gene, 1], geneloc=x@genes[alleqtl$gene, 2])
+            transeqtl <- transeqtl[transeqtl$chrom != transeqtl$genechrom | abs(transeqtl$location-transeqtl$geneloc) > cisr, ]
+
+            transeqtl[, 1:5]
+          })
+
+## show method
+setMethod("show", signature(object="eQTLcross"),
+          function(object) {
+            strtype <- switch(object$type,
+                              bc="backcross",
+                              f2="F2",
+                              NA)
+
+            neQTLedges <- length(unlist(graph::edges(object@model$g)[object@model$I], use.names=FALSE))
+            cat(sprintf("\n  eQTL %s model with %d markers, %d genes,\n  %d eQTL and %d gene-gene expression associations.\n\n",
+                        strtype, qtl::totmar(object$map), object$model$pY, neQTLedges,
+                        graph::numEdges(object$model$g)-neQTLedges))
+
+            invisible(object)
+          })
+
+## plot method
+setMethod("plot", signature(x="eQTLcross"),
+          function(x, type=c("dot", "network"), xlab="eQTL location", ylab="Gene location", ...) {
+            type <- match.arg(type)
+
+            if (type == "network")
+              plot(x@model, ...)
+            else {
+              eqtl <- alleQTL(x)
+              eqtlgenes <- x@genes[unique(eqtl$gene), ]
+              qtl <- unique(eqtl[, 1:3])
+              rownames(qtl) <- qtl[, 3]
+              qtl <- qtl[, 1:2]
+
+              ## re-scale genes and marker locations in eQTL, between 0 and 1
+              chrLen <- sapply(x@map, max)
+              chrRelLen <- chrLen / sum(chrLen)
+              chrRelCumLen <- c(0, cumsum(chrRelLen)[-length(chrRelLen)])
+              geneRelPos <- chrRelCumLen[eqtlgenes[, "chr"]] +
+                            chrRelLen[eqtlgenes[, "chr"]]*(eqtlgenes[, "location"] / chrLen[eqtlgenes[, "chr"]])
+              names(geneRelPos) <- rownames(eqtlgenes)
+
+              qtlRelPos <- chrRelCumLen[qtl[, "chrom"]] +
+                           chrRelLen[qtl[, "chrom"]]*(qtl[, "location"]/chrLen[qtl[, "chrom"]])
+              names(qtlRelPos) <- rownames(qtl)
+
+              plot(qtlRelPos[eqtl[, "QTL"]], geneRelPos[eqtl[, "gene"]], pch=".",
+                   xlab=xlab, ylab=ylab, cex=4, axes=FALSE, ...)
+              segments(c(chrRelCumLen, 1), 0, c(chrRelCumLen, 1), 1, col=gray(0.75), lty="dotted", lwd=2)
+              segments(0, c(chrRelCumLen, 1), 1, c(chrRelCumLen, 1), col=gray(0.75), lty="dotted", lwd=2)
+              axis(1, at=(chrRelCumLen + c(chrRelCumLen[-1], 1))/2,
+                   labels=names(chrLen), tick=FALSE, cex.axis=0.9)
+              axis(2, at=(chrRelCumLen + c(chrRelCumLen[-1], 1))/2,
+                   labels=names(chrLen), tick=FALSE, cex.axis=0.9, las=1)
+            }
+          }) 
+
+## eQTLcrossParam constructor
+eQTLcrossParam <- function(map=do.call("class<-", list(list("1"=do.call("class<-", list(do.call("names<-", list(seq(0, 100, length.out=20), paste0("m", 1:20))), "A"))), "map")),
+                           type="bc", genes=20, cis=1, trans=as.integer(NULL), cisr=1, d2m=0,
+                           networkParam=dRegularGraphParam()) {
+  type <- match.arg(type)
+
+  if (class(map) == "list")
+    class(map) <- "map"
+
+  if (!is(networkParam, "graphParam"))
+    stop("argument 'networkParam' should be a 'graphParam' object defining the type of gene network to simulate.")
+
+  ## if the number of continuous variables in networkParam does not match the number
+  ## of genes then the latter overrides the number and lables of continuous variables
+  ## in networkParam
+  nm <- qtl::totmar(map)
+  if (networkParam@p != genes) {
+    networkParam@p <- as.integer(genes)
+    networkParam@labels <- paste0("g", 1:genes)
+  }
+
+  if (cis < 0 || cis > 1)
+    stop("argument 'cis' should be a real number between 0 and 1.")
+
+  if (networkParam@p > nm && d2m == 0)
+    stop("more genes than markers. Either, increase marker density in the genetic map, increase d2m or decrease the number of genes.")
+
+  n.cisQTL <- floor(networkParam@p * cis)       ## number of cisQTL
+  n.transQTL <- length(trans)                    ## number of transQTL
+
+  if (n.cisQTL+n.transQTL > nm && d2m == 0)
+    stop("more eQTL than markers. Either, increase marker density in the genetic map, increase d2m or decrease the number of eQTL.")
+
+  new("eQTLcrossParam", map=map, type=type, cis=cis, trans=trans, cisr=cisr, d2m=d2m,
+      networkParam=networkParam)
+}
+
+## eQTLcrossParam show method
+setMethod("show", signature(object="eQTLcrossParam"),
+          function(object) {
+            strtype <- switch(object@type,
+                              bc="backcross",
+                              f2="F2",
+                              NA)
+
+            cat(sprintf("\n  eQTL %s parameter object defining %d markers,\n",
+                        strtype, qtl::totmar(object@map)))
+            cat(sprintf("  %d genes, %d cis-eQTL and %d trans-eQTL.\n\n", object@networkParam@p,
+                        round(object@cis*object@networkParam@p, digits=0), sum(object@trans)))
+            cat(sprintf("  cis-eQTL associations occur within %.1f cM of a gene\n", object@cisr))
+            cat(sprintf("  and all eQTL are located at %.1f cM from a marker.\n\n", object@d2m))
+            cat("  Gene network parameters are defined by a:\n")
+            print(object@networkParam)
+
+            invisible(object)
+          })
+
+## constructor simulation methods
+## genes: # of genes or vector of cM positions, each element corresponding to distinct gene
+## cis: fraction of genes with eQTL in cis
+## trans: vector of integer numbers, each element corresponding to a trans-eQTL and its value
+##        is the number of genes linked to this eQTL
+## cisr: cis radius, maximum distance in cM that defines a QTL in cis wrt to a gene
+## d2m: distance of every gene or eQTL to a marker, default 0 implies eQTLs and genes are located at markers,
+##      and therefore, the maximum number of eQTL is bounded by the number of markers
+setMethod("reQTLcross", signature(n="integer", network="eQTLcrossParam"),
+          function(n=1L, network, rho=0.5, a=1, tol=0.001, verbose=FALSE) {
+            map <- network@map
+            nm <- qtl::totmar(map)                 ## total number of markers
+            nmbychr <- qtl::nmar(map)              ## number of markers per chromosome
+            csnmbychr <- cumsum(nmbychr)           ## cumulative sum of the number of markers per chromosome
+            mcmloc <- unlist(map, use.names=FALSE) ## location of markers in cM
+            cmlenbychr <- sapply(map, max)         ## chromosome length in cM
+            cscmlenbychr <- cumsum(cmlenbychr)     ## cumulative sum of chromosome length in cM
+
+            type <- network@type
+            pY <- network@networkParam@p
+            Y <- network@networkParam@labels
+
+            cis <- network@cis
+            trans <- network@trans
+            d2m <- network@d2m
+            cisr <- network@cisr
+
+            chr.genes <- genes <- NA
+            ## simulate gene locations in cM
+            nocis <- FALSE
+            i <- 0
+            ## enforce genes being located at least 2 x cisr cM apart
+            while (!nocis && i < 10) {
+              genes <- sample(1:nm, size=pY, replace=FALSE)
+              chr.genes <- sapply(genes, function(i, cs) sum(cs < i)+1, csnmbychr)
+              genes <- mcmloc[genes] + d2m
+              nocis <- sapply(split(genes, chr.genes), function(gxc, cisr) {
+                                                     nocis <- TRUE
+                                                     if (length(gxc) > 1)
+                                                       nocis <- all(combn(gxc, 2, function(x) abs(x[1]-x[2])) > 2*cisr)
+                                                     nocis
+                                                   }, cisr)
+              nocis <- all(nocis)
+              i <- i + 1
+            }
+
+            if (!nocis)
+              stop("impossible to simulate genes. Either decrease cisr, decrease the number of genes, or increase marker density in the genetic map.")
+
+            ## build gene annotation matrix
+            n.genes <- length(genes)
+            genes <- cbind(chr.genes, genes)
+            genes <- genes[order(genes[, 1], genes[, 2]), ]
+            colnames(genes) <- c("chr", "location")
+            rownames(genes) <- Y
+
+            n.cisQTL <- floor(n.genes * cis)       ## number of cisQTL
+            n.transQTL <- length(trans)            ## number of transQTL
+
+            if ((class(a) == "numeric" || class(a) == "integer") && length(a) > 1 && length(a) != n.cisQTL + n.transQTL)
+              stop(sprintf("argument 'a' contains %d values of eQTL additive effects while arguments 'genes', 'cis' and 'trans' determine a total number of %d eQTL.", length(a), n.cisQTL+n.transQTL))
+
+            if (class(a) == "function" && length(formals(a)) != 1)
+              stop("when argument 'a' is a function it should contain one argument taking the number of eQTL.")
+
+            ## function to search markers (m) in cis to a gene (g) within a radius (r)
+            cism <- function(markers, gene, radius) which(markers >= gene-radius & markers <= gene+radius)
+            dLevels <- switch(network@type, bc=2, NA)
+
+            sim <- list()
+            for (i in 1:n) {
+              ## simulate cis-QTL associations
+              cisQTL <- matrix(NA, nrow=0, ncol=3)
+              cisQTLgenes <- sample(1:n.genes, size=n.cisQTL, replace=FALSE) ## which genes should this cis-markers associated to?
+              cisQTLgenes <- split(cisQTLgenes, names(map)[genes[cisQTLgenes, "chr"]])
+              for (chr in names(cisQTLgenes)) {
+                loc.genes <- genes[cisQTLgenes[[chr]], "location"]
+                markers <- map[[chr]] + d2m
+                allcm <- sapply(loc.genes, function(gene, markers, cisr) cism(markers, gene, cisr),
+                                markers, cisr, simplify=FALSE) ## all cis-markers
+                cm <- c(1, 1)
+                j <- 1
+                while (any(duplicated(cm)) && j < 10) {
+                  cm <- sapply(allcm, function(x) { if (length(x) > 1) x <- sample(x, size=1) ; x}) ## select one cis-marker
+                  j <- j + 1
+                }
+                if (any(duplicated(cm)))
+                  stop("impossible to simulate cis-eQTL. Either decrease cisr or increase marker density in the genetic map.")
+
+                cisQTL <- rbind(cisQTL, cbind(rep(match(chr, names(map)), times=length(cm)), markers[cm], cisQTLgenes[[chr]]))
+              }
+
+              ## simulate trans-QTL associations
+              transQTL <- matrix(NA, nrow=0, ncol=3)
+              transgenes <- setdiff(1:n.genes, cisQTL[, 3])
+              if (sum(trans) > length(transgenes))
+                stop("not enough genes to simulate trans-QTL associations. Either decrease the number of trans-QTL associations or decrease 'cis'.")
+
+              for (ng in trans) {
+                tmpmap <- map
+                transQTLgenes <- sample(transgenes, size=ng, replace=FALSE)
+                transgenes <- setdiff(transgenes, transQTLgenes) ## removed sampled trans-genes
+                transQTLgenes <- split(transQTLgenes, names(tmpmap)[genes[transQTLgenes, "chr"]])
+                for (chr in names(transQTLgenes)) {
+                  loc.genes <- genes[transQTLgenes[[chr]], "location"]
+                  allcm <- sapply(loc.genes, function(g, m, cisr) cism(m, g, cisr), tmpmap[[chr]]+d2m, cisr) ## all cis-markers
+                  tmpmap[[chr]] <- tmpmap[[chr]][-allcm] ## remove all cis-markers
+                }
+                tmpmcmloc <- unlist(tmpmap, use.names=FALSE) + d2m
+                tmpnmbychr <- qtl::nmar(tmpmap)
+                tmpcsnmbychr <- cumsum(tmpnmbychr)
+                tm <- sample(sum(tmpnmbychr), size=1, replace=FALSE)
+                chr.tm <- sum(tmpcsnmbychr < tm) + 1
+                transQTL <- rbind(transQTL, cbind(rep(chr.tm, times=ng), rep(tmpmcmloc[tm], times=ng),
+                                                  unlist(transQTLgenes, use.names=FALSE)))
+              }
+    
+              ## simulate gene network
+              sim.g <- rgraphBAM(n=1L, network@networkParam, verbose=verbose)
+              edges <- graph::edges(sim.g)
+              edges <- cbind(rep(names(edges), times=sapply(edges, length)),
+                             unlist(edges, use.names=FALSE))
+              edges <- unique(t(apply(edges, 1, sort)))
+              edges <- cbind(match(edges[, 1], Y), match(edges[, 2], Y))
+
+              ## simulate conditional covariance matrix
+              sim.sigma <- qpG2Sigma(g=sim.g, rho=rho, tol=tol, verbose=verbose)
+
+              ## simulate additive effect in QTL
+              qtl <- rbind(cisQTL, transQTL)
+
+              if ((class(a) == "numeric" || class(a) == "integer") && length(a) == 1)
+                a <- rep(a, times=nrow(qtl))
+              else if (class(a) == "function")
+                a <- a(nrow(qtl))
+
+              qtl <- cbind(qtl, a)
+
+              sim[[i]] <- eQTLcross(map, genes=genes, model=qtl, type=type, nGenes=pY,
+                          geneNetwork=edges, rho=rho, sigma=sim.sigma)
+            }
+
+            if (n == 1)
+              sim <- sim[[1]]
+
+            sim
+          })
+
+oldreQTLcross <- function(n=1L, map, type=c("bc"), genes=100, cis=1, trans=c(), cisr=1, d2m=0,
+                          d=2, g=NULL, rho=0.5, a=1, tol=0.001, verbose=FALSE) {
+  type <- match.arg(type)
+
+  if (class(n) != "numeric" && class(n) != "integer")
+    stop("argument 'n' should contain the number of eQTLcross models to simulate (default=1).")
+
+  if (cis < 0 || cis > 1)
+    stop("argument 'cis' should be a real number between 0 and 1.")
+
+  nm <- qtl::totmar(map)                 ## total number of markers
+  nmbychr <- qtl::nmar(map)              ## number of markers per chromosome
+  csnmbychr <- cumsum(nmbychr)           ## cumulative sum of the number of markers per chromosome
+  mcmloc <- unlist(map, use.names=FALSE) ## location of markers in cM
+  cmlenbychr <- sapply(map, max)         ## chromosome length in cM
+  cscmlenbychr <- cumsum(cmlenbychr)     ## cumulative sum of chromosome length in cM
+
+  pY <- length(genes)
+  if (length(genes) == 1)
+    pY <- genes
+
+  if (pY > nm && d2m == 0)
+    stop("more genes than markers. Either, increase marker density in the genetic map, increase d2m or decrease the number of genes.")
+
+  Y <- sprintf("g%d", 1:pY)
+
+  chr.genes <- NA
+  ## simulate gene locations in cM
+  if (length(genes) == 1) {
+    nocis <- FALSE
+    i <- 0
+    ## enforce genes being located at least 2 x cisr cM apart
+    while (!nocis && i < 10) {
+      tmpg <- sample(1:nm, size=genes, replace=FALSE)
+      chr.genes <- sapply(tmpg, function(i, cs) sum(cs < i)+1, csnmbychr)
+      tmpg <- mcmloc[tmpg] + d2m
+      nocis <- sapply(split(tmpg, chr.genes), function(gxc, cisr) {
+                                             nocis <- TRUE
+                                             if (length(gxc) > 1)
+                                               nocis <- all(combn(gxc, 2, function(x) abs(x[1]-x[2])) > 2*cisr)
+                                             nocis
+                                           }, cisr)
+      nocis <- all(nocis)
+      if (nocis)
+        genes <- tmpg
+
+      i <- i + 1
+    }
+
+    if (!nocis)
+      stop("impossible to simulate genes. Either decrease cisr, decrease the number of genes, or increase marker density in the genetic map.")
+  }
+
+  ## build gene annotation matrix
+  n.genes <- length(genes)
+  genes <- cbind(chr.genes, genes)
+  genes <- genes[order(genes[, 1], genes[, 2]), ]
+  colnames(genes) <- c("chr", "location")
+  rownames(genes) <- Y
+
+  n.cisQTL <- floor(n.genes * cis)       ## number of cisQTL
+  n.transQTL <- length(trans)            ## number of transQTL
+
+  if (n.cisQTL+n.transQTL > nm && d2m == 0)
+    stop("more eQTL than markers. Either, increase marker density in the genetic map, increase d2m or decrease the number of eQTL.")
+
+  if ((class(a) == "numeric" || class(a) == "integer") && length(a) > 1 && length(a) != n.cisQTL + n.transQTL)
+    stop(sprintf("argument 'a' contains %d values of eQTL additive effects while arguments 'genes', 'cis' and 'trans' determine a total number of %d eQTL.", length(a), n.cisQTL+n.transQTL))
+
+  if (class(a) == "function" && length(formals(a)) != 1)
+    stop("when argument 'a' is a function it should contain one argument taking the number of eQTL.")
+
+  ## function to search markers (m) in cis to a gene (g) within a radius (r)
+  cism <- function(markers, gene, radius) which(markers >= gene-radius & markers <= gene+radius)
+
+  pI <- n.cisQTL + n.transQTL
+  I <- sprintf("QTL%d", 1:pI)
+
+  dLevels <- switch(type, bc=2, NA)
+
+  sim <- list()
+  for (i in 1:n) {
+    ## simulate cis-QTL associations
+    cisQTL <- matrix(NA, nrow=0, ncol=3)
+    cisQTLgenes <- sample(1:n.genes, size=n.cisQTL, replace=FALSE) ## which genes should this cis-markers associated to?
+    cisQTLgenes <- split(cisQTLgenes, names(map)[genes[cisQTLgenes, "chr"]])
+    for (chr in names(cisQTLgenes)) {
+      loc.genes <- genes[cisQTLgenes[[chr]], "location"]
+      markers <- map[[chr]] + d2m
+      allcm <- sapply(loc.genes, function(gene, markers, cisr) cism(markers, gene, cisr),
+                      markers, cisr, simplify=FALSE) ## all cis-markers
+      cm <- c(1, 1)
+      j <- 1
+      while (any(duplicated(cm)) && j < 10) {
+        cm <- sapply(allcm, function(x) { if (length(x) > 1) x <- sample(x, size=1) ; x}) ## select one cis-marker
+        j <- j + 1
+      }
+      if (any(duplicated(cm)))
+        stop("impossible to simulate cis-eQTL. Either decrease cisr or increase marker density in the genetic map.")
+
+      cisQTL <- rbind(cisQTL, cbind(rep(match(chr, names(map)), times=length(cm)), markers[cm], cisQTLgenes[[chr]]))
+    }
+
+    ## simulate trans-QTL associations
+    transQTL <- matrix(NA, nrow=0, ncol=3)
+    transgenes <- setdiff(1:n.genes, cisQTL[, 3])
+    if (sum(trans) > length(transgenes))
+      stop("not enough genes to simulate trans-QTL associations. Either decrease the number of trans-QTL associations or decrease 'cis'.")
+
+    for (ng in trans) {
+      tmpmap <- map
+      transQTLgenes <- sample(transgenes, size=ng, replace=FALSE)
+      transgenes <- setdiff(transgenes, transQTLgenes) ## removed sampled trans-genes
+      transQTLgenes <- split(transQTLgenes, names(tmpmap)[genes[transQTLgenes, "chr"]])
+      for (chr in names(transQTLgenes)) {
+        loc.genes <- genes[transQTLgenes[[chr]], "location"]
+        allcm <- sapply(loc.genes, function(g, m, cisr) cism(m, g, cisr), tmpmap[[chr]]+d2m, cisr) ## all cis-markers
+        tmpmap[[chr]] <- tmpmap[[chr]][-allcm] ## remove all cis-markers
+      }
+      tmpmcmloc <- unlist(tmpmap, use.names=FALSE) + d2m
+      tmpnmbychr <- qtl::nmar(tmpmap)
+      tmpcsnmbychr <- cumsum(tmpnmbychr)
+      tm <- sample(sum(tmpnmbychr), size=1, replace=FALSE)
+      chr.tm <- sum(tmpcsnmbychr < tm) + 1
+      transQTL <- rbind(transQTL, cbind(rep(chr.tm, times=ng), rep(tmpmcmloc[tm], times=ng),
+                                        unlist(transQTLgenes, use.names=FALSE)))
+    }
+    
+    ## simulate gene network
+    sim.g <- g
+    if (is.null(sim.g))
+      sim.g <- qpRndGraph(p=pY, d=d, labels=Y, return.type="graphBAM", verbose=verbose)
+    edges <- graph::edges(sim.g)
+    edges <- cbind(rep(names(edges), times=sapply(edges, length)),
+                   unlist(edges, use.names=FALSE))
+    edges <- unique(t(apply(edges, 1, sort)))
+    edges <- cbind(match(edges[, 1], Y), match(edges[, 2], Y))
+
+    ## simulate conditional covariance matrix
+    sim.sigma <- qpG2Sigma(g=sim.g, rho=rho, tol=tol, verbose=verbose)
+
+    ## simulate additive effect in QTL
+    qtl <- rbind(cisQTL, transQTL)
+
+    if ((class(a) == "numeric" || class(a) == "integer") && length(a) == 1)
+      a <- rep(a, times=nrow(qtl))
+    else if (class(a) == "function")
+      a <- a(nrow(qtl))
+
+    qtl <- cbind(qtl, a)
+
+    sim[[i]] <- eQTLcross(map, genes=genes, model=qtl, type=type, nGenes=pY,
+                          geneNetwork=edges, rho=rho, sigma=sim.sigma)
+  }
+
+  if (n == 1)
+    sim <- sim[[1]]
+
+  sim
+}
+
+## overload sim.cross() from the qtl package to enable simulateing eQTL data from
+## an experimental cross
+
+sim.cross <- function(map, model, ...) UseMethod("sim.cross", model)
+sim.cross.default <- function(map, model, ...) qtl::sim.cross(map, model, ...)
+sim.cross.matrix <- function(map, model, ...) qtl::sim.cross(map, model, ...)
+setMethod("sim.cross", c(map="map", model="matrix"), sim.cross.matrix)
+
+sim.cross.eQTLcross <- function(map, model, n.ind=100, ...) {
+            crossModel <- unique(alleQTL(model)[, c("chrom", "location")])
+            crossModel <- cbind(crossModel, dummya=rep(1, nrow(crossModel)))
+            cross <- qtl::sim.cross(map=map, model=crossModel, type=model$type, n.ind=n.ind, ...)
+
+            ## we use the same data matrix X to store the mean values employed
+            ## during the simulation process.
+            I <- model@model$I
+            Y <- model@model$Y
+            stopifnot(identical(I, colnames(cross$qtlgeno)))
+            cross$pheno <- qpgraph:::calculateCondMean(model@model, cross$qtlgeno) 
+            rownames(cross$pheno) <- 1:n.ind
+            colnames(cross$pheno) <- Y
+            cross$pheno <- as.data.frame(cross$pheno)
+
+            YxI <- Y[which(sapply(graph::edges(model@model$g)[Y], function(xYi, vt) sum(vt[xYi] == "discrete"), model@model@vtype) > 0)]
+            xtab <- tapply(1:n.ind, apply(cross$pheno[, YxI, drop=FALSE], 1, function(i) paste(i, collapse="")))
+            xtab <- split(as.data.frame(cross$qtlgeno[, I]), xtab)
+            for (i in 1:length(xtab)) {
+              li <- xtab[[i]]
+              which_n <- as.numeric(rownames(li))
+              cross$pheno[which_n, Y] <- mvtnorm::rmvnorm(length(which_n), mean=as.numeric(cross$pheno[which_n[1], Y]),
+                                                          sigma=as.matrix(model@model$sigma))
+            }
+
+            cross
+          }
+setMethod("sim.cross", signature(map="map", model="eQTLcross"), sim.cross.eQTLcross)

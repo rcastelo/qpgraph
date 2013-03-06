@@ -1086,6 +1086,8 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
     p <- (d <- dim(ssdMat))[1]
     if (p != d[2] || !isSymmetric(ssdMat))
       stop("ssdMat is not squared and symmetric. Is it really an ssd matrix?\n")
+    if (class(ssdMat) != "SsdMatrix")
+      stop("qpgraph:::.qpCItestHMGM: the ssdMat argument should be an object of class SsdMatrix\n")
   }
 
   if (all(!is.na(match(c(i,j), I))))
@@ -1676,8 +1678,12 @@ setMethod("qpAllCItests", signature(X="matrix"),
 .qpFastCItestHMGM <- function(X, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
                               exact.test, use, tol) {
   x <- NULL
-  if (!is.null(ssd))
-    x <- ssd@x
+  if (!is.null(ssd)) {
+    if (class(ssd) != "SsdMatrix")
+      stop("qpgraph:::.qpFastCItestHMGM: the ssd argument should be an object of class SsdMatrix\n")
+    x <- ssd@ssd@x
+  }
+
   return(.Call("qp_fast_ci_test_hmgm", X, I, nLevels, Y, x, as.integer(mapX2ssd),
                i, j, Q, as.integer(exact.test),
                as.integer(factor(use, levels=c("complete.obs", "em"))), tol))

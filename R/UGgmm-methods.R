@@ -40,7 +40,7 @@ setMethod("UGgmm", signature(g="matrix"),
           function(g, mean, sigma, verbose) {
             p <- (d <- dim(g))[1]
             if (p != d[2] && d[2] != 2)
-              stop("If 'g' is a matrix it should either be an squared symmetric adjacency matrix or a two-column matrix with un-ordered vertex pairs in the rows defining the edge set of an undirected graph.")
+              stop("If 'g' is a matrix it should be either a squared symmetric adjacency matrix or a two-column matrix with un-ordered vertex pairs in the rows defining the edge set of an undirected graph.")
 
             df <- as.data.frame(matrix(NA, nrow=0, ncol=3, dimnames=list(NULL, c("from", "to", "weight"))),
                                 stringsAsFactors=FALSE)
@@ -71,6 +71,132 @@ setMethod("UGgmm", signature(g="graphBAM"),
           function(g, mean=rep(0, graph::numNodes(g)),
                    sigma=diag(graph::numNodes(g)), verbose=FALSE) {
             new("UGgmm", p=length(mean), g=g, mean=mean, sigma=as(sigma, "dspMatrix"))
+          })
+
+## constructor simulation methods
+setMethod("rUGgmm", signature(n="graphParam", g="missing"),
+          function(n, g, rho=0.5, tol=0.001, verbose=FALSE) {
+            rUGgmm(n=1L, g=n, rho, tol, verbose)
+          })
+
+setMethod("rUGgmm", signature(n="missing", g="graphParam"),
+          function(n, g, rho=0.5, tol=0.001, verbose=FALSE) {
+            rUGgmm(n=1L, g, rho, tol, verbose)
+          })
+
+setMethod("rUGgmm", signature(n="numeric", g="graphParam"),
+          function(n=1, g, rho=0.5, tol=0.001, verbose=FALSE) {
+            rUGgmm(as.integer(n), g, rho, tol, verbose)
+          })
+
+setMethod("rUGgmm", signature(n="integer", g="graphParam"),
+          function(n=1L, g, rho=0.5, tol=0.001, verbose=FALSE) {
+            p <- g@p
+
+            if (rho <= -1/(p-1) || rho >= 1)
+              stop("'rho' should be a real number such that -1/(p-1) < 'rho' < 1.")
+
+            sim <- list()
+            for (i in 1:n) {
+              sim.g <- rgraphBAM(g)
+
+              sim.sigma <- qpG2Sigma(sim.g, rho=rho, tol=tol, verbose=verbose)
+
+              sim[[i]] <- UGgmm(g=sim.g, mean=rep(0, p), sigma=sim.sigma)
+            }
+
+            if (n == 1)
+              sim <- sim[[1]]
+
+            sim
+          })
+
+setMethod("rUGgmm", signature(n="matrix", g="missing"),
+          function(n, g, rho=0.5, tol=0.001, verbose=FALSE) {
+            rUGgmm(n=1L, g=n, rho, tol, verbose)
+          })
+
+setMethod("rUGgmm", signature(n="missing", g="matrix"),
+          function(n, g, rho=0.5, tol=0.001, verbose=FALSE) {
+            rUGgmm(n=1L, g, rho, tol, verbose)
+          })
+
+setMethod("rUGgmm", signature(n="numeric", g="matrix"),
+          function(n=1, g, rho=0.5, tol=0.001, verbose=FALSE) {
+            rUGgmm(as.integer(n), g, rho, tol, verbose)
+          })
+
+setMethod("rUGgmm", signature(n="integer", g="matrix"),
+          function(n=1L, g, rho=0.5, tol=0.001, verbose=FALSE) {
+            p <- (d <- dim(g))[1]
+            if (p != d[2] && d[2] != 2)
+              stop("If 'g' is a matrix it should be either a squared symmetric adjacency matrix or a two-column matrix with un-ordered vertex pairs in the rows defining the edge set of an undirected graph.")
+
+            df <- as.data.frame(matrix(NA, nrow=0, ncol=3, dimnames=list(NULL, c("from", "to", "weight"))),
+                                stringsAsFactors=FALSE)
+            vlabels <- NULL
+            if (p == d[2]) {
+              if (!isSymmetric(g))
+                stop("'g' is not a symmetric matrix\n")
+
+              if (class(g[1, 1]) == "integer" || class(g[1, 1]) == "numeric") {
+                if (verbose)
+                  warning("coercing input numeric adjacency matrix 'g' to a logical adjacency matrix\n")
+
+                g <- g != 0
+              }
+
+              vlabels <- colnames(g)
+              if (is.null(vlabels))
+                vlabels <- sprintf("%d", 1:p)
+              from <- vlabels[row(g)[upper.tri(g) & g]]
+              to <- vlabels[col(g)[upper.tri(g) & g]]
+              df <- rbind(df, data.frame(from=from, to=to, weight=rep(1, length(from)), stringsAsFactors=FALSE))
+            } else {
+              if (class(g[1, 1]) == "character")
+                df <- rbind(df, data.frame(from=g[, 1], to=g[, 2], weight=rep(1, nrow(g)), stringsAsFactors=FALSE))
+              else {
+                vlabels <- sprintf("%d", sort(unique(as.vector(g))))
+                df <- rbind(df, data.frame(from=vlabels[g[, 1]], to=vlabels[g[, 2]], weight=rep(1, nrow(g)), stringsAsFactors=FALSE))
+              }
+            }
+
+            rUGgmm(n=n, g=graphBAM(df), rho, tol, verbose)
+          })
+
+setMethod("rUGgmm", signature(n="graphBAM", g="missing"),
+          function(n, g, rho=0.5, tol=0.001, verbose=FALSE) {
+            rUGgmm(n=1L, g=n, rho, tol, verbose)
+          })
+
+setMethod("rUGgmm", signature(n="missing", g="graphBAM"),
+          function(n, g, rho=0.5, tol=0.001, verbose=FALSE) {
+            rUGgmm(n=1L, g, rho, tol, verbose)
+          })
+
+setMethod("rUGgmm", signature(n="numeric", g="graphBAM"),
+          function(n=1, g, rho=0.5, tol=0.001, verbose=FALSE) {
+            rUGgmm(as.integer(n), g, rho, tol, verbose)
+          })
+
+setMethod("rUGgmm", signature(n="integer", g="graphBAM"),
+          function(n=1L, g, rho=0.5, tol=0.001, verbose=FALSE) {
+            p <- graph::numNodes(g)
+
+            if (rho <= -1/(p-1) || rho >= 1)
+              stop("'rho' should be a real number such that -1/(p-1) < 'rho' < 1.")
+
+            sim <- list()
+            for (i in 1:n) {
+              sim.sigma <- qpG2Sigma(g, rho=rho, tol=tol, verbose=verbose)
+
+              sim[[i]] <- UGgmm(g=g, mean=rep(0, p), sigma=sim.sigma)
+            }
+
+            if (n == 1)
+              sim <- sim[[1]]
+
+            sim
           })
 
 ## $ accessor operator
@@ -139,7 +265,8 @@ setMethod("show", signature(object="UGgmmSummary"),
           function(object) {
             cat(sprintf("\n  Undirected Gaussian graphical Markov model\n  with %d r.v. and %d edges.\n\n",
                         object@model@p, graph::numEdges(object@model@g)))
-            cat(sprintf("  Graph density: %.g%%\n", object@density))
+            denstr <- ifelse(object@density < 1, sprintf("%.g%%", object@density), sprintf("%.0f%%", object@density))
+            cat(sprintf("  Graph density: %s\n", denstr))
             cat("\n  Degree distribution of the undirected graph:\n")
             print(summary(object@degree))
             cat("\n  Distribution of marginal correlations for present edges:\n")
