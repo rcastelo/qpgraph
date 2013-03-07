@@ -2054,7 +2054,7 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
       error("q=%d > n-3=%d", q, n-3);
 
     if (work_with_margin)
-      ijQ = Calloc(q+2, int);
+      ijQ = Calloc(q+2, int); /* stores the indices of the variables in the {i, j, Q} margin */
 
     Q = Calloc(q, int);
     for (i=0; i < q; i++)
@@ -2153,7 +2153,7 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
           ijQ[1] = j2;
           memset(S, 0, sizeof(double) * n_upper_tri);
           n_co = ssd(REAL(XR), n_var, n, ijQ, q+2, NULL, n, TRUE, NULL, S);
-          lambda = qp_ci_test_std(S, q+2, n, 0, 1, Q, q, NULL);
+          lambda = qp_ci_test_std(S, q+2, n_co, 0, 1, Q, q, NULL);
         } else
           lambda = qp_ci_test_std(S, n_var, n, i2, j2, Q, q, NULL);
       } else
@@ -2237,7 +2237,7 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
             ijQ[1] = j2;
             memset(S, 0, sizeof(double) * n_upper_tri);
             n_co = ssd(REAL(XR), n_var, n, ijQ, q+2, NULL, n, TRUE, NULL, S);
-            lambda = qp_ci_test_std(S, q+2, n, 0, 1, Q, q, NULL);
+            lambda = qp_ci_test_std(S, q+2, n_co, 0, 1, Q, q, NULL);
           } else
             lambda = qp_ci_test_std(S, n_var, n, i2, j2, Q, q, NULL);
         } else
@@ -2319,7 +2319,7 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
             ijQ[1] = j2;
             memset(S, 0, sizeof(double) * n_upper_tri);
             n_co = ssd(REAL(XR), n_var, n, ijQ, q+2, NULL, n, TRUE, NULL, S);
-            lambda = qp_ci_test_std(S, q+2, n, 0, 1, Q, q, NULL);
+            lambda = qp_ci_test_std(S, q+2, n_co, 0, 1, Q, q, NULL);
           } else
             lambda = qp_ci_test_std(S, n_var, n, i2, j2, Q, q, NULL);
         } else
@@ -2567,9 +2567,6 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
       work_with_margin = TRUE;
   }
 
-  if (work_with_margin)
-    ijQ = Calloc(q+2, int);
-
   if (QR != R_NilValue) {
     q = length(QR);
 
@@ -2582,14 +2579,18 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
     if (q > n-3)
       error("q=%d > n-3=%d", q, n-3);
 
+    if (work_with_margin)
+      ijQ = Calloc(q+2, int);
+
     Q = Calloc(q, int);
     for (i=0; i < q; i++)
       if (work_with_margin) {
         ijQ[i+2] = INTEGER(QR)[i] - 1;
-        Q[i] = 2+q;
+        Q[i] = n_I == 0 ? 2+i : INTEGER(QR)[i] - 1;
       } else
         Q[i] = INTEGER(QR)[i] - 1;
-  }
+  } else
+    ijQ = Calloc(2, int);
 
   n_upper_tri = ( (q+2) * ((q+2)+1) ) / 2; /* this upper triangle includes the diagonal */
 
@@ -2681,7 +2682,7 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
             ijQ[1] = j2;
             memset(S, 0, sizeof(double) * n_upper_tri);
             n_co = ssd(REAL(XR), n_var, n, ijQ, q+2, NULL, n, TRUE, NULL, S);
-            lambda = qp_ci_test_std(S, q+2, n, 0, 1, Q, q, NULL);
+            lambda = qp_ci_test_std(S, q+2, n_co, 0, 1, Q, q, NULL);
           } else
             lambda = qp_ci_test_std(S, n_var, n, i2, j2, Q, q, NULL);
         } else
@@ -2766,7 +2767,7 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
             ijQ[1] = j2;
             memset(S, 0, sizeof(double) * n_upper_tri);
             n_co = ssd(REAL(XR), n_var, n, ijQ, q+2, NULL, n, TRUE, NULL, S);
-            lambda = qp_ci_test_std(S, q+2, n, 0, 1, Q, q, NULL);
+            lambda = qp_ci_test_std(S, q+2, n_co, 0, 1, Q, q, NULL);
           } else
             lambda = qp_ci_test_std(S, n_var, n, i2, j2, Q, q, NULL);
         } else
@@ -2848,7 +2849,7 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
           ijQ[1] = j2;
           memset(S, 0, sizeof(double) * n_upper_tri);
           n_co = ssd(REAL(XR), n_var, n, ijQ, q+2, NULL, n, TRUE, NULL, S);
-          lambda = qp_ci_test_std(S, q+2, n, 0, 1, Q, q, NULL);
+          lambda = qp_ci_test_std(S, q+2, n_co, 0, 1, Q, q, NULL);
         } else
           lambda = qp_ci_test_std(S, n_var, n, i2, j2, Q, q, NULL);
       } else
@@ -3426,7 +3427,7 @@ qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
   int     n_I = length(IR);
   int     n_Y = length(YR);
   int     q = length(QR);
-  int     i,j,k,l, n_co;
+  int     i,j,k, n_co;
   int     exactTest = INTEGER(exactTestR)[0];
   int*    I;
   int*    Y;
@@ -3618,7 +3619,6 @@ lr_complete_obs(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
 
     Free(tmp);
   }
-
 /*
   Rprintf("ssd (n_Y=%d):\n", n_Y);
   int m = 0;
@@ -4047,7 +4047,7 @@ prob_i(double* X, int p, int n, int * missing_mask, int n_mis, int* I, int n_I,
         int k2 = (int) (k % (base * n_levels[I[j]]));
         if (!ISNA(X[Is[j]*n + i])) {
           idx_I_obs[n_idx_I_obs++] = j;
-          joint_level_Is_obs = joint_level_Is_obs + base * ((int) (X[Is[j]*n + i] - 1.0));
+          joint_level_Is_obs = joint_level_Is_obs + base * ((int) (X[Is[j]*n + i] - 1.0)); /* ASSUMING DISCR. LEVELS > 0 */
           joint_level_k = joint_level_k + base * k2;
         }
         base = base * n_levels[I[j]];
@@ -7653,8 +7653,8 @@ ssd(double* X, int p, int n, int* Y, int n_Y, int* idx_obs, int n_idx_obs,
 
   n1 = n_idx_obs - n_mis - 1;
 
-  if (n1 < 1)
-    error("no complete observations available (n1=%d, n_idx_obs=%d, n_mis=%d)\n", n1, n_idx_obs, n_mis);
+  if (corrected && n1 < 1)
+    error("not enough complete observations available to calculate a corrected SSD matrix (n-1=%d, n_obs=%d, n_mis=%d)\n", n1, n_idx_obs, n_mis);
 
   l = 0;
   for (i=0; i < n_Y; i++)
@@ -7782,10 +7782,19 @@ calculate_xtab(double* X, int p, int n, int* I, int n_I, int* n_levels, int* xta
   */
 
   for (i=0; i < n_I; i++) {
-    for (j=0; j < n; j++)
-      if (xtab[j] > 0)
-        xtab[j] = ISNA(X[j + I[i] * n]) ? -1 :
-                                          xtab[j] + base * ((int) (X[j + I[i] * n]-1.0));
+    for (j=0; j < n; j++) {
+      if (xtab[j] > 0) {
+        double level = X[j + I[i] * n];
+
+        if (ISNA(level))
+          xtab[j] = -1;
+        else {
+          if (level <= 0 || (level-((double) ((int) level))) > 0)
+            error("observation %d contains discrete levels that are not positive integers\n", j+1);
+          xtab[j] = xtab[j] + base * ((int) (level-1.0));
+        }
+      }
+    }
     base = base * n_levels[I[i]]; /* WAS n_levels[i] */
   }
 
@@ -7819,7 +7828,7 @@ ssd_A(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
       int* excobs_mask, int* missing_mask, double* ssd_A) {
   int*    obs_idx;
   int     n_obs, n_co;
-  int     i,j;
+  int     i,j,k,m;
 
   obs_idx = Calloc(n, int);
   global_xtab = Calloc(n, int);
@@ -7827,7 +7836,7 @@ ssd_A(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
   for (i=0; i < n; i++) {
     global_xtab[i] = 1;
     if (excobs_mask != NULL) {
-      if (!excobs_mask[i])      /* if obs is not excluded,  use it */
+      if (!excobs_mask[i])     /* if obs is not excluded,  use it */
         obs_idx[n_obs++] = i;
       else                     /* if obs is excluded, avoid using it later */
         global_xtab[i] = -1;

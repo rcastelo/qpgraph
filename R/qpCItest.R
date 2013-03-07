@@ -1103,7 +1103,7 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
     i <- j
     j <- tmp
   }
-  cat ("\n", i, "ci", j,"\n")
+  ## cat ("\n", i, "ci", j,"\n")
 
   I <- intersect(I, c(i, Q))
   Y <- intersect(Y, c(i, j, Q))
@@ -1506,13 +1506,18 @@ setMethod("qpAllCItests", signature(X="matrix"),
     return(pvstatn)
   }
 
+  missingMask <- apply(X[, , drop=FALSE], 1, function(x) any(is.na(x)))
+  missingData <- any(is.na(missingMask))
+
   S <- ssd <- mapX2ssd <- NULL
-  if (!is.null(I)) {  ## calculate the uncorrected sum of squares and deviations
-    ssd <- qpCov(X[, Y, drop=FALSE], corrected=FALSE)
-    mapX2ssd <- match(var.names, colnames(ssd))
-    ## names(mapX2ssd) <- colnames(X) ## is this necessary?
-  } else             ## calculate sample covariance matrix
-    S <- qpCov(X)
+  if (!missingData) {
+    if (!is.null(I)) {  ## calculate the uncorrected sum of squares and deviations
+      ssd <- qpCov(X[, Y, drop=FALSE], corrected=FALSE)
+      mapX2ssd <- match(var.names, colnames(ssd))
+      ## names(mapX2ssd) <- colnames(X) ## is this necessary?
+    } else             ## calculate sample covariance matrix
+      S <- qpCov(X)
+  }
 
   ## return an efficiently stored symmetric matrix
   if (return.type == "all" || return.type == "p.value") {
@@ -1548,9 +1553,11 @@ setMethod("qpAllCItests", signature(X="matrix"),
   for (i in pairup.ij.int) {
     for (j in c(pairup.i.noint,pairup.j.noint)) {
 
-      if (is.null(I))
-        cit <- qpgraph:::.qpCItest(S, i, j, Q, R.code.only=TRUE)
-      else
+      if (is.null(I)) {
+        Xsub <- X[, c(i, j, Q), drop=FALSE]
+        S <- qpCov(Xsub)
+        cit <- qpgraph:::.qpCItest(S, 1L, 2L, 2L+seq(along=Q), R.code.only=TRUE)
+      } else
         cit <- qpgraph:::.qpCItestHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
                                        exact.test, use, tol, R.code.only=TRUE)
 
@@ -1579,9 +1586,11 @@ setMethod("qpAllCItests", signature(X="matrix"),
     for (i in pairup.i.noint) {
       for (j in pairup.j.noint) {
 
-        if (is.null(I))
-          cit <- qpgraph:::.qpCItest(S, i, j, Q, R.code.only=TRUE)
-        else
+        if (is.null(I)) {
+          Xsub <- X[, c(i, j, Q), drop=FALSE]
+          S <- qpCov(Xsub)
+          cit <- qpgraph:::.qpCItest(S, 1L, 2L, 2L+seq(along=Q), R.code.only=TRUE)
+        } else
           cit <- qpgraph:::.qpCItestHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
                                          exact.test, use, tol, R.code.only=TRUE)
 
@@ -1608,16 +1617,17 @@ setMethod("qpAllCItests", signature(X="matrix"),
 
   ## intersection variables against themselves (avoiding pairing of the same)
   if (elapsedTime == 0 || k < nAdj2estimateTime) {
-    for (i in seq(along=l.int[-1])) {
-    ## for (i in 1:(l.int-1)) { ## CHANGE THIS IN THE OTHER FUNCTIONS DOING THIS !!!!!!
+    for (i in seq(along=pairup.ij.int[-1])) {
       i2 <- pairup.ij.int[i]
 
       for (j in (i+1):l.int) {
         j2 <- pairup.ij.int[j]
 
-        if (is.null(I))
-          cit <- qpgraph:::.qpCItest(S, i2, j2, Q, R.code.only=TRUE)
-        else
+        if (is.null(I)) {
+          Xsub <- X[, c(i, j, Q), drop=FALSE]
+          S <- qpCov(Xsub)
+          cit <- qpgraph:::.qpCItest(S, 1L, 2L, 2L+seq(along=Q), R.code.only=TRUE)
+        } else
           cit <- qpgraph:::.qpCItestHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i2, j2, Q,
                                          exact.test, use, tol, R.code.only=TRUE)
 

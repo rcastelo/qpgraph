@@ -193,6 +193,7 @@ setMethod("transeQTL", signature(x="eQTLcross", cisr="numeric"),
 
             transeqtl <- cbind(alleqtl, genechrom=x@genes[alleqtl$gene, 1], geneloc=x@genes[alleqtl$gene, 2])
             transeqtl <- transeqtl[transeqtl$chrom != transeqtl$genechrom | abs(transeqtl$location-transeqtl$geneloc) > cisr, ]
+            rownames(transeqtl) <- 1:nrow(transeqtl)
 
             transeqtl[, 1:5]
           })
@@ -283,7 +284,7 @@ eQTLcrossParam <- function(map=do.call("class<-", list(list("1"=do.call("class<-
   if (n.cisQTL+n.transQTL > nm && d2m == 0)
     stop("more eQTL than markers. Either, increase marker density in the genetic map, increase d2m or decrease the number of eQTL.")
 
-  new("eQTLcrossParam", map=map, type=type, cis=cis, trans=trans, cisr=cisr, d2m=d2m,
+  new("eQTLcrossParam", map=map, type=type, cis=cis, trans=as.integer(trans), cisr=cisr, d2m=d2m,
       networkParam=networkParam)
 }
 
@@ -301,7 +302,7 @@ setMethod("show", signature(object="eQTLcrossParam"),
                         round(object@cis*object@networkParam@p, digits=0), sum(object@trans)))
             cat(sprintf("  cis-eQTL associations occur within %.1f cM of a gene\n", object@cisr))
             cat(sprintf("  and all eQTL are located at %.1f cM from a marker.\n\n", object@d2m))
-            cat("  Gene network parameters are defined by a:\n")
+            cat("  Gene network parameters are defined by a\n")
             print(object@networkParam)
 
             invisible(object)
@@ -315,6 +316,21 @@ setMethod("show", signature(object="eQTLcrossParam"),
 ## cisr: cis radius, maximum distance in cM that defines a QTL in cis wrt to a gene
 ## d2m: distance of every gene or eQTL to a marker, default 0 implies eQTLs and genes are located at markers,
 ##      and therefore, the maximum number of eQTL is bounded by the number of markers
+setMethod("reQTLcross", signature(n="eQTLcrossParam", network="missing"),
+          function(n, network, rho=0.5, a=1, tol=0.001, verbose=FALSE) {
+            reQTLcross(n=1L, network=n, rho, a, tol, verbose)
+          })
+
+setMethod("reQTLcross", signature(n="missing", network="eQTLcrossParam"),
+          function(n, network, rho=0.5, a=1, tol=0.001, verbose=FALSE) {
+            reQTLcross(n=1L, network, rho, a, tol, verbose)
+          })
+
+setMethod("reQTLcross", signature(n="numeric", network="eQTLcrossParam"),
+          function(n=1, network, rho=0.5, a=1, tol=0.001, verbose=FALSE) {
+            reQTLcross(n=as.integer(n), network, rho, a, tol, verbose)
+          })
+
 setMethod("reQTLcross", signature(n="integer", network="eQTLcrossParam"),
           function(n=1L, network, rho=0.5, a=1, tol=0.001, verbose=FALSE) {
             map <- network@map

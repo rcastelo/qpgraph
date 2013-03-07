@@ -637,7 +637,7 @@ setMethod("qpNrr", signature(X="matrix"),
 
   ## intersection variables against themselves (avoiding pairing of the same)
   if (elapsedTime == 0 || k < nAdj2estimateTime) {
-    for (i in 1:(l.int-1)) {
+    for (i in seq(along=pairup.ij.int[-1])) { ## 1:(l.int-1) does not work if l.int == 0
       i2 <- pairup.ij.int[i]
 
       for (j in (i+1):l.int) {
@@ -786,7 +786,7 @@ setMethod("qpNrr", signature(X="matrix"),
 
   ## intersection variables against themselves (avoiding pairing of the same)
   if (elapsedTime == 0 || k < nAdj2estimateTime) {
-    for (i in 1:(l.int-1)) {
+    for (i in seq(along=pairup.ij.int[-1])) { ## 1:(l.int-1) does not work if l.int==0
       i2 <- pairup.ij.int[i]
 
       for (j in (i+1):l.int) {
@@ -1656,10 +1656,10 @@ setMethod("qpEdgeNrr", signature(X="smlSet"),
                 all(c(i, j, restrict.Q, fix.Q) <= ph)) { ## only continuous variables are
                                                          ## involved in the calculations
               V <- c(i, j, setdiff(restrict.Q, c(i, j)), fix.Q)
-              i <- 1
-              j <- 2
-              restrict.Q <- 2+seq(along=setdiff(restrict.Q, c(i, j)))
-              fix.Q <- 2+length(restrict.Q)+seq(along=fix.Q)
+              i <- 1L
+              j <- 2L
+              restrict.Q <- 2L+seq(along=setdiff(restrict.Q, c(i, j)))
+              fix.Q <- 2L+length(restrict.Q)+seq(along=fix.Q)
 
               ## S <- qpCov(XEP[, V, drop=FALSE]) ## here is faster to calculate S for each margin
               S <- NULL
@@ -1814,10 +1814,10 @@ setMethod("qpEdgeNrr", signature(X="ExpressionSet"),
               V <- 1:p
               if (!is.null(restrict.Q)) {
                 V <- c(i, j, setdiff(restrict.Q, c(i, j)), fix.Q)
-                i <- 1
-                j <- 2
-                restrict.Q <- 2+seq(along=setdiff(restrict.Q, c(i, j)))
-                fix.Q <- 2+length(restrict.Q)+seq(along=fix.Q)
+                i <- 1L
+                j <- 2L
+                restrict.Q <- 2L+seq(along=setdiff(restrict.Q, c(i, j)))
+                fix.Q <- 2L+length(restrict.Q)+seq(along=fix.Q)
               }
 
               ## S <- qpCov(X[, V, drop=FALSE]) ## here is faster to calculate S for each margin
@@ -1900,10 +1900,10 @@ setMethod("qpEdgeNrr", signature(X="data.frame"),
               V <- 1:p
               if (!is.null(restrict.Q)) {
                 V <- c(i, j, setdiff(restrict.Q, c(i, j)), fix.Q)
-                i <- 1
-                j <- 2
-                restrict.Q <- 2+seq(along=setdiff(restrict.Q, c(i, j)))
-                fix.Q <- 2+length(restrict.Q)+seq(along=fix.Q)
+                i <- 1L
+                j <- 2L
+                restrict.Q <- 2L+seq(along=setdiff(restrict.Q, c(i, j)))
+                fix.Q <- 2L+length(restrict.Q)+seq(along=fix.Q)
               }
 
               ## S <- qpCov(X[, V, drop=FALSE]) ## here is faster to calculate S for each margin
@@ -1986,10 +1986,10 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
               V <- 1:p
               if (!is.null(restrict.Q)) {
                 V <- c(i, j, setdiff(restrict.Q, c(i, j)), fix.Q)
-                i <- 1
-                j <- 2
-                restrict.Q <- 2+seq(along=setdiff(restrict.Q, c(i, j)))
-                fix.Q <- 2+length(restrict.Q)+seq(along=fix.Q)
+                i <- 1L
+                j <- 2L
+                restrict.Q <- 2L+seq(along=setdiff(restrict.Q, c(i, j)))
+                fix.Q <- 2L+length(restrict.Q)+seq(along=fix.Q)
               }
 
               ## S <- qpCov(X[, V, drop=FALSE]) ## here is faster to calculate S for each margin
@@ -2408,9 +2408,9 @@ setMethod("qpEdgeNrr", signature(X="SsdMatrix"),
     Q <- c(sample(V, q-q.fix, replace=FALSE), fix.Q)
     w <- which(Q <= ph)
     nijep <- length(w)
-    Xsub[, 2+seq(along=w)] <- XEP[, Q[w]]
-    Isub <- c(Iij, 2+seq(along=w)[na.omit(match(I, Q))])
-    nLevelsSub[2+seq(along=w)[na.omit(match(I, Q))]] <- nLevels[Q[na.omit(match(I, Q))]]
+    Xsub[, 2L+seq(along=w)] <- XEP[, Q[w]]
+    Isub <- c(Iij, 2L+seq(along=w)[na.omit(match(I, Q))])
+    nLevelsSub[2L+seq(along=w)[na.omit(match(I, Q))]] <- nLevels[Q[na.omit(match(I, Q))]]
     Qw <- Q[which(Q > ph)]
     for (m in seq(along=Qw)) {
       selChr <- sum(cumsum_sByChr < Qw[m]-ph)
@@ -2428,7 +2428,7 @@ setMethod("qpEdgeNrr", signature(X="SsdMatrix"),
       Ysub <- Ysub[-Isub]
     ## map2ssd[Ysub] <- mapY2ssd[intersect(c(Yij, Q), Y)] ## map Xsub coord. to ssd coord.
 
-    Q <- 2+seq(along=Q)
+    Q <- 2L+seq(along=Q)
 
     cit <- qpgraph:::.qpCItestHMGM(Xsub, Isub, nLevelsSub, Ysub, ssd, mapY2ssd,
                                    i, j, Q, exact.test, use, tol, R.code.only=TRUE)
