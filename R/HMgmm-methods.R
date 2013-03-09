@@ -361,6 +361,18 @@ setMethod("names", signature(x="HMgmm"),
             c("X", "I", "Y", "p", "pI", "pY", "g", "mean", "sigma", "a", "eta2")
           })
 
+## dim method
+setMethod("dim", signature(x="HMgmm"),
+          function(x) {
+            c(pI=x@pI, pY=x@pY)
+          })
+
+## dimnames method
+setMethod("dimnames", signature(x="HMgmm"),
+          function(x) {
+            list(I=x$I, Y=x$Y)
+          })
+
 ## internal eta2 function
 calculateEta2 <- function(object) {
   if (!is.null(object@eta2$value))

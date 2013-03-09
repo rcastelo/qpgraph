@@ -58,6 +58,9 @@ Stix, V. Finding all maximal cliques in dynamic graphs
   \code{\link{qpIPF}}
 }
 \examples{
+## the example below takes about 30 seconds to execute and for that reason
+## it is not executed by default
+\dontrun{
 require(graph)
 
 set.seed(123)
@@ -78,6 +81,7 @@ system.time(clqs2b <- qpUpdateCliquesRemoving(g1, clqs1, "1", edges(g1)[["1"]][1
 length(clqs2a)
 
 length(clqs2b)-nVar
+}
 }
 \keyword{models}
 \keyword{multivariate}

@@ -81,21 +81,24 @@ networks from microarray data with qp-graphs. \emph{J. Comp. Biol.},
   \code{\link{qpGraph}}
 }
 \examples{
+## example below takes about minute and a half to execute and for
+## that reason it is not executed by default
+\dontrun{
 library(GOstats)
 library(org.EcK12.eg.db)
 
-# load RegulonDB data from this package
+## load RegulonDB data from this package
 data(EcoliOxygen)
 
-# pick two TFs from the RegulonDB data in this package
+## pick two TFs from the RegulonDB data in this package
 
 TFgenes <- c("mhpR", "iscR")
 
-# get their Entrez Gene Identifiers
+## get their Entrez Gene Identifiers
 TFgenesEgIDs <- unlist(mget(TFgenes, AnnotationDbi::revmap(org.EcK12.egSYMBOL)))
 
-# get all genes involved in their regulatory modules from
-# the RegulonDB data in this package
+## get all genes involved in their regulatory modules from
+## the RegulonDB data in this package
 mt <- match(filtered.regulon6.1[,"EgID_TF"], TFgenesEgIDs)
 
 allGenes <- as.character(unique(as.vector(
@@ -105,15 +108,15 @@ allGenes <- as.character(unique(as.vector(
 mtTF <- match(filtered.regulon6.1[,"EgID_TF"],allGenes)
 mtTG <- match(filtered.regulon6.1[,"EgID_TG"],allGenes)
 
-# select the corresponding subset of the RegulonDB data in this package
+## select the corresponding subset of the RegulonDB data in this package
 subset.filtered.regulon6.1 <- filtered.regulon6.1[!is.na(mtTF) & !is.na(mtTG),]
 TFi <- match(subset.filtered.regulon6.1[,"EgID_TF"], allGenes)
 TGi <- match(subset.filtered.regulon6.1[,"EgID_TG"], allGenes)
 subset.filtered.regulon6.1 <- cbind(subset.filtered.regulon6.1,
                                     idx_TF=TFi, idx_TG=TGi)
 
-# build an adjacency matrix representing the transcriptional regulatory
-# relationships from these regulatory modules
+## build an adjacency matrix representing the transcriptional regulatory
+## relationships from these regulatory modules
 p <- length(allGenes)
 adjacencyMatrix <- matrix(FALSE, nrow=p, ncol=p)
 rownames(adjacencyMatrix) <- colnames(adjacencyMatrix) <- allGenes
@@ -121,13 +124,14 @@ idxTFTG <- as.matrix(subset.filtered.regulon6.1[,c("idx_TF","idx_TG")])
 adjacencyMatrix[idxTFTG] <-
   adjacencyMatrix[cbind(idxTFTG[,2],idxTFTG[,1])] <- TRUE
 
-# calculate functional coherence on these regulatory modules
+## calculate functional coherence on these regulatory modules
 fc <- qpFunctionalCoherence(adjacencyMatrix, TFgenes=TFgenesEgIDs,
                             chip="org.EcK12.eg.db")
 
 print(sprintf("the \%s module has a FC value of \%.2f",
               mget(names(fc$functionalCoherenceValues),org.EcK12.egSYMBOL),
               fc$functionalCoherenceValues))
+}
 }
 \keyword{models}
 \keyword{multivariate}

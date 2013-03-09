@@ -115,11 +115,8 @@ export(qpHist,
        qpCov,
        qpRndHMGM,
        qpSampleFromHMGM,
-       qpSimulateEqtl,
-       qpSampleFromEqtl,
        erGraphParam,
        dRegularGraphParam,
        erMarkedGraphParam,
        dRegularMarkedGraphParam,
-       eQTLcrossParam,
-       oldreQTLcross)
+       eQTLcrossParam)

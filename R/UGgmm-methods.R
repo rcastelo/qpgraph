@@ -199,6 +199,12 @@ setMethod("rUGgmm", signature(n="integer", g="graphBAM"),
             sim
           })
 
+## names method
+setMethod("names", signature(x="UGgmm"),
+          function(x) {
+            c("X", "p", "g", "mean", "sigma")
+          })
+
 ## $ accessor operator
 setMethod("$", signature(x="UGgmm"),
           function(x, name) {
@@ -212,10 +218,16 @@ setMethod("$", signature(x="UGgmm"),
                    )
           })
 
-## names method
-setMethod("names", signature(x="UGgmm"),
+## dim method
+setMethod("dim", signature(x="UGgmm"),
           function(x) {
-            c("X", "p", "g", "mean", "sigma")
+            x@p 
+          })
+
+## dimnames method
+setMethod("dimnames", signature(x="UGgmm"),
+          function(x) {
+            graph::nodes(x@g) 
           })
 
 ## show method
@@ -242,8 +254,8 @@ setMethod("summary", signature(object="UGgmm"),
 
 ## plot method
 setMethod("plot", signature(x="UGgmm"),
-          function(x) {
-            Rgraphviz::plot(x@g)
+          function(x, ...) {
+            Rgraphviz::plot(x@g, ...)
          })
 
 ## overload rmvnorm() from the mvtnorm package to sample multivariate normal observations from an UGgmm

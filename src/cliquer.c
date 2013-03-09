@@ -4,6 +4,7 @@
  * have been changed to the Calloc/Free construct also from
  * the R-system such that R takes over the management of the
  * memory allocation. Robert Castelo (17/11/2008)
+ * All printf() calls have been changed to Rprintf()
 */
 
 /*
@@ -390,7 +391,7 @@ static int unweighted_clique_search_all(int *table, int start,
 	int count=0;
 
 #ifdef DEBUGCLIQUER
-printf("\nunweighted_clique_search_all: start=%d min_size=%d max_size=%d\n",start,min_size,max_size);
+Rprintf("\nunweighted_clique_search_all: start=%d min_size=%d max_size=%d\n",start,min_size,max_size);
 #endif
 	if (temp_count) {
 		temp_count--;
@@ -406,11 +407,11 @@ printf("\nunweighted_clique_search_all: start=%d min_size=%d max_size=%d\n",star
 		v=table[i];
 		clique_size[v]=min_size;  /* Do not prune here. */
 #ifdef DEBUGCLIQUER
-printf("unweighted_clique_search_all: i=%d v=table[%d]=%d\n",i,i,v);
+Rprintf("unweighted_clique_search_all: i=%d v=table[%d]=%d\n",i,i,v);
 for (j=0;j<g->n;j++)
-  printf("unweighted_clique_search_all: table[%d]=%d\n",j,table[j]);
+  Rprintf("unweighted_clique_search_all: table[%d]=%d\n",j,table[j]);
 for (j=0;j<g->n;j++)
-  printf("unweighted_clique_search_all: clique_size[%d]=%d\n",j,clique_size[j]);
+  Rprintf("unweighted_clique_search_all: clique_size[%d]=%d\n",j,clique_size[j]);
 #endif
 
 		newsize=0;
@@ -423,11 +424,11 @@ for (j=0;j<g->n;j++)
 
 		SET_ADD_ELEMENT(current_clique,v);
 #ifdef DEBUGCLIQUER
-printf("unweighted_clique_search_all: before recursing, current_clique={ ");
+Rprintf("unweighted_clique_search_all: before recursing, current_clique={ ");
 j=-1;
 while ((j=set_return_next(current_clique,j)) >= 0)
-  printf("%d ",j);
-printf("}\n");
+  Rprintf("%d ",j);
+Rprintf("}\n");
 #endif
 		j=sub_unweighted_all(newtable,newsize,min_size-1,max_size-1,
 				     maximal,g,opts);
@@ -439,11 +440,11 @@ printf("}\n");
 		}
 		count+=j;
 #ifdef DEBUGCLIQUER
-printf("unweighted_clique_search_all: after recursing, current_clique={ ");
+Rprintf("unweighted_clique_search_all: after recursing, current_clique={ ");
 j=-1;
 while ((j=set_return_next(current_clique,j)) >= 0)
-  printf("%d ",j);
-printf("}\n");
+  Rprintf("%d ",j);
+Rprintf("}\n");
 #endif
 #ifndef _WIN32
 		if (opts->time_function) {
@@ -506,9 +507,9 @@ static int sub_unweighted_all(int *table, int size, int min_size, int max_size,
 	int count=0;     /* Amount of cliques found */
 
 #ifdef DEBUGCLIQUER
-printf("\nsub_unweighted_all: size=%d min_size=%d max_size=%d\n",size,min_size,max_size);
+Rprintf("\nsub_unweighted_all: size=%d min_size=%d max_size=%d\n",size,min_size,max_size);
 for (i=0;i<size;i++)
-  printf("sub_unweighted_all: table[%d]=%d\n",i,table[i]);
+  Rprintf("sub_unweighted_all: table[%d]=%d\n",i,table[i]);
 #endif
 
 	if (min_size <= 0) {
@@ -519,11 +520,11 @@ for (i=0;i<size;i++)
 				return -count;
 			}
 #ifdef DEBUGCLIQUER
-printf("sub_unweighted_all: FOUND MAXIMAL current_clique={ ");
+Rprintf("sub_unweighted_all: FOUND MAXIMAL current_clique={ ");
 n=-1;
 while ((n=set_return_next(current_clique,n)) >= 0)
-  printf("%d ",n);
-printf("}\n");
+  Rprintf("%d ",n);
+Rprintf("}\n");
 #endif
 		}
 		if (max_size <= 0) {
@@ -555,16 +556,16 @@ printf("}\n");
 		}
 
 #ifdef DEBUGCLIQUER
-printf("sub_unweighted_all: i=%d v=table[%d]=%d\n",i,i,v);
+Rprintf("sub_unweighted_all: i=%d v=table[%d]=%d\n",i,i,v);
 for (n=0;n<size;n++)
-  printf("sub_unweighted_all: table[%d]=%d\n",n,table[n]);
+  Rprintf("sub_unweighted_all: table[%d]=%d\n",n,table[n]);
 for (n=0;n<g->n;n++)
-  printf("sub_unweighted_all: clique_size[%d]=%d\n",n,clique_size[n]);
-printf("sub_unweighted_all: current_clique={ ");
+  Rprintf("sub_unweighted_all: clique_size[%d]=%d\n",n,clique_size[n]);
+Rprintf("sub_unweighted_all: current_clique={ ");
 n=-1;
 while ((n=set_return_next(current_clique,n)) >= 0)
-  printf("%d ",n);
-printf("}\n");
+  Rprintf("%d ",n);
+Rprintf("}\n");
 #endif
 		/* Very ugly code, but works faster than "for (i=...)" */
 		p1 = newtable;
