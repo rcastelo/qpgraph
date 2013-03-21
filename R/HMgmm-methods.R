@@ -153,7 +153,6 @@ setMethod("rHMgmm", signature(n="integer", g="markedGraphParam"),
               sim.g <- rgraphBAM(g)
               edgemode(sim.g) <- "directed" ## since the underlying statistical model assumes discrete vertices point to continuous ones
               if (is(g, "erMarkedGraphParam")) { ## remove edges between discrete vertices with the ER model
-                dEdges <- matrix(NA_character_, nrow=0, ncol2)
                 dEdges <- edges(sim.g)[g@Ilabels]
                 ndEdges <- sapply(dEdges, function(x, I) sum(x %in% I), g@Ilabels)
                 if (any(ndEdges > 0)) {

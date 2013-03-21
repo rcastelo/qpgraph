@@ -41,9 +41,8 @@
 #ifndef ASSERT
 #define ASSERT(expr) \
         if (!(expr)) { \
-		fprintf(stderr,"cliquer file %s: line %d: assertion failed: " \
-			"(%s)\n",__FILE__,__LINE__,#expr); \
-		abort(); \
+			    error("CLIQUER INTERNAL ERROR: cliquer file %s: line %d: assertion failed: " \
+			          "(%s)\n",__FILE__,__LINE__,#expr); \
 	}
 #endif /* !ASSERT */
 

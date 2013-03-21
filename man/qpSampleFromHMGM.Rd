@@ -1,11 +1,13 @@
 \name{qpSampleFromHMGM}
 \alias{qpSampleFromHMGM}
+\alias{qpSampleFromHMGM-deprecated}
 
 \title{
 Sample from homogeneous mixed graphical Markov models
 }
 \description{
-Samples synthetic data from homogeneous mixed graphical Markov models (experimental feature).
+Samples synthetic data from homogeneous mixed graphical Markov models. This
+function has been deprecated, the user should use \code{\link{rcmvnorm}}.
 }
 \usage{
 qpSampleFromHMGM(n=10, hmgm=qpRndHMGM())
@@ -34,7 +36,9 @@ Gaussian graphical model search from microarray data with p larger than n,
   \code{\link{qpSampleFromHMGM}}
 }
 \examples{
-## qpSampleFromHMGM()
+\dontrun{
+qpSampleFromHMGM()
+}
 }
 \keyword{models}
 \keyword{multivariate}

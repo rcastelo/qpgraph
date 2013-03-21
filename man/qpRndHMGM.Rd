@@ -1,11 +1,13 @@
 \name{qpRndHMGM}
 \alias{qpRndHMGM}
+\alias{qpRndHMGM-deprecated}
 
 \title{
 Random homogeneous mixed graphical Markov model
 }
 \description{
-Builds a random homogeneous mixed graphical Markov model (experimental feature).
+Builds a random homogeneous mixed graphical Markov model. This function
+has been deprecated, the user should use \code{\link{rHMgmm}}.
 }
 \usage{
 qpRndHMGM(nDiscrete=1, nContinuous=3, d=2, mixedIntStrength=5, rho=0.5, G=NULL)
@@ -43,7 +45,9 @@ Gaussian graphical model search from microarray data with p larger than n,
   \code{\link{qpSampleFromHMGM}}
 }
 \examples{
-## qpRndHMGM()
+\dontrun{
+qpRndHMGM()
+}
 }
 \keyword{models}
 \keyword{multivariate}
