@@ -1,9 +1,27 @@
+CHANGES IN VERSION 1.16
+-----------------------
+
+NEW FEATURES
+
+    o new procedures to simulate homogenous mixed graphical Markov models with a desired linear additive effect on the mixed linear associations.
+
+    o new object classes 'UGgmm', 'HMgmm' and methods 'rUGgmm()', 'rHMgmm()', etc. to create and simulate undirected Gaussian and homogeneous mixed graphical Markov models and data from them.
+
+    o new object class 'eQTLcross' and methods 'reQTLcross()', etc. to create and simulate expression quantitative trait loci (eQTL) models in experimental crosses and data from them in combination with the 'qtl' package.
+
+    o new vignette on simulating molecular regulatory networks using qpgraph that illustrates the new collection of object classes and functions to simulate data from graphical Markov models and from expression quantitative loci (eQTL) models in experimental crosses.
+
+BUG FIXES
+
+    o correct calculation of SSD matrices and conditional independence tests when more than one discrete variable was involved in the test containing missing values using complete observations.
+
+
 CHANGES IN VERSION 1.14
 -----------------------
 
 NEW FEATURES
 
-    o new qpPlotMap() function to show associations between genetic markers and gene expression profiles using their positions along the genome
+    o new qpPlotMap() function to show associations between genetic markers and gene expression profiles using their positions along the genome.
 
     o conditional independence tests and non-rejection rate estimation with missing data via complete-case analysis and the EM algorithm
 

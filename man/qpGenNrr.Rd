@@ -150,23 +150,33 @@ Barcelona, 2011.
   \code{\link{qpClique}}
 }
 \examples{
-require(mvtnorm)
-
 nVar <- 50  ## number of variables
 maxCon <- 5 ## maximum connectivity per variable
 nObs <- 30  ## number of observations to simulate
 
 set.seed(123)
 
-A1 <- qpRndGraph(p=nVar, d=maxCon)
-A2 <- qpRndGraph(p=nVar, d=maxCon)
-Sigma1 <- qpG2Sigma(A1, rho=0.5)
-Sigma2 <- qpG2Sigma(A2, rho=0.5)
-X1 <- rmvnorm(nObs, sigma=as.matrix(Sigma1))
-X2 <- rmvnorm(nObs, sigma=as.matrix(Sigma2))
+## simulate two independent Gaussian graphical models determined
+## by two undirected d-regular graphs
+model1 <- rUGgmm(dRegularGraphParam(p=nVar, d=maxCon), rho=0.5)
+model2 <- rUGgmm(dRegularGraphParam(p=nVar, d=maxCon), rho=0.5)
 
-nrr.estimates <- qpGenNrr(rbind(X1, X2), datasetIdx=rep(1:2, each=nObs),
+## simulate two independent data sets from the previous graphical models
+X1 <- rmvnorm(nObs, model1)
+dim(X1)
+X2 <- rmvnorm(nObs, model2)
+dim(X2)
+
+## estimate generalized non-rejection rates from the joint data
+nrr.estimates <- qpGenNrr(rbind(X1, X2),
+                          datasetIdx=rep(1:2, each=nObs),
+                          qOrders=c("1"=5, "2"=5),
                           long.dim.are.variables=FALSE, verbose=FALSE)
+
+## create adjacency matrices from the undirected graphs
+## determining the two Gaussian graphical models
+A1 <- as(model1$g, "matrix") == 1
+A2 <- as(model2$g, "matrix") == 1
 
 ## distribution of generalized non-rejection rates for the common present edges
 summary(nrr.estimates$genNrr[upper.tri(nrr.estimates$genNrr) & A1 & A2])
@@ -181,7 +191,7 @@ summary(nrr.estimates$genNrr[upper.tri(nrr.estimates$genNrr) & !A1 & A2])
 summary(nrr.estimates$genNrr[upper.tri(nrr.estimates$genNrr) & !A1 & !A2])
 
 ## compare with the average non-rejection rate on the pooled data set
-avgnrr.estimates <- qpAvgNrr(rbind(X1, X2), long.dim.are.variables=FALSE, verbose=FALSE)
+avgnrr.estimates <- qpNrr(rbind(X1, X2), q=5, long.dim.are.variables=FALSE, verbose=FALSE)
 
 ## distribution of average non-rejection rates for the common present edges
 summary(avgnrr.estimates[upper.tri(avgnrr.estimates) & A1 & A2])

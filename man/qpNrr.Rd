@@ -127,19 +127,27 @@ Barcelona, 2011.
   \code{\link{qpClique}}
 }
 \examples{
-library(mvtnorm)
-
 nVar <- 50  ## number of variables
 maxCon <- 3 ## maximum connectivity per variable
 nObs <- 30  ## number of observations to simulate
 
 set.seed(123)
 
-A <- qpRndGraph(p=nVar, d=maxCon)
-Sigma <- qpG2Sigma(A, rho=0.5)
-X <- rmvnorm(nObs, sigma=as.matrix(Sigma))
+## simulate an undirected Gaussian graphical model
+## determined by some random undirected d-regular graph
+model <- rUGgmm(dRegularGraphParam(p=nVar, d=maxCon), rho=0.5)
+model
 
+## simulate data from this model
+X <- rmvnorm(nObs, model)
+dim(X)
+
+## estimate non-rejection rates with q=3
 nrr.estimates <- qpNrr(X, q=3, verbose=FALSE)
+
+## create an adjacency matrix of the undirected graph
+## determining the undirected Gaussian graphical model
+A <- as(model$g, "matrix") == 1
 
 ## distribution of non-rejection rates for the present edges
 summary(nrr.estimates[upper.tri(nrr.estimates) & A])
@@ -147,21 +155,20 @@ summary(nrr.estimates[upper.tri(nrr.estimates) & A])
 ## distribution of non-rejection rates for the missing edges
 summary(nrr.estimates[upper.tri(nrr.estimates) & !A])
 
+\dontrun{
 ## using R code only this would take much more time
 qpNrr(X, q=3, R.code.only=TRUE, estimateTime=TRUE)
-
-\dontrun{
-library(snow)
-library(rlecuyer)
 
 ## only for moderate and large numbers of variables the
 ## use of a cluster of processors speeds up the calculations
 
+library(snow)
+library(rlecuyer)
+
 nVar <- 500
 maxCon <- 3
-A <- qpRndGraph(p=nVar, d=maxCon)
-Sigma <- qpG2Sigma(A, rho=0.5)
-X <- rmvnorm(nObs, sigma=as.matrix(Sigma))
+model <- rUGgmm(dRegularGraphParam(p=nVar, d=maxCon), rho=0.5)
+X <- rmvnorm(nObs, model)
 
 system.time(nrr.estimates <- qpNrr(X, q=10, verbose=TRUE))
 system.time(nrr.estimates <- qpNrr(X, q=10, verbose=TRUE, clusterSize=4))

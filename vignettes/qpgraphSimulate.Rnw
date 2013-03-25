@@ -39,6 +39,7 @@
 pdf.options(useDingbats=FALSE)
 options(width=80)
 rm(list=ls())
+try(detach("package:mvtnorm"), silent=TRUE)
 try(detach("package:qtl"), silent=TRUE)
 @
 
@@ -333,10 +334,10 @@ Two restrictions currently constain further the type of mixed GMMs we can simula
 independence between them and the second one is that every continuous variable cannot be
 associated to more than one discrete variable. As we shall see below, the first restriction
 does not apply when simulating expression quantitative trait loci data in experimental
-crosses, as genotype marker data is simulated by another package, the \Rpackage{qtl} package.
-We are working to remove the second restriction in the near future and enable multiple
-discrete variables having linear additive effects, or even epistatic effects, on a common
-continuous variable.
+crosses, as genotype marker data is simulated by another package, the \Rpackage{qtl}
+ackage \citep{Broman:2003fk}. We are working to remove the second restriction in the near
+future and enable multiple discrete variables having linear additive effects and interaction
+effects, on a common continuous variable.
 
 Similarly to how we did it with undirected Gaussian GMMs, simulating mixed GMMs is done
 with a call to the function \Rfunction{rHMgmm()}:
@@ -445,16 +446,16 @@ gmm$a
 \section{Simulation of eQTL models of experimental crosses}
 
 We illustrate in this section how we can use \Rpackage{qpgraph} in conjunction with the
-\Rpackage{qtl} package to simulate expression quantatitve trait loci (eQTL) models of
-experimental crosses and data from them. This functionality employs the previously described
-procedures to simulate an homogeneous mixed GMM that represents the underlying model of
-regulatory {\it cis}-eQTL, {\it trans}-eQTL and gene-gene associations, although this
-fact appears hidden to the user.
+\Rpackage{qtl} package \citep{Broman:2003fk} to simulate expression quantatitve trait
+loci (eQTL) models of experimental crosses and data from them. This functionality employs
+the previously described procedures to simulate an homogeneous mixed GMM that represents
+the underlying model of regulatory {\it cis}-eQTL, {\it trans}-eQTL and gene-gene
+associations, although this fact appears hidden to the user.
 
 More concretely, the \Rpackage{qpgraph} package defines an object class called
 \Rclass{eQTLcross} which basically holds a genetic map of the genotype markers
-(as defined by the \Rclass{map} class in the \Rpackage{qtl} package and an
-homogeneous mixed GMM defining the underlying molecular regulatory network
+(as defined by the \Rclass{map} class in the \Rpackage{qtl} package \citep{Broman:2003fk}
+and an homogeneous mixed GMM defining the underlying molecular regulatory network
 that connects genotypes with genes and genes themselves, where we use the term
 {\it gene} to refer to a gene expression profile.
 
@@ -483,7 +484,7 @@ covariance matrix (\Robject{tol=0.001}) and whether progress on the calculations
 should be shown \Robject{verbose=FALSE}.
 
 To simulate a larger \Rclass{eQTLcross} object we load an example genetic map object
-called \Robject{map10} from the \Rpackage{qtl} package.
+called \Robject{map10} from the \Rpackage{qtl} package \citep{Broman:2003fk}:
 
 <<>>=
 data(map10, package="qtl")
@@ -510,7 +511,7 @@ A dot plot describing the eQTL associations along the given genetic map can be o
 by calling the \Rfunction{plot} function with the \Rclass{eQTLcross} object as
 argument. In Figure~\ref{fig:geneticmap} we see on the right panel such a plot,
 and on the left panel the genetic map plotted by the plot function defined in the
-\Rpackage{qtl} package to plot genetic maps.
+\Rpackage{qtl} package \citep{Broman:2003fk} to plot genetic maps.
 
 <<geneticmap, fig=TRUE, include=FALSE, echo=TRUE, results=verbatim, height=6, width=12>>=
 par(mfrow=c(1,2))
@@ -519,8 +520,9 @@ plot(eqtl, main="eQTL model with cis-associations only")
 @
 \begin{figure}
   \centerline{\includegraphics[width=\textwidth]{qpgraphSimulate-geneticmap}}
-  \caption{A genetic map simulated with the \Rpackage{qtl} package on the left, and on the right,
-           an eQTL model simulated using the genetic map with the \Rpackage{qpgraph} package.}
+  \caption{A genetic map simulated with the \Rpackage{qtl} package \citep{Broman:2003fk} on
+           the left, and on the right, an eQTL model simulated using the genetic map with
+           the \Rpackage{qpgraph} package.}
   \label{fig:geneticmap}
 \end{figure}
 
@@ -559,8 +561,8 @@ plot(eqtl, main="eQTL model with trans-eQTL")
 
 Using this \Rclass{eQTLcross} object we can simulate data from the corresponding
 experimental cross with the function \Rfunction{sim.cross()} from the \Rpackage{qtl}
-package but which is overloaded in \Rpackage{qpgraph} to plug the eQTL associations
-into the corresponding genetic loci:
+package \citep{Broman:2003fk}  but which is overloaded in \Rpackage{qpgraph} to plug
+the eQTL associations into the corresponding genetic loci:
 
 <<>>=
 set.seed(123)
@@ -568,12 +570,12 @@ cross <- sim.cross(map10, eqtl)
 cross
 @
 Note that here, the genotype data is simulated by the procedures implemented in
-the \Rpackage{qtl} package and \Rpackage{qpgraph} adds to that simulation
-the eQTL and gene network associations. Thus, while the \Rfunction{rHMgmm()}
-function described in the previous section, does not simulate correlated discrete
-variables, here the genotypes will be correlated according to the input arguments
-of the \Rfunction{sim.cross()} function in \Rpackage{qtl} (mainly, the
-\Robject{map.function} argument that converts genetic distances into recombination
+the \Rpackage{qtl} package \citep{Broman:2003fk}  and \Rpackage{qpgraph} adds to
+that simulation the eQTL and gene network associations. Thus, while the
+\Rfunction{rHMgmm()} function described in the previous section, does not simulate
+correlated discrete variables, here the genotypes will be correlated according to
+the input arguments of the \Rfunction{sim.cross()} function in \Rpackage{qtl} (mainly,
+the \Robject{map.function} argument that converts genetic distances into recombination
 fractions) and which can be passed through the previous call to \Rfunction{sim.cross()}.
 
 Let's focus on a specific simulated eQTL, concretely on the second one of the following
@@ -592,12 +594,12 @@ connectedGenes <- graph::edges(eqtl$model$g)[[gene]]
 connectedGenes <- connectedGenes[connectedGenes %in% eqtl$model$Y]
 connectedGenes
 @
-Now, using the \Rpackage{qtl} package and its \Rfunction{scanone()} function, we perform
-a simple QTL analysis by marker regression using the expression profiles from genes
-\Sexpr{paste(c(gene, connectedGenes), collapse=", ")} as phenotypes\footnote{Note
-that when we load below the \Rpackage{qtl} package, the definition of
-\Rfunction{sim.cross()} in \Rpackage{qpgraph} gets masked by the original definition
-of this function in \Rpackage{qtl}. This means we would need, from that point on, to
+Now, using the \Rpackage{qtl} package \citep{Broman:2003fk} and its \Rfunction{scanone()}
+function, we perform a simple QTL analysis by marker regression using the expression
+profiles from genes \Sexpr{paste(c(gene, connectedGenes), collapse=", ")} as
+phenotypes\footnote{Note that when we load below the \Rpackage{qtl} package \citep{Broman:2003fk},
+the definition of \Rfunction{sim.cross()} in \Rpackage{qpgraph} gets masked by the original
+definition of this function in \Rpackage{qtl}. This means we would need, from that point on, to
 use the notation \Robject{qpgraph::sim.cross()} to call the \Rpackage{qpgraph} definition
 of this function unless we detach \Rpackage{qtl} from the search path}:
 
@@ -606,9 +608,9 @@ library(qtl)
 
 out.mr <- scanone(cross, method="mr", pheno.col=c(gene, connectedGenes))
 @
-By using the plotting functionalities of the \Rpackage{qtl} package we can examine the
-LOD score profile of these three genes on chromosome \Sexpr{chrom} where the eQTL of
-gene \Sexpr{gene} is located:
+By using the plotting functionalities of the \Rpackage{qtl} package \citep{Broman:2003fk} we
+can examine the LOD score profile of these three genes on chromosome \Sexpr{chrom} where the
+eQTL of gene \Sexpr{gene} is located:
 
 <<lodprofiles, fig=TRUE, include=FALSE, echo=TRUE, results=verbatim, height=6, width=6>>=
 plot(out.mr, chr=chrom, ylab="LOD score", lodcolumn=1:3)

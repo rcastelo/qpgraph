@@ -15,21 +15,6 @@ of random variables p exceeds the available sample size n as, for
 instance, in the case of microarray data where they can be
 employed to reverse engineer a molecular regulatory network.
 }
-\details{
-  \tabular{ll}{
-  Package: \tab qpgraph\cr
-  Version: \tab 1.10.0\cr %%\Sexpr{packageDescription("qpgraph")[["Version"]]}\cr
-  Built: \tab R 2.14.0\cr %%\Sexpr{packageDescription("qpgraph")[["Built"]]}\cr
-  Depends: \tab methods\cr %%\Sexpr{packageDescription("qpgraph")[["Depends"]]}\cr
-  Imports: \tab methods, annotate, Matrix, graph, Biobase, AnnotationDbi\cr %%\Sexpr{packageDescription("qpgraph")[["Imports"]]}\cr
-  Enhances: \tab rlecuyer, snow, Rgraphviz\cr %%\Sexpr{packageDescription("qpgraph")[["Enhances"]]\cr
-  Suggests: \tab Matrix, mvtnorm, graph, genefilter, Category, org.EcK12.eg.db, GOstats\cr %%\Sexpr{packageDescription("qpgraph")[["Suggests"]]}\cr
-  biocViews: \tab Microarray, GeneExpression, Transcription, Pathways, Bioinformatics, GraphsAndNetworks\cr %%\Sexpr{packageDescription("qpgraph")[["biocViews"]]}\cr
-  License: \tab GPL (>= 2)\cr %%\Sexpr{packageDescription("qpgraph")[["License"]]}\cr
-  URL: \tab http://functionalgenomics.upf.edu/qpgraph\cr %%\Sexpr{packageDescription("qpgraph")[["URL"]]}\cr
-  }
-}
-
 \section{Functions}{
   \itemize{
     \item \code{\link{qpNrr}} estimates non-rejection rates for every pair
