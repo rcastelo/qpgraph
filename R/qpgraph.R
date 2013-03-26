@@ -2600,7 +2600,7 @@ qpGraph <- function(nrrMatrix, threshold=NULL, topPairs=NULL, pairup.i=NULL,
     nrrMatrix[nomeasurementsMask] <- NA
   }
 
-  # non-available NRRs imply no edges
+  # not-available NRRs imply no edges
   nrrMatrix[is.na(nrrMatrix)] <- 1.0
 
   if (!is.null(threshold)) {
@@ -2614,42 +2614,37 @@ qpGraph <- function(nrrMatrix, threshold=NULL, topPairs=NULL, pairup.i=NULL,
     ranking <- cbind(rowUppTri[orderedMeasurementsIdx],
                      colUppTri[orderedMeasurementsIdx])
     A <- matrix(FALSE, nrow=n.var, ncol=n.var)
-    A[ranking[1:topPairs,]] <- TRUE
-    A[cbind(ranking[1:topPairs,2], ranking[1:topPairs,1])] <- TRUE
+    A[ranking[1:topPairs, ]] <- TRUE
+    A[cbind(ranking[1:topPairs, 2], ranking[1:topPairs, 1])] <- TRUE
   }
 
   rownames(A) <- colnames(A) <- vertex.labels
   diag(A) <- FALSE # whatever the threshold is the graph should have no loops
 
   if (return.type == "adjacency.matrix") {
-    ## require(Matrix)
-    return(Matrix(A))
+    return(Matrix::Matrix(A))
   } else if (return.type == "edge.list") {
     m <- cbind(vertex.labels[row(A)[upper.tri(A) & A]], vertex.labels[col(A)[upper.tri(A) & A]])
     colnames(m) <- c("i", "j")
     return(m)
-  } else if (return.type == "graphNEL") {
-    ## require(graph)
-    ## vertices <- unique(c(vertex.labels[row(A)[upper.tri(A) & A]], vertex.labels[col(A)[upper.tri(A) & A]]))
-    ## edL <- vector("list", length=length(vertices))
-    ## names(edL) <- vertices
-    ## for (v in vertices)
-    ##   edL[[v]] <- list(edges=vertex.labels[A[v, ]], weights=rep(1, sum(A[v, ])))
-    m <- cbind(vertex.labels[row(A)[upper.tri(A) & A]], vertex.labels[col(A)[upper.tri(A) & A]])
-    m <- rbind(m, m[, 2:1])
-    edL <- lapply(split(m[,1], m[,2]), unique)
-    g <- new("graphNEL", nodes=names(edL), edgeL=edL, edgemode="undirected")
-    return(g)
-  } else if (return.type == "graphAM") {
-    ## require(graph)
-    g <- new("graphAM", adjMat=A+0, edgemode="undirected", values=list(weight=1))
-    return(g)
-  } else if (return.type == "graphBAM") {
-    m <- cbind(vertex.labels[row(A)[upper.tri(A) & A]], vertex.labels[col(A)[upper.tri(A) & A]])
-    m <- rbind(m, m[, 2:1])
-    edL <- lapply(split(m[,1], m[,2]), unique)
-    g <- new("graphNEL", nodes=names(edL), edgeL=edL, edgemode="undirected")
-    return(as(g, "graphBAM"))
+  } else {
+    from <- vertex.labels[row(A)[upper.tri(A) & A]]
+    to <- vertex.labels[col(A)[upper.tri(A) & A]]
+    df <- data.frame(from=from, to=to, weight=rep(1, length(from)), stringsAsFactors=FALSE)
+    g <- graph::graphBAM(df, nodes=vertex.labels)
+    if (return.type == "graphNEL") {
+      ## m <- cbind(vertex.labels[row(A)[upper.tri(A) & A]], vertex.labels[col(A)[upper.tri(A) & A]])
+      ## m <- rbind(m, m[, 2:1])
+      ## edL <- lapply(split(m[,1], m[,2]), unique)
+      ## g <- new("graphNEL", nodes=names(edL), edgeL=edL, edgemode="undirected")
+      g <- as(g, "graphNEL")
+      return(g)
+    } else if (return.type == "graphAM") {
+      ## g <- new("graphAM", adjMat=A+0, edgemode="undirected", values=list(weight=1))
+      g <- as(g, "graphAM")
+      return(g)
+    }
+    return(g) ## graphBAM
   }
 
   return(NA)
