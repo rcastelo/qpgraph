@@ -2,8 +2,8 @@ setValidity("HMgmm",
             function(object) {
               valid <- TRUE
 
-              ## if (graph::edgemode(object@g) != "undirected")
-              ##  valid <- "currently only undirected homgenous mixed graphical Markov models are supported and 'g' is not undirected."
+              if (graph::edgemode(object@g) != "undirected")
+                valid <- "the underlying graph 'g' should have 'edgemode=\"undirected\" even though 'g' is treated as semi-directed'."
 
               if (class(valid) == "logical" && length(object@a) != sum(object@vtype == "continuous"))
                 valid <- "the vector of additive effects 'a' should contain as many values as continuous variables."
@@ -46,7 +46,6 @@ setMethod("HMgmm", signature(g="missing"),
             cVertexLabels <- sprintf("Y%d", seq(along=rep(1, pY))) ## to deal with pY=0
             g <- graph::graphBAM(as.data.frame(matrix(NA, nrow=0, ncol=3,
                                                       dimnames=list(NULL, c("from", "to", "weight")))),
-                                 edgemode="directed",
                                  nodes=c(dVertexLabels, cVertexLabels))
             nodeDataDefaults(g, "type") <- "continuous"
             nodeData(g, dVertexLabels, "type") <- "discrete"
@@ -151,7 +150,7 @@ setMethod("rHMgmm", signature(n="integer", g="markedGraphParam"),
             sim <- list()
             for (i in 1:n) {
               sim.g <- rgraphBAM(g)
-              edgemode(sim.g) <- "directed" ## since the underlying statistical model assumes discrete vertices point to continuous ones
+
               if (is(g, "erMarkedGraphParam")) { ## remove edges between discrete vertices with the ER model
                 dEdges <- edges(sim.g)[g@Ilabels]
                 ndEdges <- sapply(dEdges, function(x, I) sum(x %in% I), g@Ilabels)
@@ -160,13 +159,15 @@ setMethod("rHMgmm", signature(n="integer", g="markedGraphParam"),
                   nEdges <- nEdges[nEdges > 0]
                   dEdges <- lapply(dEdges, function(x, I) x[x %in% I], g@Ilabels)
                   dEdges <- cbind(rep(names(dEdges), nEdges), unlist(dEdges, use.names=FALSE))
-                  sim.g <- removeEdge(from=dEdges[, 1], to=dEdges[, 2], sim.g)
+                  sim.g <- graph::removeEdge(from=dEdges[, 1], to=dEdges[, 2], sim.g)
                 }
               }
               nodeDataDefaults(sim.g, "type") <- "continuous"
               nodeData(sim.g, g@Ilabels, "type") <- "discrete"
 
               sim.sigma <- qpG2Sigma(g=subGraph(g@Ylabels, sim.g), rho=rho, verbose=verbose)
+              sim.sigma <- sim.sigma[g@Ylabels, g@Ylabels] ## put back rows and columns into the original variable order
+                                                           ## since 'subgraph()' re-orders nodes alphabetically (sigh!)
 
               sim[[i]] <- HMgmm(g=sim.g, dLevels=dLevels, a=a, rho=rho, sigma=sim.sigma)
             }
@@ -261,7 +262,7 @@ setMethod("rHMgmm", signature(n="integer", g="matrix"),
               }
             }
 
-            g <- graphBAM(df, edgemode="directed", nodes=c(Ilabels, Ylabels))
+            g <- graphBAM(df, nodes=c(Ilabels, Ylabels))
             graph::nodeDataDefaults(g, "type") <- "continuous"
             graph::nodeData(g, Ilabels, "type") <- "discrete"
 
@@ -478,7 +479,7 @@ calculateCondMean <- function(x, i) {
   ## we start by setting on the continuous variables what data points are
   ## associated to a particular discrete level, i.e., from what Gaussian
   ## distribution the mean should be calculated 
-  YxI <- Y[which(sapply(graph::edges(x@g)[Y], function(xYk, vt) sum(vt[xYk] == "discrete"), x@vtype) > 0)]
+  YxI <- Y[which(sapply(graph::edges(x@g, Y), function(xYk, vt) sum(vt[xYk] == "discrete"), x@vtype) > 0)]
   mu[, YxI] <- sapply(YxI, function(Yk, i, pI, mod) {
                                IxYk <- intersect(graph::edges(x@g)[[Yk]], I)
                                apply(i[, IxYk, drop=FALSE], 1,
@@ -540,7 +541,7 @@ setMethod("rcmvnorm", signature(n="ANY", model="HMgmm"),
 setMethod("show", signature(object="HMgmm"),
           function(object) {
             cat(sprintf("\n  Homogeneous mixed graphical Markov model\n  with %d discrete and %d continuous r.v., and %d edges.\n\n",
-                        sum(object@vtype == "discrete"), sum(object@vtype == "continuous"), graph::numEdges(object@g)/2))
+                        sum(object@vtype == "discrete"), sum(object@vtype == "continuous"), graph::numEdges(object@g)))
             invisible(object)
           })
 
@@ -555,13 +556,12 @@ setMethod("summary", signature(object="HMgmm"),
             adjmY <- as(object@g, "matrix") == 1
             adjmY <- adjmY[object@vtype == "continuous", object@vtype == "continuous"]
             denY <- (100*sum(adjmY)/2) / choose(object@pY, 2)
-            deg <- graph::degree(object@g)
-            deg <- as.integer(c(deg$outDegree[object$I], deg$inDegree[object$Y]))
+            deg <- as.integer(graph::degree(object@g))
             macor <- Matrix::cov2cor(object@sigma)[upper.tri(adjmY) & adjmY]
             pacor <- Matrix::cov2cor(Matrix::solve(object@sigma))[upper.tri(adjmY) & adjmY]
             maskYxI <- sapply(graph::nodes(object@g)[object@vtype == "continuous"],
                               function(v, e, vt) any(vt[e[[v]]] == "discrete"),
-                              graph::edges(object@g), object@vtype)
+                              graph::edges(object@g, object$Y), object@vtype)
             a <- object@a[maskYxI]
             new("HMgmmSummary", model=object, density=den, densityIxY=denIxY, densityY=denY,
                 degree=deg, macor=macor, pacor=pacor, a=a)
@@ -572,20 +572,34 @@ setMethod("summary", signature(object="HMgmm"),
 setMethod("plot", signature(x="HMgmm"),
           function(x, layoutType="dot", lwd=1, ...) {
             g <- x@g
-            g <- Rgraphviz::layoutGraph(g, layoutType=layoutType) ## this should come first otherwise it overrrides some of the node parameters below
+            g <- Rgraphviz::layoutGraph(g, layoutType=layoutType) ## laying out the graph should happen first otherwise
+                                                                  ## it overrrides some of the node parameters below
             graph::nodeRenderInfo(g) <- list(label=do.call("names<-", list(x$X, x$X)),
                                              fill=do.call("names<-",
-                                                          list(c(rep("black", sum(x@vtype == "discrete")), rep("white", sum(x@vtype == "continuous"))),
-                                                               c(do.call("c", as.list(nodes(g)[x@vtype == "discrete"])), do.call("c", as.list(nodes(g)[x@vtype == "continuous"]))))),
+                                                          list(c(rep("black", sum(x@vtype == "discrete")),
+                                                                 rep("white", sum(x@vtype == "continuous"))),
+                                                               c(do.call("c", as.list(nodes(g)[x@vtype == "discrete"])),
+                                                                 do.call("c", as.list(nodes(g)[x@vtype == "continuous"]))))),
                                              textCol=do.call("names<-",
-                                                              list(c(rep("white", sum(x@vtype == "discrete")), rep("black", sum(x@vtype == "continuous"))),
-                                                                   c(do.call("c", as.list(nodes(g)[x@vtype == "discrete"])), do.call("c", as.list(nodes(g)[x@vtype == "continuous"]))))))
-            mixedEdges <- edges(g)[x$I]
+                                                              list(c(rep("white", sum(x@vtype == "discrete")),
+                                                                     rep("black", sum(x@vtype == "continuous"))),
+                                                                   c(do.call("c", as.list(nodes(g)[x@vtype == "discrete"])),
+                                                                     do.call("c", as.list(nodes(g)[x@vtype == "continuous"]))))))
+            mixedEdges <- edges(g, x$I)
             mixedEdges <- paste(rep(names(mixedEdges), times=sapply(mixedEdges, length)),
                                 unlist(mixedEdges, use.names=FALSE), sep="~")
-            graph::edgeRenderInfo(g) <- list(arrowhead="none", arrowtail="none", lwd=lwd)
-            graph::edgeRenderInfo(g) <- list(arrowhead=do.call("names<-",
-                                                               list(rep("open", length(mixedEdges)), mixedEdges)))
+            ## it seems Rgraphviz::layoutGraph() alphabetically sorts vertices within edge names so we have to
+            ## check on what side of the edge names are the discrete variables to decide whether we draw
+            ## open arrow heads or open arrow tails (sigh!)
+            if (any(!is.na(match(sapply(strsplit(names(graph::edgeRenderInfo(g)$arrowhead), "~"), function(x) x[1]), x$I)))) {
+              graph::edgeRenderInfo(g) <- list(arrowhead="none", arrowtail="none", lwd=lwd)
+              graph::edgeRenderInfo(g) <- list(arrowhead=do.call("names<-",
+                                                                 list(rep("open", length(mixedEdges)), mixedEdges)))
+            } else {
+              graph::edgeRenderInfo(g) <- list(arrowtail="none", arrowtail="none", lwd=lwd)
+              graph::edgeRenderInfo(g) <- list(arrowtail=do.call("names<-",
+                                                                 list(rep("open", length(mixedEdges)), mixedEdges)))
+            }
             Rgraphviz::renderGraph(g, ...)
          })
 
@@ -598,7 +612,7 @@ setMethod("show", signature(object="HMgmmSummary"),
             denIxYstr <- ifelse(object@densityIxY < 1, sprintf("%.g%%", object@densityIxY), sprintf("%.0f%%", object@densityIxY))
             denYstr <- ifelse(object@densityY < 1, sprintf("%.g%%", object@densityY), sprintf("%.0f%%", object@densityY))
             cat(sprintf("  Graph density: %s (all edges) %s (mixed edges) %s (continuous edges)\n", denstr, denIxYstr, denYstr))
-            cat("\n  Degree distribution of the undirected graph:\n")
+            cat("\n  Degree distribution of the vertices in the graph:\n")
             print(summary(object@degree))
             cat("\n  Distribution of marginal correlations for present continuous edges:\n")
             if (length(object@macor) > 0) print(summary(object@macor)) else cat("NA\n")

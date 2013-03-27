@@ -167,6 +167,64 @@ setMethod("qpNrr", signature(X="ExpressionSet"),
                              startTime, nAdj2estimateTime)
           })
 
+## X comes as a cross object
+setMethod("qpNrr", signature(X="cross"),
+          function(X, q=1, restrict.Q=NULL, fix.Q=NULL, nTests=100,
+                   alpha=0.05, pairup.i=NULL, pairup.j=NULL, verbose=TRUE,
+                   identicalQs=TRUE, exact.test=TRUE, use=c("complete.obs", "em"),
+                   tol=0.01, R.code.only=FALSE, clusterSize=1, estimateTime=FALSE,
+                   nAdj2estimateTime=10) {
+
+            use <- match.arg(use)
+
+            p <- as.integer(qtl::nphe(X) + qtl::totmar(X))
+            n <- qtl::nind(X)
+            phenoNames <- colnames(X$pheno)
+            markerNames <- qtl::markernames(X)
+
+            startTime <- c(user.self=0, sys.self=0, elapsed=0, user.child=0, sys.child=0)
+            class(startTime) <- "proc_time"
+            if (estimateTime)
+              startTime <- proc.time()
+
+            if (clusterSize > 1 && R.code.only)
+              stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
+
+            if (clusterSize > 1 &&
+               (!qpgraph:::.qpIsPackageLoaded("rlecuyer") || !qpgraph:::.qpIsPackageLoaded("snow")))
+              stop("Using a cluster (clusterSize > 1) requires first loading packages 'snow' and 'rlecuyer'\n")
+
+            XP <- matrix(NA_real_, nrow=n, ncol=p, dimnames=list(NULL, c(markerNames, phenoNames)))
+            phclass <- sapply(X$pheno, class)
+            discreteMask <- phclass == "character" | phclass == "factor" | phclass == "logical"
+            I <- c(markerNames, phenoNames[discreteMask])
+            XP[, markerNames] <- do.call(cbind, lapply(X$geno, function(x) x$data)) ## assuming all genotype alleles come as 1, 2, ...
+            if (any(phclass == "numeric"))
+              XP[, phenoNames[phclass == "numeric"]] <- as.matrix(X$pheno[, phenoNames[phclass == "numeric"]])
+            if (any(phclass == "integer"))
+              XP[, phenoNames[phclass == "integer"]] <- do.call("mode<-",
+                                                                list(as.matrix(X$pheno[, phenoNames[phclass == "integer"]]),
+                                                                     "numeric"))
+            if (any(discreteMask))
+              XP[, phenoNames[discreteMask]] <- as.matrix(as.data.frame(lapply(lapply(X$pheno[, phenoNames[discreteMask]], factor), as.numeric)))
+            
+            ## different behavior for cross objects: by default only NRR values between markers and phenotypes,
+            ## and continuous phenotypes, are estimated
+            if (is.null(pairup.i) && is.null(pairup.j)) {
+              pairup.i <- c(markerNames, phenoNames)
+              pairup.j <- setdiff(phenoNames, I)
+            }
+
+            ## different behavior for cross objects: by default the subsets Q are samples from continuous phenotypes
+            if (is.null(restrict.Q))
+              restrict.Q <- setdiff(phenoNames, I)
+
+            qpgraph:::.qpNrr(XP, q, I, restrict.Q, fix.Q, nTests, alpha,
+                             pairup.i, pairup.j, verbose, identicalQs,
+                             exact.test, use, tol, R.code.only, clusterSize,
+                             startTime, nAdj2estimateTime)
+          })
+
 ## X comes as a data frame
 setMethod("qpNrr", signature(X="data.frame"),
           function(X, q=1, I=NULL, restrict.Q=NULL, fix.Q=NULL, nTests=100,

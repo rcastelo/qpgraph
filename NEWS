@@ -5,11 +5,17 @@ NEW FEATURES
 
     o new procedures to simulate homogenous mixed graphical Markov models with a desired linear additive effect on the mixed linear associations.
 
-    o new object classes 'UGgmm', 'HMgmm' and methods 'rUGgmm()', 'rHMgmm()', etc. to create and simulate undirected Gaussian and homogeneous mixed graphical Markov models and data from them.
+    o new object classes 'UGgmm', 'HMgmm' and methods 'rUGgmm()', 'rHMgmm()', 'plot', etc. to create and simulate undirected Gaussian and homogeneous mixed graphical Markov models and data from them.
 
     o new object class 'eQTLcross' and methods 'reQTLcross()', etc. to create and simulate expression quantitative trait loci (eQTL) models in experimental crosses and data from them in combination with the 'qtl' package.
 
-    o new vignette on simulating molecular regulatory networks using qpgraph that illustrates the new collection of object classes and functions to simulate data from graphical Markov models and from expression quantitative loci (eQTL) models in experimental crosses.
+    o 'qpNrr()' now also takes a qtl/cross object as input.
+
+USER VISIBLE CHANGES
+
+    o 'qpRndHMGM()' and 'qpSampleFromHMGM()' have been deprecated in favor of the newer S4 classes and methods for simulation.
+
+    o new vignette on simulating molecular regulatory networks using qpgraph that illustrates the new collection of S4 object classes and methods to simulate data from graphical Markov models and from expression quantitative loci (eQTL) models in experimental crosses.
 
 BUG FIXES
 

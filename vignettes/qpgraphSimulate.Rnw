@@ -590,7 +590,7 @@ location <- allcis[2, "location"]
 @
 Find out the genes connected to gene \Sexpr{gene} in the underlying regulatory network:
 <<>>=
-connectedGenes <- graph::edges(eqtl$model$g)[[gene]]
+connectedGenes <- graph::inEdges(gene, eqtl$model$g)[[1]]
 connectedGenes <- connectedGenes[connectedGenes %in% eqtl$model$Y]
 connectedGenes
 @

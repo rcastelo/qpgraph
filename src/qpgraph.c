@@ -7974,6 +7974,15 @@ qp_fast_rnd_graph(SEXP pR, SEXP dR, SEXP excludeR, SEXP verboseR) {
       deg[i].ix = i;
     } 
     memset(G, FALSE, sizeof(Rboolean) * n_upper_tri);
+
+    R_CheckUserInterrupt();
+#ifdef Win32
+    R_ProcessEvents();
+#endif
+#ifdef HAVE_AQUA
+    R_ProcessEvents();
+#endif
+
     while (n_vtx_left > 0 && missing_edges > 0) {
       Memcpy(working_deg, deg, (size_t) p);
       qsort(working_deg, p, sizeof(IntWithIdx), int_cmp_desc_idx_incr);

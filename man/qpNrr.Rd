@@ -1,6 +1,7 @@
 \name{qpNrr}
 \alias{qpNrr}
 \alias{qpNrr,ExpressionSet-method}
+\alias{qpNrr,cross-method}
 \alias{qpNrr,data.frame-method}
 \alias{qpNrr,matrix-method}
 
@@ -16,6 +17,11 @@ Estimates non-rejection rates for every pair of variables.
                                 verbose=TRUE, identicalQs=TRUE, exact.test=TRUE,
                                 use=c("complete.obs", "em"), tol=0.01, R.code.only=FALSE,
                                 clusterSize=1, estimateTime=FALSE, nAdj2estimateTime=10)
+\S4method{qpNrr}{cross}(X, q=1, restrict.Q=NULL, fix.Q=NULL, nTests=100,
+                         alpha=0.05, pairup.i=NULL, pairup.j=NULL, verbose=TRUE,
+                         identicalQs=TRUE, exact.test=TRUE, use=c("complete.obs", "em"),
+                         tol=0.01, R.code.only=FALSE, clusterSize=1, estimateTime=FALSE,
+                         nAdj2estimateTime=10)
 \S4method{qpNrr}{data.frame}(X, q=1, I=NULL, restrict.Q=NULL, fix.Q=NULL, nTests=100,
                              alpha=0.05, pairup.i=NULL, pairup.j=NULL,
                              long.dim.are.variables=TRUE, verbose=TRUE,
@@ -31,7 +37,8 @@ Estimates non-rejection rates for every pair of variables.
 }
 \arguments{
   \item{X}{data set from where to estimate the non-rejection rates.
-       It can be an ExpressionSet object, a data frame or a matrix.}
+       It can be an \code{ExpressionSet} object, a \code{qtl/cross} object,
+       a \code{data.frame} object or a \code{matrix} object.}
   \item{q}{partial-correlation order to be employed.}
   \item{I}{indexes or names of the variables in \code{X} that are discrete.
        See details below regarding this argument.}
@@ -97,6 +104,17 @@ marginal distributions employed by the algorithm. By default, with
 \code{exact.test=TRUE}, an exact test for conditional independence is employed,
 otherwise an asymptotic one will be used. Full details on these features can
 be found in Tur and Castelo (2011).
+
+The argument \code{I} specifying what variables are discrete actually applies only
+when \code{X} is a matrix object since in the other cases data types are specified
+for each data columns or slot.
+
+In the case that \code{X} is a \code{qtl/cross} object, the default \code{NULL}
+values in arguments \code{pairup.i} and \code{pairup.j} actually imply pairing
+all markers and phenotypes with numerical phenotypes only (including integer phenotypes).
+Likewise, the default argument \code{restrict.Q=NULL} implies setting \code{restrict.Q}
+to all numeric phenotypes. Setting these arguments to values other than \code{NULL}
+allows the user to use those particular values being set.
 }
 \value{
 A \code{\link{dspMatrix-class}} symmetric matrix of estimated non-rejection

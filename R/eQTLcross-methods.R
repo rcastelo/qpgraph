@@ -28,6 +28,8 @@ setMethod("eQTLcross", signature(map="map", genes="missing", model="matrix"),
             eQTLcross(map, genes, model, type, nGenes, geneNetwork, rho, sigma)
           })
 
+## in this constructor both genes and model should not contain gene names but indexes to genes
+## names will be automatically generated. this may change in the future to accept arbitary names
 setMethod("eQTLcross", signature(map="map", genes="matrix", model="matrix"),
           function(map, genes, model, type="bc",
                    nGenes=100, geneNetwork=matrix(NA, nrow=0, ncol=2),
@@ -38,6 +40,7 @@ setMethod("eQTLcross", signature(map="map", genes="matrix", model="matrix"),
 
             dVertexLabels <- c()
             cVertexLabels <- paste0("g", 1:nGenes)
+            rownames(sigma) <- colnames(sigma) <- cVertexLabels
             edges <- as.data.frame(matrix(NA, nrow=0, ncol=3,
                                           dimnames=list(NULL, c("from", "to", "weight"))),
                                    stringsAsFactors=FALSE)
@@ -77,8 +80,6 @@ setMethod("eQTLcross", signature(map="map", genes="matrix", model="matrix"),
               if (nrow(model) > 0) {
                 mixedEdgeMask <- !is.na(match(edges$from, dVertexLabels))
                 graph::edgeData(g, from=edges[mixedEdgeMask, ]$from, to=edges[mixedEdgeMask, ]$to, "a") <- model[, 4]
-                ## 21/2/2013 because of the attribute bug in graphBAM by now we store additive effects in the weight attribute
-                ## graph::edgeData(g, from=edges[mixedEdgeMask, ]$from, to=edges[mixedEdgeMask, ]$to, "weight") <- model[, 4]
               }
             }
 
