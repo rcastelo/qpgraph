@@ -816,7 +816,8 @@ prob_i <- function(idxMissingObs, X, I, Is, Ys, k, level_i, levels_I, mapX2I, ma
 
   for (i in 1:length(idxMissingObs)) {
     x <- X[idxMissingObs[i], ,drop=FALSE]
-    I_obs <- which(!is.na(x[, I]))
+    ## I_obs <- which(!is.na(x[, I])) ## 2/4/13 I_obs should be on the X-scale and not on the I-scale
+    I_obs <- intersect(which(!is.na(x)), I)
 
     ## if (length(I_obs) > 0 && !all(x[, intersect(Is, I_obs)] == level_i[intersect(Is, I_obs)])) {
     if (length(I_obs) > 0 && !all(x[, intersect(Is, I_obs)] == level_i[!is.na(match(Is, I_obs))])) {
@@ -994,11 +995,14 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
     ## colnames(levels_I_j) <- I_j
     comStat_j <- stat_com(X, idxCompleteObs, idxMissingObs, mapAllObs2MissingObs,
                           Is=I_j, Ys=Y_j, levels_Is=levels_I_j)
-    cat("Es_com_j=\n")
-    print(comStat_j$Es_com)
-    cat("Ess_com_j=\n")
-    print(comStat_j$Ess_com)
-    cat("n_com_j=", comStat_j$n_com,"\n")
+    if (any(comStat_j$n_com == 0))
+      stop("Some joint levels of the discrete variables involved lack observations (n(i) == 0).")
+
+    ## cat("Es_com_j=\n")
+    ## print(comStat_j$Es_com)
+    ## cat("Ess_com_j=\n")
+    ## print(comStat_j$Ess_com)
+    ## cat("n_com_j=", comStat_j$n_com,"\n")
   }
 
   I_i <- intersect(I, c(j, Q))
@@ -1010,11 +1014,14 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
     ## colnames(levels_I_i) <- I_i
     comStat_i <- stat_com(X, idxCompleteObs, idxMissingObs, mapAllObs2MissingObs,
                           Is=I_i, Ys=Y_i, levels_Is=levels_I_i)
-    cat("Es_com_i=\n")
-    print(comStat_i$Es_com)
-    cat("Ess_com_i=\n")
-    print(comStat_i$Ess_com)
-    cat("n_com_i=", comStat_i$n_com,"\n")
+    if (any(comStat_i$n_com == 0))
+      stop("Some joint levels of the discrete variables involved lack observations (n(i) == 0).")
+
+    ## cat("Es_com_i=\n")
+    ## print(comStat_i$Es_com)
+    ## cat("Ess_com_i=\n")
+    ## print(comStat_i$Ess_com)
+    ## cat("n_com_i=", comStat_i$n_com,"\n")
   }
 
   I_ij <- intersect(I, Q)
@@ -1025,11 +1032,14 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
     ## colnames(levels_I_ij) <- I_ij
     comStat_ij <- stat_com(X, idxCompleteObs, idxMissingObs, mapAllObs2MissingObs,
                            Is=I_ij, Ys=Y_ij, levels_Is=levels_I_ij)
-    cat("Es_com_ij=\n")
-    print(comStat_ij$Es_com)
-    cat("Ess_com_ij=\n")
-    print(comStat_ij$Ess_com)
-    cat("n_com_ij=", comStat_ij$n_com,"\n")
+    if (any(comStat_ij$n_com == 0))
+      stop("Some joint levels of the discrete variables involved lack observations (n(i) == 0).")
+
+    ## cat("Es_com_ij=\n")
+    ## print(comStat_ij$Es_com)
+    ## cat("Ess_com_ij=\n")
+    ## print(comStat_ij$Ess_com)
+    ## cat("n_com_ij=", comStat_ij$n_com,"\n")
   }
 
   mdiff <- 1
@@ -1122,29 +1132,29 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
       ssd <- ssdMat[mapX2ssdMat[Y], mapX2ssdMat[Y], drop=FALSE]
     else
       ssd <- qpgraph:::.ssdStatsCompleteObs(X, I, Y, missingMask)
-    cat("ssd:\n")
-    print(as.matrix(ssd))
+    ## cat("ssd:\n")
+    ## print(as.matrix(ssd))
 
     ## ssd_i = ssd_Gamma when i is discrete or ssd_{Gamma\i} when i is continuous
     if (!missingData && !is.null(ssdMat) && length(setdiff(I, i)) == 0)
       ssd_i <- ssdMat[mapX2ssdMat[setdiff(Y, i)], mapX2ssdMat[setdiff(Y, i)], drop=FALSE]
     else
       ssd_i <- qpgraph:::.ssdStatsCompleteObs(X, setdiff(I, i), setdiff(Y, i), missingMask)
-    cat("ssd_i:\n")
-    print(as.matrix(ssd_i))
+    ## cat("ssd_i:\n")
+    ## print(as.matrix(ssd_i))
 
     if (length(setdiff(Y, j)) > 0) {
       ssd_j <- qpgraph:::.ssdStatsCompleteObs(X, I, setdiff(Y, j), missingMask)
-      cat("ssd_j:\n")
-      print(ssd_j)
+      ## cat("ssd_j:\n")
+      ## print(ssd_j)
       if (length(setdiff(Y, c(i,j))) > 0) {
         if (!missingData && !is.null(ssdMat) && length(setdiff(I, i)) == 0)
           ssd_ij <- ssdMat[mapX2ssdMat[setdiff(Y, c(i, j))],
                            mapX2ssdMat[setdiff(Y, c(i, j))], drop=FALSE]
         else
           ssd_ij <- qpgraph:::.ssdStatsCompleteObs(X, setdiff(I, i), setdiff(Y, c(i, j)), missingMask)
-        cat("ssd_j:\n")
-        print(ssd_ij)
+        ## cat("ssd_j:\n")
+        ## print(ssd_ij)
       }
     }
   } else { ## missing data and should use the EM algorithm

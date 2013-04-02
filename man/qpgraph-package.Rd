@@ -71,7 +71,6 @@ employed to reverse engineer a molecular regulatory network.
            matrix.
     \item \code{\link{qpPRscoreThreshold}} calculates the score threshold at a
           given precision or recall level from a given precision-recall curve.
-    \item \code{\link{qpImportNrr}} imports non-rejection rates.
     \item \code{\link{qpFunctionalCoherence}} estimates functional coherence of
           a given transcriptional regulatory network using Gene Ontology
           annotations.
