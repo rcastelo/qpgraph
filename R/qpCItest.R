@@ -1267,8 +1267,8 @@ setMethod("qpAllCItests", signature(X="matrix"),
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
 
             if (clusterSize > 1 &&
-               (!qpgraph:::.qpIsPackageLoaded("rlecuyer") || !qpgraph:::.qpIsPackageLoaded("snow")))
-              stop("Using a cluster (clusterSize > 1) requires first loading packages 'snow' and 'rlecuyer'\n")
+               (!qpgraph:::.qpIsPackageInstalled("snow") || !qpgraph:::.qpIsPackageInstalled("Rmpi")))
+              stop("Using a cluster (clusterSize > 1) requires first installing packages 'snow' and 'Rmpi'\n")
 
             if (long.dim.are.variables &&
                 sort(dim(X),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
@@ -1296,33 +1296,36 @@ setMethod("qpAllCItests", signature(X="matrix"),
   if (class(clusterSize)[1] == "numeric" || class(clusterSize)[1] == "integer") {
     if (clusterSize > 1) {
       ## copying ShortRead's strategy, 'get()' are to quieten R CMD check, and for no other reason
-      makeCl <- get("makeCluster", mode="function")
-      clSetupRNG <- get("clusterSetupRNG", mode="function")
-      clEvalQ <- get("clusterEvalQ", mode="function")
-      clExport <- get("clusterExport", mode="function")
-      clApply <- get("clusterApply", mode="function")
-      stopCl <- get("stopCluster", mode="function")
-      clCall <- get("clusterCall", mode="function")
-      clOpt <- get("getClusterOption", mode="function")
+      ## makeCl <- get("makeCluster", mode="function")
+      ## clSetupRNG <- get("clusterSetupRNG", mode="function")
+      ## clEvalQ <- get("clusterEvalQ", mode="function")
+      ## clExport <- get("clusterExport", mode="function")
+      ## clApply <- get("clusterApply", mode="function")
+      ## stopCl <- get("stopCluster", mode="function")
+      ## clCall <- get("clusterCall", mode="function")
+      ## clOpt <- get("getClusterOption", mode="function")
 
       if (startTime["elapsed"] == 0)
-        message("Testing conditional independences using a ", clOpt("type"),
+        message("Testing conditional independences using a ", snow::getClusterOption("type"),
                 " cluster of ", clusterSize, " nodes\n")
       else
-        message("Estimating time of testing conditional independences using a ", clOpt("type"),
+        message("Estimating time of testing conditional independences using a ", snow::getClusterOption("type"),
                 " cluster of ", clusterSize, " nodes\n")
 
-      cl <- makeCl(clusterSize, snowlib=system.file(package="qpgraph"))
-      clSetupRNG(cl)
-      res <- clEvalQ(cl, require(qpgraph, quietly=TRUE))
+      ## REPLACEMENT OF PACKAGE rlecuyer
+      ## cl <- makeCl(clusterSize, snowlib=system.file(package="qpgraph"))
+      ## clSetupRNG(cl)
+      cl <- parallel::makeCluster(clusterSize, type="MPI", snowlib=system.file(package="qpgraph"))
+      parallel::clusterSetRNGStream(cl)
+      res <- parallel::clusterEvalQ(cl, require(qpgraph, quietly=TRUE))
       if (!all(unlist(res))) {
-        stopCl(cl)
+        parallel::stopCluster(cl)
         stop("The package 'qpgraph' could not be loaded in some of the nodes of the cluster")
       }
       assign("clusterSize", clusterSize, envir=.GlobalEnv)
-      clExport(cl, list("clusterSize"))
+      parallel::clusterExport(cl, list("clusterSize"))
       rm("clusterSize", envir=.GlobalEnv)
-      clApply(cl, 1:clusterSize, function(x) assign("clusterRank", x, envir=.GlobalEnv))
+      parallel::clusterApply(cl, 1:clusterSize, function(x) assign("clusterRank", x, envir=.GlobalEnv))
     }
   } else {
     if (!is.na(match("cluster", class(clusterSize))))
@@ -1456,17 +1459,17 @@ setMethod("qpAllCItests", signature(X="matrix"),
         pvstatn <- cit
 
     } else {           ## use a cluster !
-      clCall <- get("clusterCall", mode="function")
+      ## clCall <- get("clusterCall", mode="function")
       valIdx <- list()
       if (verbose && startTime["elapsed"] == 0) { ## no cluster progress-call when only estimating time
         valIdx <- clPrCall(cl, qpgraph:::.qpFastAllCItestsPar, n.adj, X, I, Y, Q,
                            pairup.i.noint, pairup.j.noint, pairup.ij.int,
                            exact.test, use, tol, return.type, verbose, FALSE, nAdj2estimateTime)
       } else {
-        valIdx <- clCall(cl, qpgraph:::.qpFastAllCItestsPar, X, I, Y, Q,
-                         pairup.i.noint, pairup.j.noint, pairup.ij.int,
-                         exact.test, use, tol, return.type, verbose, startTime["elapsed"] > 0,
-                         nAdj2estimateTime)
+        valIdx <- parallel::clusterCall(cl, qpgraph:::.qpFastAllCItestsPar, X, I, Y, Q,
+                                        pairup.i.noint, pairup.j.noint, pairup.ij.int,
+                                        exact.test, use, tol, return.type, verbose, startTime["elapsed"] > 0,
+                                        nAdj2estimateTime)
       }
 
       if (startTime["elapsed"] > 0) {
@@ -1479,7 +1482,7 @@ setMethod("qpAllCItests", signature(X="matrix"),
       }
 
       if (class(clusterSize)[1] == "numeric" || class(clusterSize)[1] == "integer")
-        stopCl(cl)
+        parallel::stopCluster(cl)
 
         if (return.type == "all" || return.type == "p.value") {
           pvstatn$p.value <- new("dspMatrix", Dim=as.integer(c(n.var, n.var)),
@@ -1726,8 +1729,8 @@ setMethod("qpAllCItests", signature(X="matrix"),
 .qpFastAllCItestsPar <- function(X, I, Y, Q, pairup.i.noint, pairup.j.noint,
                                  pairup.ij.int, exact.test, use, tol, return.type,
                                  verbose, estimateTime, nAdj2estimateTime) {
-  clOpt <- get("getClusterOption", mode="function")
-  myMaster <- clOpt("masterNode")
+  ## clOpt <- get("getClusterOption", mode="function")
+  myMaster <- snow::getClusterOption("masterNode")
 
   startTime <- 0
   if (estimateTime)

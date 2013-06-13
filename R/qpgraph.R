@@ -4928,6 +4928,19 @@ qpPlotMap <- function(p.valueMatrix, markerPos, genePos, chrLen,
 }    
 
 
+## function: qpIsPackageInstalled
+## purpose: to check whether the package specified by the name given in
+##          the input argument is installed.
+## parameters: name - package name
+## return: TRUE if the package is installed, FALSE otherwise
+
+.qpIsPackageInstalled <- function(name) {
+  ## Purpose: is package 'name' installed?
+  ## --------------------------------------------------
+ (name %in% rownames(installed.packages()))
+}
+
+
 ## function: clPrCall
 ## purpose: is a copy of the function clusterCall() from the 'snow' package
 ##          but allows the slave loops to report progress which is then
@@ -4940,14 +4953,14 @@ qpPlotMap <- function(p.valueMatrix, markerPos, genePos, chrLen,
 ## return: the result just as clusterCall() would do
 
 clPrCall <- function(cl, fun, n.adj, ...) {
-  checkCl <- get("checkCluster", mode="function")
-  sndCall <- get("sendCall", mode="function")
-  rcv1Result <- get("recvOneResult", mode="function")
-  check4RmtErrors <- get("checkForRemoteErrors", mode="function")
+  ## checkCl <- get("checkCluster", mode="function")
+  ## sndCall <- get("sendCall", mode="function")
+  ## rcv1Result <- get("recvOneResult", mode="function")
+  ## check4RmtErrors <- get("checkForRemoteErrors", mode="function")
 
-  checkCl(cl)
+  snow::checkCluster(cl)
   for (i in seq(along = cl))
-    sndCall(cl[[i]], fun, list(...))
+    snow::sendCall(cl[[i]], fun, list(...))
 
   i <- rep(0, length(cl))
   k <- 0
@@ -4958,7 +4971,7 @@ clPrCall <- function(cl, fun, n.adj, ...) {
   foundError <- FALSE
   nodesDone <- 0
   while (nodesDone < length(cl) && !foundError) {
-    r1 <- rcv1Result(cl)
+    r1 <- snow::recvOneResult(cl)
     if (!is.null(r1$tag)) {
       ## message("received value ", r1$value, " from node ", r1$node, " with tag ", r1$tag)
       if (r1$tag != "UPDATE") {
@@ -4976,7 +4989,7 @@ clPrCall <- function(cl, fun, n.adj, ...) {
         }
       }
     } else {
-      r1 <- check4RmtErrors(r1)
+      r1 <- snow::checkForRemoteErrors(r1)
       r[[r1$node]] <- r1$value
       nodesDone <- nodesDone + 1
     }
