@@ -1,4 +1,4 @@
-%\VignetteIndexEntry{Simulate molecular regulatory networks using qpgraph}
+%\VignetteIndexEntry{Simulating molecular regulatory networks using qpgraph}
 %\VignetteKeywords{graphical Markov model, qp-graph, microarray, network, eQTL}
 %\VignettePackage{qpgraphSimulate}
 \documentclass[11pt]{article}
@@ -454,7 +454,7 @@ associations, although this fact appears hidden to the user.
 
 More concretely, the \Rpackage{qpgraph} package defines an object class called
 \Rclass{eQTLcross} which basically holds a genetic map of the genotype markers
-(as defined by the \Rclass{map} class in the \Rpackage{qtl} package \citep{Broman:2003fk}
+(as defined by the \Rclass{map} class in the \Rpackage{qtl} package from \citealp{Broman:2003fk})
 and an homogeneous mixed GMM defining the underlying molecular regulatory network
 that connects genotypes with genes and genes themselves, where we use the term
 {\it gene} to refer to a gene expression profile.

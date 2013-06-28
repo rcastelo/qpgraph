@@ -1,20 +1,20 @@
 ## graphParam constructors
 
-erGraphParam <- function(p=5L, m=5L, prob=NA_real_, labels=as.character(1:p)) {
+erGraphParam <- function(p=4L, m=4L, prob=NA_real_, labels=as.character(1:p)) {
   new("erGraphParam", p=as.integer(p), m=as.integer(m), prob=prob, labels=labels)
 }
 
-dRegularGraphParam <- function(p=5L, d=2L, exclude=as.integer(NULL), labels=as.character(1:p)) {
+dRegularGraphParam <- function(p=4L, d=2L, exclude=as.integer(NULL), labels=as.character(1:p)) {
   new("dRegularGraphParam", p=as.integer(p), d=as.integer(d), exclude=exclude, labels=labels)
 }
 
-erMarkedGraphParam <- function(pI=1L, pY=4L, m=5L, prob=NA_real_,
+erMarkedGraphParam <- function(pI=1L, pY=3L, m=4L, prob=NA_real_,
                                Ilabels=paste0("I", 1:pI), Ylabels=paste0("Y", 1:pY)) {
   new("erMarkedGraphParam", p=as.integer(pI+pY), pI=as.integer(pI), pY=as.integer(pY), m=as.integer(m),
       prob=prob, Ilabels=Ilabels, Ylabels=Ylabels, labels=c(Ilabels, Ylabels))
 }
 
-dRegularMarkedGraphParam <- function(pI=1L, pY=4L, d=2L, exclude=as.integer(NULL),
+dRegularMarkedGraphParam <- function(pI=1L, pY=3L, d=2L, exclude=as.integer(NULL),
                                      Ilabels=paste0("I", 1:pI), Ylabels=paste0("Y", 1:pY)) {
   new("dRegularMarkedGraphParam", p=as.integer(pI+pY), pI=as.integer(pI), pY=as.integer(pY),
       d=as.integer(d), exclude=exclude, Ilabels=Ilabels, Ylabels=Ylabels, labels=c(Ilabels, Ylabels))
