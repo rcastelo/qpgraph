@@ -578,28 +578,42 @@ setMethod("plot", signature(x="HMgmm"),
                                              fill=do.call("names<-",
                                                           list(c(rep("black", sum(x@vtype == "discrete")),
                                                                  rep("white", sum(x@vtype == "continuous"))),
-                                                               c(do.call("c", as.list(nodes(g)[x@vtype == "discrete"])),
-                                                                 do.call("c", as.list(nodes(g)[x@vtype == "continuous"]))))),
+                                                               c(do.call("c", as.list(graph::nodes(g)[x@vtype == "discrete"])),
+                                                                 do.call("c", as.list(graph::nodes(g)[x@vtype == "continuous"]))))),
                                              textCol=do.call("names<-",
                                                               list(c(rep("white", sum(x@vtype == "discrete")),
                                                                      rep("black", sum(x@vtype == "continuous"))),
-                                                                   c(do.call("c", as.list(nodes(g)[x@vtype == "discrete"])),
-                                                                     do.call("c", as.list(nodes(g)[x@vtype == "continuous"]))))))
-            mixedEdges <- edges(g, x$I)
+                                                                   c(do.call("c", as.list(graph::nodes(g)[x@vtype == "discrete"])),
+                                                                     do.call("c", as.list(graph::nodes(g)[x@vtype == "continuous"]))))))
+            mixedEdges <- graph::edges(g, x$I)
             mixedEdges <- paste(rep(names(mixedEdges), times=sapply(mixedEdges, length)),
                                 unlist(mixedEdges, use.names=FALSE), sep="~")
             ## it seems Rgraphviz::layoutGraph() alphabetically sorts vertices within edge names so we have to
-            ## check on what side of the edge names are the discrete variables to decide whether we draw
-            ## open arrow heads or open arrow tails (sigh!)
-            if (any(!is.na(match(sapply(strsplit(names(graph::edgeRenderInfo(g)$arrowhead), "~"), function(x) x[1]), x$I)))) {
-              graph::edgeRenderInfo(g) <- list(arrowhead="none", arrowtail="none", lwd=lwd)
+            ## order the endpoints alphabetically
+            mixedEdges <- strsplit(mixedEdges, "~")
+            mixedEdges <- lapply(mixedEdges, sort)
+            mixedEdges <- sapply(mixedEdges, paste, collapse="~")
+            graph::edgeRenderInfo(g) <- list(arrowhead="none", arrowtail="none", lwd=lwd)
+            maskhead <- !is.na(match(sapply(strsplit(names(graph::edgeRenderInfo(g)$arrowhead[mixedEdges]), "~"), function(x) x[1]), x$I))
+            if (any(maskhead))
               graph::edgeRenderInfo(g) <- list(arrowhead=do.call("names<-",
-                                                                 list(rep("open", length(mixedEdges)), mixedEdges)))
-            } else {
-              graph::edgeRenderInfo(g) <- list(arrowtail="none", arrowtail="none", lwd=lwd)
+                                                                 list(rep("open", length(mixedEdges[maskhead])), mixedEdges[maskhead])))
+            masktail <- !is.na(match(sapply(strsplit(names(graph::edgeRenderInfo(g)$arrowtail[mixedEdges]), "~"), function(x) x[2]), x$I))
+            if (any(masktail))
               graph::edgeRenderInfo(g) <- list(arrowtail=do.call("names<-",
-                                                                 list(rep("open", length(mixedEdges)), mixedEdges)))
-            }
+                                                                 list(rep("open", length(mixedEdges[masktail])), mixedEdges[masktail])))
+            ## ## it seems Rgraphviz::layoutGraph() alphabetically sorts vertices within edge names so we have to
+            ## ## check on what side of the edge names are the discrete variables to decide whether we draw
+            ## ## open arrow heads or open arrow tails (sigh!)
+            ## if (any(!is.na(match(sapply(strsplit(names(graph::edgeRenderInfo(g)$arrowhead), "~"), function(x) x[1]), x$I)))) {
+            ##   graph::edgeRenderInfo(g) <- list(arrowhead="none", arrowtail="none", lwd=lwd)
+            ##   graph::edgeRenderInfo(g) <- list(arrowhead=do.call("names<-",
+            ##                                                      list(rep("open", length(mixedEdges)), mixedEdges)))
+            ## } else {
+            ##   graph::edgeRenderInfo(g) <- list(arrowtail="none", arrowtail="none", lwd=lwd)
+            ##   graph::edgeRenderInfo(g) <- list(arrowtail=do.call("names<-",
+            ##                                                      list(rep("open", length(mixedEdges)), mixedEdges)))
+            ## }
             Rgraphviz::renderGraph(g, ...)
          })
 
