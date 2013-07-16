@@ -3044,7 +3044,7 @@ qp_fast_ci_test_std(SEXP SR, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP QR) {
 
   PROTECT(nullval_name = allocVector(STRSXP,1));
   REAL(VECTOR_ELT(result,4))[0] = 0;
-  SET_STRING_ELT(nullval_name,0,mkChar("partial regresion coefficient"));
+  SET_STRING_ELT(nullval_name,0,mkChar("partial regression coefficient"));
   setAttrib(VECTOR_ELT(result,4),R_NamesSymbol,nullval_name);
 
   SET_STRING_ELT(VECTOR_ELT(result,5), 0, mkChar("two.sided"));
@@ -3163,7 +3163,7 @@ qp_fast_ci_test_opt(SEXP SR, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP QR) {
 
   PROTECT(nullval_name = allocVector(STRSXP,1));
   REAL(VECTOR_ELT(result,4))[0] = 0;
-  SET_STRING_ELT(nullval_name,0,mkChar("partial regresion coefficient"));
+  SET_STRING_ELT(nullval_name,0,mkChar("partial regression coefficient"));
   setAttrib(VECTOR_ELT(result,4),R_NamesSymbol,nullval_name);
 
   SET_STRING_ELT(VECTOR_ELT(result,5), 0, mkChar("two.sided"));

@@ -1,14 +1,14 @@
 %\VignetteIndexEntry{Reverse-engineer transcriptional regulatory networks using qpgraph}
 %\VignetteKeywords{qp-graph, microarray, network}
 %\VignettePackage{qpTxRegNet}
-\documentclass[11pt]{article}
+\documentclass{article}
 
-\usepackage{times}
-\usepackage{mathptmx}
-\usepackage{graphicx}
-\usepackage{hyperref}
+<<style, eval=TRUE, echo=FALSE, results=tex>>=
+BiocStyle::latex()
+@
+
 \usepackage{natbib}
-\usepackage{fullpage}
+
 
 \title{Reverse engineering transcriptional regulatory networks \\ from
        gene expression microarray data using {\tt qpgraph}}
