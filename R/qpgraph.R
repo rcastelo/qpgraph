@@ -4138,6 +4138,9 @@ setMethod("qpFunctionalCoherence",
     cat(sprintf("qpFunctionalCoherence: calculating GO enrichment in %d target gene sets\n",
         length(TFgenes[regModuleSize >= minRMsize])))
 
+  if (sum(regModuleSize >= minRMsize) == 0)
+    stop(sprintf("qpFunctionalCoherence: No regulatory module has a minimum size of %d\n", minRMsize))
+
   ## WARNING: THIS IS REALLY NECESSARY ONLY WHEN THE TF HAS GO ANNOTATIONS !!!!
   if (clusterSize > 1) {
     ## copying ShortRead's strategy, 'get()' are to quieten R CMD check, and for no other reason
@@ -4195,7 +4198,11 @@ setMethod("qpFunctionalCoherence",
       TFgeneTGs <- txRegNet[[TFgene]]
       TFgeneTGsWithGO <- qpgraph:::.qpFilterByGO(TFgeneTGs, chip, "BP")
 
-      if (length(TFgeneTGsWithGO) >= minRMsize) {
+      txRegNetGO[[TFgene]] <- list(TGgenesWithGO=TFgeneTGsWithGO,
+                                   goBPcondResult=NULL,
+                                   goBPcondResultSigCat=NULL)
+
+      if (length(TFgeneTGsWithGO) >= minRMsize && minRMsize > 1) {
         goHypGparams <- new("GOHyperGParams",
                             geneIds=TFgeneTGsWithGO,
                             universeGeneIds=geneBPuniverse,
@@ -4203,9 +4210,8 @@ setMethod("qpFunctionalCoherence",
                             pvalueCutoff=0.05, conditional=TRUE,
                             testDirection="over")
         goHypGcond <- hpTest(goHypGparams)
-        txRegNetGO[[TFgene]] <- list(TGgenesWithGO=TFgeneTGsWithGO,
-                                     goBPcondResult=goHypGcond,
-                                     goBPcondResultSigCat=sigcat(goHypGcond))
+        txRegNetGO[[TFgene]]$goBPcondResult <- goHypGcond
+        txRegNetGO[[TFgene]]$goBPcondResultSigCat <- sigcat(goHypGcond)
       }
     }
   }
@@ -4236,7 +4242,7 @@ setMethod("qpFunctionalCoherence",
   # that have the word 'transcription', i.e., we try to remove terms associated
   # to transcriptional regulation from the transcription factor GO annotation
   TFgoTerms <- names(goTerms[grep("transcription", goTerms)])
-  TFgoTerms <- TFgoTerms[!is.na(match(TFgoTerms,goTermBPOntology))]
+  TFgoTerms <- TFgoTerms[!is.na(match(TFgoTerms, goTermBPOntology))]
 
   GOgraphSim <- rep(NA, length(names(txRegNetGO)))
   names(GOgraphSim) <- names(txRegNetGO)
@@ -4260,14 +4266,39 @@ setMethod("qpFunctionalCoherence",
         # if the transcription factor has GO BP annotations beyond transcription
         # but the target gene set has no over-represented GO terms then the
         # functional coherence is 0
-        if (length(txRegNetGO[[TFgene]]$goBPcondResultSigCat) == 0)
+        if (length(txRegNetGO[[TFgene]]$goBPcondResultSigCat) == 0 && length(txRegNetGO[[TFgene]]$TGgenesWithGO) > 1)
           sUI <- 0
         else { # otherwise the functional coherence is estimated as the similarity
                # between the GO graphs associated to the transcription factor GO
                # annotations and the GO over-represented terms in the target gene set
           gTF <- goGraph(TFgoAnnot, goBPparentsEnv)
           gTF <- removeNode("all", gTF)
-          gTG <- goGraph(txRegNetGO[[TFgene]]$goBPcondResultSigCat, goBPparentsEnv)
+          gTG <- goGraph(NULL, goBPparentsEnv)
+          if (length(txRegNetGO[[TFgene]]$TGgenesWithGO) > 1)
+            gTG <- goGraph(txRegNetGO[[TFgene]]$goBPcondResultSigCat, goBPparentsEnv)
+          else { ## there's just one gene as target
+            TGgene <- txRegNetGO[[TFgene]]$TGgenesWithGO
+            if (length(qpgraph:::.qpFilterByGO(TGgene, chip, "BP")) > 0) {
+              TGgeneWithGO <- AnnotationDbi::mget(TGgene, get(gsub(".db","GO",chip)))
+              TGgeneWithGO <- lapply(TGgeneWithGO,
+                                      function(x) if (is.list(x)) {
+                                                    z <- sapply(x, function(x) x$Ontology);
+                                                    z[unique(names(z))]
+                                                  })
+              TGgeneWithGOBP <- lapply(TGgeneWithGO,
+                              function(x) if (sum(x=="BP",na.rm=TRUE) > 0) {
+                                            names(x[x=="BP" & !is.na(x)])
+                                          } else { NULL })
+              TGgoAnnot <- TGgeneWithGOBP[[TGgene]]
+              if (length(TGgoAnnot) > 0) {
+                mt <- match(TGgoAnnot, TFgoTerms)
+                if (sum(!is.na(mt)) > 0)
+                  TGgoAnnot <- TGgoAnnot[is.na(mt)]
+              }
+              txRegNetGO[[TFgene]][["TGgeneGOannot"]] <- TGgoAnnot
+              gTG <- goGraph(TGgoAnnot, goBPparentsEnv)
+            }
+          }
           gTG <- removeNode("all", gTG)
           sUI <- simui(gTF, gTG)
         }

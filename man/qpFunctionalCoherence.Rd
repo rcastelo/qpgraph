@@ -12,7 +12,8 @@ Functional coherence estimation
 \description{
 Estimates functional coherence for a given transcriptional regulatory network
 specified either as an adjacency matrix with a list of transcription factor gene
-identifiers or as a list of transcriptional regulatory modules.
+identifiers or as a list of transcriptional regulatory modules, whose element names
+determine which genes encode for transcription factor proteins.
 }
 \usage{
 \S4method{qpFunctionalCoherence}{lsCMatrix}(object, TFgenes, geneUniverse=rownames(object),
@@ -31,7 +32,7 @@ identifiers or as a list of transcriptional regulatory modules.
        we want to estimate their functional coherence. It can be an adjacency matrix
        of the undirected graph representing the transcriptional regulatory network or
        a list of gene target sets where the name of the entry should be the transcription
-       factor identifier.}
+       factor gene identifier.}
   \item{TFgenes}{when the input object is a matrix, it is required to provide a vector of
        transcription factor gene identifiers (which should match somewhere in the row and
        column names of the matrix.}
@@ -53,8 +54,9 @@ identifiers or as a list of transcriptional regulatory modules.
 }
 \details{
 This function estimates the functional coherence of a transcriptional regulatory
-network represented by means of an undirected graph encoded by an adjacency matrix
-and of a set of transcription factor genes. The functional coherence of a
+network represented by means of an undirected graph encoded by either an adjacency matrix
+and a vector of transcription factor genes, or a list of regulatory modules each of
+them defined by a transcription factor gene and its targets. The functional coherence of a
 transcriptional regulatory network is calculated as specified by Castelo and
 Roverato (2009) and corresponds to the distribution of individual functional
 coherence values of every of the regulatory modules of the network each of them
@@ -63,12 +65,17 @@ genes. In the calculation of the functional coherence value of a regulatory
 module, Gene Ontology (GO) annotations are employed through the given annotation
 \code{.db} package and the conditional hyper-geometric test implemented in the
 \code{GOstats} package from Bioconductor.
+
+When a regulatory module has only one target gene, then no functional enrichment
+is calculated and, instead, the GO trees, grown from the GO annotations of the
+transcription factor gene and its target, are directly compared.
 }
 \value{
-A list with three slots, a first one containing the transcriptional regulatory
-network as a list of regulatory modules and their targets, a second one
-containing this same network but including only those modules with GO BP
-annotations and a third one consisting of a vector of functional coherence values.
+A list with the following elements: the transcriptional regulatory
+network as a list of regulatory modules and their targets; the previous list
+of regulatory modules but excluding those with no enriched GO BP terms. When
+the regulatory module has only one target, then instead the GO BP annotations
+of the target gene are included; a vector of functional coherence values.
 }
 \references{
 Castelo, R. and Roverato, A. Reverse engineering molecular regulatory
