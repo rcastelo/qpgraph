@@ -7083,7 +7083,7 @@ qp_fast_htf(SEXP SR, SEXP AR, SEXP tolR, SEXP verbose) {
     if (INTEGER(verbose)[0])
       Rprintf("Precision: %.10f\n", precision);
     if (precision > prev_precision)
-      error("HTF is not converging, probably the input sample covariance matrix is calculated from too few observations\n");
+      error("HTF is not converging, either the input sample covariance matrix is calculated from too few observations, or there is a problem with the initial incomplete covariance matrix\n");
   }
 
   Free(vtc_wo_i);

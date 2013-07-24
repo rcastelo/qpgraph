@@ -8,49 +8,45 @@ setValidity("eQTLcross",
               valid
             })
 
-## constructor methods
+## constructor methods: 'map' is a genetic map as defined in the 'qtl' package
 setMethod("eQTLcross", signature(map="map", genes="missing", model="missing"),
           function(map, genes, model, type="bc",
-                   nGenes=100, geneNetwork=matrix(NA, nrow=0, ncol=2),
-                   rho=0.5, sigma=diag(nGenes)) {
+                   geneNetwork=matrix(NA, nrow=0, ncol=2),
+                   rho=0.5, sigma=diag(0)) {
+            type <- match.arg(type)
             genes <- matrix(NA, nrow=0, ncol=2)
             model <- matrix(NA, nrow=0, ncol=4)
-            eQTLcross(map, genes, model, type, nGenes, geneNetwork, rho, sigma)
+            eQTLcross(map, genes, model, type, geneNetwork, rho, sigma)
           })
 
 ## model is a matrix where each row corresponds to a different eQTL, and
 ## gives the chromosome number, cM position, gene and additive effect of the eQTL
-setMethod("eQTLcross", signature(map="map", genes="missing", model="matrix"),
-          function(map, genes, model, type="bc",
-                   nGenes=100, geneNetwork=matrix(NA, nrow=0, ncol=2),
-                   rho=0.5, sigma=diag(nGenes)) {
-            genes <- matrix(NA, nrow=0, ncol=2)
-            eQTLcross(map, genes, model, type, nGenes, geneNetwork, rho, sigma)
-          })
-
 ## in this constructor both genes and model should not contain gene names but indexes to genes
 ## names will be automatically generated. this may change in the future to accept arbitary names
 setMethod("eQTLcross", signature(map="map", genes="matrix", model="matrix"),
           function(map, genes, model, type="bc",
-                   nGenes=100, geneNetwork=matrix(NA, nrow=0, ncol=2),
-                   rho=0.5, sigma=diag(nGenes)) {
+                   geneNetwork=matrix(NA, nrow=0, ncol=2),
+                   rho=0.5, sigma=diag(nrow(genes))) {
+            type <- match.arg(type)
 
-            if (nGenes < 1)
-              stop("nGenes < 1.")
+            nGenes <- nrow(genes)
 
-            dVertexLabels <- c()
-            cVertexLabels <- paste0("g", 1:nGenes)
-            rownames(sigma) <- colnames(sigma) <- cVertexLabels
+            dVertexLabels <- cVertexLabels <- c()
+            if (nGenes > 0) {
+              cVertexLabels <- paste0("g", seq_len(nGenes))
+              rownames(sigma) <- colnames(sigma) <- cVertexLabels
+            }
+
             edges <- as.data.frame(matrix(NA, nrow=0, ncol=3,
                                           dimnames=list(NULL, c("from", "to", "weight"))),
                                    stringsAsFactors=FALSE)
             if (nrow(model) > 0) {
-              model <- model[order(model[, 1], model[, 2]), ]             ## sort eQTL by chromosome and location
-              rownames(model) <- NULL                                     ## remove rownames, if any
-              eQTLtag <- rle(apply(model[, 1:2], 1, paste, collapse="_")) ## tag every different eQTL location
-              nQTL <- length(eQTLtag$values)                              ## count the number of different QTL
-              model <- cbind(model, rep(1:nQTL, times=eQTLtag$lengths))   ## add QTL number to each different QTL
-              dVertexLabels <- paste0("QTL", 1:nQTL)                      ## assign QTL names to each different QTL
+              model <- model[order(model[, 1], model[, 2]), , drop=FALSE]             ## sort eQTL by chromosome and location
+              rownames(model) <- NULL                                                 ## remove rownames, if any
+              eQTLtag <- rle(apply(model[, 1:2, drop=FALSE], 1, paste, collapse="_")) ## tag every different eQTL location
+              nQTL <- length(eQTLtag$values)                                          ## count the number of different QTL
+              model <- cbind(model, rep(1:nQTL, times=eQTLtag$lengths))               ## add QTL number to each different QTL
+              dVertexLabels <- paste0("QTL", 1:nQTL)                                  ## assign QTL names to each different QTL
               edges <- data.frame(from=paste0("QTL", model[, 5]),
                                   to=paste0("g", model[, 3]),
                                   weight=1, stringsAsFactors=FALSE)
@@ -64,14 +60,16 @@ setMethod("eQTLcross", signature(map="map", genes="matrix", model="matrix"),
                                         stringsAsFactors=FALSE))
 
             g <- graph::graphBAM(edges, nodes=c(dVertexLabels, cVertexLabels))
-            graph::nodeDataDefaults(g, "type") <- "continuous"
-            graph::nodeDataDefaults(g, "chr") <- NA_integer_
-            graph::nodeDataDefaults(g, "loc") <- NA_real_
-            graph::edgeDataDefaults(g, "a") <- NA_real_
+            if (length(c(dVertexLabels, cVertexLabels)) > 0) {
+              graph::nodeDataDefaults(g, "type") <- "continuous"
+              graph::nodeDataDefaults(g, "chr") <- NA_integer_
+              graph::nodeDataDefaults(g, "loc") <- NA_real_
+              graph::edgeDataDefaults(g, "a") <- NA_real_
+            }
 
             if (nrow(model) > 0) {
-              qtlchr <- unique(model[, c(1, 5)])
-              qtlloc <- unique(model[, c(2, 5)])
+              qtlchr <- unique(model[, c(1, 5), drop=FALSE])
+              qtlloc <- unique(model[, c(2, 5), drop=FALSE])
               qtlchr <- do.call("names<-", list(qtlchr[, 1], paste0("QTL", qtlchr[, 2])))
               qtlloc <- do.call("names<-", list(qtlloc[, 1], paste0("QTL", qtlloc[, 2])))
               graph::nodeData(g, dVertexLabels, "type") <- "discrete"
@@ -90,24 +88,28 @@ setMethod("eQTLcross", signature(map="map", genes="matrix", model="graphBAM"),
           function(map, genes, model,
                    type="bc",
                    rho=0.5,
-                   sigma=diag(sum(unlist(graph::nodeData(model, graph::nodes(model), attr="type"), use.names=FALSE) == "continuous"))) {
+                   sigma=diag(ifelse(nrow(genes) > 0, sum(unlist(graph::nodeData(model, graph::nodes(model), attr="type"), use.names=FALSE) == "continuous"), 0))) {
             type <- match.arg(type)
 
             dLevels <- switch(type,
                               bc=2L)
+            a <- numeric()
+            nGenes <- nrow(genes)
 
-            maskcvertex <- unlist(graph::nodeData(model, graph::nodes(model), attr="type"), use.names=FALSE) == "continuous"
-            cVertexLabels <- graph::nodes(model)[maskcvertex]
-            maskpositivedeg <- graph::degree(model, cVertexLabels) > 0
+            if (nGenes > 0) {
+              maskcvertex <- unlist(graph::nodeData(model, graph::nodes(model), attr="type"), use.names=FALSE) == "continuous"
+              cVertexLabels <- graph::nodes(model)[maskcvertex]
+              maskpositivedeg <- graph::degree(model, cVertexLabels) > 0
 
-            ## additive effects per gene are the sum of additive effects from each eQTL
-            a <- do.call("names<-", list(rep(0, length(cVertexLabels)), cVertexLabels))
-            a[maskpositivedeg] <- sapply(cVertexLabels[maskpositivedeg],
-                                         function(v) sum(unlist(edgeData(model, to=v, attr="a"), use.names=FALSE),
-                                                         na.rm=TRUE))
+              ## additive effects per gene are the sum of additive effects from each eQTL
+              a <- do.call("names<-", list(rep(0, length(cVertexLabels)), cVertexLabels))
+              a[maskpositivedeg] <- sapply(cVertexLabels[maskpositivedeg],
+                                           function(v) sum(unlist(edgeData(model, to=v, attr="a"), use.names=FALSE),
+                                                           na.rm=TRUE))
 
-            if (is.null(rownames(sigma)) || is.null(colnames(sigma)))
-              rownames(sigma) <- colnames(sigma) <- cVertexLabels
+              if (is.null(rownames(sigma)) || is.null(colnames(sigma)))
+                rownames(sigma) <- colnames(sigma) <- cVertexLabels
+            }
 
             gmm <- HMgmm(model, dLevels=dLevels, a=a, rho=rho, sigma=sigma)
             eQTLcross(map, genes=genes, model=gmm, type=type)
@@ -123,6 +125,127 @@ setMethod("eQTLcross", signature(map="map", genes="matrix", model="HMgmm"),
           function(map, genes, model, type) {
 
             new("eQTLcross", map=map, genes=genes, model=model, type=type)
+          })
+
+setMethod("addGenes", signature(eQTLcross="eQTLcross", n="missing"),
+          function(eQTLcross, n, chr=NULL, location=NULL) {
+            addGenes(eQTLcross, 1L, chr, location)
+          })
+
+setMethod("addGenes", signature(eQTLcross="eQTLcross", n="numeric"),
+          function(eQTLcross, n=1, chr=NULL, location=NULL) {
+            addGenes(eQTLcross, as.integer(n), chr, location)
+          })
+
+setMethod("addGenes", signature(eQTLcross="eQTLcross", n="integer"),
+          function(eQTLcross, n=1L, chr=NULL, location=NULL) {
+            if (length(n) > 1)
+              stop("Second argument 'n' should contain one single value specifying the number of genes to add.")
+
+            if (is.null(chr))
+              chr <- sample(seq(along=qtl::chrlen(eQTLcross@map)), size=n, replace=TRUE)
+            else if (length(chr) == 1)
+              chr <- rep(chr, n)
+            else if (length(chr) != n)
+              stop("Chromosomes in 'chr' should match the number of genes 'n'.")
+
+            if (is.null(location))
+              location <- sapply(chr, function(chr) runif(1, min=0, max=qtl::chrlen(eQTLcross@map)[chr]))
+            else if (length(location) != n)
+              stop("Chromosomal locations in 'location' should match the number of genes 'n'.")
+
+            if (any(duplicated(location)))
+              stop("Duplicated chromosomal locations.")
+
+            eQTLcross@model@pY <- eQTLcross@model@pY + n
+            newVertexLabels <- paste0("g", seq(eQTLcross@model@pY-n+1, eQTLcross@model@pY, by=1))
+            eQTLcross@model@g <- graph::addNode(newVertexLabels, eQTLcross@model@g)
+
+            if (eQTLcross$model$p - n == 0) { ## first vertices added to the graph
+              graph::nodeDataDefaults(eQTLcross@model@g, "type") <- "continuous"
+              graph::nodeDataDefaults(eQTLcross@model@g, "chr") <- NA_integer_
+              graph::nodeDataDefaults(eQTLcross@model@g, "loc") <- NA_real_
+              graph::edgeDataDefaults(eQTLcross@model@g, "a") <- NA_real_
+             }
+            graph::nodeData(eQTLcross@model@g, newVertexLabels, "type") <- "continuous"
+            graph::nodeData(eQTLcross@model@g, newVertexLabels, "chr") <- chr
+            graph::nodeData(eQTLcross@model@g, newVertexLabels, "loc") <- location
+            eQTLcross@model@vtype <- vtype <- factor(unlist(graph::nodeData(eQTLcross@model@g, nodes(eQTLcross@model@g), "type"), use.names=FALSE))
+            names(eQTLcross@model@vtype) <- graph::nodes(eQTLcross@model@g)
+            pY <- eQTLcross@model@pY
+
+            eQTLcross@genes <- rbind(eQTLcross@genes, matrix(c(chr, location), nrow=n, byrow=TRUE,
+                                                             dimnames=list(newVertexLabels, c("chr", "location"))))
+            cVertexLabels <- graph::nodes(eQTLcross@model@g)[vtype == "continuous"]
+            a <- rep(NA, pY)
+            names(a) <- cVertexLabels
+
+            eQTLcross@model@sigma <- new("dspMatrix", Dim=as.integer(c(pY, pY)),
+                                         Dimnames=list(cVertexLabels, cVertexLabels),
+                                         x=diag(pY)[upper.tri(diag(pY), diag=TRUE)])
+            eQTLcross
+          })
+
+setMethod("addeQTL", signature(eQTLcross="eQTLcross"),
+          function(eQTLcross, genes, chr=NULL, location=NULL) {
+            n <- length(genes)
+
+            if (eQTLcross$model$pY == 0)
+              stop("Input 'eQTLcross' object has no genes to which an eQTL could be added. Use 'addGene()' first.\n")
+
+            cVertexLabels <- graph::nodes(eQTLcross@model@g)[eQTLcross@model@vtype == "continuous"]
+            mt <- match(genes, cVertexLabels)
+            if (any(is.na(mt)))
+              stop(sprintf("gene(s) %s do(es) not form part of the input 'eQTLcross' object.\n", genes[is.na(mt)]))
+
+            eQTLcross@model@pI <- eQTLcross@model@pI + n
+            newVertexLabels <- paste0("QTL", seq(eQTLcross@model@pI-n+1, eQTLcross@model@pI, by=1))
+            eQTLcross@model@g <- graph::addNode(newVertexLabels, eQTLcross@model@g)
+
+            if (is.null(chr))
+              chr <- sample(seq(along=qtl::chrlen(eQTLcross@map)), size=n, replace=TRUE)
+            else if (length(chr) == 1)
+              chr <- rep(chr, n)
+            else if (length(chr) != n)
+              stop("Chromosomes in 'chr' should match the number of genes.")
+
+            if (is.null(location))
+              location <- sapply(chr, function(chr) runif(1, min=0, max=qtl::chrlen(eQTLcross@map)[chr]))
+            else if (length(location) != n)
+              stop("Chromosomal locations in 'location' should match the number of genes.")
+
+            if (any(duplicated(location)))
+              stop("Duplicated chromosomal locations.")
+
+            qtlchr <- do.call("names<-", list(chr, newVertexLabels))
+            qtlloc <- do.call("names<-", list(location, newVertexLabels))
+            graph::nodeData(eQTLcross@model@g, newVertexLabels, "type") <- "discrete"
+            graph::nodeData(eQTLcross@model@g, newVertexLabels, "chr") <- qtlchr
+            graph::nodeData(eQTLcross@model@g, newVertexLabels, "loc") <- qtlloc
+            eQTLcross@model@vtype <- factor(unlist(graph::nodeData(eQTLcross@model@g, graph::nodes(eQTLcross@model@g), "type"), use.names=FALSE))
+            names(eQTLcross@model@vtype) <- graph::nodes(eQTLcross@model@g)
+            eQTLcross@model@g <- graph::addEdge(from=genes, to=newVertexLabels, graph=eQTLcross@model@g) ## gi~QTLj !!
+            graph::edgeData(eQTLcross@model@g, from=newVertexLabels, to=genes, "a") <- NA_real_
+
+            eQTLcross
+          })
+
+setMethod("addGeneAssociation", signature(eQTLcross="eQTLcross"),
+          function(eQTLcross, gene1, gene2) {
+            if (eQTLcross$model$pY <= 1)
+              stop("Input 'eQTLcross' object has less than two genes between which an association could be added. Use 'addGene()' first.\n")
+
+            cVertexLabels <- graph::nodes(eQTLcross@model@g)[eQTLcross@model@vtype == "continuous"]
+            if (is.na(match(gene1, cVertexLabels)))
+              stop(sprintf("gene %s does not form part of the input 'eQTLcross' object.\n", gene1))
+            if (is.na(match(gene2, cVertexLabels)))
+              stop(sprintf("gene %s does not form part of the input 'eQTLcross' object.\n", gene2))
+            if (gene1 == gene2)
+              stop("Genes in argument 'gene1' and 'gene2' must be different.\n")
+
+            eQTLcross@model@g <- graph::addEdge(from=gene1, to=gene2, graph=eQTLcross@model@g)
+
+            eQTLcross
           })
 
 ## $ accessor operator
@@ -220,11 +343,22 @@ setMethod("plot", signature(x="eQTLcross"),
           function(x, type=c("dot", "network"), xlab="eQTL location", ylab="Gene location", ...) {
             type <- match.arg(type)
 
-            if (type == "network")
-              plot(x@model, ...)
-            else {
+            if (type == "network") {
+              gmm <- x@model
+              if (gmm$pI > 1) {
+                orderedVtc <- names(sort(unlist(graph::nodeData(gmm@g, attr="loc"))[gmm@vtype == "discrete"]))
+                allchr <- unlist(graph::nodeData(gmm@g, attr="chr"))[orderedVtc]
+                for (chr in unique(allchr)) {
+                  if (sum(allchr == chr) > 1) {
+                    orderedVtcByChr <- orderedVtc[allchr == chr]
+                    gmm@g <- graph::addEdge(from=orderedVtcByChr[1:(length(orderedVtc)-1)], to=orderedVtcByChr[2:length(orderedVtc)], gmm@g)
+                  }
+                }
+              }
+              plot(gmm, ...)
+            } else {
               eqtl <- alleQTL(x)
-              eqtlgenes <- x@genes[unique(eqtl$gene), ]
+              eqtlgenes <- x@genes[unique(eqtl$gene), , drop=FALSE]
               qtl <- unique(eqtl[, 1:3])
               rownames(qtl) <- qtl[, 3]
               qtl <- qtl[, 1:2]
@@ -376,7 +510,7 @@ setMethod("reQTLcross", signature(n="integer", network="eQTLcrossParam"),
             ## build gene annotation matrix
             n.genes <- length(genes)
             genes <- cbind(chr.genes, genes)
-            genes <- genes[order(genes[, 1], genes[, 2]), ]
+            genes <- genes[order(genes[, 1], genes[, 2]), , drop=FALSE]
             colnames(genes) <- c("chr", "location")
             rownames(genes) <- Y
 
@@ -462,7 +596,7 @@ setMethod("reQTLcross", signature(n="integer", network="eQTLcrossParam"),
 
               qtl <- cbind(qtl, a)
 
-              sim[[i]] <- eQTLcross(map, genes=genes, model=qtl, type=type, nGenes=pY,
+              sim[[i]] <- eQTLcross(map, genes=genes, model=qtl, type=type,
                           geneNetwork=edges, rho=rho, sigma=sim.sigma)
             }
 
@@ -472,7 +606,60 @@ setMethod("reQTLcross", signature(n="integer", network="eQTLcrossParam"),
             sim
           })
 
-## overload sim.cross() from the qtl package to enable simulateing eQTL data from
+setMethod("reQTLcross", signature(n="eQTLcross", network="missing"),
+          function(n, network, rho=0.5, a=1, tol=0.001, verbose=FALSE) {
+            reQTLcross(n=1L, network=n, rho, a, tol, verbose)
+          })
+
+setMethod("reQTLcross", signature(n="missing", network="eQTLcross"),
+          function(n, network, rho=0.5, a=1, tol=0.001, verbose=FALSE) {
+            reQTLcross(n=1L, network, rho, a, tol, verbose)
+          })
+
+setMethod("reQTLcross", signature(n="numeric", network="eQTLcross"),
+          function(n=1, network, rho=0.5, a=1, tol=0.001, verbose=FALSE) {
+            reQTLcross(n=as.integer(n), network, rho, a, tol, verbose)
+          })
+
+setMethod("reQTLcross", signature(n="integer", network="eQTLcross"),
+          function(n=1L, network, rho=0.5, a=1, tol=0.001, verbose=FALSE) {
+
+            ## simulated gene network is fixed by the input argument 'network'
+            genes <- network$model$Y
+            eQTLs <- graph::edges(network$g)[network$model$I]
+            sim.g <- graph::subGraph(genes, network$g)
+
+            ## additive effects per gene are the sum of additive effects from each eQTL (not yet useful!)
+            network@model@a <- do.call("names<-", list(rep(0, length(genes)), genes))
+            for (i in seq(along=eQTLs)) {
+              cur.a <- graph::edgeData(network@model@g, from=eQTLs[[i]], to=rep(names(eQTLs)[i], length(eQTLs[[i]])), "a")[[1]]
+              if (is.na(cur.a))
+                graph::edgeData(network@model@g, from=eQTLs[[i]], to=rep(names(eQTLs)[i], length(eQTLs[[i]])), "a") <- a
+              else
+                graph::edgeData(network@model@g, from=eQTLs[[i]], to=rep(names(eQTLs)[i], length(eQTLs[[i]])), "a") <- cur.a + a
+              network@model@a[eQTLs[[i]]] <- network@model@a[eQTLs[[i]]] + a
+            }
+
+            network@model@rho <- rho
+
+            sim <- list()
+            for (i in 1:n) {
+    
+              ## simulate conditional covariance matrix
+              sim.sigma <- qpG2Sigma(g=sim.g, rho=rho, tol=tol, verbose=verbose)
+              rownames(sim.sigma) <- colnames(sim.sigma) <- nodes(sim.g)
+              network@model@sigma <- sim.sigma
+
+              sim[[i]] <- network
+            }
+
+            if (n == 1)
+              sim <- sim[[1]]
+
+            sim
+          })
+
+## overload sim.cross() from the qtl package to enable simulating eQTL data from
 ## an experimental cross
 
 sim.cross <- function(map, model, ...) UseMethod("sim.cross", model)
@@ -481,7 +668,14 @@ sim.cross.matrix <- function(map, model, ...) qtl::sim.cross(map, model, ...)
 setMethod("sim.cross", c(map="map", model="matrix"), sim.cross.matrix)
 
 sim.cross.eQTLcross <- function(map, model, n.ind=100, ...) {
-            crossModel <- unique(alleQTL(model)[, c("chrom", "location")])
+
+            eQTLs <- alleQTL(model)[, c("chrom", "location")]
+            crossModel <- unique(eQTLs)
+
+            if (is.null(model@model@a) ||
+                (all(model@model$sigma[upper.tri(model@model$sigma)] == 0) && graph::numEdges(model$g) - nrow(eQTLs) > 0))
+              stop("Parameters for the input 'eQTLcross' model have not been simulated. Please simulated them running 'reQTLcross()' with this 'eQTLcross' model as input argument.")
+
             crossModel <- cbind(crossModel, dummya=rep(1, nrow(crossModel)))
             cross <- qtl::sim.cross(map=map, model=crossModel, type=model$type, n.ind=n.ind, ...)
 

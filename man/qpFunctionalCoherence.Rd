@@ -17,15 +17,20 @@ determine which genes encode for transcription factor proteins.
 }
 \usage{
 \S4method{qpFunctionalCoherence}{lsCMatrix}(object, TFgenes, geneUniverse=rownames(object),
-                                            chip, minRMsize=5, verbose=FALSE, clusterSize=1)
+                                            chip, minRMsize=5, removeGOterm="transcription",
+                                            verbose=FALSE, clusterSize=1)
 \S4method{qpFunctionalCoherence}{lspMatrix}(object, TFgenes, geneUniverse=rownames(object),
-                                            chip, minRMsize=5, verbose=FALSE, clusterSize=1)
+                                            chip, minRMsize=5, removeGOterm="transcription",
+                                            verbose=FALSE, clusterSize=1)
 \S4method{qpFunctionalCoherence}{lsyMatrix}(object, TFgenes, geneUniverse=rownames(object),
-                                            chip, minRMsize=5, verbose=FALSE, clusterSize=1)
+                                            chip, minRMsize=5, removeGOterm="transcription",
+                                            verbose=FALSE, clusterSize=1)
 \S4method{qpFunctionalCoherence}{matrix}(object, TFgenes, geneUniverse=rownames(object),
-                                         chip, minRMsize=5, verbose=FALSE, clusterSize=1)
+                                         chip, minRMsize=5, removeGOterm="transcription",
+                                         verbose=FALSE, clusterSize=1)
 \S4method{qpFunctionalCoherence}{list}(object, geneUniverse=unique(c(names(object), unlist(object, use.names=FALSE))),
-                                       chip, minRMsize=5, verbose=FALSE, clusterSize=1)
+                                       chip, minRMsize=5, removeGOterm="transcription",
+                                       verbose=FALSE, clusterSize=1)
 }
 \arguments{
   \item{object}{object containing the transcriptional regulatory modules for which
@@ -44,6 +49,9 @@ determine which genes encode for transcription factor proteins.
   \item{minRMsize}{minimum size of the target gene set in each regulatory module
        where functional enrichment will be calculated and thus where functional
        coherence will be estimated.}
+  \item{removeGOterm}{word, or regular pattern, matching GO terms that should be excluded
+       in the transcription factor gene GO annotations, and in the target gene if the
+       regulatory module has only one gene, prior to the calculation of functional coherence.}
   \item{verbose}{logical; if TRUE the function will show progress on the
        calculations; if FALSE the function will remain quiet (default).}
   \item{clusterSize}{size of the cluster of processors to employ if we wish to

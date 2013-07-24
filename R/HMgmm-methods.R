@@ -18,22 +18,24 @@ setValidity("HMgmm",
               if (class(valid) == "logical" && p != sum(object@vtype == "continuous"))
                 valid <- "the dimension of sigma should match the number of continuous variables."
 
-              if (class(valid) == "logical" && !isSymmetric(as(object$sigma, "matrix")))
-                valid <- "'sigma' should be symmetric."
+              if (p > 0) {
+                if (class(valid) == "logical" && !isSymmetric(as(object$sigma, "matrix")))
+                  valid <- "'sigma' should be symmetric."
 
-              if (class(valid) == "logical" && !identical(colnames(object$sigma), object$Y))
-                valid <- "column names in 'sigma' should be identical to continuous variable names in 'Y'."
+                if (class(valid) == "logical" && !identical(colnames(object$sigma), object$Y))
+                  valid <- "column names in 'sigma' should be identical to continuous variable names in 'Y'."
 
-              if (class(valid) == "logical" && !identical(unlist(nodeData(object@g, nodes(object@g), "type"),
-                                                                 use.names=FALSE),
-                                                          as.character(object@vtype)))
-                valid <- "the type of vertices in 'vtype' does not match the node type information in 'g'."
+                if (class(valid) == "logical" && !identical(unlist(graph::nodeData(object@g, nodes(object@g), "type"),
+                                                                   use.names=FALSE),
+                                                            as.character(object@vtype)))
+                  valid <- "the type of vertices in 'vtype' does not match the node type information in 'g'."
 
-              if (class(valid) == "logical" && !identical(nodes(object@g), names(object@vtype)))
-                valid <- "'vtype' should be a named vector whose names match the vertex labels in 'g'."
+                if (class(valid) == "logical" && !identical(graph::nodes(object@g), names(object@vtype)))
+                  valid <- "'vtype' should be a named vector whose names match the vertex labels in 'g'."
 
-              if (class(valid) == "logical" && !identical(nodes(object@g)[object@vtype == "continuous"], names(object@a)))
-                valid <- "'a' should be a named vector whose names match the vertex labels in 'g'."
+                if (class(valid) == "logical" && !identical(graph::nodes(object@g)[object@vtype == "continuous"], names(object@a)))
+                    valid <- "'a' should be a named vector whose names match the vertex labels in 'g'."
+              }
 
               valid
             })
@@ -63,36 +65,42 @@ setMethod("HMgmm", signature(g="missing"),
 
 setMethod("HMgmm", signature(g="graphBAM"),
           function(g, dLevels=2L, a=0, rho=0.5,
-                   sigma=diag(sum(unlist(graph::nodeData(g, graph::nodes(g), "type"), use.names=FALSE) == "continuous"))) {
+                   sigma=diag(ifelse(graph::numNodes(g) > 0, sum(unlist(graph::nodeData(g, graph::nodes(g), "type"), use.names=FALSE) == "continuous"), 0))) {
 
-            vtype <- factor(unlist(graph::nodeData(g, graph::nodes(g), "type"), use.names=FALSE))
-            names(vtype) <- nodes(g)
+            vtype <- factor()
+            pI <- pY <- 0L
+            I <- Y <- character()
 
-            pI <- sum(vtype == "discrete")
-            pY <- sum(vtype == "continuous")
-            I <- nodes(g)[vtype == "discrete"]
-            Y <- nodes(g)[vtype == "continuous"]
+            if (graph::numNodes(g) > 0) {
+              vtype <- factor(unlist(graph::nodeData(g, graph::nodes(g), "type"), use.names=FALSE))
+              names(vtype) <- nodes(g)
 
-            maskYxI <- sapply(graph::nodes(g)[vtype == "continuous"],
-                              function(v, e, vt) any(vt[e[[v]]] == "discrete"),
-                              graph::edges(g), vtype)
+              pI <- sum(vtype == "discrete")
+              pY <- sum(vtype == "continuous")
+              I <- graph::nodes(g)[vtype == "discrete"]
+              Y <- graph::nodes(g)[vtype == "continuous"]
 
-            if (length(a) == 1) {
-              tmp <- rep(NA, pY)
-              names(tmp) <- Y
-              tmp[maskYxI] <- rep(a, sum(maskYxI))
-              a <- tmp
-            }
+              maskYxI <- sapply(graph::nodes(g)[vtype == "continuous"],
+                                function(v, e, vt) any(vt[e[[v]]] == "discrete"),
+                                graph::edges(g), vtype)
 
-            if (is.null(names(a)))
-              stop("when 'a' is a vector it should be named vector of linear additive effects with continuous variable names.")
-            else if (any(is.na(match(names(a), Y))))
-              stop("some variable names in 'a' do not form part of the continuous variables in the model.")
-            else if (length(a) < pY) {
-              tmp <- rep(NA, pY)
-              names(tmp) <- Y
-              tmp[names(a)] <- a
-              a <- tmp
+              if (length(a) == 1) {
+                tmp <- rep(NA, pY)
+                names(tmp) <- Y
+                tmp[maskYxI] <- rep(a, sum(maskYxI))
+                a <- tmp
+              }
+
+              if (is.null(names(a)))
+                stop("when 'a' is a vector it should be named vector of linear additive effects with continuous variable names.")
+              else if (any(is.na(match(names(a), Y))))
+                stop("some variable names in 'a' do not form part of the continuous variables in the model.")
+              else if (length(a) < pY) {
+                tmp <- rep(NA, pY)
+                names(tmp) <- Y
+                tmp[names(a)] <- a
+                a <- tmp
+              }
             }
 
             new("HMgmm", pI=pI, pY=pY, g=g, vtype=vtype, dLevels=dLevels, a=a,
@@ -575,6 +583,7 @@ setMethod("plot", signature(x="HMgmm"),
             g <- Rgraphviz::layoutGraph(g, layoutType=layoutType) ## laying out the graph should happen first otherwise
                                                                   ## it overrrides some of the node parameters below
             graph::nodeRenderInfo(g) <- list(label=do.call("names<-", list(x$X, x$X)),
+                                             lwd=lwd,
                                              fill=do.call("names<-",
                                                           list(c(rep("black", sum(x@vtype == "discrete")),
                                                                  rep("white", sum(x@vtype == "continuous"))),
@@ -586,34 +595,27 @@ setMethod("plot", signature(x="HMgmm"),
                                                                    c(do.call("c", as.list(graph::nodes(g)[x@vtype == "discrete"])),
                                                                      do.call("c", as.list(graph::nodes(g)[x@vtype == "continuous"]))))))
             mixedEdges <- graph::edges(g, x$I)
-            mixedEdges <- paste(rep(names(mixedEdges), times=sapply(mixedEdges, length)),
-                                unlist(mixedEdges, use.names=FALSE), sep="~")
-            ## it seems Rgraphviz::layoutGraph() alphabetically sorts vertices within edge names so we have to
-            ## order the endpoints alphabetically
-            mixedEdges <- strsplit(mixedEdges, "~")
-            mixedEdges <- lapply(mixedEdges, sort)
-            mixedEdges <- sapply(mixedEdges, paste, collapse="~")
-            graph::edgeRenderInfo(g) <- list(arrowhead="none", arrowtail="none", lwd=lwd)
-            maskhead <- !is.na(match(sapply(strsplit(names(graph::edgeRenderInfo(g)$arrowhead[mixedEdges]), "~"), function(x) x[1]), x$I))
-            if (any(maskhead))
-              graph::edgeRenderInfo(g) <- list(arrowhead=do.call("names<-",
-                                                                 list(rep("open", length(mixedEdges[maskhead])), mixedEdges[maskhead])))
-            masktail <- !is.na(match(sapply(strsplit(names(graph::edgeRenderInfo(g)$arrowtail[mixedEdges]), "~"), function(x) x[2]), x$I))
-            if (any(masktail))
-              graph::edgeRenderInfo(g) <- list(arrowtail=do.call("names<-",
-                                                                 list(rep("open", length(mixedEdges[masktail])), mixedEdges[masktail])))
-            ## ## it seems Rgraphviz::layoutGraph() alphabetically sorts vertices within edge names so we have to
-            ## ## check on what side of the edge names are the discrete variables to decide whether we draw
-            ## ## open arrow heads or open arrow tails (sigh!)
-            ## if (any(!is.na(match(sapply(strsplit(names(graph::edgeRenderInfo(g)$arrowhead), "~"), function(x) x[1]), x$I)))) {
-            ##   graph::edgeRenderInfo(g) <- list(arrowhead="none", arrowtail="none", lwd=lwd)
-            ##   graph::edgeRenderInfo(g) <- list(arrowhead=do.call("names<-",
-            ##                                                      list(rep("open", length(mixedEdges)), mixedEdges)))
-            ## } else {
-            ##   graph::edgeRenderInfo(g) <- list(arrowtail="none", arrowtail="none", lwd=lwd)
-            ##   graph::edgeRenderInfo(g) <- list(arrowtail=do.call("names<-",
-            ##                                                      list(rep("open", length(mixedEdges)), mixedEdges)))
-            ## }
+            mixedEdges <- lapply(mixedEdges, function(x, I) x[is.na(match(x, I))], x$I)
+            mixedEdges <- mixedEdges[sapply(mixedEdges, length) > 0]
+            if (length(mixedEdges) > 0) {
+              mixedEdges <- paste(rep(names(mixedEdges), times=sapply(mixedEdges, length)),
+                                  unlist(mixedEdges, use.names=FALSE), sep="~")
+              ## it seems Rgraphviz::layoutGraph() alphabetically sorts vertices within edge names so we have to
+              ## order the endpoints alphabetically
+              mixedEdges <- strsplit(mixedEdges, "~")
+              mixedEdges <- lapply(mixedEdges, sort)
+              mixedEdges <- sapply(mixedEdges, paste, collapse="~")
+              graph::edgeRenderInfo(g) <- list(arrowhead="none", arrowtail="none", lwd=lwd)
+              maskhead <- !is.na(match(sapply(strsplit(names(graph::edgeRenderInfo(g)$arrowhead[mixedEdges]), "~"), function(x) x[1]), x$I))
+              if (any(maskhead))
+                graph::edgeRenderInfo(g) <- list(arrowhead=do.call("names<-",
+                                                                   list(rep("open", length(mixedEdges[maskhead])), mixedEdges[maskhead])))
+              masktail <- !is.na(match(sapply(strsplit(names(graph::edgeRenderInfo(g)$arrowtail[mixedEdges]), "~"), function(x) x[2]), x$I))
+              if (any(masktail))
+                graph::edgeRenderInfo(g) <- list(arrowtail=do.call("names<-",
+                                                                   list(rep("open", length(mixedEdges[masktail])), mixedEdges[masktail])))
+            }
+
             Rgraphviz::renderGraph(g, ...)
          })
 

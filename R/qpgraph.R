@@ -4050,25 +4050,25 @@ setGeneric("qpFunctionalCoherence", function(object, ...) standardGeneric("qpFun
 ## the input object is a lsCMatrix adjacency matrix
 setMethod("qpFunctionalCoherence",
           signature(object="lsCMatrix"),
-          function(object, TFgenes, geneUniverse=rownames(object), chip, minRMsize=5, verbose=FALSE, clusterSize=1)
-            qpFunctionalCoherence(as(object, "matrix"), TFgenes, geneUniverse, chip, minRMsize, verbose, clusterSize))
+          function(object, TFgenes, geneUniverse=rownames(object), chip, minRMsize=5, removeGOterm="transcription", verbose=FALSE, clusterSize=1)
+            qpFunctionalCoherence(as(object, "matrix"), TFgenes, geneUniverse, chip, minRMsize, removeGOterm, verbose, clusterSize))
 
 ## the input object is a lspMatrix adjacency matrix
 setMethod("qpFunctionalCoherence",
           signature(object="lspMatrix"),
-          function(object, TFgenes, geneUniverse=rownames(object), chip, minRMsize=5, verbose=FALSE, clusterSize=1)
-            qpFunctionalCoherence(as(object, "matrix"), TFgenes, geneUniverse, chip, minRMsize, verbose, clusterSize))
+          function(object, TFgenes, geneUniverse=rownames(object), chip, minRMsize=5, removeGOterm="transcription", verbose=FALSE, clusterSize=1)
+            qpFunctionalCoherence(as(object, "matrix"), TFgenes, geneUniverse, chip, minRMsize, removeGOterm, verbose, clusterSize))
 
 ## the input object is a lsyMatrix adjacency matrix
 setMethod("qpFunctionalCoherence",
           signature(object="lsyMatrix"),
-          function(object, TFgenes, geneUniverse=rownames(object), chip, minRMsize=5, verbose=FALSE, clusterSize=1)
-            qpFunctionalCoherence(as(object, "matrix"), TFgenes, geneUniverse, chip, minRMsize, verbose, clusterSize))
+          function(object, TFgenes, geneUniverse=rownames(object), chip, minRMsize=5, removeGOterm="transcription", verbose=FALSE, clusterSize=1)
+            qpFunctionalCoherence(as(object, "matrix"), TFgenes, geneUniverse, chip, minRMsize, removeGOterm, verbose, clusterSize))
 
 ## the input object is a regular adjacency matrix
 setMethod("qpFunctionalCoherence",
           signature(object="matrix"),
-          function(object, TFgenes, geneUniverse=rownames(object), chip, minRMsize=5, verbose=FALSE, clusterSize=1) {
+          function(object, TFgenes, geneUniverse=rownames(object), chip, minRMsize=5, removeGOterm="transcription", verbose=FALSE, clusterSize=1) {
 
   if (!qpgraph:::.qpIsPackageLoaded("GOstats"))
     stop("qpFunctionalCoherence() requires first loading Bioconductor package GOstats")
@@ -4099,14 +4099,14 @@ setMethod("qpFunctionalCoherence",
   txRegNet <- lapply(TFgenes_i, function(x) geneUniverse[object[as.integer(x), ]])
   names(txRegNet) <- TFgenes
 
-  return(qpgraph:::.qpFunctionalCoherence(txRegNet, geneUniverse, chip, minRMsize, verbose, clusterSize))
+  return(qpgraph:::.qpFunctionalCoherence(txRegNet, geneUniverse, chip, minRMsize, removeGOterm, verbose, clusterSize))
 })
 
 ## the input object is a list of regulatory modules
 setMethod("qpFunctionalCoherence",
           signature(object="list"),
           function(object, geneUniverse=unique(c(names(object), unlist(object, use.names=FALSE))),
-                   chip, minRMsize=5, verbose=FALSE, clusterSize=1) {
+                   chip, minRMsize=5, removeGOterm="transcription", verbose=FALSE, clusterSize=1) {
 
   if (clusterSize > 1 &&
       (!qpgraph:::.qpIsPackageLoaded("rlecuyer") || !qpgraph:::.qpIsPackageLoaded("snow")))
@@ -4120,10 +4120,10 @@ setMethod("qpFunctionalCoherence",
   if (sum(is.na(match(TFgenes, geneUniverse))) > 0)
     stop("TFgenes is not a subset from the genes comprising the gene universe\n")
 
-  return(qpgraph:::.qpFunctionalCoherence(object, geneUniverse, chip, minRMsize, verbose, clusterSize))
+  return(qpgraph:::.qpFunctionalCoherence(object, geneUniverse, chip, minRMsize, removeGOterm, verbose, clusterSize))
 })
 
-.qpFunctionalCoherence <- function(txRegNet, geneUniverse, chip, minRMsize, verbose, clusterSize) {
+.qpFunctionalCoherence <- function(txRegNet, geneUniverse, chip, minRMsize, removeGOterm, verbose, clusterSize) {
   TFgenes <- names(txRegNet)
   regModuleSize <- unlist(lapply(txRegNet, length))
 
@@ -4134,12 +4134,12 @@ setMethod("qpFunctionalCoherence",
 
   geneBPuniverse <- qpgraph:::.qpFilterByGO(geneUniverse, chip, "BP")
 
-  if (verbose)
-    cat(sprintf("qpFunctionalCoherence: calculating GO enrichment in %d target gene sets\n",
-        length(TFgenes[regModuleSize >= minRMsize])))
-
   if (sum(regModuleSize >= minRMsize) == 0)
     stop(sprintf("qpFunctionalCoherence: No regulatory module has a minimum size of %d\n", minRMsize))
+
+  if (verbose && minRMsize > 1)
+    cat(sprintf("qpFunctionalCoherence: calculating GO enrichment in %d regulatory modules\n",
+        length(TFgenes[regModuleSize >= minRMsize])))
 
   ## WARNING: THIS IS REALLY NECESSARY ONLY WHEN THE TF HAS GO ANNOTATIONS !!!!
   if (clusterSize > 1) {
@@ -4172,9 +4172,11 @@ setMethod("qpFunctionalCoherence",
     txRegNetGO <- clParLapply(cl, txRegNet[TFgenes[regModuleSize >= minRMsize]],
                               function(TFgeneTGs, geneBPuniverse, chip) {
                                 TFgeneTGsWithGO <- qpgraph:::.qpFilterByGO(TFgeneTGs, chip, "BP")
-                                res <- NULL
+                                res <- list(TGgenesWithGO=TFgeneTGsWithGO,
+                                            goBPcondResult=NULL,
+                                            goBPcondResultSigCat=NULL)
 
-                                if (length(TFgeneTGsWithGO) >= minRMsize) {
+                                if (length(TFgeneTGsWithGO) >= minRMsize && minRMsize > 1) {
                                   goHypGparams <- new("GOHyperGParams",
                                                       geneIds=TFgeneTGsWithGO,
                                                       universeGeneIds=geneBPuniverse,
@@ -4217,7 +4219,7 @@ setMethod("qpFunctionalCoherence",
   }
 
   if (verbose)
-    cat(sprintf("\nqpFunctionalCoherence: calculating functional coherence in %d RMs\n",
+    cat(sprintf("\nqpFunctionalCoherence: calculating functional coherence in %d regulatory modules\n",
         length(names(txRegNetGO))))
 
   TFgenesWithGO <- qpgraph:::.qpFilterByGO(TFgenes, chip, "BP")
@@ -4234,15 +4236,22 @@ setMethod("qpFunctionalCoherence",
 
   goTermsEnv <- GOenv("TERM")
   goBPparentsEnv <- GOenv("BPPARENTS")
-  goTerms <- unlist(AnnotationDbi::eapply(goTermsEnv, function(x) x@Term))
-  goTermOntologies <- unlist(AnnotationDbi::eapply(goTermsEnv, function(x) x@Ontology))
-  goTermBPOntology <- names(goTermOntologies[goTermOntologies == "BP"])
 
-  # remove from the GO annotation of the transcription factor those GO terms
-  # that have the word 'transcription', i.e., we try to remove terms associated
-  # to transcriptional regulation from the transcription factor GO annotation
-  TFgoTerms <- names(goTerms[grep("transcription", goTerms)])
-  TFgoTerms <- TFgoTerms[!is.na(match(TFgoTerms, goTermBPOntology))]
+  TFgoTerms <- NULL
+  if (!is.null(removeGOterm)) {
+    ## remove from the GO annotation of the transcription factor and the target gene,
+    ## if it's a single one, those GO terms matching the word in the argument
+    ## 'removeGOTerm'. By default this is the word 'transcription', i.e., try to
+    ## remove GO terms associated to transcriptional regulation from the transcription
+    ## factor GO annotation
+
+    goTerms <- unlist(AnnotationDbi::eapply(goTermsEnv, function(x) x@Term))
+    goTermOntologies <- unlist(AnnotationDbi::eapply(goTermsEnv, function(x) x@Ontology))
+    goTermBPOntology <- names(goTermOntologies[goTermOntologies == "BP"])
+
+    TFgoTerms <- names(goTerms[grep(removeGOterm, goTerms)])
+    TFgoTerms <- TFgoTerms[!is.na(match(TFgoTerms, goTermBPOntology))]
+  }
 
   GOgraphSim <- rep(NA, length(names(txRegNetGO)))
   names(GOgraphSim) <- names(txRegNetGO)
@@ -4271,36 +4280,43 @@ setMethod("qpFunctionalCoherence",
         else { # otherwise the functional coherence is estimated as the similarity
                # between the GO graphs associated to the transcription factor GO
                # annotations and the GO over-represented terms in the target gene set
-          gTF <- goGraph(TFgoAnnot, goBPparentsEnv)
-          gTF <- removeNode("all", gTF)
-          gTG <- goGraph(NULL, goBPparentsEnv)
-          if (length(txRegNetGO[[TFgene]]$TGgenesWithGO) > 1)
-            gTG <- goGraph(txRegNetGO[[TFgene]]$goBPcondResultSigCat, goBPparentsEnv)
-          else { ## there's just one gene as target
-            TGgene <- txRegNetGO[[TFgene]]$TGgenesWithGO
-            if (length(qpgraph:::.qpFilterByGO(TGgene, chip, "BP")) > 0) {
-              TGgeneWithGO <- AnnotationDbi::mget(TGgene, get(gsub(".db","GO",chip)))
-              TGgeneWithGO <- lapply(TGgeneWithGO,
-                                      function(x) if (is.list(x)) {
-                                                    z <- sapply(x, function(x) x$Ontology);
-                                                    z[unique(names(z))]
-                                                  })
-              TGgeneWithGOBP <- lapply(TGgeneWithGO,
-                              function(x) if (sum(x=="BP",na.rm=TRUE) > 0) {
-                                            names(x[x=="BP" & !is.na(x)])
-                                          } else { NULL })
-              TGgoAnnot <- TGgeneWithGOBP[[TGgene]]
-              if (length(TGgoAnnot) > 0) {
-                mt <- match(TGgoAnnot, TFgoTerms)
-                if (sum(!is.na(mt)) > 0)
-                  TGgoAnnot <- TGgoAnnot[is.na(mt)]
+          if (length(txRegNetGO[[TFgene]]$TGgenesWithGO) > 0) {
+            gTF <- goGraph(TFgoAnnot, goBPparentsEnv)
+            gTF <- removeNode("all", gTF)
+            gTG <- goGraph("all", goBPparentsEnv)
+            if (length(txRegNetGO[[TFgene]]$TGgenesWithGO) > 1)
+              gTG <- goGraph(txRegNetGO[[TFgene]]$goBPcondResultSigCat, goBPparentsEnv)
+            else { ## there's just one gene as target
+              TGgene <- txRegNetGO[[TFgene]]$TGgenesWithGO
+              if (length(qpgraph:::.qpFilterByGO(TGgene, chip, "BP")) > 0) {
+                TGgeneWithGO <- AnnotationDbi::mget(TGgene, get(gsub(".db","GO",chip)))
+                TGgeneWithGO <- lapply(TGgeneWithGO,
+                                        function(x) if (is.list(x)) {
+                                                      z <- sapply(x, function(x) x$Ontology);
+                                                      z[unique(names(z))]
+                                                    })
+                TGgeneWithGOBP <- lapply(TGgeneWithGO,
+                                function(x) if (sum(x=="BP",na.rm=TRUE) > 0) {
+                                              names(x[x=="BP" & !is.na(x)])
+                                            } else { NULL })
+                TGgoAnnot <- TGgeneWithGOBP[[TGgene]]
+                if (length(TGgoAnnot) > 0) {
+                  mt <- match(TGgoAnnot, TFgoTerms)
+                  if (sum(!is.na(mt)) > 0)
+                    TGgoAnnot <- TGgoAnnot[is.na(mt)]
+                  if (length(TGgoAnnot) > 0)
+                    gTG <- goGraph(TGgoAnnot, goBPparentsEnv)
+                  else
+                    gTG <- goGraph("all", goBPparentsEnv)
+                } else
+                  gTG <- goGraph("all", goBPparentsEnv)
+                txRegNetGO[[TFgene]][["TGgeneGOannot"]] <- TGgoAnnot
               }
-              txRegNetGO[[TFgene]][["TGgeneGOannot"]] <- TGgoAnnot
-              gTG <- goGraph(TGgoAnnot, goBPparentsEnv)
             }
+            gTG <- removeNode("all", gTG)
+
+            sUI <- simui(gTF, gTG)
           }
-          gTG <- removeNode("all", gTG)
-          sUI <- simui(gTF, gTG)
         }
       }
     }
@@ -4923,6 +4939,9 @@ qpPlotMap <- function(p.valueMatrix, markerPos, genePos, chrLen,
 
 .qpFilterByGO <- function(entrezGeneIds, chip, ontologyType=c("BP", "MF", "CC")) {
   ontologyType <- match.arg(ontologyType)
+
+  if (length(entrezGeneIds) == 0)
+    stop("qpgraph:::.qpFilterByGO: no input Entrez gene identifiers\n")
 
   haveGo <- sapply(AnnotationDbi::mget(entrezGeneIds,
                                        annotate::getAnnMap(map="GO", chip=chip, type="db"),
