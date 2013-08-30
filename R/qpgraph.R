@@ -50,8 +50,6 @@
 ##                           in parallel via 'snow' and 'rlecuyer'
 ## return: a matrix with the estimates of the non-rejection rates
 
-setGeneric("qpNrr", function(X, ...) standardGeneric("qpNrr"))
-
 ## X comes as an ExpressionSet object
 setMethod("qpNrr", signature(X="ExpressionSet"),
           function(X, q=1, restrict.Q=NULL, fix.Q=NULL, nTests=100,

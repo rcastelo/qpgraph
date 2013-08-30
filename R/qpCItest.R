@@ -40,12 +40,10 @@
 ## return: a list with two members, the t-statistic value and the p-value
 ##         on rejecting the null hypothesis of independence
 
-setGeneric("qpCItest", function(X, ...) standardGeneric("qpCItest"))
-
 ## ADD gLevels to either directly denote the number of genotype levels or trigger their
 ## automatic calculation
 
-## X comes as an smlSet object
+## X comes as a GGBase::smlSet object
 setMethod("qpCItest", signature(X="smlSet"),
           function(X, i=1, j=2, Q=c(), exact.test=TRUE, use=c("complete.obs", "em"),
                    tol=0.01, R.code.only=FALSE) {
@@ -56,7 +54,7 @@ setMethod("qpCItest", signature(X="smlSet"),
             h <- as.integer(ncol(Biobase::pData(X)))
             Xsml <- GGBase::smList(X)
             sByChr <- sapply(Xsml, ncol)
-            gLevels <- sum(unique(as.vector(as(Xsml[[1]][, 1:min(sByChr[1], 1000)], "matrix"))) > 0)
+            gLevels <- sum(unique(as.vector(as(Xsml[[1]][, 1:min(sByChr[1], 1000)], "matrix"))) > 0, na.rm=TRUE)
             cumsum_sByChr <- c(0, cumsum(sByChr))
             s <- sum(sByChr)
             n <- as.integer(ncol(X))
@@ -278,7 +276,7 @@ setMethod("qpCItest", signature(X="smlSet"),
             return(rval)
           })
 
-## X comes as an ExpressionSet object
+## X comes as a Biobase::ExpressionSet object
 setMethod("qpCItest", signature(X="ExpressionSet"),
           function(X, i=1, j=2, Q=c(), exact.test=TRUE, use=c("complete.obs", "em"),
                    tol=0.01, R.code.only=FALSE) {
@@ -436,6 +434,237 @@ setMethod("qpCItest", signature(X="ExpressionSet"),
 
             return(rval)
           })
+
+## X comes as a qtl::cross object
+setMethod("qpCItest", signature(X="cross"),
+          function(X, i=1, j=2, Q=c(), exact.test=TRUE, use=c("complete.obs", "em"),
+                   tol=0.01, R.code.only=FALSE) {
+
+            use <- match.arg(use)
+
+            p <- as.integer(qtl::nphe(X))
+            sByChr <- qtl::nmar(X)
+            gLevels <- sum(unique(as.vector(as(X$geno[[1]]$data[, 1:min(sByChr[1], 1000)], "matrix"))) > 0, na.rm=TRUE)
+            cumsum_sByChr <- c(0, cumsum(sByChr))
+            s <- sum(sByChr)
+            n <- as.integer(qtl::nind(X))
+            pNames <- colnames(X$pheno)
+            sNamesByChr <- lapply(X$geno, function(x) colnames(x$data))
+            sNames <- unlist(sNamesByChr, use.names=FALSE)
+            qtlNames <- c()
+            nqtl <- 0 
+            if ("qtlgeno" %in% names(X)) {
+              qtlNames <- colnames(X$qtlgeno)
+              nqtl <- length(qtlNames)
+            }
+            Xsub <- matrix(0, nrow=n, ncol=length(c(i, j, Q)))
+            colnames(Xsub) <- 1:length(c(i, j, Q))
+            nLevels <- rep(NA, length(c(i, j, Q)))
+            missingMask <- rep(FALSE, length(c(i, j, Q)))
+            x <- Y <- I <- c()
+
+            nam_i <- i
+            if (is.character(i)) {
+              smt <- match(i, sNames)
+              if (is.na(match(i, qtlNames)) && is.na(match(i, pNames)) && is.na(smt))
+                stop(sprintf("i=%s does not form part of the variable names of the data\n", i))
+              if (!is.na(match(i, pNames))) ## then 'i' refers to a phenotypic variable (cont. or discrete)
+                x <- X$pheno[, i]
+              else if (!is.na(match(i, qtlNames))) { ## then 'i' refers to a QTL genotype (discrete)
+                x <- as(X$qtlgeno[, i], "numeric") ## assume genotypes come as 1, 2, ...
+                nLevels[1] <- gLevels
+              } else { ## then 'i' refers to a marker genotype (discrete)
+                x <- as(X$geno[[sum(cumsum_sByChr < smt)]]$data[, i], "numeric")[, 1] ## assume genotypes come as 1, 2, ...
+                nLevels[1] <- gLevels
+              }
+            } else {
+              if (i <= p) ## then 'i' refers to a phenotype
+                x <- X$pheno[, i]
+              else if (i <= p+s) ## then 'i' refers to a marker genotype (discrete)
+                x <- as(X$geno[[sum(cumsum_sByChr < i-p)]]$data[, i-p], "numeric")[, 1] ## assume genotypes come as 1, 2, ...
+              else { ## then 'i' refers to a QTL (discrete)
+                x <- as(X$qtlgeno[, i-p-s], "numeric") ## assume genotypes come as 1, 2, ...
+                nLevels[1] <- gLevels
+              }
+            }
+            i <- 1L
+            names(i) <- nam_i
+
+            if (!is.na(nLevels[1]) || is.character(x) || is.factor(x) || is.logical(x)) {
+              x <- factor(x)
+              if (is.na(nLevels[1]))
+                nLevels[1] <- nlevels(x)
+
+              I <- 1L
+            } else
+              Y <- 1L
+
+            missingMask[1] <- any(is.na(x))
+            Xsub[, 1] <- as.numeric(x)
+
+            nam_j <- j
+            if (is.character(j)) {
+              smt <- match(j, sNames)
+              if (is.na(match(j, qtlNames)) && is.na(match(j, pNames)) && is.na(smt))
+                stop(sprintf("j=%s does not form part of the variable names of the data\n", j))
+              if (!is.na(match(j, pNames))) ## then 'j' refers to a phenotypic variable (cont. or discrete)
+                x <- X$pheno[, j]
+              else if (!is.na(match(j, qtlNames))) { ## then 'i' refers to a QTL genotype (discrete)
+                x <- as(X$qtlgeno[, j], "numeric") ## assume genotypes come as 1, 2, ...
+                nLevels[2] <- gLevels
+              } else { ## then 'j' refers to a marker genotype (discrete)
+                x <- as(X$geno[[sum(cumsum_sByChr < smt)]]$data[, j], "numeric")[, 1] ## assume genotypes come as 1, 2, ...
+                nLevels[2] <- gLevels
+              }
+            } else {
+              if (j <= p) ## then 'j' refers to a phenotype
+                x <- X$pheno[, j]
+              else if (j <= p+s) ## then 'j' refers to a marker genotype (discrete)
+                x <- as(X$geno[[sum(cumsum_sByChr < j-p)]]$data[, j-p], "numeric")[, 1] ## assume genotypes come as 1, 2, ...
+              else { ## then 'j' refers to a QTL (discrete)
+                x <- as(X$qtlgeno[, j-p-s], "numeric") ## assume genotypes come as 1, 2, ... 
+                nLevels[2] <- gLevels
+              }
+            }
+            j <- 2L
+            names(j) <- nam_j
+
+            if (!is.na(nLevels[2]) || is.character(x) || is.factor(x) || is.logical(x)) {
+              x <- factor(x)
+              if (is.na(nLevels[2]))
+                nLevels[2] <- nlevels(x)
+              I <- c(I, 2L)
+            } else
+              Y <- c(Y, 2L)
+
+            missingMask[2] <- any(is.na(x))
+            Xsub[, 2] <- as.numeric(x)
+
+            nam_Q <- Q
+            if (is.character(Q)) {
+              Qp <- match(Q, pNames)
+              Qs <- Qqtl <- c()
+              if (any(is.na(Qp))) { ## then some variables in Q should refer to marker genotypes
+                Qs <- match(Q[is.na(Qp)], sNames)
+                if (any(is.na(Qs))) { ## then some variables in Q should refer to QTL genotypes
+                  Qqtl <- match(Q[is.na(Qp)][is.na(Qs)], qtlNames)
+                  if (any(is.na(Qqtl)))
+                    stop(sprintf("Q={%s} do(es) not form part of the variable names of the data\n",
+                                 paste(Q[is.na(Qp)][is.na(Qs)][is.na(Qqtl)], collapse=", ")))
+                  Qs <- Qs[!is.na(Qs)]
+                }
+                Qp <- Qp[!is.na(Qp)]
+              }
+              for (k in seq(along=Qp)) {
+                x <- X$pheno[, Qp[k]]
+                idx <- 2L+k
+                missingMask[idx] <- any(is.na(x))
+
+                if (is.character(x) || is.factor(x) || is.logical(x)) {
+                  x <- factor(x)
+                  nLevels[idx] <- nlevels(x)
+                  Xsub[, idx] <- as.numeric(x) ## transforming factor variable values into 1, 2, ...
+                  I <- c(I, idx)
+                } else {
+                  Xsub[, idx] <- as.numeric(x)
+                  Y <- c(Y, idx)
+                }
+              }
+              for (k in seq(along=Qs)) {
+                x <- as(X$geno[[sum(cumsum_sByChr < Qs[k])]]$data[, Qs[k]-cumsum_sByChr[sum(cumsum_sByChr < Qs[k])] ], "numeric")[, 1] ## assume genotypes come as 1, 2, ...
+                idx <- 2L+sum(!is.na(Qp))+k
+                missingMask[idx] <- any(is.na(x))
+                Xsub[, idx] <- x
+                I <- c(I, idx)
+                nLevels[idx] <- gLevels
+              }
+              for (k in seq(along=Qqtl)) {
+                x <- as(X$qtlgeno[, Qqtl[k]], "numeric") ## assume genotypes come as 1, 2, ...
+                idx <- 2L+sum(!is.na(Qp))+sum(!is.na(Qs))+k
+                missingMask[idx] <- any(is.na(x))
+                Xsub[, idx] <- x
+                I <- c(I, idx)
+                nLevels[idx] <- gLevels
+              }
+              Q <- 3:length(c(i, j, Q))
+              names(Q) <- nam_Q
+            } else if (!is.null(Q)) { ## if argument Q was empty, it should remain empty
+              if (any(Q > p+s+nqtl))
+                stop(sprintf("Q={%s} is/are larger than the number of phenotypic variables (%d), marker genotypes (%d) and QTL genotypes together (%d+%d+%d=%d)\n",
+                             paste(Q[Q > p+s+nqtl], collapse=", "), p, s, nqtl, p, s, nqtl, p+s+nqtl))
+
+              Qp <- which(Q <= p) ## Q smaller than p correspond to phenotypic variables
+              for (k in seq(along=Qp)) {
+                x <- X$pheno[, Q[Qp[k]]]
+                idx <- 2L+k
+                missingMask[idx] <- any(is.na(x))
+
+                if (is.character(x) || is.factor(x)) {
+                  x <- factor(x)
+                  nLevels[idx] <- nlevels(x)
+                  Xsub[, idx] <- as.numeric(x)
+                  I <- c(I, idx)
+                } else {
+                  Xsub[, idx] <- as.numeric(x)
+                  Y <- c(Y, idx)
+                }
+              }
+              Qs <- which(Q > p && Q <= p+s) ## Q indices larger than p and smaller than p+s correspond to marker genotypes
+              for (k in seq(along=Qs)) {
+                x <- as(X$geno[[sum(cumsum_sByChr < Q[Qs[k]]-p)]]$data[, Q[Qs[k]]-p-cumsum_sByChr[sum(cumsum_sByChr < Q[Qs[k]]-p)] ], "numeric")[, 1] ## assume genotypes come as 1, 2, ...
+
+                idx <- 2L+sum(Q <= p)+k
+                missingMask[idx] <- any(is.na(x))
+                Xsub[, idx] <- x
+                I <- c(I, idx)
+                nLevels[idx] <- gLevels
+              }
+              Qqtl <- which(Q > p+s) ## Q indices larger than p+s correspond to QTL genotypes
+              for (k in seq(along=Qqtl)) {
+                x <- as(X$qtlgeno[, Q[Qqtl[k]]-p-s], "numeric") ## assume gentypes come as 1, 2, ...
+                idx <- 2L+sum(Q <= p+s)+k
+                missingMask[idx] <- any(is.na(x))
+                Xsub[, idx] <- x
+                I <- c(I, idx)
+                nLevels[idx] <- gLevels
+              }
+              Q <- 3:length(c(i, j, Q))
+              names(Q) <- nam_Q
+            }
+
+            rval <- NA
+
+            if (is.null(I)) {
+              S <- qpCov(Xsub)
+              rval <- qpgraph:::.qpCItest(S, i, j, Q, R.code.only)
+            } else {
+              if (any(nLevels[I] == 1))
+                stop(sprintf("Discrete variable %s has only one level", colnames(Xsub)[I[nLevels[I]==1]]))
+
+              missingData <- any(missingMask)
+              ssd <- mapX2ssd <- NULL
+              if (!missingData) {
+                ssd <- qpCov(Xsub[, Y, drop=FALSE], corrected=FALSE)
+                mapX2ssd <- match(colnames(Xsub), colnames(ssd))
+                names(mapX2ssd) <- colnames(Xsub)
+              }
+
+              rval <- qpgraph:::.qpCItestHMGM(Xsub, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
+                                              exact.test, use, tol, R.code.only)
+              if (is.nan(rval$statistic))
+                warning(paste(sprintf("CI test unavailable for i=%s, j=%s and Q={",
+                                      i, j, paste(Q, collapse=", ")),
+                                      "}. Try a smaller Q or increase n if you can\n"))
+            }
+
+            class(rval) <- "htest" ## this is kind of redundant but otherwise
+                                   ## the object returned by the C function does
+                                   ## not print by default as an 'htest' object
+
+            return(rval)
+          })
+
+
 
 ## X comes as a data frame
 setMethod("qpCItest", signature(X="data.frame"),

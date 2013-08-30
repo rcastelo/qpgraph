@@ -12,3 +12,6 @@ setGeneric("alleQTL", function(x, ...) standardGeneric("alleQTL"))
 setGeneric("ciseQTL", function(x, cisr, ...) standardGeneric("ciseQTL"))
 setGeneric("transeQTL", function(x, cisr, ...) standardGeneric("transeQTL"))
 setGeneric("rcmvnorm", function(n, model, ...) standardGeneric("rcmvnorm"))
+
+setGeneric("qpCItest", function(X, ...) standardGeneric("qpCItest"))
+setGeneric("qpNrr", function(X, ...) standardGeneric("qpNrr"))
