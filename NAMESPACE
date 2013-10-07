@@ -32,6 +32,15 @@ importFrom(Biobase,
 importFrom(annotate,
            getAnnMap)
 
+importFrom(parallel,
+           makeCluster,
+           clusterSetRNGStream,
+           clusterEvalQ,
+           stopCluster,
+           clusterExport,
+           clusterApply,
+           clusterCall)
+
 importFrom(mvtnorm,
            rmvnorm)
 

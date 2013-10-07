@@ -1,13 +1,13 @@
 \name{qpRndHMGM}
 \alias{qpRndHMGM}
-\alias{qpRndHMGM-deprecated}
+\alias{qpRndHMGM-defunct}
 
 \title{
 Random homogeneous mixed graphical Markov model
 }
 \description{
 Builds a random homogeneous mixed graphical Markov model. This function
-has been deprecated, the user should use \code{\link{rHMgmm}}.
+has been defunct, the user should use \code{\link{rHMgmm}}.
 }
 \usage{
 qpRndHMGM(nDiscrete=1, nContinuous=3, d=2, mixedIntStrength=5, rho=0.5, G=NULL)

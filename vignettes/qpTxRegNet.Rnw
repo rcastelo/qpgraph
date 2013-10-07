@@ -11,16 +11,25 @@ BiocStyle::latex()
 
 
 \title{Reverse engineering transcriptional regulatory networks \\ from
-       gene expression microarray data using {\tt qpgraph}}
-\author{Robert Castelo and Alberto Roverato}
+       gene expression microarray data using \Biocpkg{qpgraph}}
+\author{Robert Castelo$^1$ and Alberto Roverato$^2$}
+
+\renewcommand{\thetitle}{Reverse engineering networks using \Biocpkg{qpgraph}}
 
 \begin{document}
 
 \maketitle
 
+\begin{quote}
+{\scriptsize
+1. Universitat Pompeu Fabra, Barcelona, Spain. \\
+2. Universit\`a di Bologna, Bologna, Italy.
+}
+\end{quote}
+
 \section{Introduction}
 
-This vignette describes how to use the package \verb+qpgraph+ in order to reverse
+This vignette describes how to use the package \Biocpkg{qpgraph} in order to reverse
 engineer a transcriptional regulatory network from a particular gene
 expression microarray data set of Escherichia coli (E. coli). Concretely, 
 the data corresponds to $n=43$ experiments of various mutants under oxygen
@@ -40,7 +49,7 @@ library(org.EcK12.eg.db)
 library(graph)
 library(qpgraph)
 @
-Within the \verb+qpgraph+ package there is a data file called \verb+EcoliOxygen+
+Within the \Biocpkg{qpgraph} package there is a data file called \verb+EcoliOxygen+
 in which we will find the following objects stored:
 
 <<setup, echo=TRUE, results=verbatim>>=
@@ -71,7 +80,7 @@ In order to keep time and space requirements of the calculations at a manageable
 level for a vignette, we will use a subset of these data. Concretely, we will
 consider first those genes forming part in RegulonDB of the regulatory modules of
 the five knocked-out transcription factors and select the 100 genes with largest
-variability measured by the interquartile range (IQR). In the \verb+qpgraph+
+variability measured by the interquartile range (IQR). In the \Biocpkg{qpgraph}
 package the filtered RegulonDB data is stored in the form of a data frame where
 each row corresponds to a transcriptional regulatory relationship, the first two
 columns contain Blattner IDs of the transcription factor (TF) and target (TG)
@@ -165,7 +174,7 @@ and we will use three methods: 1. the estimation of Pearson correlation
 coefficients (PCCs); 2. the estimation of average non-rejection rates (avgNRRs);
 and, as a baseline comparison, 3. the assignment of random correlations drawn from
 a uniform distribution between -1 and +1 to every pair of genes. We can estimate
-PCCs for all gene pairs with the function \verb+qpPCC+ from the \verb+qpgraph+
+PCCs for all gene pairs with the function \verb+qpPCC+ from the \Biocpkg{qpgraph}
 package as follows:
 
 <<getthenet, echo=TRUE, results=verbatim>>=
@@ -298,7 +307,7 @@ when, as in this case, we restrict the genes allowed to pair with each other. In
 order to assess the accuracy of the PCC and qp-graph methods we will use the
 transcriptional regulatory relationships in the subset of RegulonDB that we
 selected before and calculate precision-recall curves \citep{Fawcett:2006fj}
-using the \verb+qpPrecisionRecall+ function from the \verb+qpgraph+ package.
+using the \verb+qpPrecisionRecall+ function from the \Biocpkg{qpgraph} package.
 
 We have to be careful with the fact that while we calculated avgNRRs only for
 TF-TG pairs, the matrix \verb+pcc.estimates$R+ contains PCC values for all pairs
@@ -443,7 +452,7 @@ g
 We are going to estimate now the corresponding PACs for the interactions. First,
 we should see if this is at all possible by calculating the size of the largest
 clique in this undirected graph with the \verb+qpCliqueNumber+ function from the
-\verb+qpgraph+ package:
+\Biocpkg{qpgraph} package:
 
 <<getthenet, echo=TRUE, results=verbatim>>=
 qpCliqueNumber(g, verbose=FALSE)

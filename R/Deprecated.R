@@ -16,7 +16,7 @@
 
 qpRndHMGM <- function(nDiscrete=1, nContinuous=3, d=2, mixedIntStrength=5, rho=0.5, G=NULL) {
 
-  .Deprecated("rHMgmm")
+  .Defunct("rHMgmm")
 
   if (is.null(G)) {
     Delta <- paste("D", 1:nDiscrete, sep="")
@@ -86,7 +86,7 @@ qpRndHMGM <- function(nDiscrete=1, nContinuous=3, d=2, mixedIntStrength=5, rho=0
 
 qpSampleFromHMGM <- function(n=10, hmgm=qpRndHMGM()) {
 
-  .Deprecated("rcmvnorm")
+  .Defunct("rcmvnorm")
 
   nDiscreteLevels <- prod(hmgm$dLevels)
   nDiscrete <- length(hmgm$Delta)

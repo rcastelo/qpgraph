@@ -1,24 +1,20 @@
 %\VignetteIndexEntry{Simulating molecular regulatory networks using qpgraph}
 %\VignetteKeywords{graphical Markov model, qp-graph, microarray, network, eQTL}
 %\VignettePackage{qpgraphSimulate}
-\documentclass[11pt]{article}
 
-\usepackage{times}
-\usepackage{mathptmx}
-\usepackage{graphicx}
-\usepackage[colorlinks=true,linkcolor=black,
-            citecolor=black,urlcolor=black]{hyperref}
+\documentclass{article}
+
+<<style, eval=TRUE, echo=FALSE, results=tex>>=
+BiocStyle::latex()
+@
+
 \usepackage{natbib}
-\usepackage{fullpage}
-
-\newcommand{\Rfunction}[1]{{\texttt{#1}}}
-\newcommand{\Robject}[1]{{\texttt{#1}}}
-\newcommand{\Rpackage}[1]{{\textsf{#1}}}
-\newcommand{\Rclass}[1]{{\textit{#1}}}
 
 \title{Simulating molecular regulatory networks \\
        using {\tt qpgraph}}
 \author{Inma Tur$^1$, Alberto Roverato$^2$ and Robert Castelo$^1$}
+
+\renewcommand{\thetitle}{Simulating networks using \Biocpkg{qpgraph}}
 
 \begin{document}
 
@@ -54,12 +50,12 @@ try(detach("package:qtl"), silent=TRUE)
 
 \section{Introduction}
 
-The theoretical substrate used by \Rpackage{qpgraph} to estimate network models
+The theoretical substrate used by \Biocpkg{qpgraph} to estimate network models
 of molecular regulatory interactions is that of graphical Markov models (GMMs). A useful
 way to understand the underpinnings of these models is to simulate them and simulate
-data from them. Here we illustrate the functionalities of \Rpackage{qpgraph} to
-perform these simulations. The interface provided by \Rpackage{qpgraph} tries to comply
-with the available functions in the base R \Rpackage{stats} package for simulating data
+data from them. Here we illustrate the functionalities of \Biocpkg{qpgraph} to
+perform these simulations. The interface provided by \Biocpkg{qpgraph} tries to comply
+with the available functions in the base R \CRANpkg{stats} package for simulating data
 from probability distributions and the names of functions described below for the purpose
 of simulating graphs, models and data follow the convention:
 
@@ -89,7 +85,7 @@ of the terminology and notation used in this vignette the reader may consult the
 book of \citet{Lauritzen:1996fj}.
 
 The first step to simulate a GMM consists of simulating its associated graph. While
-there are many R packages that provide procedures to simulate graphs, \Rpackage{qpgraph}
+there are many R packages that provide procedures to simulate graphs, \Biocpkg{qpgraph}
 provides its own minimal functionality for this purpose tailored to ease the downstream
 simulation of GMMs. This functionality allows the user to simulate undirected graphs
 according to two main criteria, the type of graph (pure or marked) and the type of model
@@ -107,7 +103,7 @@ other hand, bound the smallest minimal separator between any two vertices
 \citep[see pg.~2646]{Castelo:2006yu}.
 
 To specify the parameters that define one specific type of graph we want to simulate
-\Rpackage{qpgraph} provides the following functions that build parameter
+\Biocpkg{qpgraph} provides the following functions that build parameter
 objects which can be used afterwards to simulate graphs through a single call to the
 function \Rfunction{rgraphBAM()}:
 
@@ -141,7 +137,7 @@ between these two main types of graph parameter objects, \Rclass{graphParam} and
 of arguments we need in calls described below to simulate GMMs.
 
 Finally, the function \Rfunction{rgraphBAM()} simulates one or more random graphs
-as objects of the class \Rclass{graphBAM} defined in the \Rpackage{graph} package.
+as objects of the class \Rclass{graphBAM} defined in the \Biocpkg{graph} package.
 Its arguments are:
 
 <<>>=
@@ -166,10 +162,10 @@ g <- rgraphBAM(dRegularMarkedGraphParam(pI=2, pY=10, d=3))
 plot(g)
 @
 where the last \Rfunction{plot} function call is defined (overloaded) in the
-\Rpackage{qpgraph} package to ease plotting the graph which is displayed in
+\Biocpkg{qpgraph} package to ease plotting the graph which is displayed in
 Figure~\ref{fig:3regulargraph}. This function uses the plotting capabilities
-from the \Rpackage{Rgraphviz} package and further arguments, such as
-\Robject{layoutType}, can be passed downstream to the \Rpackage{Rgraphviz}
+from the \Biocpkg{Rgraphviz} package and further arguments, such as
+\Robject{layoutType}, can be passed downstream to the \Biocpkg{Rgraphviz}
 plotting function to fine tune the display of the graph.
 
 \begin{figure}
@@ -188,7 +184,7 @@ in $G$ \citep{Lauritzen:1996fj}. Therefore, simulating this type of GMM amounts
 to simulate a covariance matrix whose inverse matches the missing edges of a
 given, or simulated, undirected graph in its zero pattern and whose scaled
 covariance matches a given marginal correlation on the cells corresponding to
-present edges. This can be easily accomplished with \Rpackage{qpgraph} using
+present edges. This can be easily accomplished with \Biocpkg{qpgraph} using
 the function \Rfunction{rUGgmm}:
 
 <<>>=
@@ -259,13 +255,13 @@ an undirected Gaussian GMM with more than, let's say, 200 vertices, since around
 of vertices and beyond the simulation of the covariance matrix becomes computationally
 demanding, specially when the underlying graph is not very sparse. Further technical
 information on the algorithms employed to simulate the covariance matrix can be found
-in the help pages of the \Rpackage{qpgraph} functions \Rfunction{qpG2Sigma()},
+in the help pages of the \Biocpkg{qpgraph} functions \Rfunction{qpG2Sigma()},
 \Rfunction{qpRndWishart()}, \Rfunction{qpIPF()} and \Rfunction{qpHTF()} which are called
 by the procedures described here.
 
 Finally, to simulate multivariate normal observations from the undirected Gaussian GMM
-we just need to use the \Rfunction{rmvnorm()} function from the \Rpackage{mvtnorm} package
-which is overloaded in the \Rpackage{qpgraph} package to take directly an \Rclass{UGgmm}
+we just need to use the \Rfunction{rmvnorm()} function from the \Biocpkg{mvtnorm} package
+which is overloaded in the \Biocpkg{qpgraph} package to take directly an \Rclass{UGgmm}
 object, as follows:
 
 <<>>=
@@ -281,14 +277,14 @@ round(solve(cov(X)), digits=1)
 round(solve(gmm$sigma), digits=1)
 @
 However, such a sample size would be exceptional and for more limited sample size but
-still with $p < n$ the user may use the \Rpackage{qpgraph} function \Rfunction{qpPAC()}
+still with $p < n$ the user may use the \Biocpkg{qpgraph} function \Rfunction{qpPAC()}
 which performs zero-partial correlation tests and when $p\gg n$, then the user may 
 estimate non-rejection rates \cite{Castelo:2006yu} with the \Rfunction{qpNrr()} function
 and simplify the saturated model such that it may become possible to apply \Rfunction{qpPAC()}.
 
 Obviously, gene expression data, either from microarrays or log-transformed count data, are
 far from being multivariate normal. However, many available methods for estimating
-molecular regulatory networks from expression data, such as \Rpackage{qpgraph}, make such
+molecular regulatory networks from expression data, such as \Biocpkg{qpgraph}, make such
 an assumption and simulating data from undirected Gaussian GMMs can help us to test
 these methods under a controlled experiment, learning their basic properties and obvious
 pitfalls with such a clean data.
@@ -313,12 +309,12 @@ between continuous vertices. From this restricted definition of a partially-dire
 it follows inmediately that there are no semi-directed (direction preserving) cycles and
 allows one to interpret these GMMs also as {\it chain graphs}, which are graphs formed by
 undirected subgraphs connected by directed edges \citep{Lauritzen:1996fj}. Currently, the
-\Rpackage{graph} and \Rpackage{Rgraphviz} packages, in which \Rpackage{qpgraph} relies to
+\Biocpkg{graph} and \Biocpkg{Rgraphviz} packages, in which \Biocpkg{qpgraph} relies to
 handle and plot graph objects, do not directly allow one to define and work with
-partially-directed graphs. However, in the functionality described below \Rpackage{qpgraph}
+partially-directed graphs. However, in the functionality described below \Biocpkg{qpgraph}
 tries to hide to the user complications derived from this fact.
 
-A second important assumption \Rpackage{qpgraph} makes is that the joint distribution of
+A second important assumption \Biocpkg{qpgraph} makes is that the joint distribution of
 the r.v.'s in $X$ is a conditional Gaussian distribution (also known as CG-distribution) by which
 continuous r.v.'s follow a multivariate normal distribution $\mathcal{N}_{|\Gamma|}(\mu(i), \Sigma(i))$
 conditioned on the joint levels $i\in\mathcal{I}$ from the discrete variables in $I$.
@@ -330,11 +326,11 @@ of genetical genomics data, this assumption implies that genotype alleles affect
 mean expression level of genes and not the correlations between them.
 
 Two restrictions currently constain further the type of mixed GMMs we can simulate with
-\Rpackage{qpgraph}. The first one is that discrete variables are simulated under marginal
+\Biocpkg{qpgraph}. The first one is that discrete variables are simulated under marginal
 independence between them and the second one is that every continuous variable cannot be
 associated to more than one discrete variable. As we shall see below, the first restriction
 does not apply when simulating expression quantitative trait loci data in experimental
-crosses, as genotype marker data is simulated by another package, the \Rpackage{qtl}
+crosses, as genotype marker data is simulated by another package, the \CRANpkg{qtl}
 ackage \citep{Broman:2003fk}. We are working to remove the second restriction in the near
 future and enable multiple discrete variables having linear additive effects and interaction
 effects, on a common continuous variable.
@@ -394,8 +390,8 @@ gmm$sigma
 gmm$a
 gmm$eta2
 @
-We can also directly plot the \Rclass{HMgmm} object and \Rpackage{qpgraph} will use
-the necessary instructions from the \Rpackage{graph} and \Rpackage{Rgraphviz} libraries
+We can also directly plot the \Rclass{HMgmm} object and \Biocpkg{qpgraph} will use
+the necessary instructions from the \Biocpkg{graph} and \Biocpkg{Rgraphviz} libraries
 to display a partially-directed graph as the one shown in Figure~\ref{fig:hmgmm}.
 
 <<hmgmm, fig=TRUE, include=FALSE, echo=TRUE, results=verbatim, height=5, width=5>>=
@@ -414,8 +410,8 @@ Further arguments to \Rfunction{rHMgmm()} are all we described previously for th
 discrete levels (alleles in the genetics context) on the continuous variables (genes in the
 genetics context). To simulate conditional multivariate normal observations from the homogeneous
 mixed GMM we use the \Rfunction{rcmvnorm()} function, which uses its pure continuous
-counterpart \Rfunction{rmvnorm()} from the \Rpackage{mvtnorm} package, but which is defined
-in the \Rpackage{qpgraph} package as it needs to calculate the corresponding conditional mean
+counterpart \Rfunction{rmvnorm()} from the \CRANpkg{mvtnorm} package, but which is defined
+in the \Biocpkg{qpgraph} package as it needs to calculate the corresponding conditional mean
 vectors $\mu(i)$:
 
 <<>>=
@@ -445,16 +441,16 @@ gmm$a
 
 \section{Simulation of eQTL models of experimental crosses}
 
-We illustrate in this section how we can use \Rpackage{qpgraph} in conjunction with the
-\Rpackage{qtl} package \citep{Broman:2003fk} to simulate expression quantatitve trait
+We illustrate in this section how we can use \Biocpkg{qpgraph} in conjunction with the
+\CRANpkg{qtl} package \citep{Broman:2003fk} to simulate expression quantatitve trait
 loci (eQTL) models of experimental crosses and data from them. This functionality employs
 the previously described procedures to simulate an homogeneous mixed GMM that represents
 the underlying model of regulatory {\it cis}-eQTL, {\it trans}-eQTL and gene-gene
 associations, although this fact appears hidden to the user.
 
-More concretely, the \Rpackage{qpgraph} package defines an object class called
+More concretely, the \Biocpkg{qpgraph} package defines an object class called
 \Rclass{eQTLcross} which basically holds a genetic map of the genotype markers
-(as defined by the \Rclass{map} class in the \Rpackage{qtl} package from \citealp{Broman:2003fk})
+(as defined by the \Rclass{map} class in the \CRANpkg{qtl} package from \citealp{Broman:2003fk})
 and an homogeneous mixed GMM defining the underlying molecular regulatory network
 that connects genotypes with genes and genes themselves, where we use the term
 {\it gene} to refer to a gene expression profile.
@@ -468,7 +464,7 @@ default defines some minimal eQTL model:
 eQTLcrossParam()
 args(eQTLcrossParam)
 @
-To simulate an \Rclass{eQTLcross} object \Rpackage{qpgraph} provides the function
+To simulate an \Rclass{eQTLcross} object \Biocpkg{qpgraph} provides the function
 \Rfunction{reQTLcross()} giving as first argument the number of \Rclass{eQTLcross}
 objects we want to simulate and a \Rclass{eQTLcrossParam} object:
 
@@ -484,7 +480,7 @@ covariance matrix (\Robject{tol=0.001}) and whether progress on the calculations
 should be shown \Robject{verbose=FALSE}.
 
 To simulate a larger \Rclass{eQTLcross} object we load an example genetic map object
-called \Robject{map10} from the \Rpackage{qtl} package \citep{Broman:2003fk}:
+called \Robject{map10} from the \CRANpkg{qtl} package \citep{Broman:2003fk}:
 
 <<>>=
 data(map10, package="qtl")
@@ -511,7 +507,7 @@ A dot plot describing the eQTL associations along the given genetic map can be o
 by calling the \Rfunction{plot} function with the \Rclass{eQTLcross} object as
 argument. In Figure~\ref{fig:geneticmap} we see on the right panel such a plot,
 and on the left panel the genetic map plotted by the plot function defined in the
-\Rpackage{qtl} package \citep{Broman:2003fk} to plot genetic maps.
+\CRANpkg{qtl} package \citep{Broman:2003fk} to plot genetic maps.
 
 <<geneticmap, fig=TRUE, include=FALSE, echo=TRUE, results=verbatim, height=6, width=12>>=
 par(mfrow=c(1,2))
@@ -520,9 +516,9 @@ plot(eqtl, main="eQTL model with cis-associations only")
 @
 \begin{figure}
   \centerline{\includegraphics[width=\textwidth]{qpgraphSimulate-geneticmap}}
-  \caption{A genetic map simulated with the \Rpackage{qtl} package \citep{Broman:2003fk} on
+  \caption{A genetic map simulated with the \CRANpkg{qtl} package \citep{Broman:2003fk} on
            the left, and on the right, an eQTL model simulated using the genetic map with
-           the \Rpackage{qpgraph} package.}
+           the \Biocpkg{qpgraph} package.}
   \label{fig:geneticmap}
 \end{figure}
 
@@ -560,8 +556,8 @@ plot(eqtl, main="eQTL model with trans-eQTL")
 \end{figure}
 
 Using this \Rclass{eQTLcross} object we can simulate data from the corresponding
-experimental cross with the function \Rfunction{sim.cross()} from the \Rpackage{qtl}
-package \citep{Broman:2003fk}  but which is overloaded in \Rpackage{qpgraph} to plug
+experimental cross with the function \Rfunction{sim.cross()} from the \CRANpkg{qtl}
+package \citep{Broman:2003fk}  but which is overloaded in \Biocpkg{qpgraph} to plug
 the eQTL associations into the corresponding genetic loci:
 
 <<>>=
@@ -570,11 +566,11 @@ cross <- sim.cross(map10, eqtl)
 cross
 @
 Note that here, the genotype data is simulated by the procedures implemented in
-the \Rpackage{qtl} package \citep{Broman:2003fk}  and \Rpackage{qpgraph} adds to
+the \CRANpkg{qtl} package \citep{Broman:2003fk}  and \Biocpkg{qpgraph} adds to
 that simulation the eQTL and gene network associations. Thus, while the
 \Rfunction{rHMgmm()} function described in the previous section, does not simulate
 correlated discrete variables, here the genotypes will be correlated according to
-the input arguments of the \Rfunction{sim.cross()} function in \Rpackage{qtl} (mainly,
+the input arguments of the \Rfunction{sim.cross()} function in \CRANpkg{qtl} (mainly,
 the \Robject{map.function} argument that converts genetic distances into recombination
 fractions) and which can be passed through the previous call to \Rfunction{sim.cross()}.
 
@@ -594,21 +590,21 @@ connectedGenes <- graph::inEdges(gene, eqtl$model$g)[[1]]
 connectedGenes <- connectedGenes[connectedGenes %in% eqtl$model$Y]
 connectedGenes
 @
-Now, using the \Rpackage{qtl} package \citep{Broman:2003fk} and its \Rfunction{scanone()}
+Now, using the \CRANpkg{qtl} package \citep{Broman:2003fk} and its \Rfunction{scanone()}
 function, we perform a simple QTL analysis by marker regression using the expression
 profiles from genes \Sexpr{paste(c(gene, connectedGenes), collapse=", ")} as
-phenotypes\footnote{Note that when we load below the \Rpackage{qtl} package \citep{Broman:2003fk},
-the definition of \Rfunction{sim.cross()} in \Rpackage{qpgraph} gets masked by the original
-definition of this function in \Rpackage{qtl}. This means we would need, from that point on, to
-use the notation \Robject{qpgraph::sim.cross()} to call the \Rpackage{qpgraph} definition
-of this function unless we detach \Rpackage{qtl} from the search path}:
+phenotypes\footnote{Note that when we load below the \CRANpkg{qtl} package \citep{Broman:2003fk},
+the definition of \Rfunction{sim.cross()} in \Biocpkg{qpgraph} gets masked by the original
+definition of this function in \CRANpkg{qtl}. This means we would need, from that point on, to
+use the notation \Robject{qpgraph::sim.cross()} to call the \Biocpkg{qpgraph} definition
+of this function unless we detach \CRANpkg{qtl} from the search path}:
 
 <<>>=
 library(qtl)
 
 out.mr <- scanone(cross, method="mr", pheno.col=c(gene, connectedGenes))
 @
-By using the plotting functionalities of the \Rpackage{qtl} package \citep{Broman:2003fk} we
+By using the plotting functionalities of the \CRANpkg{qtl} package \citep{Broman:2003fk} we
 can examine the LOD score profile of these three genes on chromosome \Sexpr{chrom} where the
 eQTL of gene \Sexpr{gene} is located:
 
@@ -625,7 +621,7 @@ abline(v=allcis[allcis$gene == gene, "location"])
 We can observe in Figure~\ref{fig:lodprofiles} that not only the directly associated gene
 \Sexpr{gene} seems to have an eQTL at position \Sexpr{round(location, digits=1)} cM, but
 also the genes \Sexpr{paste(connectedGenes, collapse=", ")} connected to \Sexpr{gene} in
-the underlying gene network. Using a permutation procedure implemented in \Rpackage{qtl},
+the underlying gene network. Using a permutation procedure implemented in \CRANpkg{qtl},
 we calculate LOD score threholds that yield genome-wide statistical significant eQTL associations:
 <<>>=
 out.perm <- scanone(cross, method="mr", pheno.col=c(gene, connectedGenes),

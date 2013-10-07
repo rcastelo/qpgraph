@@ -1,3 +1,28 @@
+CHANGES IN VERSION 1.18
+-----------------------
+
+USER VISIBLE CHANGES
+
+    o Updated the formatting of the vignettes to adhere to the Bioconductor style
+
+    o Functions qpRndHMGM() and qpSampleFromHMGM() which were deprecated in the previous release, are now defunct.
+
+NEW FEATURES
+
+    o qpCItest() takes now also R/qtl cross objects as input, i.e., the user can test for conditional independence directly on R/qtl cross objects
+
+    o added functions addGenes(), addeQTL(), and addGeneAssociation() to incrementally build and simulate eQTL networks
+
+BUG FIXES
+
+    o Real or integer valued levels in discrete variables now prompt an error when day are not positive integers
+
+    o qpFunctionalCoherence() handles regulatory modules with just one target without giving an error
+
+    o reQTLcross() can now simulate an initial eQTL model with no genes
+
+    o fixed plotting for HMgmm objects
+
 CHANGES IN VERSION 1.16
 -----------------------
 

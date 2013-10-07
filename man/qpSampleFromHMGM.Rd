@@ -1,13 +1,13 @@
 \name{qpSampleFromHMGM}
 \alias{qpSampleFromHMGM}
-\alias{qpSampleFromHMGM-deprecated}
+\alias{qpSampleFromHMGM-defunct}
 
 \title{
 Sample from homogeneous mixed graphical Markov models
 }
 \description{
 Samples synthetic data from homogeneous mixed graphical Markov models. This
-function has been deprecated, the user should use \code{\link{rcmvnorm}}.
+function has been defunct, the user should use \code{\link{rcmvnorm}}.
 }
 \usage{
 qpSampleFromHMGM(n=10, hmgm=qpRndHMGM())
