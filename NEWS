@@ -15,7 +15,7 @@ NEW FEATURES
 
 BUG FIXES
 
-    o Real or integer valued levels in discrete variables now prompt an error when day are not positive integers
+    o Real or integer valued levels in discrete variables now prompt an error when they are not positive integers
 
     o qpFunctionalCoherence() handles regulatory modules with just one target without giving an error
 
