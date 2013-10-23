@@ -546,6 +546,5 @@ toLatex(sessionInfo())
 @
 
 \bibliography{qpgraph}
-\bibliographystyle{apalike}
 
 \end{document}
