@@ -4,7 +4,7 @@
 \documentclass{article}
 
 <<style, eval=TRUE, echo=FALSE, results=tex>>=
-BiocStyle::latex()
+BiocStyle::latex(bibstyle="plainnat")
 @
 
 \usepackage{natbib}
