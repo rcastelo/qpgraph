@@ -5,7 +5,7 @@
 \documentclass{article}
 
 <<style, eval=TRUE, echo=FALSE, results=tex>>=
-BiocStyle::latex(bibstyle="apalike")
+BiocStyle::latex(use.unsrturl=FALSE)
 @
 
 \usepackage{natbib}
@@ -659,5 +659,6 @@ toLatex(sessionInfo())
 @
 
 \bibliography{qpgraph}
+\bibliographystyle{apalike}
 
 \end{document}
