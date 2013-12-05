@@ -53,11 +53,13 @@ try(detach("package:qtl"), silent=TRUE)
 The theoretical substrate used by \Biocpkg{qpgraph} to estimate network models
 of molecular regulatory interactions is that of graphical Markov models (GMMs). A useful
 way to understand the underpinnings of these models is to simulate them and simulate
-data from them. Here we illustrate the functionalities of \Biocpkg{qpgraph} to
-perform these simulations. The interface provided by \Biocpkg{qpgraph} tries to comply
-with the available functions in the base R \CRANpkg{stats} package for simulating data
-from probability distributions and the names of functions described below for the purpose
-of simulating graphs, models and data follow the convention:
+data from them. More importantly, these simulated data may serve the purpose of verifying
+properties of GMM estimation procedures, such as correctness or asymptotic behavior.
+Here we illustrate the functionalities of \Biocpkg{qpgraph} to perform these simulations.
+The interface provided by \Biocpkg{qpgraph} tries to comply with the available functions
+in the base R \CRANpkg{stats} package for simulating data from probability distributions
+and the names of functions described below for the purpose of simulating graphs, models
+and data follow the convention:
 
 \begin{quote}
   r$<\!\!\!objectclass\!\!\!>$($n$, ...)

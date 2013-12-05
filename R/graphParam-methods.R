@@ -5,6 +5,9 @@ erGraphParam <- function(p=4L, m=4L, prob=NA_real_, labels=as.character(1:p)) {
 }
 
 dRegularGraphParam <- function(p=4L, d=2L, exclude=as.integer(NULL), labels=as.character(1:p)) {
+  if ((p*d) %% 2 != 0)
+    stop("The number of vertices p times the degree d of each vertex, i.e., the product p x d, should be even in order to sample a d-regular graph on p vertices uniformly at random\n")
+
   new("dRegularGraphParam", p=as.integer(p), d=as.integer(d), exclude=exclude, labels=labels)
 }
 
@@ -16,6 +19,9 @@ erMarkedGraphParam <- function(pI=1L, pY=3L, m=4L, prob=NA_real_,
 
 dRegularMarkedGraphParam <- function(pI=1L, pY=3L, d=2L, exclude=as.integer(NULL),
                                      Ilabels=paste0("I", 1:pI), Ylabels=paste0("Y", 1:pY)) {
+  if (((pI+pY)*d) %% 2 != 0)
+    stop("The number of vertices p times the degree d of each vertex, i.e., the product p x d, should be even in order to sample a d-regular graph on p vertices uniformly at random\n")
+
   new("dRegularMarkedGraphParam", p=as.integer(pI+pY), pI=as.integer(pI), pY=as.integer(pY),
       d=as.integer(d), exclude=exclude, Ilabels=Ilabels, Ylabels=Ylabels, labels=c(Ilabels, Ylabels))
 }

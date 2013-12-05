@@ -1292,7 +1292,7 @@ setMethod("qpGenNrr", signature(X="data.frame"),
               stop("X should be double-precision real numbers\n")
 
             if (long.dim.are.variables &&
-                sort(dim(m),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
+                sort(dim(X),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
               X <- t(X)
 
             if (is.null(colnames(X)))
@@ -1936,7 +1936,7 @@ setMethod("qpEdgeNrr", signature(X="data.frame"),
               stop("X should be double-precision real numbers\n")
 
             if (long.dim.are.variables &&
-                sort(dim(m),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
+                sort(dim(X),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
               X <- t(X)
 
             if (is.null(colnames(X)))
@@ -3734,7 +3734,7 @@ setMethod("qpPCC", signature(X="data.frame"),
               stop("X should be double-precision real numbers\n")
 
             if (long.dim.are.variables &&
-                sort(dim(m),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
+                sort(dim(X),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
               X <- t(X)
             if (is.null(colnames(X)))
               colnames(X) <- 1:ncol(X)

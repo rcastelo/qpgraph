@@ -174,8 +174,8 @@ setMethod("rHMgmm", signature(n="integer", g="markedGraphParam"),
               nodeData(sim.g, g@Ilabels, "type") <- "discrete"
 
               sim.sigma <- qpG2Sigma(g=subGraph(g@Ylabels, sim.g), rho=rho, verbose=verbose)
-              sim.sigma <- sim.sigma[g@Ylabels, g@Ylabels] ## put back rows and columns into the original variable order
-                                                           ## since 'subgraph()' re-orders nodes alphabetically (sigh!)
+              sim.sigma <- sim.sigma[g@Ylabels, g@Ylabels, drop=FALSE] ## put back rows and columns into the original variable order
+                                                                       ## since 'subgraph()' re-orders nodes alphabetically (sigh!)
 
               sim[[i]] <- HMgmm(g=sim.g, dLevels=dLevels, a=a, rho=rho, sigma=sim.sigma)
             }
@@ -333,7 +333,8 @@ setMethod("rHMgmm", signature(n="integer", g="graphBAM"),
             sim <- list()
             for (i in 1:n) {
               sim.sigma <- qpG2Sigma(g=subGraph(Ylabels, g), rho=rho, verbose=verbose)
-
+              sim.sigma <- sim.sigma[Ylabels, Ylabels, drop=FALSE] ## put back rows and columns into the original variable order
+                                                                   ## since 'subgraph()' re-orders nodes alphabetically (sigh!)
               sim[[i]] <- HMgmm(g=g, dLevels=dLevels, a=a, rho=rho, sigma=sim.sigma)
             }
 
@@ -488,11 +489,13 @@ calculateCondMean <- function(x, i) {
   ## associated to a particular discrete level, i.e., from what Gaussian
   ## distribution the mean should be calculated 
   YxI <- Y[which(sapply(graph::edges(x@g, Y), function(xYk, vt) sum(vt[xYk] == "discrete"), x@vtype) > 0)]
-  mu[, YxI] <- sapply(YxI, function(Yk, i, pI, mod) {
-                               IxYk <- intersect(graph::edges(x@g)[[Yk]], I)
-                               apply(i[, IxYk, drop=FALSE], 1,
-                                     function(k) sum((k-1)*2^((length(k)-1):0)))
-                             }, i, x@pI, x)
+  if (length(YxI) > 0) {
+    mu[, YxI] <- sapply(YxI, function(Yk, i, pI, mod) {
+                                 IxYk <- intersect(graph::edges(x@g)[[Yk]], I)
+                                 apply(i[, IxYk, drop=FALSE], 1,
+                                       function(k) sum((k-1)*2^((length(k)-1):0)))
+                               }, i, x@pI, x)
+  }
 
   ## calculate canonical parameter h(i) from the homogeneous mixed graphical model
   ## by now this only works with at most one discrete variable associated to a continuous one

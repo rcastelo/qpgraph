@@ -633,6 +633,7 @@ setMethod("qpCItest", signature(X="cross"),
             }
 
             rval <- NA
+            rownames(Xsub) <- 1:nrow(Xsub)
 
             if (is.null(I)) {
               S <- qpCov(Xsub)
