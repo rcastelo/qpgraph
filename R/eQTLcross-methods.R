@@ -535,6 +535,9 @@ setMethod("reQTLcross", signature(n="integer", network="eQTLcrossParam"),
             sim <- list()
             for (i in 1:n) {
 
+              chr.genes.cisQTL <- loc.genes.cisQTL <- numeric(0)
+              chr.genes.nocisQTL <- loc.genes.nocisQTL <- numeric(0)
+
               nocis <- FALSE
               j <- 0
               ## enforce genes with cis-QTL being located at least 1 x cisr cM apart
@@ -567,7 +570,10 @@ setMethod("reQTLcross", signature(n="integer", network="eQTLcrossParam"),
                                                pos <- NA
                                                while (!nocis && k < 10) {
                                                  pos <- runif(1, min=0, max=chrlen[chr[j]])
-                                                 nocis <- all(abs(pos-genes.cisQTL[[chr[j]]]) > 1*cisr)
+                                                 if (!is.na(match(as.character(chr[j]), names(genes.cisQTL))))
+                                                   nocis <- all(abs(pos-genes.cisQTL[[as.character(chr[j])]]) > 1*cisr)
+                                                 else
+                                                   nocis <- TRUE
                                                  k <- k + 1
                                                }
                                                if (!nocis)
