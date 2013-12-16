@@ -1,4 +1,5 @@
 setValidity("eQTLcross",
+              ## order vertex alphabetically within each edge (needed to avoid graph-specific nightmare)
             function(object) {
               valid <- TRUE
 
@@ -19,10 +20,15 @@ setMethod("eQTLcross", signature(map="map", genes="missing", model="missing"),
             eQTLcross(map, genes, model, type, geneNetwork, rho, sigma)
           })
 
-## model is a matrix where each row corresponds to a different eQTL, and
-## gives the chromosome number, cM position, gene and additive effect of the eQTL
-## in this constructor both genes and model should not contain gene names but indexes to genes
-## names will be automatically generated. this may change in the future to accept arbitrary names
+## model is a matrix where each row corresponds to a different eQTL association and
+## contains the chromosome number, cM position, gene and additive effect of the eQTL
+## in this constructor both 'model' and 'geneNetwork' should not contain gene names
+## but indexes to the rows of the 'genes' matrix describing the genetic map of genes
+## whenever the 'genes' matrix contains rownames, those will be used as gene names,
+## otherwise they'll be automatically generated. For QTLs their names will be always
+## automatically generated as QTL1, QTL2, etc. following their order along the genome.
+## this may change in the future to accept arbitrary names for QTLs.
+## this constructor stores the structure of eQTL and gene-gene associations in a graphBAM object
 setMethod("eQTLcross", signature(map="map", genes="matrix", model="matrix"),
           function(map, genes, model, type="bc",
                    geneNetwork=matrix(NA, nrow=0, ncol=2),
@@ -31,9 +37,13 @@ setMethod("eQTLcross", signature(map="map", genes="matrix", model="matrix"),
 
             nGenes <- nrow(genes)
 
-            dVertexLabels <- cVertexLabels <- c()
+            dVertexLabels <- c()
+            cVertexLabels <- rownames(genes)
             if (nGenes > 0) {
-              cVertexLabels <- paste0("g", seq_len(nGenes))
+              if (is.null(rownames(genes))) {
+                cVertexLabels <- paste0("g", seq_len(nGenes))
+                rownames(genes) <- cVertexLabels
+              }
               rownames(sigma) <- colnames(sigma) <- cVertexLabels
             }
 
@@ -48,14 +58,14 @@ setMethod("eQTLcross", signature(map="map", genes="matrix", model="matrix"),
               model <- cbind(model, rep(1:nQTL, times=eQTLtag$lengths))               ## add QTL number to each different QTL
               dVertexLabels <- paste0("QTL", 1:nQTL)                                  ## assign QTL names to each different QTL
               edges <- data.frame(from=paste0("QTL", model[, 5]),
-                                  to=paste0("g", model[, 3]),
+                                  to=rownames(genes)[model[, 3]],
                                   weight=1, stringsAsFactors=FALSE)
             }
             
             if (nrow(geneNetwork) > 0)
               edges <- rbind(edges,
-                             data.frame(from=paste0("g", geneNetwork[, 1]),
-                                        to=paste0("g", geneNetwork[, 2]),
+                             data.frame(from=rownames(genes)[geneNetwork[, 1]],
+                                        to=rownames(genes)[geneNetwork[, 2]],
                                         weight=rep(1, nrow(geneNetwork)),
                                         stringsAsFactors=FALSE))
 
@@ -433,19 +443,17 @@ eQTLcrossParam <- function(map=do.call("class<-", list(list("1"=do.call("class<-
     stop("argument 'networkParam' should be a 'graphParam' object defining the type of gene network to simulate.")
 
   ## if the number of continuous variables in networkParam does not match the number
-  ## of genes then the latter overrides the number and lables of continuous variables
-  ## in networkParam
+  ## of genes then the latter overrides the number in networkParam
   nm <- qtl::totmar(map)
-  if (networkParam@p != genes) {
+  if (networkParam@p != genes)
     networkParam@p <- as.integer(genes)
-    networkParam@labels <- paste0("g", 1:genes)
-  }
+  networkParam@labels <- paste0("g", 1:genes)
 
-  if (cis < 0 || cis > 1)
-    stop("argument 'cis' should be a real number between 0 and 1.")
+  if (cis < 0)
+    stop("argument 'cis' should be either a real number between 0 and 1 representing the wanted fraction of genes with cis-eQTL associations or a positive integer number specifying the number of desired cis-eQTL associations.")
 
-  n.cisQTL <- floor(networkParam@p * cis)       ## number of cisQTL
-  n.transQTL <- length(trans)                   ## number of transQTL
+  n.cisQTL <- ifelse(cis > 1, cis, floor(networkParam@p * cis)) ## number of cisQTL
+  n.transQTL <- length(trans)                                   ## number of transQTL
 
   if (n.cisQTL+n.transQTL > nm && d2m == 0)
     stop(sprintf("more eQTL (%d) than markers (%d). Either, increase marker density in the genetic map, increase d2m or decrease the number of eQTL.", n.cisQTL+n.transQTL, nm))
@@ -465,10 +473,11 @@ setMethod("show", signature(object="eQTLcrossParam"),
                               f2="F2",
                               NA)
 
+            n.cisQTL <- ifelse(object@cis > 1, object@cis, floor(object@cis*object@networkParam@p))
             cat(sprintf("\n  eQTL %s parameter object defining %d markers,\n",
                         strtype, qtl::totmar(object@map)))
             cat(sprintf("  %d genes, %d cis-eQTL and %d trans-eQTL.\n\n", object@networkParam@p,
-                        round(object@cis*object@networkParam@p, digits=0), sum(object@trans)))
+                        n.cisQTL, sum(object@trans)))
             cat(sprintf("  cis-eQTL associations occur within %.1f cM of a gene\n", object@cisr))
             cat(sprintf("  and all eQTL are located at %.1f cM from a marker.\n\n", object@d2m))
             cat("  Gene network parameters are defined by a\n")
@@ -523,8 +532,8 @@ setMethod("reQTLcross", signature(n="integer", network="eQTLcrossParam"),
             ## simulate gene locations in cM for genes with cis-QTL
 
             n.genes <- pY
-            n.cisQTL <- floor(n.genes * cis) ## number of cisQTL
-            n.transQTL <- length(trans)      ## number of transQTL
+            n.cisQTL <- ifelse(cis > 1, cis, floor(n.genes * cis)) ## number of cisQTL
+            n.transQTL <- length(trans)                            ## number of transQTL
 
             if ((class(a) == "numeric" || class(a) == "integer") && length(a) > 1 && length(a) != n.cisQTL + n.transQTL)
               stop(sprintf("argument 'a' contains %d values of eQTL additive effects while arguments 'genes', 'cis' and 'trans' determine a total number of %d eQTL.", length(a), n.cisQTL+n.transQTL))
@@ -538,30 +547,36 @@ setMethod("reQTLcross", signature(n="integer", network="eQTLcrossParam"),
               chr.genes.cisQTL <- loc.genes.cisQTL <- numeric(0)
               chr.genes.nocisQTL <- loc.genes.nocisQTL <- numeric(0)
 
-              nocis <- FALSE
-              j <- 0
-              ## enforce genes with cis-QTL being located at least 1 x cisr cM apart
-              while (!nocis && j < 10) {
-                idx.m.cisQTL <- sample(1:nm, size=n.cisQTL, replace=FALSE)
-                chr.genes.cisQTL <- sapply(idx.m.cisQTL, function(j, cs) sum(cs < j)+1, csnmbychr)
-                loc.genes.cisQTL <- mcmloc[idx.m.cisQTL] + d2m
-                nocis <- sapply(split(loc.genes.cisQTL, chr.genes.cisQTL),
-                                function(gxc, cisr) {
-                                  nocis <- TRUE
-                                  if (length(gxc) > 1)
-                                    nocis <- all(combn(gxc, 2, function(x) abs(x[1]-x[2])) > 1*cisr)
-                                  nocis
-                                  }, cisr)
-                nocis <- all(nocis)
-                j <- j + 1
+              if (n.cisQTL > 0) { ## place genes with cis-eQTL associations
+                nocis <- FALSE
+                j <- 0
+                ## enforce genes with cis-QTL being located at least 1 x cisr cM apart
+                while (!nocis && j < 10) {
+                  idx.m.cisQTL <- sample(1:nm, size=n.cisQTL, replace=FALSE)
+                  chr.genes.cisQTL <- sapply(idx.m.cisQTL, function(j, cs) sum(cs < j)+1, csnmbychr)
+                  loc.genes.cisQTL <- mcmloc[idx.m.cisQTL] + d2m
+                  nocis <- sapply(split(loc.genes.cisQTL, chr.genes.cisQTL),
+                                  function(gxc, cisr) {
+                                    nocis <- TRUE
+                                    if (length(gxc) > 1)
+                                      nocis <- all(combn(gxc, 2, function(x) abs(x[1]-x[2])) > 1*cisr)
+                                    nocis
+                                    }, cisr)
+                  nocis <- all(nocis)
+                  j <- j + 1
+                }
+
+                if (!nocis)
+                  stop("impossible to simulate genes with cis-eQTL. Either decrease cisr, decrease the number of genes, or increase marker density in the genetic map.")
               }
 
-              if (!nocis)
-                stop("impossible to simulate genes with cis-eQTL. Either decrease cisr, decrease the number of genes, or increase marker density in the genetic map.")
-
-              if (n.genes - n.cisQTL > 0) {
+              if (n.genes - n.cisQTL > 0) { ## place genes with trans-eQTL associations
                 n.genes.left <- n.genes - n.cisQTL
-                genes.cisQTL <- split(loc.genes.cisQTL, chr.genes.cisQTL)
+
+                genes.cisQTL <- do.call("names<-", list(vector(mode="list", length=length(nmbychr)),
+                                                        names(nmbychr))) ## just in case n.cisQTL == 0
+                if (n.cisQTL > 0)
+                  genes.cisQTL <- split(loc.genes.cisQTL, chr.genes.cisQTL)
                 chr.genes.nocisQTL <- sample(1:length(nmbychr), size=n.genes.left, replace=TRUE)
                 loc.genes.nocisQTL <- sapply(1:n.genes.left,
                                              function(j, chr, chrlen, genes.cisQTL, cisr) {
@@ -589,12 +604,16 @@ setMethod("reQTLcross", signature(n="integer", network="eQTLcrossParam"),
               o <- order(genes[, 1], genes[, 2])
               colnames(genes) <- c("chr", "location")
               rownames(genes)[o] <- Y ## name genes by their location along the genome
-              cisQTLgenes <- rownames(genes)[1:n.cisQTL] ## take first their gene ID
+              cisQTLgenes <- character(0)
+              if (n.cisQTL > 0)
+                cisQTLgenes <- rownames(genes)[1:n.cisQTL] ## take first their gene ID
               genes <- genes[o, , drop=FALSE] ## reorder genes by their location along the genome
               nocisQTLgenes <- setdiff(Y, cisQTLgenes)
               cisQTLgenes <- match(cisQTLgenes, rownames(genes))
               nocisQTLgenes <- match(nocisQTLgenes, rownames(genes))
-              cisQTL <- cbind(genes[cisQTLgenes, "chr"], genes[cisQTLgenes, "location"], cisQTLgenes)
+              cisQTL <- matrix(NA_real_, nrow=0, ncol=3)
+              if (n.cisQTL > 0)
+                cisQTL <- cbind(genes[cisQTLgenes, "chr"], genes[cisQTLgenes, "location"], cisQTLgenes)
 
               ## simulate trans-QTL associations
 
@@ -648,9 +667,10 @@ setMethod("reQTLcross", signature(n="integer", network="eQTLcrossParam"),
               ## simulate conditional covariance matrix
               sim.sigma <- qpG2Sigma(g=sim.g, rho=rho, tol=tol, verbose=verbose)
 
-              ## simulate additive effect in QTL
+              ## build matrix of eQTL associations, genes are indexed wrt to the rownames of the 'genes' matrix
               qtl <- rbind(cisQTL, transQTL)
 
+              ## simulate additive effect in QTL
               if ((class(a) == "numeric" || class(a) == "integer") && length(a) == 1)
                 a <- rep(a, times=nrow(qtl))
               else if (class(a) == "function")

@@ -611,11 +611,12 @@ can examine the LOD score profile of these three genes on chromosome \Sexpr{chro
 eQTL of gene \Sexpr{gene} is located:
 
 <<lodprofiles, fig=TRUE, include=FALSE, echo=TRUE, results=verbatim, height=6, width=6>>=
-plot(out.mr, chr=chrom, ylab="LOD score", lodcolumn=1:3)
+plot(out.mr, chr=chrom, ylab="LOD score", lodcolumn=1:3, col=c("black", "blue", "red"), lwd=2)
 abline(v=allcis[allcis$gene == gene, "location"])
+legend("topright", names(out.mr)[3:5], col=c("black", "blue", "red"), lwd=2, inset=0.05)
 @
 \begin{figure}
-  \centerline{\includegraphics[width=0.5\textwidth]{qpgraphSimulate-lodprofiles}}
+  \centerline{\includegraphics[width=0.6\textwidth]{qpgraphSimulate-lodprofiles}}
   \caption{Profile of LOD scores for three genes with direct and indirect eQTL.}
   \label{fig:lodprofiles}
 \end{figure}
@@ -639,20 +640,6 @@ summary(out.mr, perms=out.perm, alpha=0.05)
 Notice that the directly associated gene \Sexpr{gene} as well as the indirectly associated
 ones \Sexpr{paste(connectedGenes, collapse=", ")} have genome-wide significant LOD scores
 on the same eQTL located at \Sexpr{round(location, digits=1)} cM in chromosome \Sexpr{chrom}.
-
-There is another genome-wide significant eQTL associated to these three genes in a
-different chromosome. Let's see if this eQTL also arises as a result from indirect
-{\it cis} and/or {\it trans} eQTL associations with these three genes:
-
-<<>>=
-allcis[allcis$gene %in% connectedGenes, ]
-alltrans <- transeQTL(eqtl)
-alltrans[alltrans$gene %in% connectedGenes, ]
-@
-Indeed, the apparent {\it trans}-eQTL of gene \Sexpr{gene} originates indirectly from a
-{\it trans}-eQTL connected to gene \Sexpr{connectedGenes[2]} which renders
-the other two genes \Sexpr{paste(c(gene, connectedGenes[1]), collapse=", ")} indirectly
-associated to this second eQTL.
 
 \section{Session information}
 
