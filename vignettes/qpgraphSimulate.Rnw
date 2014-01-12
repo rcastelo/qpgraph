@@ -10,11 +10,9 @@ BiocStyle::latex(use.unsrturl=FALSE)
 
 \usepackage{natbib}
 
-\title{Simulating molecular regulatory networks \\
-       using {\tt qpgraph}}
+\bioctitle[Simulating networks using \Biocpkg{qpgraph}]%
+    {Simulating molecular regulatory networks using {\tt qpgraph}}
 \author{Inma Tur$^1$, Alberto Roverato$^2$ and Robert Castelo$^1$}
-
-\renewcommand{\thetitle}{Simulating networks using \Biocpkg{qpgraph}}
 
 \begin{document}
 

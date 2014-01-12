@@ -10,11 +10,10 @@ BiocStyle::latex(use.unsrturl=FALSE)
 \usepackage{natbib}
 
 
-\title{Reverse engineering transcriptional regulatory networks \\ from
+\bioctitle[Reverse engineering networks using \Biocpkg{qpgraph}]%
+    {Reverse engineering transcriptional regulatory networks \\ from
        gene expression microarray data using \Biocpkg{qpgraph}}
 \author{Robert Castelo$^1$ and Alberto Roverato$^2$}
-
-\renewcommand{\thetitle}{Reverse engineering networks using \Biocpkg{qpgraph}}
 
 \begin{document}
 
