@@ -327,7 +327,7 @@ setMethod("qpNrr", signature(X="matrix"),
         message("Estimating time of calculation of non-rejection rates using a ", clOpt("type"),
                 " cluster of ", clusterSize, " nodes\n")
 
-      cl <- makeCl(clusterSize, snowlib=system.file(package="qpgraph"))
+      cl <- makeCl(clusterSize, type="MPI", snowlib=system.file(package="qpgraph"))
       clSetupRNG(cl)
       res <- clEvalQ(cl, require(qpgraph, quietly=TRUE))
       if (!all(unlist(res))) {
@@ -1065,7 +1065,7 @@ setMethod("qpAvgNrr", signature(X="matrix"),
       message("Estimating time of calculation of average non-rejection rates using a ",
               clOpt("type"), " cluster of ", clusterSize, " nodes\n")
 
-    cl <- makeCl(clusterSize, snowlib=system.file(package="qpgraph"))
+    cl <- makeCl(clusterSize, type="MPI", snowlib=system.file(package="qpgraph"))
     clSetupRNG(cl)
     res <- clEvalQ(cl, require(qpgraph, quietly=TRUE))
     if (!all(unlist(res))) {
@@ -1423,7 +1423,7 @@ setMethod("qpGenNrr", signature(X="matrix"),
       message("Estimating time of calculation of generalized non-rejection rates using a ",
               clOpt("type"), " cluster of ", clusterSize, " nodes\n")
 
-    cl <- makeCl(clusterSize, snowlib=system.file(package="qpgraph"))
+    cl <- makeCl(clusterSize, type="MPI", snowlib=system.file(package="qpgraph"))
     clSetupRNG(cl)
     res <- clEvalQ(cl, require(qpgraph, quietly=TRUE))
     if (!all(unlist(res))) {
@@ -4155,7 +4155,7 @@ setMethod("qpFunctionalCoherence",
     message("Estimating functional coherence using a ", clOpt("type"),
             " cluster of ", clusterSize, " nodes\n")
 
-    cl <- makeCl(clusterSize, snowlib=system.file(package="qpgraph"))
+    cl <- makeCl(clusterSize, type="MPI", snowlib=system.file(package="qpgraph"))
     clSetupRNG(cl)
     res <- clEvalQ(cl, require(qpgraph, quietly=TRUE))
     if (!all(unlist(res))) {

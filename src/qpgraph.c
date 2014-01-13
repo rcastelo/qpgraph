@@ -3538,7 +3538,7 @@ qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
   }
 
   PROTECT(pval_name = allocVector(STRSXP,1));
-  REAL(VECTOR_ELT(result,2))[0] = p_value;
+  REAL(VECTOR_ELT(result,2))[0] = INTEGER(use)[0] != USE_EM ? p_value : NA_REAL; /* p-values currently not valid with EM */
   SET_STRING_ELT(pval_name,0,exactTest ? mkChar("less") : mkChar("greater"));
   setAttrib(VECTOR_ELT(result,2),R_NamesSymbol,pval_name);
 

@@ -3,22 +3,20 @@
 ##                   graphical models and deal with microarray and genetic data in order
 ##                   to build network models of molecular regulation
 ##
-## Copyright (C) 2013 R. Castelo and A. Roverato, with contributions from Inma Tur.
-## This program is free software; you can redistribute it and/or
-## modify it under the terms of the GNU General Public License
-## as published by the Free Software Foundation; either version 2
-## of the License, or (at your option) any later version.
+## Copyright (c) 2008-2013 R. Castelo and A. Roverato, with contributions from Inma Tur.
+## This package is open source and free software; you can redistribute it and/or
+## modify it under the terms of the Artistic License 2.0
+## as published at http://www.r-project.org/Licenses/Artistic-2.0
 ##
-## This program is distributed in the hope that it will be useful,
-## but WITHOUT ANY WARRANTY; without even the implied warranty of
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-## GNU General Public License for more details.
-## 
-## You should have received a copy of the GNU General Public License
-## along with this program; if not, you can obtain one via WWW at
-## http://www.gnu.org/copyleft/gpl.html, or by writing to the Free Software
-## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-
+## Disclaimer of Warranty: THE PACKAGE IS PROVIDED BY THE COPYRIGHT
+## HOLDER AND CONTRIBUTORS "AS IS' AND WITHOUT ANY EXPRESS OR IMPLIED
+## WARRANTIES.  THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+## PARTICULAR PURPOSE, OR NON-INFRINGEMENT ARE DISCLAIMED TO THE EXTENT
+## PERMITTED BY YOUR LOCAL LAW.  UNLESS REQUIRED BY LAW, NO COPYRIGHT
+## HOLDER OR CONTRIBUTOR WILL BE LIABLE FOR ANY DIRECT, INDIRECT,
+## INCIDENTAL, OR CONSEQUENTIAL DAMAGES ARISING IN ANY WAY OUT OF THE USE
+## OF THE PACKAGE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+## See the Artistic License 2.0 for more details.
 
 
 ## function: qpCItest
@@ -245,6 +243,7 @@ setMethod("qpCItest", signature(X="smlSet"),
             }
 
             rval <- NA
+            rownames(Xsub) <- 1:nrow(Xsub)
 
             if (is.null(I)) {
               S <- qpCov(Xsub)
@@ -402,6 +401,7 @@ setMethod("qpCItest", signature(X="ExpressionSet"),
             }
 
             rval <- NA
+            rownames(Xsub) <- 1:nrow(Xsub)
 
             if (is.null(I)) {
               S <- qpCov(Xsub)
@@ -474,14 +474,14 @@ setMethod("qpCItest", signature(X="cross"),
                 x <- as(X$qtlgeno[, i], "numeric") ## assume genotypes come as 1, 2, ...
                 nLevels[1] <- gLevels
               } else { ## then 'i' refers to a marker genotype (discrete)
-                x <- as(X$geno[[sum(cumsum_sByChr < smt)]]$data[, i], "numeric")[, 1] ## assume genotypes come as 1, 2, ...
+                x <- as(X$geno[[sum(cumsum_sByChr < smt)]]$data[, i], "numeric") ## assume genotypes come as 1, 2, ...
                 nLevels[1] <- gLevels
               }
             } else {
               if (i <= p) ## then 'i' refers to a phenotype
                 x <- X$pheno[, i]
               else if (i <= p+s) ## then 'i' refers to a marker genotype (discrete)
-                x <- as(X$geno[[sum(cumsum_sByChr < i-p)]]$data[, i-p], "numeric")[, 1] ## assume genotypes come as 1, 2, ...
+                x <- as(X$geno[[sum(cumsum_sByChr < i-p)]]$data[, i-p], "numeric") ## assume genotypes come as 1, 2, ...
               else { ## then 'i' refers to a QTL (discrete)
                 x <- as(X$qtlgeno[, i-p-s], "numeric") ## assume genotypes come as 1, 2, ...
                 nLevels[1] <- gLevels
@@ -513,14 +513,14 @@ setMethod("qpCItest", signature(X="cross"),
                 x <- as(X$qtlgeno[, j], "numeric") ## assume genotypes come as 1, 2, ...
                 nLevels[2] <- gLevels
               } else { ## then 'j' refers to a marker genotype (discrete)
-                x <- as(X$geno[[sum(cumsum_sByChr < smt)]]$data[, j], "numeric")[, 1] ## assume genotypes come as 1, 2, ...
+                x <- as(X$geno[[sum(cumsum_sByChr < smt)]]$data[, j], "numeric") ## assume genotypes come as 1, 2, ...
                 nLevels[2] <- gLevels
               }
             } else {
               if (j <= p) ## then 'j' refers to a phenotype
                 x <- X$pheno[, j]
               else if (j <= p+s) ## then 'j' refers to a marker genotype (discrete)
-                x <- as(X$geno[[sum(cumsum_sByChr < j-p)]]$data[, j-p], "numeric")[, 1] ## assume genotypes come as 1, 2, ...
+                x <- as(X$geno[[sum(cumsum_sByChr < j-p)]]$data[, j-p], "numeric") ## assume genotypes come as 1, 2, ...
               else { ## then 'j' refers to a QTL (discrete)
                 x <- as(X$qtlgeno[, j-p-s], "numeric") ## assume genotypes come as 1, 2, ... 
                 nLevels[2] <- gLevels
@@ -571,7 +571,7 @@ setMethod("qpCItest", signature(X="cross"),
                 }
               }
               for (k in seq(along=Qs)) {
-                x <- as(X$geno[[sum(cumsum_sByChr < Qs[k])]]$data[, Qs[k]-cumsum_sByChr[sum(cumsum_sByChr < Qs[k])] ], "numeric")[, 1] ## assume genotypes come as 1, 2, ...
+                x <- as(X$geno[[sum(cumsum_sByChr < Qs[k])]]$data[, Qs[k]-cumsum_sByChr[sum(cumsum_sByChr < Qs[k])] ], "numeric") ## assume genotypes come as 1, 2, ...
                 idx <- 2L+sum(!is.na(Qp))+k
                 missingMask[idx] <- any(is.na(x))
                 Xsub[, idx] <- x
@@ -611,7 +611,7 @@ setMethod("qpCItest", signature(X="cross"),
               }
               Qs <- which(Q > p && Q <= p+s) ## Q indices larger than p and smaller than p+s correspond to marker genotypes
               for (k in seq(along=Qs)) {
-                x <- as(X$geno[[sum(cumsum_sByChr < Q[Qs[k]]-p)]]$data[, Q[Qs[k]]-p-cumsum_sByChr[sum(cumsum_sByChr < Q[Qs[k]]-p)] ], "numeric")[, 1] ## assume genotypes come as 1, 2, ...
+                x <- as(X$geno[[sum(cumsum_sByChr < Q[Qs[k]]-p)]]$data[, Q[Qs[k]]-p-cumsum_sByChr[sum(cumsum_sByChr < Q[Qs[k]]-p)] ], "numeric") ## assume genotypes come as 1, 2, ...
 
                 idx <- 2L+sum(Q <= p)+k
                 missingMask[idx] <- any(is.na(x))
@@ -721,6 +721,7 @@ setMethod("qpCItest", signature(X="data.frame"),
             }
 
             rval <- NA
+            rownames(Xsub) <- 1:nrow(Xsub)
 
             if (is.null(I)) {
               S <- qpCov(X)
@@ -828,6 +829,7 @@ setMethod("qpCItest", signature(X="matrix"),
             }
 
             rval <- NA
+            rownames(X) <- 1:nrow(X)
 
             if (is.null(I)) {
               if (use == "em")
@@ -1465,7 +1467,7 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
 
   RVAL <- list(statistic=stat,
                parameter=param,
-               p.value=p.value,
+               p.value=if (use != "em") p.value else NA_real_, ## p-values currently not valid with EM
                estimate=NULL,
                null.value=n.value,
                alternative=alt,

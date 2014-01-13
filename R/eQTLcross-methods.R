@@ -184,7 +184,7 @@ setMethod("addGenes", signature(eQTLcross="eQTLcross", n="integer"),
             names(eQTLcross@model@vtype) <- graph::nodes(eQTLcross@model@g)
             pY <- eQTLcross@model@pY
 
-            eQTLcross@genes <- rbind(eQTLcross@genes, matrix(c(chr, location), nrow=n, byrow=TRUE,
+            eQTLcross@genes <- rbind(eQTLcross@genes, matrix(c(chr, location), nrow=n, byrow=FALSE,
                                                              dimnames=list(newVertexLabels, c("chr", "location"))))
             cVertexLabels <- graph::nodes(eQTLcross@model@g)[vtype == "continuous"]
             a <- rep(NA, pY)
@@ -452,8 +452,8 @@ eQTLcrossParam <- function(map=do.call("class<-", list(list("1"=do.call("class<-
   if (cis < 0)
     stop("argument 'cis' should be either a real number between 0 and 1 representing the wanted fraction of genes with cis-eQTL associations or a positive integer number specifying the number of desired cis-eQTL associations.")
 
-  n.cisQTL <- ifelse(cis > 1, cis, floor(networkParam@p * cis)) ## number of cisQTL
-  n.transQTL <- length(trans)                                   ## number of transQTL
+  n.cisQTL <- ifelse(cis > 1 || is.integer(cis), cis, floor(networkParam@p * cis)) ## number of cisQTL
+  n.transQTL <- length(trans)                                                      ## number of transQTL
 
   if (n.cisQTL+n.transQTL > nm && d2m == 0)
     stop(sprintf("more eQTL (%d) than markers (%d). Either, increase marker density in the genetic map, increase d2m or decrease the number of eQTL.", n.cisQTL+n.transQTL, nm))
@@ -473,7 +473,7 @@ setMethod("show", signature(object="eQTLcrossParam"),
                               f2="F2",
                               NA)
 
-            n.cisQTL <- ifelse(object@cis > 1, object@cis, floor(object@cis*object@networkParam@p))
+            n.cisQTL <- ifelse(object@cis > 1 || is.integer(object@cis), object@cis, floor(object@cis*object@networkParam@p))
             cat(sprintf("\n  eQTL %s parameter object defining %d markers,\n",
                         strtype, qtl::totmar(object@map)))
             cat(sprintf("  %d genes, %d cis-eQTL and %d trans-eQTL.\n\n", object@networkParam@p,
@@ -532,8 +532,8 @@ setMethod("reQTLcross", signature(n="integer", network="eQTLcrossParam"),
             ## simulate gene locations in cM for genes with cis-QTL
 
             n.genes <- pY
-            n.cisQTL <- ifelse(cis > 1, cis, floor(n.genes * cis)) ## number of cisQTL
-            n.transQTL <- length(trans)                            ## number of transQTL
+            n.cisQTL <- ifelse(cis > 1 || is.integer(cis), cis, floor(n.genes * cis)) ## number of cisQTL
+            n.transQTL <- length(trans)                                               ## number of transQTL
 
             if ((class(a) == "numeric" || class(a) == "integer") && length(a) > 1 && length(a) != n.cisQTL + n.transQTL)
               stop(sprintf("argument 'a' contains %d values of eQTL additive effects while arguments 'genes', 'cis' and 'trans' determine a total number of %d eQTL.", length(a), n.cisQTL+n.transQTL))
