@@ -62,7 +62,7 @@ filtering steps described in \citep{Castelo:2009fk} and \verb+gds680.eset+ is an
 \cite{Covert:2004fx} described before. These experiments provide expression
 profiles for $p=4\,205$ genes derived from the original data set downloaded from
 the Gene Expression Omnibus \citep{Barrett:2007dq} with accession \verb+GDS680+
-by applying the filtering steps described also in \citep{Castelo:2009fk}. You can
+by applying the filtering described in \citep{Castelo:2009fk}. You can
 see a summary of the data contained in this object by simply typing its name on
 the R-shell:
 
