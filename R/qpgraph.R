@@ -498,6 +498,11 @@ setMethod("qpNrr", signature(X="matrix"),
     }
   }
 
+  if (is.null(I))
+    message("Using t tests for zero partial regression coefficients.")
+  else
+    message(paste("Using", ifelse(exact.test, "exact", "asymptotic"), "likelihood ratio tests."))
+
   if (!R.code.only) {
     elapsedTime <- 0
     if (startTime["elapsed"] > 0) {

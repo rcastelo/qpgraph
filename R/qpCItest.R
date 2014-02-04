@@ -1347,8 +1347,14 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
   }
   ## cat ("\n", i, "ci", j,"\n")
 
+
   I <- intersect(I, c(i, Q))
   Y <- intersect(Y, c(i, j, Q))
+
+  if (!is.na(match(i, I)))                   ## put the continuous i or j (if i is discrete)
+    Y <- c(Y[match(j, Y)], Y[-match(j, Y)])  ## as first continuous variable in the margin
+  else
+    Y <- c(Y[match(i, Y)], Y[-match(i, Y)])
 
   ssd <- ssd_i <- ssd_j <- ssd_ij <- diag(2) 
   n_co <- n <- nrow(X)
@@ -1411,16 +1417,14 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
     ssd_ij <- as.matrix(ssdMats$ssd_ij)
   }
  
-  ssd <- determinant(ssd)        ## WATCH OUT! when using Matrix::determinant(..., logarithm=TRUE)
-  ssd_i <- determinant(ssd_i)    ## $modulus is always 0, don't know why. since this is its default
-  ssd_j <- determinant(ssd_j)    ## this argument is not being put explicitly in the call
-  ssd_ij <- determinant(ssd_ij)  ## keep an eye in case the default ever changes
+  rss0 <- var(X[, Y[1]])*(n_co-1) ## assuming response continuous variable is on the first row and column
+  ssd <- determinant(ssd)         ## WATCH OUT! when using Matrix::determinant(..., logarithm=TRUE)
+  ssd_i <- determinant(ssd_i)     ## $modulus is always 0, don't know why. since this is its default
+  ssd_j <- determinant(ssd_j)     ## this argument is not being put explicitly in the call
+  ssd_ij <- determinant(ssd_ij)   ## keep an eye in case the default ever changes
   final_sign <- ssd$sign * ssd_ij$sign * ssd_j$sign *ssd_i$sign
 
-  ## lr <- -n * log((det(ssd) * det(ssd_ij)) / 
-  ##               (det(ssd_j) * det(ssd_i)))
-
-  lr <- NaN
+  lr <- parEta2hat <- NaN
   p.value <- df <- a <- b <- NA
   stat <- param <- n.value <- method <- alt <- NA
 
@@ -1432,8 +1436,11 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
     nGamma <- length(Y)
     Delta <- I
     DeltaStar <- setdiff(I, c(i, j))
+    llr <- ssd$modulus[1]+ssd_ij$modulus[1]-ssd_j$modulus[1]-ssd_i$modulus[1] ## log-likelihood ratio
+    parEta2hat <- (1-exp(llr))*exp(ssd_i$modulus[1]+ssd_j$modulus[1]-ssd_ij$modulus[1]) / rss0
+    names(parEta2hat) <- "partial eta2"
     if (exact.test) {
-      lr <- exp(ssd$modulus[1]+ssd_ij$modulus[1]-ssd_j$modulus[1]-ssd_i$modulus[1])
+      lr <- exp(llr)
       a <- (n_co-nGamma-prod(nLevels[Delta])+1)/2 ## by now missing data w/ complete.obs
       b <- ifelse(mixedEdge,
                   prod(nLevels[DeltaStar])*(nLevels[intersect(Delta, c(i,j))]-1)/2,
@@ -1451,7 +1458,7 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
       method  <- "Conditional independence test for homogeneous mixed data using an exact likelihood ratio test"
       alt <- "less"
     } else {
-      lr <- -n_co * (ssd$modulus[1]+ssd_ij$modulus[1]-ssd_j$modulus[1]-ssd_i$modulus[1])
+      lr <- -n_co * llr
       df <- 1
       if (mixedEdge)
         df <- prod(nLevels[DeltaStar])*(nLevels[intersect(Delta, c(i, j))]-1)
@@ -1465,10 +1472,11 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
     }
   }
 
+  parEta2hat <- NULL
   RVAL <- list(statistic=stat,
                parameter=param,
                p.value=if (use != "em") p.value else NA_real_, ## p-values currently not valid with EM
-               estimate=NULL,
+               estimate=parEta2hat,
                null.value=n.value,
                alternative=alt,
                method=method,
