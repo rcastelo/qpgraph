@@ -1417,7 +1417,13 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
     ssd_ij <- as.matrix(ssdMats$ssd_ij)
   }
  
-  rss0 <- var(X[, Y[1]])*(n_co-1) ## assuming response continuous variable is on the first row and column
+  ## calculate residual sums of squares for estimating effect size as partial eta-squared
+  ## assuming response continuous variable is on the first row and column
+  ## REMINDER: this might need a flag to avoid doing this calculation for the sake of speed
+  rss0 <- var(X[, Y[1]])*(n_co-1)
+  rss1 <- as.vector(ssd_i[1, 1] - ssd_i[1, -1] %*% solve(ssd_i[-1, -1]) %*% ssd_i[-1, 1])
+  rss2 <- as.vector(ssd[1, 1] - ssd[1, -1] %*% solve(ssd[-1, -1]) %*% ssd[-1, 1])
+
   ssd <- determinant(ssd)         ## WATCH OUT! when using Matrix::determinant(..., logarithm=TRUE)
   ssd_i <- determinant(ssd_i)     ## $modulus is always 0, don't know why. since this is its default
   ssd_j <- determinant(ssd_j)     ## this argument is not being put explicitly in the call
@@ -1437,7 +1443,7 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
     Delta <- I
     DeltaStar <- setdiff(I, c(i, j))
     llr <- ssd$modulus[1]+ssd_ij$modulus[1]-ssd_j$modulus[1]-ssd_i$modulus[1] ## log-likelihood ratio
-    parEta2hat <- (1-exp(llr))*exp(ssd_i$modulus[1]+ssd_j$modulus[1]-ssd_ij$modulus[1]) / rss0
+    parEta2hat <- (rss1 - rss2) / rss0
     names(parEta2hat) <- "partial eta2"
     if (exact.test) {
       lr <- exp(llr)
@@ -1472,7 +1478,6 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
     }
   }
 
-  parEta2hat <- NULL
   RVAL <- list(statistic=stat,
                parameter=param,
                p.value=if (use != "em") p.value else NA_real_, ## p-values currently not valid with EM
