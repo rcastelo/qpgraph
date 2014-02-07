@@ -211,10 +211,13 @@ qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
                      SEXP mapX2ssdR, SEXP iR, SEXP jR, SEXP QR, SEXP exactTest,
                      SEXP use, SEXP tol);
 
+double
+rss(double* ssd, int n);
+
 static double
 lr_complete_obs(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
                 int n_Y, double* ucond_ssd, int* mapX2ucond_ssd, int total_n_Y,
-                int i, int j, int* Q, int q, int* n_co);
+                int i, int j, int* Q, int q, int* n_co, double* partial_eta_squared);
 
 com_stats_t
 new_com_stats(int n_joint_levels, int n_Y);
@@ -233,7 +236,8 @@ lr_em(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
 static double
 qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
                 int n_Y, double* ucond_ssd, int* mapX2ucond_ssd, int i, int j, int* Q,
-                int q, int use, double tol, double* df, double* a, double* b, int* n_co);
+                int q, int use, double tol, double* df, double* a, double* b, int* n_co,
+                double* partial_eta_squared);
 
 static double
 qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* XEP1q,
@@ -2159,7 +2163,7 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
       } else
         lambda = qp_ci_test_hmgm(REAL(XR), n_var, n, I, n_I, INTEGER(n_levelsR),
                                  Y, n_Y, ssdMat, mapX2ssd, i2, j2,
-                                 Q, q, use, REAL(tol)[0], &df, &a, &b, &n_co);
+                                 Q, q, use, REAL(tol)[0], &df, &a, &b, &n_co, NULL);
 
       if (n_I == 0) {
         if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_PVALUE)
@@ -2243,7 +2247,7 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
         } else
           lambda = qp_ci_test_hmgm(REAL(XR), n_var, n, I, n_I, INTEGER(n_levelsR),
                                    Y, n_Y, ssdMat, mapX2ssd, i2, j2,
-                                   Q, q, use, REAL(tol)[0], &df, &a, &b, &n_co);
+                                   Q, q, use, REAL(tol)[0], &df, &a, &b, &n_co, NULL);
 
         if (n_I == 0) {
           if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_PVALUE)
@@ -2325,7 +2329,7 @@ qp_fast_all_ci_tests(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
         } else
           lambda = qp_ci_test_hmgm(REAL(XR), n_var, n, I, n_I, INTEGER(n_levelsR),
                                    Y, n_Y, ssdMat, mapX2ssd, i2, j2,
-                                   Q, q, use, REAL(tol)[0], &df, &a, &b, &n_co);
+                                   Q, q, use, REAL(tol)[0], &df, &a, &b, &n_co, NULL);
 
         if (n_I == 0) {
           if (return_type == RETURN_TYPE_ALL || return_type == RETURN_TYPE_PVALUE)
@@ -2688,7 +2692,7 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
         } else
           lambda = qp_ci_test_hmgm(REAL(XR), n_var, n, I, n_I, INTEGER(n_levelsR),
                                    Y, n_Y, ssdMat, mapX2ssd, i2, j2,
-                                   Q, q, use, REAL(tol)[0], &df, &a, &b, &n_co);
+                                   Q, q, use, REAL(tol)[0], &df, &a, &b, &n_co, NULL);
         idx[k-firstAdj] = UTE2I(i2, j2) + 1;
 
         if (n_I == 0) {
@@ -2773,7 +2777,7 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
         } else
           lambda = qp_ci_test_hmgm(REAL(XR), n_var, n, I, n_I, INTEGER(n_levelsR),
                                    Y, n_Y, ssdMat, mapX2ssd, i2, j2,
-                                   Q, q, use, REAL(tol)[0], &df, &a, &b, &n_co);
+                                   Q, q, use, REAL(tol)[0], &df, &a, &b, &n_co, NULL);
         idx[k-firstAdj] = UTE2I(i2, j2) + 1;
 
         if (n_I == 0) {
@@ -2855,7 +2859,7 @@ qp_fast_all_ci_tests_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP QR,
       } else
         lambda = qp_ci_test_hmgm(REAL(XR), n_var, n, I, n_I, INTEGER(n_levelsR),
                                  Y, n_Y, ssdMat, mapX2ssd, i2, j2,
-                                 Q, q, use, REAL(tol)[0], &df, &a, &b, &n_co);
+                                 Q, q, use, REAL(tol)[0], &df, &a, &b, &n_co, NULL);
       idx[k-firstAdj] = UTE2I(i2, j2) + 1;
 
       if (n_I == 0) {
@@ -3435,6 +3439,7 @@ qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
   double* ssd = NULL;
   int*    mapX2ssd = NULL;
   double  lambda;
+  double  peta2;
   double  df, a, b;
   double  p_value = R_NaReal;
   char    dataname[4096];
@@ -3443,8 +3448,9 @@ qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
   SEXP    result_stat;
   SEXP    result_param;
   SEXP    result_p_val;
+  SEXP    result_est;
   SEXP    class;
-  SEXP    stat_name, param_name, pval_name, nullval_name;
+  SEXP    stat_name, param_name, pval_name, est_name, nullval_name;
 
   PROTECT_INDEX ssd_pi;
 
@@ -3485,7 +3491,7 @@ qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
 
   lambda = qp_ci_test_hmgm(REAL(XR), p, n, I, n_I, INTEGER(n_levelsR), Y, n_Y,
                            ssd, mapX2ssd, i, j, Q, q, INTEGER(use)[0], REAL(tol)[0],
-                           &df, &a, &b, &n_co);
+                           &df, &a, &b, &n_co, &peta2);
 
   if (!ISNAN(lambda)) {
     if (exactTest) {
@@ -3499,7 +3505,7 @@ qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
   SET_VECTOR_ELT(result,0,result_stat = allocVector(REALSXP, 1));
   SET_VECTOR_ELT(result,1,result_param = allocVector(REALSXP, exactTest ? 3 : 2));
   SET_VECTOR_ELT(result,2,result_p_val = allocVector(REALSXP, 1));
-  SET_VECTOR_ELT(result,3,R_NilValue); /* no estimated parameter, could be h = mu x Sigma^{-1} */
+  SET_VECTOR_ELT(result,3,result_est = allocVector(REALSXP, 1));
   SET_VECTOR_ELT(result,4,allocVector(REALSXP,1));
   SET_VECTOR_ELT(result,5,allocVector(STRSXP, 1));
   SET_VECTOR_ELT(result,6,allocVector(STRSXP, 1));
@@ -3542,6 +3548,11 @@ qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
   SET_STRING_ELT(pval_name,0,exactTest ? mkChar("less") : mkChar("greater"));
   setAttrib(VECTOR_ELT(result,2),R_NamesSymbol,pval_name);
 
+  PROTECT(est_name = allocVector(STRSXP,1));
+  REAL(VECTOR_ELT(result,3))[0] = peta2;
+  SET_STRING_ELT(est_name,0,mkChar("partial eta2"));
+  setAttrib(VECTOR_ELT(result,3),R_NamesSymbol,est_name);
+
   PROTECT(nullval_name = allocVector(STRSXP,1));
   REAL(VECTOR_ELT(result,4))[0] = exactTest ? 1 : 0;
   SET_STRING_ELT(nullval_name,0,exactTest ? mkChar("Lambda") : mkChar("-n log Lambda"));
@@ -3557,7 +3568,7 @@ qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
   SET_STRING_ELT(class, 0, mkChar("htest"));
   installAttrib(result, R_ClassSymbol, class);
 
-  UNPROTECT(7); /* result result_names stat_name param_name pval_name nullval_name class */
+  UNPROTECT(8); /* result result_names stat_name param_name pval_name est_name nullval_name class */
 
   Free(I);
   Free(Y);
@@ -3581,10 +3592,74 @@ qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
            on rejecting the null hypothesis of independence
 */
 
+double
+rss(double* ssdsymmat, int n) {
+  double* ssd;
+  double  S11;
+  double* S12;
+  double* S21;
+  double* S22;
+  double* S22inv;
+  double* tmpmat;
+  double  tmpval;
+  double  rss=ssdsymmat[0];
+  int     i, j;
+
+  if (n < 2)
+    return(rss);
+
+  S12        = Calloc(n, double);
+  S21        = Calloc(n, double);
+  S22        = Calloc((n-1)*(n-1), double);
+  S22inv     = Calloc((n-1)*(n-1), double);
+
+  /* assuming input ssd comes only as the upper triangle (including diagonal)
+     so we have to blow up the memory footprint to have the squared one */
+  ssd = Calloc(n*n, double);
+  for (i=0; i < n; i++)
+    for (j=0; j <= i; j++)
+      ssd[i + j*n] = ssd[j + i*n] = ssdsymmat[UTE2I(i, j)];
+
+  /* S11 <- ssd[1, 1]
+     S12 <- ssd[1, -1]
+     S21 <- ssd[-1, 1]
+     S22 <- ssd[-1, -1] */
+  for (i=0; i < n; i++)
+    for (j=0; j < n; j++) {
+      if (i == 0 && j > 0)
+        S12[j-1] = ssd[i+j*n];
+      if (i > 0 && j == 0)
+        S21[i-1] = ssd[i+j*n];
+      if (i > 0 && j > 0)
+        S22[i-1+(j-1)*(n-1)] = ssd[i+j*n];
+    }
+
+  S11 = ssd[0];
+
+  /* S22inv <- solve(S22) */
+  matinv(S22inv, S22, n-1, 0);
+  
+  /* rss <- S11 - S12 %*% S22inv %*% S21 */
+  tmpmat = Calloc(n-1, double);
+  matprod(S22inv, n-1, n-1, S21, n-1, 1, tmpmat);
+  matprod(S12, 1, n-1, tmpmat, n-1, 1, &tmpval);
+  Free(tmpmat);
+
+  rss = S11 - tmpval;
+
+  Free(ssd);
+  Free(S22inv);
+  Free(S22);
+  Free(S21);
+  Free(S12);
+
+  return(rss);
+}
+
 static double
 lr_complete_obs(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
                 int n_Y, double* ucond_ssd, int* mapX2ucond_ssd, int total_n_Y,
-                int i, int j, int* Q, int q, int* n_co) {
+                int i, int j, int* Q, int q, int* n_co, double* partial_eta_squared) {
   int     k;
   int     n_I_i, n_Y_i, n_Y_j, n_Y_ij;
   int     sign;
@@ -3592,6 +3667,8 @@ lr_complete_obs(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
   int     flag_zero = FALSE;
   int*    idx_misobs=NULL;
   double* ssd_mat;
+  double  rss0=0; /* IMPORTANT TO HAVE IT INITIZALIZED TO ZERO !! */
+  double  rss1, rss2;
   double  x;
   double  lr = 0.0;
 
@@ -3619,6 +3696,11 @@ lr_complete_obs(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
 
     Free(tmp);
   }
+
+  /* rss0 <- var(X[, Y[1]])*(n_co-1) */
+  if (partial_eta_squared != NULL)
+    ssd(X, p, n, Y, 1, NULL, n, FALSE, idx_misobs, &rss0);
+
 /*
   Rprintf("ssd (n_Y=%d):\n", n_Y);
   int m = 0;
@@ -3640,6 +3722,9 @@ lr_complete_obs(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
   Rprintf("log(det(ssd_A))=%.5f\n", symmatlogdet(ssd_mat, n_Y, &sign));
   Rprintf("sign(log(det(ssd_A)))=%d\n", sign);
 */
+
+  if (partial_eta_squared != NULL)
+    rss2 = rss(ssd_mat, n_Y);
 
   /* ssd_i = ssd_Gamma when i is discrete or ssd_{Gamma\i} when i is continuous */
 
@@ -3709,6 +3794,9 @@ lr_complete_obs(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
   Rprintf("log(det(ssd_A))=%.5f\n", symmatlogdet(ssd_mat, n_Y_i, &sign));
   Rprintf("sign(log(det(ssd_A)))=%d\n", sign);
 */
+
+  if (partial_eta_squared != NULL)
+    rss1 = rss(ssd_mat, n_Y_i);
 
   if (n_Y > 1) {
     n_Y_j = n_Y;
@@ -3820,10 +3908,15 @@ lr_complete_obs(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
   if (idx_misobs != NULL)
     Free(idx_misobs);
 
-  if (flag_zero || final_sign == -1)
+  if (flag_zero || final_sign == -1) {
     lr = R_NaN;
-  else
+    if (partial_eta_squared != NULL)
+      *partial_eta_squared = R_NaN;
+  } else {
     lr = lr * ((double) -(*n_co));
+    if (partial_eta_squared != NULL)
+      *partial_eta_squared = (rss1 - rss2) / rss0;
+  }
 
   return lr;
 }
@@ -4347,7 +4440,7 @@ static double
 qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
                 int n_Y, double* ucond_ssd, int* mapX2ucond_ssd, int i, int j,
                 int* Q, int q, int use, double tol, double* df, double* a,
-                double* b, int* n_co) {
+                double* b, int* n_co, double* partial_eta_squared) {
   int     k,l;
   int     n_I_int = 0;
   int     n_Y_int = 0;
@@ -4465,7 +4558,8 @@ qp_ci_test_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
   switch(use) {
     case USE_COMPLETE_OBS:
       lr = lr_complete_obs(X, p, n, I, n_I, n_levels, Y, n_Y, ucond_ssd,
-                           mapX2ucond_ssd, total_n_Y, i, j, Q, q, n_co);
+                           mapX2ucond_ssd, total_n_Y, i, j, Q, q, n_co,
+                           partial_eta_squared);
       break;
     case USE_EM:
       lr = lr_em(X, p, n, I, n_I, n_levels, Y, n_Y, i, j, Q, q, tol);
@@ -5073,7 +5167,7 @@ qp_edge_nrr_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y
 */
     lambda = qp_ci_test_hmgm(X, p, n, I, n_I, n_levels, Y, n_Y, ucond_ssd,
                              mapX2ucond_ssd, i, j, (int*) (q_by_T_samples+k*q),
-                             q, USE_COMPLETE_OBS, 0.01, &df, &a, &b, &n_co);
+                             q, USE_COMPLETE_OBS, 0.01, &df, &a, &b, &n_co, NULL);
 
     if (!ISNAN(lambda) && a > 0.0 && b > 0.0) {
       if (exactTest) {

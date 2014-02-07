@@ -1363,6 +1363,7 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
   missingMask <- apply(X[, c(I, Y), drop=FALSE], 1, function(x) any(is.na(x)))
   missingData <- any(missingMask)
 
+  rss0 <- NA
   if (!missingData || use == "complete.obs") { ## either no missing data or use complete obs
     n_co <- n - sum(missingMask)
 
@@ -1395,6 +1396,7 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
         ## print(ssd_ij)
       }
     }
+    rss0 <- var(X[!missingMask, Y[1]])*(n_co-1)
   } else { ## missing data and should use the EM algorithm
     missingMask2 <- apply(X[, Y, drop=FALSE], 1, function(x) any(is.na(x)))
     if (length(I) == 0 || any(missingMask2))
@@ -1415,14 +1417,21 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
     ssd_i <- as.matrix(ssdMats$ssd_i)
     ssd_j <- as.matrix(ssdMats$ssd_j)
     ssd_ij <- as.matrix(ssdMats$ssd_ij)
+    rss0 <- var(X[, Y[1]])*(n-1) ## assuming there is no missing data in Y
   }
  
   ## calculate residual sums of squares for estimating effect size as partial eta-squared
   ## assuming response continuous variable is on the first row and column
   ## REMINDER: this might need a flag to avoid doing this calculation for the sake of speed
-  rss0 <- var(X[, Y[1]])*(n_co-1)
-  rss1 <- as.vector(ssd_i[1, 1] - ssd_i[1, -1] %*% solve(ssd_i[-1, -1]) %*% ssd_i[-1, 1])
-  rss2 <- as.vector(ssd[1, 1] - ssd[1, -1] %*% solve(ssd[-1, -1]) %*% ssd[-1, 1])
+  if (nrow(ssd_i) > 1)
+    rss1 <- as.vector(ssd_i[1, 1] - ssd_i[1, -1] %*% solve(ssd_i[-1, -1]) %*% ssd_i[-1, 1])
+  else
+    rss1 <- as.matrix(ssd_i)[1, 1]
+
+  if (nrow(ssd) > 1)
+    rss2 <- as.vector(ssd[1, 1] - ssd[1, -1] %*% solve(ssd[-1, -1]) %*% ssd[-1, 1])
+  else
+    rss2 <- as.matrix(ssd)[1, 1]
 
   ssd <- determinant(ssd)         ## WATCH OUT! when using Matrix::determinant(..., logarithm=TRUE)
   ssd_i <- determinant(ssd_i)     ## $modulus is always 0, don't know why. since this is its default
