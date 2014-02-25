@@ -93,7 +93,7 @@ A list with class \code{"htest"} containing the following components:
   variables in \code{Q}. If one of the tested variables \code{i} or \code{j} is discrete,
   then the partial eta-squared is calculated on the tested continuous variable. If both,
   \code{i} and \code{j} are continuous, then the partial eta-squared is calculated on
-  variable \code{i}.
+  variable \code{i}.}
 \item{alternative}{a character string describing the alternative hypothesis.}
 \item{method}{a character string indicating what type of conditional independence test was
   performed.}
