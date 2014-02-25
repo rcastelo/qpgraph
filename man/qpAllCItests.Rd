@@ -66,7 +66,7 @@ When \code{I} is set different to \code{NULL} then mixed graphical model theory
 is employed and, concretely, it is assumed that the data comes from an homogeneous
 conditional Gaussian distribution. By default, with \code{exact.test=TRUE}, an
 exact test for conditional independence is employed, otherwise an asymptotic one
-will be used. Full details on these features can be found in Tur and Castelo (2011).
+will be used. Full details on these features can be found in Tur, Roverato and Castelo (2014).
 }
 \value{
 A list with three entries called \code{p.value}, \code{statistic} and \code{n}
@@ -87,10 +87,8 @@ Castelo, R. and Roverato, A. A robust procedure for
 Gaussian graphical model search from microarray data with p larger than n,
 \emph{J. Mach. Learn. Res.}, 7:2621-2650, 2006.
 
-Tur, I. and Castelo, R. Learning mixed graphical models from data with p larger than n,
-In \emph{Proc. 27th Conference on Uncertainty in Artificial Intelligence},
-F.G. Cozman and A. Pfeffer eds., pp. 689-697, AUAI Press, ISBN 978-0-9749039-7-2,
-Barcelona, 2011.
+Tur, I., Roverato, A. and Castelo, R. Mapping eQTL networks with mixed graphical models.
+\emph{Submitted}, \url{http://arxiv.org/abs/1402.4547}, 2014.
 }
 \author{R. Castelo, A. Roverato and I. Tur}
 \seealso{

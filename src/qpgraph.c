@@ -212,7 +212,7 @@ qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
                      SEXP use, SEXP tol);
 
 double
-rss(double* ssd, int n);
+rss(double* ssd, int n, int r);
 
 static double
 lr_complete_obs(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
@@ -3593,7 +3593,7 @@ qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
 */
 
 double
-rss(double* ssdsymmat, int n) {
+rss(double* ssdsymmat, int n, int r) {
   double* ssd;
   double  S11;
   double* S12;
@@ -3608,6 +3608,9 @@ rss(double* ssdsymmat, int n) {
   if (n < 2)
     return(rss);
 
+  if (r < 0 || r >= n)
+    error("rss: n=%d r=%d\n", n, r);
+
   S12        = Calloc(n, double);
   S21        = Calloc(n, double);
   S22        = Calloc((n-1)*(n-1), double);
@@ -3619,6 +3622,19 @@ rss(double* ssdsymmat, int n) {
   for (i=0; i < n; i++)
     for (j=0; j <= i; j++)
       ssd[i + j*n] = ssd[j + i*n] = ssdsymmat[UTE2I(i, j)];
+
+  if (r != 0) { /* put the response variable into the first row and column of the ssd */
+    for (i=0; i < n; i++) { /* swap rows */
+      tmpval = ssd[i*n];
+      ssd[i*n] = ssd[r+i*n];
+      ssd[r+i*n] = tmpval;
+    }
+    for (i=0; i < n; i++) { /* swap columns */
+      tmpval = ssd[i];
+      ssd[i] = ssd[i+r*n];
+      ssd[i+r*n] = tmpval;
+    }
+  }
 
   /* S11 <- ssd[1, 1]
      S12 <- ssd[1, -1]
@@ -3665,6 +3681,7 @@ lr_complete_obs(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
   int     sign;
   int     final_sign = 1;
   int     flag_zero = FALSE;
+  int     flag_i_discrete = FALSE;
   int*    idx_misobs=NULL;
   double* ssd_mat;
   double  rss0=0; /* IMPORTANT TO HAVE IT INITIZALIZED TO ZERO !! */
@@ -3713,6 +3730,7 @@ lr_complete_obs(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
   }
   Rprintf("n=%d\n", *n_co);
 */
+
   lr = x = symmatlogdet(ssd_mat, n_Y, &sign);
   if (x < -DBL_DIG)
     flag_zero = TRUE;
@@ -3722,9 +3740,6 @@ lr_complete_obs(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
   Rprintf("log(det(ssd_A))=%.5f\n", symmatlogdet(ssd_mat, n_Y, &sign));
   Rprintf("sign(log(det(ssd_A)))=%d\n", sign);
 */
-
-  if (partial_eta_squared != NULL)
-    rss2 = rss(ssd_mat, n_Y);
 
   /* ssd_i = ssd_Gamma when i is discrete or ssd_{Gamma\i} when i is continuous */
 
@@ -3743,17 +3758,30 @@ lr_complete_obs(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
     tmp = n_levels[k];
     n_levels[k] = n_levels[n_I-1];
     n_levels[n_I-1] = tmp;
+    flag_i_discrete = TRUE;
+
+    if (partial_eta_squared != NULL) {
+      k = 0;
+      while (j != Y[k] && k < n_Y)
+        k++;
+
+      rss2 = rss(ssd_mat, n_Y, k); /* j is the response */
+    }
   } else {       /* i is continuous */
     k = 0;
     while (i != Y[k] && k < n_Y)
       k++;
 
     if (k < n_Y) {
+      if (partial_eta_squared != NULL)
+        rss2 = rss(ssd_mat, n_Y, k); /* i is the response */
+
       Y[k] = Y[n_Y-1];
       Y[n_Y-1] = i;
       n_Y_i = n_Y - 1;
     } else
       error("qp_ci_test_hmgm(): i does not form part of neither I nor Y\n");
+
   }
 
   if (n_I > 0 || ucond_ssd == NULL) {
@@ -3795,8 +3823,14 @@ lr_complete_obs(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
   Rprintf("sign(log(det(ssd_A)))=%d\n", sign);
 */
 
-  if (partial_eta_squared != NULL)
-    rss1 = rss(ssd_mat, n_Y_i);
+  /* if i is discrete, j is the response and RSS1 = SSD_i */
+  if (partial_eta_squared != NULL && flag_i_discrete) {
+    k = 0;
+    while (j != Y[k] && k < n_Y_i)
+      k++;
+
+    rss1 = rss(ssd_mat, n_Y_i, k); /* j is the response */
+  }
 
   if (n_Y > 1) {
     n_Y_j = n_Y;
@@ -3848,6 +3882,15 @@ lr_complete_obs(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
     Rprintf("log(det(ssd_A))=%.5f\n", symmatlogdet(ssd_mat, n_Y_j, &sign));
     Rprintf("sign(log(det(ssd_A)))=%d\n", sign);
 */
+
+    /* if i and j are continuous, i is the response and RSS1 = SSD_j */
+    if (partial_eta_squared != NULL && !flag_i_discrete) {
+      k = 0;
+      while (i != Y[k] && k < n_Y_j)
+        k++;
+
+      rss1 = rss(ssd_mat, n_Y_j, k); /* i is the response */
+    }
 
     n_Y_ij = n_Y_j;
     k = 0;

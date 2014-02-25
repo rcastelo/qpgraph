@@ -68,8 +68,8 @@ indicated with the \code{I} argument when \code{X} is a matrix, then mixed graph
 model theory (Lauritzen and Wermuth, 1989) is employed and, concretely, it is assumed
 that data come from an homogeneous conditional Gaussian distribution. By default, with
 \code{exact.test=TRUE}, an exact likelihood ratio test for conditional independence is
-performed (Lauritzen, 1996, pg. 192-194; Tur and Castelo, 2011), otherwise an asymptotic
-one is used.
+performed (Lauritzen, 1996, pg. 192-194; Tur, Roverato and Castelo, 2014), otherwise an
+asymptotic one is used.
 
 In this setting further restrictions to the maximum value of \code{q} apply, concretely,
 it cannot be smaller than \code{p} plus the number of levels of the discrete variables
@@ -86,8 +86,14 @@ A list with class \code{"htest"} containing the following components:
   \code{exact.test=FALSE} and the \code{(a, b)} parameters of a beta distribution under
   the null if \code{exact.test=TRUE}.}
 \item{p.value}{the p-value for the test.}
-\item{estimate}{in case of pure continuous data and \code{I=NULL}, the estimated partial
-  regression coefficient and no value, otherwise.}
+\item{estimate}{in case of pure continuous data (\code{I=NULL}), the estimated partial
+  regression coefficient. In case of mixed continuous and discrete data with \code{I!=NULL},
+  the estimated partial eta-squared: the fraction of variance from \code{i} or \code{j}
+  explained by the other tested variable after excluding the variance explained by the
+  variables in \code{Q}. If one of the tested variables \code{i} or \code{j} is discrete,
+  then the partial eta-squared is calculated on the tested continuous variable. If both,
+  \code{i} and \code{j} are continuous, then the partial eta-squared is calculated on
+  variable \code{i}.
 \item{alternative}{a character string describing the alternative hypothesis.}
 \item{method}{a character string indicating what type of conditional independence test was
   performed.}
@@ -104,10 +110,8 @@ Lauritzen, S.L. \emph{Graphical models}. Oxford University Press, 1996.
 Lauritzen, S.L and Wermuth, N. Graphical Models for associations between variables,
 some of which are qualitative and some quantitative. \emph{Ann. Stat.}, 17(1):31-57, 1989.
 
-Tur, I. and Castelo, R. Learning mixed graphical models from data with p larger than n,
-In \emph{Proc. 27th Conference on Uncertainty in Artificial Intelligence},
-F.G. Cozman and A. Pfeffer eds., pp. 689-697, AUAI Press, ISBN 978-0-9749039-7-2,
-Barcelona, 2011.
+Tur, I., Roverato, A. and Castelo, R. Mapping eQTL networks with mixed graphical models.
+\emph{Submitted}, \url{http://arxiv.org/abs/1402.4547}, 2014.
 }
 \author{R. Castelo and A. Roverato}
 \seealso{

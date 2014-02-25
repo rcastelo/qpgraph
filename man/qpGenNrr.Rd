@@ -111,7 +111,7 @@ maximum value of \code{q} apply, concretely, it cannot be smaller than
 marginal distributions employed by the algorithm. By default, with
 \code{exact.test=TRUE}, an exact test for conditional independence is employed,
 otherwise an asymptotic one will be used. Full details on these features can
-be found in Tur and Castelo (2011).
+be found in Tur, Roverato and Castelo (2014).
 }
 \value{
 A list containing the following two or more entries: a first one with name
@@ -135,10 +135,8 @@ Castelo, R. and Roverato, A. Reverse engineering molecular regulatory
 networks from microarray data with qp-graphs. \emph{J. Comp. Biol.},
 16(2):213-227, 2009.
 
-Tur, I. and Castelo, R. Learning mixed graphical models from data with p larger than n,
-In \emph{Proc. 27th Conference on Uncertainty in Artificial Intelligence},
-F.G. Cozman and A. Pfeffer eds., pp. 689-697, AUAI Press, ISBN 978-0-9749039-7-2,
-Barcelona, 2011.
+Tur, I., Roverato, A. and Castelo, R. Mapping eQTL networks with mixed graphical models.
+\emph{Submitted}, \url{http://arxiv.org/abs/1402.4547}, 2014.
 }
 \author{R. Castelo and A. Roverato}
 \seealso{

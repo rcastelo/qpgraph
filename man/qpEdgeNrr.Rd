@@ -58,7 +58,7 @@ Estimates the non-rejection rate for one pair of variables.
   \item{exact.test}{logical; if \code{FALSE} an asymptotic conditional independence
        test is employed with mixed (i.e., continuous and discrete) data;
        if \code{TRUE} (default) then an exact conditional independence test with
-       mixed data is employed.}
+       mixed data is employed.See details below regarding this argument.}
   \item{use}{a character string defining the way in which calculations are done in the
        presence of missing values. It can be either \code{"complete.obs"} (default)
        or \code{"em"}.}
@@ -76,6 +76,20 @@ Note that the possible values of \code{q} should be in the range 1 to
 \code{min(p,n-3)}, where \code{p} is the number of variables and \code{n}
 the number of observations. The computational cost increases linearly with
 \code{q}.
+
+When \code{I} is set different to \code{NULL} then mixed graphical model theory
+is employed and, concretely, it is assumed that the data comes from an homogeneous
+conditional Gaussian distribution. In this setting further restrictions to the
+maximum value of \code{q} apply, concretely, it cannot be smaller than
+\code{p} plus the number of levels of the discrete variables involved in the
+marginal distributions employed by the algorithm. By default, with
+\code{exact.test=TRUE}, an exact test for conditional independence is employed,
+otherwise an asymptotic one will be used. Full details on these features can
+be found in Tur, Roverato and Castelo (2014).
+
+The argument \code{I} specifying what variables are discrete actually applies only
+when \code{X} is a matrix object since in the other cases data types are specified
+for each data columns or slot.
 }
 \value{
 An estimate of the non-rejection rate for the particular given pair of
@@ -85,6 +99,9 @@ variables.
 Castelo, R. and Roverato, A. A robust procedure for
 Gaussian graphical model search from microarray data with p larger than n,
 \emph{J. Mach. Learn. Res.}, 7:2621-2650, 2006.
+
+Tur, I., Roverato, A. and Castelo, R. Mapping eQTL networks with mixed graphical models.
+\emph{Submitted}, \url{http://arxiv.org/abs/1402.4547}, 2014.
 }
 \author{R. Castelo and A. Roverato}
 \seealso{

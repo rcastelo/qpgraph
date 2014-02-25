@@ -1423,10 +1423,17 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
   ## calculate residual sums of squares for estimating effect size as partial eta-squared
   ## assuming response continuous variable is on the first row and column
   ## REMINDER: this might need a flag to avoid doing this calculation for the sake of speed
-  if (nrow(ssd_i) > 1)
-    rss1 <- as.vector(ssd_i[1, 1] - ssd_i[1, -1] %*% solve(ssd_i[-1, -1]) %*% ssd_i[-1, 1])
-  else
-    rss1 <- as.matrix(ssd_i)[1, 1]
+  if (!is.na(match(i, I))) { ## if i is discrete, j is the response and RSS1 = SSD_i
+    if (nrow(ssd_i) > 1)
+      rss1 <- as.vector(ssd_i[1, 1] - ssd_i[1, -1] %*% solve(ssd_i[-1, -1]) %*% ssd_i[-1, 1])
+    else
+      rss1 <- as.matrix(ssd_i)[1, 1]
+  } else {                   ## otherwise, when both i, j are continuous, i is the response and RSS1 = SSD_j
+    if (nrow(ssd_j) > 1)
+      rss1 <- as.vector(ssd_j[1, 1] - ssd_j[1, -1] %*% solve(ssd_j[-1, -1]) %*% ssd_j[-1, 1])
+    else
+      rss1 <- as.matrix(ssd_j)[1, 1]
+  }
 
   if (nrow(ssd) > 1)
     rss2 <- as.vector(ssd[1, 1] - ssd[1, -1] %*% solve(ssd[-1, -1]) %*% ssd[-1, 1])
