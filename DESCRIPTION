@@ -1,20 +1,25 @@
 Package: qpgraph
-Title: Reverse engineering of molecular regulatory networks with qp-graphs
-Version: 1.19.15
+Title: Reverse engineering of molecular regulatory networks with
+        qp-graphs
+Version: 1.19.16
 Author: R. Castelo and A. Roverato
-Description: q-order partial correlation graphs, or qp-graphs for short, are
-             undirected Gaussian graphical Markov models built from q-order
-             partial correlations. They are useful for learning undirected
-             graphical Gaussian Markov models from data sets where the number of
-             random variables p exceeds the available sample size n as, for
-             instance, in the case of microarray data where they can be employed
-             to reverse engineer a molecular regulatory network.
+Description: q-order partial correlation graphs, or qp-graphs for
+        short, are undirected Gaussian graphical Markov models built
+        from q-order partial correlations. They are useful for learning
+        undirected graphical Gaussian Markov models from data sets
+        where the number of random variables p exceeds the available
+        sample size n as, for instance, in the case of microarray data
+        where they can be employed to reverse engineer a molecular
+        regulatory network.
 Depends: R (>= 3.0.0)
-Imports: methods, parallel, Matrix (>= 1.0), annotate, graph (>= 1.41.2), Biobase, GGBase, AnnotationDbi, mvtnorm, qtl, Rgraphviz
+Imports: methods, parallel, Matrix (>= 1.0), annotate, graph (>=
+        1.41.2), Biobase, GGBase, AnnotationDbi, mvtnorm, qtl,
+        Rgraphviz
 Suggests: BiocStyle, genefilter, org.EcK12.eg.db
 Enhances: rlecuyer, snow, Category, GOstats
 Maintainer: Robert Castelo <robert.castelo@upf.edu>
 License: GPL (>= 2)
-biocViews: Microarray, GeneExpression, Transcription, Pathways, NetworkInference, GraphsAndNetworks, GeneRegulation
 LazyData: yes
 URL: http://functionalgenomics.upf.edu/qpgraph
+biocViews: Microarray, GeneExpression, Transcription, Pathways,
+        NetworkInference, GraphAndNetwork, GeneRegulation
