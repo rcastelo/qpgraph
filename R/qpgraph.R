@@ -3298,11 +3298,16 @@ qpBoundary <- function(nrrMatrix, n=NA, threshold.lim=c(0,1), breaks=5, vertexSu
 
   linetype <- 1
   label <- "Maximum boundary size"
+  flaglog0 <- FALSE
 
   if (plot == TRUE) {
     logscale <- ""
     if (logscale.bdsize == TRUE) {
       logscale <- "y"
+      if (mpctedbdsze[1, 2] == 0) {
+        mpctedbdsze[1, 2] <- 1 ## just to avoid log(0)
+        flaglog0 <- TRUE
+      }
     }
     plot(br,mpctedbdsze[,2],type="o",xlim=threshold.lim,
          ylim=range(1,n,mpctedbdsze[,2],na.rm=TRUE),lwd=2,lty=linetype,
@@ -3313,6 +3318,9 @@ qpBoundary <- function(nrrMatrix, n=NA, threshold.lim=c(0,1), breaks=5, vertexSu
     text(br,mpctedbdsze[,2],lab=paste(pct,"%",sep=""),pos=1,cex=.7)
     legend(min(threshold.lim),max(n,mpctedbdsze[,2],na.rm=TRUE),label,lty=linetype,lwd=2,pch=1)
   }
+
+  if (flaglog0)
+    mpctedbdsze[1, 2] <- 0
 
   m <- mpctedbdsze[,c(3,2)]
   m[,2] <- m[,2] / n.var
