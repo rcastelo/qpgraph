@@ -356,7 +356,7 @@ setMethod("$", signature(x="HMgmm"),
                      pI=x@pI,
                      pY=x@pY,
                      g=x@g,
-                     mean=function(...) calculateCondMean(x, ...),
+                     mean=function(...) .calculateCondMean(x, ...),
                      sigma=x@sigma,
                      a=x@a,
                      eta2=calculateEta2(x),
@@ -424,7 +424,7 @@ calculateEta2 <- function(object) {
 }
 
 ## internal conditional mean function
-calculateCondMean <- function(x, i) {
+.calculateCondMean <- function(x, i) {
   if (missing(i)) {
     if (x@pI < 5) {
       i <- 1:(x@dLevels^x$pI)
@@ -533,7 +533,7 @@ setMethod("rcmvnorm", signature(n="ANY", model="HMgmm"),
 
             ## we use the same data matrix X to store the mean values employed
             ## during the simulation process.
-            X[, Y] <- calculateCondMean(model, X[, I, drop=FALSE])
+            X[, Y] <- .calculateCondMean(model, X[, I, drop=FALSE])
 
             YxI <- Y[which(sapply(graph::edges(model@g)[Y], function(xYi, vt) sum(vt[xYi] == "discrete"), model@vtype) > 0)]
             xtab <- tapply(1:n, apply(X[, YxI, drop=FALSE], 1, function(i) paste(i, collapse="")))

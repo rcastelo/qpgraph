@@ -3,7 +3,7 @@
 ##                   graphical models and deal with microarray and genetic data in order
 ##                   to build network models of molecular regulation
 ##
-## Copyright (C) 2013 R. Castelo and A. Roverato, with contributions from Inma Tur.
+## Copyright (C) 2008-2014 R. Castelo and A. Roverato, with contributions from Inma Tur.
 ## This program is free software; you can redistribute it and/or
 ## modify it under the terms of the GNU General Public License
 ## as published by the Free Software Foundation; either version 2
@@ -73,7 +73,7 @@ setMethod("qpNrr", signature(X="ExpressionSet"),
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
 
             if (clusterSize > 1 &&
-               (!qpgraph:::.qpIsPackageLoaded("rlecuyer") || !qpgraph:::.qpIsPackageLoaded("snow")))
+               (!.qpIsPackageLoaded("rlecuyer") || !.qpIsPackageLoaded("snow")))
               stop("Using a cluster (clusterSize > 1) requires first loading packages 'snow' and 'rlecuyer'\n")
 
             XP <- matrix(NA, nrow=ncol(X), ncol=0)
@@ -159,7 +159,7 @@ setMethod("qpNrr", signature(X="ExpressionSet"),
 
             X <- t(Biobase::exprs(X))
             X <- cbind(X, XP)
-            qpgraph:::.qpNrr(X, q, I, restrict.Q, fix.Q, nTests, alpha,
+            .qpNrr(X, q, I, restrict.Q, fix.Q, nTests, alpha,
                              pairup.i, pairup.j, verbose, identicalQs,
                              exact.test, use, tol, R.code.only, clusterSize,
                              startTime, nAdj2estimateTime)
@@ -189,7 +189,7 @@ setMethod("qpNrr", signature(X="cross"),
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
 
             if (clusterSize > 1 &&
-               (!qpgraph:::.qpIsPackageLoaded("rlecuyer") || !qpgraph:::.qpIsPackageLoaded("snow")))
+               (!.qpIsPackageLoaded("rlecuyer") || !.qpIsPackageLoaded("snow")))
               stop("Using a cluster (clusterSize > 1) requires first loading packages 'snow' and 'rlecuyer'\n")
 
             XP <- matrix(NA_real_, nrow=n, ncol=p, dimnames=list(NULL, c(markerNames, phenoNames)))
@@ -217,7 +217,7 @@ setMethod("qpNrr", signature(X="cross"),
             if (is.null(restrict.Q))
               restrict.Q <- setdiff(phenoNames, I)
 
-            qpgraph:::.qpNrr(XP, q, I, restrict.Q, fix.Q, nTests, alpha,
+            .qpNrr(XP, q, I, restrict.Q, fix.Q, nTests, alpha,
                              pairup.i, pairup.j, verbose, identicalQs,
                              exact.test, use, tol, R.code.only, clusterSize,
                              startTime, nAdj2estimateTime)
@@ -242,7 +242,7 @@ setMethod("qpNrr", signature(X="data.frame"),
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
 
             if (clusterSize > 1 &&
-               (!qpgraph:::.qpIsPackageLoaded("rlecuyer") || !qpgraph:::.qpIsPackageLoaded("snow")))
+               (!.qpIsPackageLoaded("rlecuyer") || !.qpIsPackageLoaded("snow")))
               stop("Using a cluster (clusterSize > 1) requires first loading packages 'snow' and 'rlecuyer'\n")
 
             X <- as.matrix(X)
@@ -256,7 +256,7 @@ setMethod("qpNrr", signature(X="data.frame"),
             if (is.null(colnames(m)))
               colnames(X) <- 1:ncol(X)
 
-            qpgraph:::.qpNrr(X, q, I, restrict.Q, fix.Q, nTests, alpha,
+            .qpNrr(X, q, I, restrict.Q, fix.Q, nTests, alpha,
                              pairup.i, pairup.j, verbose, identicalQs,
                              exact.test, use, tol, R.code.only, clusterSize,
                              startTime, nAdj2estimateTime)
@@ -282,7 +282,7 @@ setMethod("qpNrr", signature(X="matrix"),
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
 
             if (clusterSize > 1 &&
-               (!qpgraph:::.qpIsPackageLoaded("rlecuyer") || !qpgraph:::.qpIsPackageLoaded("snow")))
+               (!.qpIsPackageLoaded("rlecuyer") || !.qpIsPackageLoaded("snow")))
               stop("Using a cluster (clusterSize > 1) requires first loading packages 'snow' and 'rlecuyer'\n")
 
             if (long.dim.are.variables &&
@@ -292,7 +292,7 @@ setMethod("qpNrr", signature(X="matrix"),
             if (is.null(colnames(X))) 
               colnames(X) <- 1:ncol(X)
 
-            qpgraph:::.qpNrr(X, q, I, restrict.Q, fix.Q, nTests, alpha,
+            .qpNrr(X, q, I, restrict.Q, fix.Q, nTests, alpha,
                              pairup.i, pairup.j, verbose, identicalQs,
                              exact.test, use, tol, R.code.only, clusterSize,
                              startTime, nAdj2estimateTime)
@@ -513,12 +513,12 @@ setMethod("qpNrr", signature(X="matrix"),
     if (is.null(cl)) { ## single-processor execution
 
       if (identicalQs && is.null(I))
-        nrrMatrix <- qpgraph:::.qpFastNrrIdenticalQs(X, q, restrict.Q, fix.Q,
+        nrrMatrix <- .qpFastNrrIdenticalQs(X, q, restrict.Q, fix.Q,
                                                      nTests, alpha, pairup.i.noint,
                                                      pairup.j.noint, pairup.ij.int, verbose,
                                                      startTime["elapsed"], nAdj2estimateTime)
       else
-        nrrMatrix <- qpgraph:::.qpFastNrr(X, I, Y, q, restrict.Q, fix.Q, nTests, alpha,
+        nrrMatrix <- .qpFastNrr(X, I, Y, q, restrict.Q, fix.Q, nTests, alpha,
                                           pairup.i.noint, pairup.j.noint,
                                           pairup.ij.int, exact.test, verbose,
                                           startTime["elapsed"], nAdj2estimateTime)
@@ -532,23 +532,23 @@ setMethod("qpNrr", signature(X="matrix"),
       nrrIdx <- list()
       if (verbose && startTime["elapsed"] == 0) { ## no cluster progress-call when only estimating time
         if (identicalQs && is.null(I))
-          nrrIdx <- clPrCall(cl, qpgraph:::.qpFastNrrIdenticalQsPar, n.adj, X,
+          nrrIdx <- clPrCall(cl, .qpFastNrrIdenticalQsPar, n.adj, X,
                              q, restrict.Q, fix.Q, nTests, alpha, pairup.i.noint,
                              pairup.j.noint, pairup.ij.int, verbose, FALSE,
                              nAdj2estimateTime)
         else
-          nrrIdx <- clPrCall(cl, qpgraph:::.qpFastNrrPar, n.adj, X, I, Y, q,
+          nrrIdx <- clPrCall(cl, .qpFastNrrPar, n.adj, X, I, Y, q,
                              restrict.Q, fix.Q, nTests, alpha, pairup.i.noint,
                              pairup.j.noint, pairup.ij.int, exact.test, verbose,
                              FALSE, nAdj2estimateTime)
       } else {
         if (identicalQs && is.null(I))
-          nrrIdx <- clCall(cl, qpgraph:::.qpFastNrrIdenticalQsPar, X, q,
+          nrrIdx <- clCall(cl, .qpFastNrrIdenticalQsPar, X, q,
                            restrict.Q, fix.Q, nTests, alpha, pairup.i.noint,
                            pairup.j.noint, pairup.ij.int, verbose,
                            startTime["elapsed"] > 0, nAdj2estimateTime)
         else
-          nrrIdx <- clCall(cl, qpgraph:::.qpFastNrrPar, X, I, Y, q, restrict.Q,
+          nrrIdx <- clCall(cl, .qpFastNrrPar, X, I, Y, q, restrict.Q,
                            fix.Q, nTests, alpha, pairup.i.noint, pairup.j.noint,
                            pairup.ij.int, exact.test, verbose,
                            startTime["elapsed"] > 0, nAdj2estimateTime)
@@ -641,13 +641,13 @@ setMethod("qpNrr", signature(X="matrix"),
     for (j in c(pairup.i.noint,pairup.j.noint)) {
 
       if (is.null(I))
-        nrr <- qpgraph:::.qpEdgeNrr(X, S, i, j, q, rQs, fix.Q, nTests,
+        nrr <- .qpEdgeNrr(X, S, i, j, q, rQs, fix.Q, nTests,
                                     alpha, R.code.only=TRUE)
       else {
         if (!is.null(restrict.Q) && is.matrix(restrict.Q))
             rQs <- union(which(restrict.Q[i, ]), which(restrict.Q[j, ]))
 
-        nrr <- qpgraph:::.qpEdgeNrrHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, q, rQs, fix.Q,
+        nrr <- .qpEdgeNrrHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, q, rQs, fix.Q,
                                         nTests, alpha, exact.test, use, tol, R.code.only=TRUE)
       }
 
@@ -671,13 +671,13 @@ setMethod("qpNrr", signature(X="matrix"),
       for (j in pairup.j.noint) {
 
         if (is.null(I))
-          nrr <- qpgraph:::.qpEdgeNrr(X, S, i, j, q, rQs, fix.Q, nTests,
+          nrr <- .qpEdgeNrr(X, S, i, j, q, rQs, fix.Q, nTests,
                                       alpha, R.code.only=TRUE)
         else {
           if (!is.null(restrict.Q) && is.matrix(restrict.Q))
             rQs <- union(which(restrict.Q[i, ]), which(restrict.Q[j, ]))
 
-          nrr <- qpgraph:::.qpEdgeNrrHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, q, rQs, fix.Q,
+          nrr <- .qpEdgeNrrHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, q, rQs, fix.Q,
                                           nTests, alpha, exact.test, use, tol, R.code.only=TRUE)
         }
 
@@ -705,13 +705,13 @@ setMethod("qpNrr", signature(X="matrix"),
         j2 <- pairup.ij.int[j]
 
         if (is.null(I))
-          nrr <- qpgraph:::.qpEdgeNrr(X, S, i2, j2, q, rQs, fix.Q, nTests,
+          nrr <- .qpEdgeNrr(X, S, i2, j2, q, rQs, fix.Q, nTests,
                                       alpha, R.code.only=TRUE)
         else {
           if (!is.null(restrict.Q) && is.matrix(restrict.Q))
             rQs <- union(which(restrict.Q[i2, ]), which(restrict.Q[j2, ]))
 
-          nrr <- qpgraph:::.qpEdgeNrrHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i2, j2, q, rQs, fix.Q,
+          nrr <- .qpEdgeNrrHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i2, j2, q, rQs, fix.Q,
                                           nTests, alpha, exact.test, use, tol, R.code.only=TRUE)
 
         }
@@ -807,7 +807,7 @@ setMethod("qpNrr", signature(X="matrix"),
   for (i in pairup.ij.int) {
     for (j in c(pairup.i.noint,pairup.j.noint)) {
       nrrMatrix[j,i] <- nrrMatrix[i,j] <-
-        qpgraph:::.qpEdgeNrrIdenticalQs(S, Qs, S22invs, i, j, q, nTests,
+        .qpEdgeNrrIdenticalQs(S, Qs, S22invs, i, j, q, nTests,
                                         alpha, R.code.only=TRUE)
       k <- k + 1
       if (elapsedTime > 0 && k == nAdj2estimateTime)
@@ -827,7 +827,7 @@ setMethod("qpNrr", signature(X="matrix"),
     for (i in pairup.i.noint) {
       for (j in pairup.j.noint) {
         nrrMatrix[j,i] <- nrrMatrix[i,j] <-
-          qpgraph:::.qpEdgeNrrIdenticalQs(S, Qs, S22invs, i, j, q, nTests,
+          .qpEdgeNrrIdenticalQs(S, Qs, S22invs, i, j, q, nTests,
                                           alpha, R.code.only=TRUE)
         k <- k + 1
         if (elapsedTime > 0 && k == nAdj2estimateTime)
@@ -853,7 +853,7 @@ setMethod("qpNrr", signature(X="matrix"),
       for (j in (i+1):l.int) {
         j2 <- pairup.ij.int[j]
         nrrMatrix[j2,i2] <- nrrMatrix[i2,j2] <-
-          qpgraph:::.qpEdgeNrrIdenticalQs(S, Qs, S22invs, i2, j2, q, nTests,
+          .qpEdgeNrrIdenticalQs(S, Qs, S22invs, i2, j2, q, nTests,
                                           alpha, R.code.only=TRUE)
         k <- k + 1
         if (elapsedTime > 0 && k == nAdj2estimateTime)
@@ -951,7 +951,7 @@ setMethod("qpAvgNrr", signature(X="ExpressionSet"),
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
 
             if (clusterSize > 1 &&
-               (!qpgraph:::.qpIsPackageLoaded("rlecuyer") || !qpgraph:::.qpIsPackageLoaded("snow")))
+               (!.qpIsPackageLoaded("rlecuyer") || !.qpIsPackageLoaded("snow")))
               stop("Using a cluster (clusterSize > 1) requires first loading packages 'snow' and 'rlecuyer'\n")
 
             X_I <- NULL
@@ -967,7 +967,7 @@ setMethod("qpAvgNrr", signature(X="ExpressionSet"),
             }
 
             X <- cbind(t(Biobase::exprs(X)), X_I)
-            qpgraph:::.qpAvgNrr(X, qOrders, I, restrict.Q, fix.Q, nTests, alpha, pairup.i,
+            .qpAvgNrr(X, qOrders, I, restrict.Q, fix.Q, nTests, alpha, pairup.i,
                                 pairup.j, type, verbose, identicalQs, exact.test, use, tol,
                                 R.code.only, clusterSize, startTime, nAdj2estimateTime)
           })
@@ -992,7 +992,7 @@ setMethod("qpAvgNrr", signature(X="data.frame"),
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
 
             if (clusterSize > 1 &&
-               (!qpgraph:::.qpIsPackageLoaded("rlecuyer") || !qpgraph:::.qpIsPackageLoaded("snow")))
+               (!.qpIsPackageLoaded("rlecuyer") || !.qpIsPackageLoaded("snow")))
               stop("Using a cluster (clusterSize > 1) requires first loading packages 'snow' and 'rlecuyer'\n")
 
             X <- as.matrix(X)
@@ -1004,7 +1004,7 @@ setMethod("qpAvgNrr", signature(X="data.frame"),
               X <- t(X)
             if (is.null(colnames(X)))
               colnames(X) <- 1:ncol(X)
-            qpgraph:::.qpAvgNrr(X, qOrders, I, restrict.Q, fix.Q, nTests, alpha, pairup.i,
+            .qpAvgNrr(X, qOrders, I, restrict.Q, fix.Q, nTests, alpha, pairup.i,
                                 pairup.j, type, verbose, identicalQs, exact.test, use, tol,
                                 R.code.only, clusterSize, startTime, nAdj2estimateTime)
           })
@@ -1029,7 +1029,7 @@ setMethod("qpAvgNrr", signature(X="matrix"),
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
 
             if (clusterSize > 1 &&
-               (!qpgraph:::.qpIsPackageLoaded("rlecuyer") || !qpgraph:::.qpIsPackageLoaded("snow")))
+               (!.qpIsPackageLoaded("rlecuyer") || !.qpIsPackageLoaded("snow")))
               stop("Using a cluster (clusterSize > 1) requires first loading packages 'snow' and 'rlecuyer'\n")
 
             if (long.dim.are.variables &&
@@ -1038,7 +1038,7 @@ setMethod("qpAvgNrr", signature(X="matrix"),
 
             if (is.null(colnames(X))) 
               colnames(X) <- 1:ncol(X)
-            qpgraph:::.qpAvgNrr(X, qOrders, I, restrict.Q, fix.Q, nTests, alpha, pairup.i,
+            .qpAvgNrr(X, qOrders, I, restrict.Q, fix.Q, nTests, alpha, pairup.i,
                                 pairup.j, type, verbose, identicalQs, exact.test, use, tol,
                                 R.code.only, clusterSize, startTime,
                                 nAdj2estimateTime)
@@ -1118,7 +1118,7 @@ setMethod("qpAvgNrr", signature(X="matrix"),
     if (verbose && startTime["elapsed"] == 0)
       cat(sprintf("q=%d\n",q))
 
-    thisNrr <- qpgraph:::.qpNrr(X, q, I, restrict.Q, fix.Q, nTests, alpha, pairup.i,
+    thisNrr <- .qpNrr(X, q, I, restrict.Q, fix.Q, nTests, alpha, pairup.i,
                                 pairup.j, verbose, identicalQs, exact.test, use, tol,
                                 R.code.only, cl, startTime, nAdj2estimateTime)
 
@@ -1220,7 +1220,7 @@ setMethod("qpGenNrr", signature(X="ExpressionSet"),
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
 
             if (clusterSize > 1 &&
-               (!qpgraph:::.qpIsPackageLoaded("rlecuyer") || !qpgraph:::.qpIsPackageLoaded("snow")))
+               (!.qpIsPackageLoaded("rlecuyer") || !.qpIsPackageLoaded("snow")))
               stop("Using a cluster (clusterSize > 1) requires first loading packages 'snow' and 'rlecuyer'\n")
 
             if ((is.null(Biobase::pData(X)) || ncol(Biobase::pData(X)) < 1) && length(datasetIdx) != dim(X)[2])
@@ -1264,7 +1264,7 @@ setMethod("qpGenNrr", signature(X="ExpressionSet"),
 
             X <- cbind(t(Biobase::exprs(X)), X_I)
 
-            qpgraph:::.qpGenNrr(X, datasetIdx, qOrders, I, restrict.Q, fix.Q,
+            .qpGenNrr(X, datasetIdx, qOrders, I, restrict.Q, fix.Q,
                                 return.all, nTests, alpha, pairup.i, pairup.j,
                                 verbose, identicalQs, exact.test, use, tol,
                                 R.code.only, clusterSize, startTime, nAdj2estimateTime)
@@ -1289,7 +1289,7 @@ setMethod("qpGenNrr", signature(X="data.frame"),
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
 
             if (clusterSize > 1 &&
-               (!qpgraph:::.qpIsPackageLoaded("rlecuyer") || !qpgraph:::.qpIsPackageLoaded("snow")))
+               (!.qpIsPackageLoaded("rlecuyer") || !.qpIsPackageLoaded("snow")))
               stop("Using a cluster (clusterSize > 1) requires first loading packages 'snow' and 'rlecuyer'\n")
 
             X <- as.matrix(X)
@@ -1331,7 +1331,7 @@ setMethod("qpGenNrr", signature(X="data.frame"),
             if (!is.null(qOrders) && is.null(names(qOrders)))
               stop("When they are specified, values in 'qOrders' should have names matching the data sets index names\n")
 
-            qpgraph:::.qpGenNrr(X, datasetIdx, qOrders, I, restrict.Q, fix.Q,
+            .qpGenNrr(X, datasetIdx, qOrders, I, restrict.Q, fix.Q,
                                 return.all, nTests, alpha, pairup.i, pairup.j,
                                 verbose, identicalQs, exact.test, use, tol,
                                 R.code.only, clusterSize, startTime, nAdj2estimateTime)
@@ -1357,7 +1357,7 @@ setMethod("qpGenNrr", signature(X="matrix"),
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
 
             if (clusterSize > 1 &&
-               (!qpgraph:::.qpIsPackageLoaded("rlecuyer") || !qpgraph:::.qpIsPackageLoaded("snow")))
+               (!.qpIsPackageLoaded("rlecuyer") || !.qpIsPackageLoaded("snow")))
               stop("Using a cluster (clusterSize > 1) requires first loading packages 'snow' and 'rlecuyer'\n")
 
             if (long.dim.are.variables &&
@@ -1395,7 +1395,7 @@ setMethod("qpGenNrr", signature(X="matrix"),
             if (!is.null(qOrders) && is.null(names(qOrders)))
               stop("When they are specified, values in 'qOrders' should have names matching the data sets index names\n")
 
-            qpgraph:::.qpGenNrr(X, datasetIdx, qOrders, I, restrict.Q, fix.Q,
+            .qpGenNrr(X, datasetIdx, qOrders, I, restrict.Q, fix.Q,
                                 return.all, nTests, alpha, pairup.i, pairup.j,
                                 verbose, identicalQs, exact.test, use, tol,
                                 R.code.only, clusterSize, startTime, nAdj2estimateTime)
@@ -1482,7 +1482,7 @@ setMethod("qpGenNrr", signature(X="matrix"),
     if (verbose && startTime["elapsed"] == 0)
       cat(sprintf("Data set %s\n", as.character(idx)))
 
-    thisNrr <- qpgraph:::.qpNrr(X[datasetIdx == idx, ], qOrders[idx], I, restrict.Q,
+    thisNrr <- .qpNrr(X[datasetIdx == idx, ], qOrders[idx], I, restrict.Q,
                                 fix.Q, nTests, alpha, pairup.i, pairup.j, verbose, identicalQs,
                                 exact.test, use, tol, R.code.only, cl, startTime, nAdj2estimateTime)
 
@@ -1699,7 +1699,7 @@ setMethod("qpEdgeNrr", signature(X="smlSet"),
             if (!is.null(I))
               Y <- Y[-I]
 
-            param <- qpgraph:::.processParameters(varNames, ph, p+h, s, n, i=i, j=j, q=q,
+            param <- .processParameters(varNames, ph, p+h, s, n, i=i, j=j, q=q,
                                                   I=I, Y=Y, restrict.Q=restrict.Q, fix.Q=fix.Q)
             i <- param$i
             j <- param$j
@@ -1725,13 +1725,13 @@ setMethod("qpEdgeNrr", signature(X="smlSet"),
               ## S <- qpCov(XEP[, V, drop=FALSE]) ## here is faster to calculate S for each margin
               S <- NULL
 
-              qpgraph:::.qpEdgeNrr(XEP[, V, drop=FALSE], S, i, j, q, restrict.Q, fix.Q, nTests,
+              .qpEdgeNrr(XEP[, V, drop=FALSE], S, i, j, q, restrict.Q, fix.Q, nTests,
                                    alpha, R.code.only)
             } else {
 
               gLevels <- sum(unique(as.vector(as(GGBase::smList(X)[[1]][, 1:min(sByChr[1], 1000)], "matrix"))) > 0)
 
-              qpgraph:::.qpEdgeNrrHMGMsml(GGBase::smList(X), cumsum_sByChr, s, gLevels,
+              .qpEdgeNrrHMGMsml(GGBase::smList(X), cumsum_sByChr, s, gLevels,
                                           XEP, I, nLevels, Y, i, j, q, restrict.Q, fix.Q,
                                           nTests, alpha, exact.test, use, tol, R.code.only)
             }
@@ -1865,7 +1865,7 @@ setMethod("qpEdgeNrr", signature(X="ExpressionSet"),
             p <- ncol(X)
 
             if (is.null(I)) {
-              param <- qpgraph:::.processParameters(varNames, p, p+h, 0, n, i=i, j=j, q=q,
+              param <- .processParameters(varNames, p, p+h, 0, n, i=i, j=j, q=q,
                                                     restrict.Q=restrict.Q, fix.Q=fix.Q)
               i <- param$i
               j <- param$j
@@ -1884,7 +1884,7 @@ setMethod("qpEdgeNrr", signature(X="ExpressionSet"),
               ## S <- qpCov(X[, V, drop=FALSE]) ## here is faster to calculate S for each margin
               S <- NULL
 
-              qpgraph:::.qpEdgeNrr(X[, V, drop=FALSE], S, i, j, q, restrict.Q, fix.Q, nTests,
+              .qpEdgeNrr(X[, V, drop=FALSE], S, i, j, q, restrict.Q, fix.Q, nTests,
                                    alpha, R.code.only)
             } else {
               Y <- varNames
@@ -1893,7 +1893,7 @@ setMethod("qpEdgeNrr", signature(X="ExpressionSet"),
               else
                 Y <- (1:p)[-I]
 
-              param <- qpgraph:::.processParameters(varNames, p, p+h, 0, n, i=i, j=j, q=q, I=I, Y=Y,
+              param <- .processParameters(varNames, p, p+h, 0, n, i=i, j=j, q=q, I=I, Y=Y,
                                                       restrict.Q=restrict.Q, fix.Q=fix.Q)
               i <- param$i
               j <- param$j
@@ -1921,7 +1921,7 @@ setMethod("qpEdgeNrr", signature(X="ExpressionSet"),
               ##   ## names(mapX2ssd) <- colnames(X) ## is this necessary ??
               ## }
 
-              qpgraph:::.qpEdgeNrrHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, q,
+              .qpEdgeNrrHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, q,
                                        restrict.Q, fix.Q, nTests, alpha,
                                        exact.test, use, tol, R.code.only)
             }
@@ -1951,7 +1951,7 @@ setMethod("qpEdgeNrr", signature(X="data.frame"),
             n <- nrow(X)
 
             if (is.null(I)) {
-              param <- qpgraph:::.processParameters(varNames, p, p, 0, n, i=i, j=j, q=q,
+              param <- .processParameters(varNames, p, p, 0, n, i=i, j=j, q=q,
                                                     restrict.Q=restrict.Q, fix.Q=fix.Q)
               i <- param$i
               j <- param$j
@@ -1970,7 +1970,7 @@ setMethod("qpEdgeNrr", signature(X="data.frame"),
               ## S <- qpCov(X[, V, drop=FALSE]) ## here is faster to calculate S for each margin
               S <- NULL
 
-              qpgraph:::.qpEdgeNrr(X[, V, drop=FALSE], S, i, j, q, restrict.Q, fix.Q, nTests,
+              .qpEdgeNrr(X[, V, drop=FALSE], S, i, j, q, restrict.Q, fix.Q, nTests,
                                    alpha, R.code.only)
             } else {
               if (!is.character(I) && !is.numeric(I) && !is.integer(I))
@@ -1982,7 +1982,7 @@ setMethod("qpEdgeNrr", signature(X="data.frame"),
               else
                 Y <- (1:ncol(X))[-I]
 
-              param <- qpgraph:::.processParameters(varNames, p, p, 0, n, i=i, j=j, q=q, I=I, Y=Y,
+              param <- .processParameters(varNames, p, p, 0, n, i=i, j=j, q=q, I=I, Y=Y,
                                                       restrict.Q=restrict.Q, fix.Q=fix.Q)
               i <- param$i
               j <- param$j
@@ -2010,7 +2010,7 @@ setMethod("qpEdgeNrr", signature(X="data.frame"),
               ##   ## names(mapX2ssd) <- colnames(X) ## is this necessary ??
               ## }
 
-              qpgraph:::.qpEdgeNrrHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, q,
+              .qpEdgeNrrHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, q,
                                        restrict.Q, fix.Q, nTests, alpha,
                                        exact.test, use, tol, R.code.only)
             }
@@ -2037,7 +2037,7 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
 
             n <- nrow(X)
             if (is.null(I)) {
-              param <- qpgraph:::.processParameters(varNames, p, p, 0, n, i=i, j=j, q=q,
+              param <- .processParameters(varNames, p, p, 0, n, i=i, j=j, q=q,
                                                     restrict.Q=restrict.Q, fix.Q=fix.Q)
               i <- param$i
               j <- param$j
@@ -2056,7 +2056,7 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
               ## S <- qpCov(X[, V, drop=FALSE]) ## here is faster to calculate S for each margin
               S <- NULL
 
-              qpgraph:::.qpEdgeNrr(X[, V, drop=FALSE], S, i, j, q, restrict.Q, fix.Q, nTests,
+              .qpEdgeNrr(X[, V, drop=FALSE], S, i, j, q, restrict.Q, fix.Q, nTests,
                                    alpha, R.code.only)
             } else {
               if (!is.character(I) && !is.numeric(I) && !is.integer(I))
@@ -2068,7 +2068,7 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
               else
                 Y <- (1:ncol(X))[-I]
 
-              param <- qpgraph:::.processParameters(varNames, p, p, 0, n, i=i, j=j, q=q, I=I, Y=Y,
+              param <- .processParameters(varNames, p, p, 0, n, i=i, j=j, q=q, I=I, Y=Y,
                                                     restrict.Q=restrict.Q, fix.Q=fix.Q)
               i <- param$i
               j <- param$j
@@ -2096,7 +2096,7 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
               ##   ## names(mapX2ssd) <- colnames(X) ## is this necessary ??
               ## }
 
-              qpgraph:::.qpEdgeNrrHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, q,
+              .qpEdgeNrrHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, q,
                                        restrict.Q, fix.Q, nTests, alpha,
                                        exact.test, use, tol, R.code.only)
             }
@@ -2115,14 +2115,14 @@ setMethod("qpEdgeNrr", signature(X="SsdMatrix"),
             if (is.null(rownames(X)))
               rownames(X) <- colnames(X)
 
-            param <- qpgraph:::.processParameters(varNames, p, p, 0, X@n, i=i, j=j, q=q,
+            param <- .processParameters(varNames, p, p, 0, X@n, i=i, j=j, q=q,
                                                   restrict.Q=restrict.Q, fix.Q=fix.Q)
             i <- param$i
             j <- param$j
             restrict.Q <- param$restrict.Q
             fix.Q <- param$fix.Q
 
-            qpgraph:::.qpEdgeNrr(NULL, X, i, j, q, restrict.Q, fix.Q, nTests,
+            .qpEdgeNrr(NULL, X, i, j, q, restrict.Q, fix.Q, nTests,
                                  alpha, R.code.only)
           })
 
@@ -2214,7 +2214,7 @@ setMethod("qpEdgeNrr", signature(X="SsdMatrix"),
   stopifnot(!is.null(X) || !is.null(S))
 
   if (!R.code.only) { ## assume restrict.Q and fix.Q are coordinately set!!!!
-    return(qpgraph:::.qpFastEdgeNrr(X, S, i, j, q, restrict.Q, fix.Q, nTests, alpha));
+    return(.qpFastEdgeNrr(X, S, i, j, q, restrict.Q, fix.Q, nTests, alpha));
   }
 
   Qm <- NA
@@ -2248,9 +2248,9 @@ setMethod("qpEdgeNrr", signature(X="SsdMatrix"),
     Q <- c(sample(V, q-q.fix, replace=FALSE), fix.Q)
     if (work.with.margin) {
       S <- qpgraph::qpCov(X[, c(i, j, Q)], corrected=TRUE)
-      cit <- qpgraph:::.qpCItest(S, 1L, 2L, Qm, R.code.only=TRUE)
+      cit <- .qpCItest(S, 1L, 2L, Qm, R.code.only=TRUE)
     } else
-      cit <- qpgraph:::.qpCItest(S, as.integer(i), as.integer(j),
+      cit <- .qpCItest(S, as.integer(i), as.integer(j),
                                  as.integer(Q), R.code.only=TRUE)
     lambda  <- c(lambda, abs(cit$statistic))
   }
@@ -2307,7 +2307,7 @@ setMethod("qpEdgeNrr", signature(X="SsdMatrix"),
     if (use == "em")
       stop("The EM algorithm is not yet implemented in the fast C version of the code for qpEdgeNrr(). Please set either use=\"complete.obs\" (default value) or R.code.only=TRUE\n")
 
-    return(qpgraph:::.qpFastEdgeNrrHMGM(X, I, nLevels, Y, ssdMat, mapX2ssdMat, i, j, q,
+    return(.qpFastEdgeNrrHMGM(X, I, nLevels, Y, ssdMat, mapX2ssdMat, i, j, q,
                                         restrict.Q, fix.Q, nTests, alpha, exact.test))
   }
 
@@ -2333,7 +2333,7 @@ setMethod("qpEdgeNrr", signature(X="SsdMatrix"),
   lambda <- a <- b <- thr <- rep(NA, times=nTests)
   for (k in 1:nTests) {
     Q <- c(sample(V, q-q.fix, replace=FALSE), fix.Q)
-    cit <- qpgraph:::.qpCItestHMGM(X, I, nLevels, Y, ssdMat, mapX2ssdMat, as.integer(i),
+    cit <- .qpCItestHMGM(X, I, nLevels, Y, ssdMat, mapX2ssdMat, as.integer(i),
                                    as.integer(j), as.integer(Q), exact.test,
                                    use, tol, R.code.only=TRUE)
     if (!is.nan(cit$statistic)) {
@@ -2399,7 +2399,7 @@ setMethod("qpEdgeNrr", signature(X="SsdMatrix"),
   ## mapY2ssd[Y] <- 1:ncol(ssd)
 
   if (!R.code.only) {
-    return(qpgraph:::.qpFastEdgeNrrHMGMsml(X, cumsum_sByChr, s, gLevels, XEP, I, nLevels,
+    return(.qpFastEdgeNrrHMGMsml(X, cumsum_sByChr, s, gLevels, XEP, I, nLevels,
                                            Y, ssd, mapY2ssd, i, j, q, restrict.Q,
                                            fix.Q, nTests, alpha, exact.test))
   }
@@ -2491,7 +2491,7 @@ setMethod("qpEdgeNrr", signature(X="SsdMatrix"),
 
     Q <- 2L+seq(along=Q)
 
-    cit <- qpgraph:::.qpCItestHMGM(Xsub, Isub, nLevelsSub, Ysub, ssd, mapY2ssd,
+    cit <- .qpCItestHMGM(Xsub, Isub, nLevelsSub, Ysub, ssd, mapY2ssd,
                                    i, j, Q, exact.test, use, tol, R.code.only=TRUE)
     if (!is.nan(cit$statistic)) {
       lambda[k] <- cit$statistic
@@ -3001,13 +3001,13 @@ qpCliqueNumber <- function(g, exact.calculation=TRUE, return.vertices=FALSE,
     A <- A == 1 ## make sure we get a boolean matrix
 
     maximum_clique <-
-      qpgraph:::.qpCliqueNumberOstergard(as.matrix(A),
+      .qpCliqueNumberOstergard(as.matrix(A),
                                          return.vertices=return.vertices,
                                          verbose=verbose)
   } else {
     if (!R.code.only)
       maximum_clique <-
-        qpgraph:::.qpCliqueNumberLowerBound(as.matrix(A),
+        .qpCliqueNumberLowerBound(as.matrix(A),
                                             return.vertices=return.vertices,
                                             approx.iter=approx.iter,
                                             verbose=verbose)
@@ -3298,15 +3298,15 @@ qpBoundary <- function(nrrMatrix, n=NA, threshold.lim=c(0,1), breaks=5, vertexSu
 
   linetype <- 1
   label <- "Maximum boundary size"
-  flaglog0 <- FALSE
+  whlog0 <- NULL
 
   if (plot == TRUE) {
     logscale <- ""
     if (logscale.bdsize == TRUE) {
       logscale <- "y"
-      if (mpctedbdsze[1, 2] == 0) {
-        mpctedbdsze[1, 2] <- 1 ## just to avoid log(0)
-        flaglog0 <- TRUE
+      if (any(mpctedbdsze[, 2] == 0)) {
+        whlog0 <- which(mpctedbdsze[, 2] == 0)
+        mpctedbdsze[whlog0, 2] <- 1 ## just to avoid log(0)
       }
     }
     plot(br,mpctedbdsze[,2],type="o",xlim=threshold.lim,
@@ -3319,8 +3319,8 @@ qpBoundary <- function(nrrMatrix, n=NA, threshold.lim=c(0,1), breaks=5, vertexSu
     legend(min(threshold.lim),max(n,mpctedbdsze[,2],na.rm=TRUE),label,lty=linetype,lwd=2,pch=1)
   }
 
-  if (flaglog0)
-    mpctedbdsze[1, 2] <- 0
+  if (!is.null(whlog0))
+    mpctedbdsze[whlog0, 2] <- 0
 
   m <- mpctedbdsze[,c(3,2)]
   m[,2] <- m[,2] / n.var
@@ -3384,7 +3384,7 @@ qpGetCliques <- function(g, clqspervtx=FALSE, verbose=TRUE) {
     return(list(1:p))
   }
 
-  return(qpgraph:::.qpFastCliquerGetCliques(as.matrix(A), clqspervtx=clqspervtx,
+  return(.qpFastCliquerGetCliques(as.matrix(A), clqspervtx=clqspervtx,
                                             verbose=verbose))
 }
 
@@ -3440,7 +3440,7 @@ qpUpdateCliquesRemoving <- function(g, clqlst, v, w, verbose=TRUE) {
       stop("vertex ", w, " does not match any vertex in 'g'\n")
   }
 
-  return(qpgraph:::.qpFastUpdateCliquesRemoving(as.matrix(A), clqlst, v, w, verbose=verbose))
+  return(.qpFastUpdateCliquesRemoving(as.matrix(A), clqlst, v, w, verbose=verbose))
 }
 
 
@@ -3467,7 +3467,7 @@ qpIPF <- function(vv, clqlst, tol = 0.001, verbose = FALSE,
   vv <- as(vv, "matrix")
 
   if (!R.code.only) {
-    return(qpgraph:::.qpFastIPF(vv, clqlst, tol, verbose))
+    return(.qpFastIPF(vv, clqlst, tol, verbose))
   }
 
   if (verbose) {
@@ -3482,7 +3482,7 @@ qpIPF <- function(vv, clqlst, tol = 0.001, verbose = FALSE,
   precision <- 1
   while(precision > tol) {
     Vold <- V
-    V <- qpgraph:::.qpIPFpass(vv, V, clqlst)
+    V <- .qpIPFpass(vv, V, clqlst)
     precision <- max(abs(V - Vold))
     if (verbose)
       cat("qpIPF: precision =", precision, "\n")
@@ -3543,7 +3543,7 @@ qpHTF <- function(S, g, tol = 0.001, verbose = FALSE,
 
 
   if (!R.code.only) {
-    return(qpgraph:::.qpFastHTF(S, A, tol, verbose))
+    return(.qpFastHTF(S, A, tol, verbose))
   }
 
   ppct <- -1
@@ -3610,7 +3610,7 @@ setMethod("qpPAC", signature(X="ExpressionSet"),
           function(X, g, return.K=FALSE, tol=0.001, matrix.completion=c("HTF", "IPF"),
                    verbose=TRUE, R.code.only=FALSE) {
             X <- t(Biobase::exprs(X))
-            qpgraph:::.qpPAC(X, g, return.K, tol, matrix.completion, verbose, R.code.only)
+            .qpPAC(X, g, return.K, tol, matrix.completion, verbose, R.code.only)
           })
 
 # X comes as a data frame
@@ -3627,7 +3627,7 @@ setMethod("qpPAC", signature(X="data.frame"),
               X <- t(X)
             if (is.null(colnames(X)))
               colnames(X) <- 1:ncol(X)
-            qpgraph:::.qpPAC(X, g, return.K, tol, matrix.completion, verbose, R.code.only)
+            .qpPAC(X, g, return.K, tol, matrix.completion, verbose, R.code.only)
           })
 
           
@@ -3642,7 +3642,7 @@ setMethod("qpPAC", signature(X="matrix"),
 
             if (is.null(colnames(X))) 
               colnames(X) <- 1:ncol(X)
-            qpgraph:::.qpPAC(X, g, return.K, tol, matrix.completion, verbose, R.code.only)
+            .qpPAC(X, g, return.K, tol, matrix.completion, verbose, R.code.only)
           })
 
 .qpPAC <- function(X, g, return.K=FALSE, tol=0.001, matrix.completion=c("HTF", "IPF"),
@@ -3694,7 +3694,7 @@ setMethod("qpPAC", signature(X="matrix"),
   ## estimate partial correlation coefficients and their standard errors
 
   K <- solve(Shat)
-  SE <- qpgraph:::.qpEdgePACSE(Shat, A, R.code.only=R.code.only)
+  SE <- .qpEdgePACSE(Shat, A, R.code.only=R.code.only)
 
   ## return matrices of partial correlations, standard errors
   ## and p-values for every edge
@@ -3736,7 +3736,7 @@ setGeneric("qpPCC", function(X, ...) standardGeneric("qpPCC"))
 setMethod("qpPCC", signature(X="ExpressionSet"),
           function(X) {
             X <- t(Biobase::exprs(X))
-            qpgraph:::.qpPCC(X)
+            .qpPCC(X)
           })
 
 # X comes as a data frame
@@ -3751,7 +3751,7 @@ setMethod("qpPCC", signature(X="data.frame"),
               X <- t(X)
             if (is.null(colnames(X)))
               colnames(X) <- 1:ncol(X)
-            qpgraph:::.qpPCC(X)
+            .qpPCC(X)
           })
 
           
@@ -3764,7 +3764,7 @@ setMethod("qpPCC", signature(X="matrix"),
 
             if (is.null(colnames(X))) 
               colnames(X) <- 1:ncol(X)
-            qpgraph:::.qpPCC(X)
+            .qpPCC(X)
           })
 
 .qpPCC <- function(X) {
@@ -4081,11 +4081,11 @@ setMethod("qpFunctionalCoherence",
           signature(object="matrix"),
           function(object, TFgenes, geneUniverse=rownames(object), chip, minRMsize=5, removeGOterm="transcription", verbose=FALSE, clusterSize=1) {
 
-  if (!qpgraph:::.qpIsPackageLoaded("GOstats"))
+  if (!.qpIsPackageLoaded("GOstats"))
     stop("qpFunctionalCoherence() requires first loading Bioconductor package GOstats")
 
   if (clusterSize > 1 &&
-      (!qpgraph:::.qpIsPackageLoaded("rlecuyer") || !qpgraph:::.qpIsPackageLoaded("snow")))
+      (!.qpIsPackageLoaded("rlecuyer") || !.qpIsPackageLoaded("snow")))
     stop("Using a cluster (clusterSize > 1) requires first loading packages 'snow' and 'rlecuyer'\n")
 
   if (is.null(colnames(object)) || is.null(rownames(object)))
@@ -4110,7 +4110,7 @@ setMethod("qpFunctionalCoherence",
   txRegNet <- lapply(TFgenes_i, function(x) geneUniverse[object[as.integer(x), ]])
   names(txRegNet) <- TFgenes
 
-  return(qpgraph:::.qpFunctionalCoherence(txRegNet, geneUniverse, chip, minRMsize, removeGOterm, verbose, clusterSize))
+  return(.qpFunctionalCoherence(txRegNet, geneUniverse, chip, minRMsize, removeGOterm, verbose, clusterSize))
 })
 
 ## the input object is a list of regulatory modules
@@ -4120,7 +4120,7 @@ setMethod("qpFunctionalCoherence",
                    chip, minRMsize=5, removeGOterm="transcription", verbose=FALSE, clusterSize=1) {
 
   if (clusterSize > 1 &&
-      (!qpgraph:::.qpIsPackageLoaded("rlecuyer") || !qpgraph:::.qpIsPackageLoaded("snow")))
+      (!.qpIsPackageLoaded("rlecuyer") || !.qpIsPackageLoaded("snow")))
     stop("Using a cluster (clusterSize > 1) requires first loading packages 'snow' and 'rlecuyer'\n")
 
   TFgenes <- names(object)
@@ -4131,7 +4131,7 @@ setMethod("qpFunctionalCoherence",
   if (sum(is.na(match(TFgenes, geneUniverse))) > 0)
     stop("TFgenes is not a subset from the genes comprising the gene universe\n")
 
-  return(qpgraph:::.qpFunctionalCoherence(object, geneUniverse, chip, minRMsize, removeGOterm, verbose, clusterSize))
+  return(.qpFunctionalCoherence(object, geneUniverse, chip, minRMsize, removeGOterm, verbose, clusterSize))
 })
 
 .qpFunctionalCoherence <- function(txRegNet, geneUniverse, chip, minRMsize, removeGOterm, verbose, clusterSize) {
@@ -4143,7 +4143,7 @@ setMethod("qpFunctionalCoherence",
   simui <- get("simUI", mode="function")
   sigcat <- get("sigCategories", mode="function")
 
-  geneBPuniverse <- qpgraph:::.qpFilterByGO(geneUniverse, chip, "BP")
+  geneBPuniverse <- .qpFilterByGO(geneUniverse, chip, "BP")
 
   if (sum(regModuleSize >= minRMsize) == 0)
     stop(sprintf("qpFunctionalCoherence: No regulatory module has a minimum size of %d\n", minRMsize))
@@ -4182,7 +4182,7 @@ setMethod("qpFunctionalCoherence",
     }
     txRegNetGO <- clParLapply(cl, txRegNet[TFgenes[regModuleSize >= minRMsize]],
                               function(TFgeneTGs, geneBPuniverse, chip) {
-                                TFgeneTGsWithGO <- qpgraph:::.qpFilterByGO(TFgeneTGs, chip, "BP")
+                                TFgeneTGsWithGO <- .qpFilterByGO(TFgeneTGs, chip, "BP")
                                 res <- list(TGgenesWithGO=TFgeneTGsWithGO,
                                             goBPcondResult=NULL,
                                             goBPcondResultSigCat=NULL)
@@ -4209,7 +4209,7 @@ setMethod("qpFunctionalCoherence",
       if (verbose)
         cat(".")
       TFgeneTGs <- txRegNet[[TFgene]]
-      TFgeneTGsWithGO <- qpgraph:::.qpFilterByGO(TFgeneTGs, chip, "BP")
+      TFgeneTGsWithGO <- .qpFilterByGO(TFgeneTGs, chip, "BP")
 
       txRegNetGO[[TFgene]] <- list(TGgenesWithGO=TFgeneTGsWithGO,
                                    goBPcondResult=NULL,
@@ -4233,7 +4233,7 @@ setMethod("qpFunctionalCoherence",
     cat(sprintf("\nqpFunctionalCoherence: calculating functional coherence in %d regulatory modules\n",
         length(names(txRegNetGO))))
 
-  TFgenesWithGO <- qpgraph:::.qpFilterByGO(TFgenes, chip, "BP")
+  TFgenesWithGO <- .qpFilterByGO(TFgenes, chip, "BP")
   TFgenesWithGO <- AnnotationDbi::mget(TFgenesWithGO, get(gsub(".db","GO",chip)))
   TFgenesWithGO <- lapply(TFgenesWithGO,
                           function(x) if (is.list(x)) {
@@ -4299,7 +4299,7 @@ setMethod("qpFunctionalCoherence",
               gTG <- goGraph(txRegNetGO[[TFgene]]$goBPcondResultSigCat, goBPparentsEnv)
             else { ## there's just one gene as target
               TGgene <- txRegNetGO[[TFgene]]$TGgenesWithGO
-              if (length(qpgraph:::.qpFilterByGO(TGgene, chip, "BP")) > 0) {
+              if (length(.qpFilterByGO(TGgene, chip, "BP")) > 0) {
                 TGgeneWithGO <- AnnotationDbi::mget(TGgene, get(gsub(".db","GO",chip)))
                 TGgeneWithGO <- lapply(TGgeneWithGO,
                                         function(x) if (is.list(x)) {
@@ -4846,7 +4846,7 @@ qpPlotMap <- function(p.valueMatrix, markerPos, genePos, chrLen,
 
   if (!R.code.only) {
     ## this should change so that the entire algorithm deals with *Matrix classes from the Matrix package
-    return(qpgraph:::.qpFastPACSE(as(S, "matrix"), as(A, "matrix")));
+    return(.qpFastPACSE(as(S, "matrix"), as(A, "matrix")));
   }
 
   A <- as(A, "matrix") ## idem
@@ -4904,7 +4904,7 @@ qpPlotMap <- function(p.valueMatrix, markerPos, genePos, chrLen,
 
   V <- Vn
   for(i in firstclq:length(clqlst)) {
-    V <- qpgraph:::.qpIPFstep(Vf, V, i, clqlst)
+    V <- .qpIPFstep(Vf, V, i, clqlst)
   }
 
   return(V)
@@ -4952,7 +4952,7 @@ qpPlotMap <- function(p.valueMatrix, markerPos, genePos, chrLen,
   ontologyType <- match.arg(ontologyType)
 
   if (length(entrezGeneIds) == 0)
-    stop("qpgraph:::.qpFilterByGO: no input Entrez gene identifiers\n")
+    stop(".qpFilterByGO: no input Entrez gene identifiers\n")
 
   haveGo <- sapply(AnnotationDbi::mget(entrezGeneIds,
                                        annotate::getAnnMap(map="GO", chip=chip, type="db"),
@@ -5170,7 +5170,7 @@ clPrCall <- function(cl, fun, n.adj, ...) {
   ssdx <- NULL
   if (!is.null(ssd)) {
     if (class(ssd) != "SsdMatrix")
-      stop("qpgraph:::.qpFastEdgeNrrHMGM: the ssd argument should be an object of class SsdMatrix\n")
+      stop(".qpFastEdgeNrrHMGM: the ssd argument should be an object of class SsdMatrix\n")
     ssdx <- ssd@ssd@x
   }
 
@@ -5188,7 +5188,7 @@ clPrCall <- function(cl, fun, n.adj, ...) {
   ssdx <- NULL
   if (!is.null(ssd)) {
     if (class(ssd) != "SsdMatrix")
-      stop("qpgraph:::.qpFastEdgeNrrHMGM: the ssd argument should be an object of class SsdMatrix\n")
+      stop(".qpFastEdgeNrrHMGM: the ssd argument should be an object of class SsdMatrix\n")
     ssdx <- ssd@ssd@x
   }
 

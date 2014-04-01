@@ -1,3 +1,22 @@
+CHANGES IN VERSION 1.20
+-----------------------
+
+USER VISIBLE CHANGES
+
+    o Functions qpRndHMGM() and qpSampleFromHMGM() which were defunct in the previous release, are now removed from the package.
+
+    o The execution of function qpGetCliques() can be now interrupted with CTRL+C and should allow to process GUI events.
+
+    o Function qpBoundary() with argument logscale.bdsize=TRUE now handles plotting of boundaries of size 0 by setting them to 1 (=log(1)=0) for plotting purposes only.
+
+NEW FEATURES
+
+    o Function qpCItest() when assuming a mixed GMM returns the fraction of variance explained (partial eta-squared) as estimate. See manual page for further details.
+
+BUG FIXES
+
+    o Several bugfixes related to the simulation of mixed GMMs and eQTL networks.
+
 CHANGES IN VERSION 1.18
 -----------------------
 

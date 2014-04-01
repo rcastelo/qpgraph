@@ -783,7 +783,7 @@ sim.cross.eQTLcross <- function(map, model, n.ind=100, ...) {
             I <- model@model$I
             Y <- model@model$Y
             stopifnot(identical(I, colnames(cross$qtlgeno)))
-            cross$pheno <- qpgraph:::calculateCondMean(model@model, cross$qtlgeno) 
+            cross$pheno <- .calculateCondMean(model@model, cross$qtlgeno) 
             rownames(cross$pheno) <- 1:n.ind
             colnames(cross$pheno) <- Y
             cross$pheno <- as.data.frame(cross$pheno)

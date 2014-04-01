@@ -156,7 +156,7 @@ setMethod("rgraphBAM", signature(n="integer", param="dRegularGraphParam"),
 
             sim <- list()
             for (i in 1:n) {
-              g <- qpgraph:::qpRndRegularGraph(p, d, labels, exclude, verbose, return.type="graphBAM", R.code.only)
+              g <- .qpRndRegularGraph(p, d, labels, exclude, verbose, return.type="graphBAM", R.code.only)
               if (is(param, "markedGraphParam")) {
                 nodeDataDefaults(g, "type") <- "continuous"
                 nodeData(g, param@Ilabels, "type") <- "discrete"

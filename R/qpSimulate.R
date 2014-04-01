@@ -54,7 +54,7 @@ qpRndGraph <- function(p=6, d=2, labels=1:p, exclude=NULL, verbose=FALSE,
   G <- matrix(FALSE, nrow=p, ncol=p)
 
   if (!R.code.only) {
-    G <- qpgraph:::.qpFastRndGraph(p, d, exclude, verbose)
+    G <- .qpFastRndGraph(p, d, exclude, verbose)
   } else {
 
     if (verbose)
@@ -123,8 +123,8 @@ qpRndGraph <- function(p=6, d=2, labels=1:p, exclude=NULL, verbose=FALSE,
 }
 
 
-qpRndRegularGraph <- function(p=6, d=2, labels=1:p, exclude=NULL, verbose=FALSE,
-                              return.type=c("adjacency.matrix", "edge.list", "graphBAM", "graphNEL"), R.code.only=FALSE) {
+.qpRndRegularGraph <- function(p=6, d=2, labels=1:p, exclude=NULL, verbose=FALSE,
+                               return.type=c("adjacency.matrix", "edge.list", "graphBAM", "graphNEL"), R.code.only=FALSE) {
   return.type <- match.arg(return.type)
 
   if ((p*d) %% 2 != 0)
@@ -145,7 +145,7 @@ qpRndRegularGraph <- function(p=6, d=2, labels=1:p, exclude=NULL, verbose=FALSE,
   G <- matrix(FALSE, nrow=p, ncol=p)
 
   if (!R.code.only) {
-    G <- qpgraph:::.qpFastRndGraph(p, d, exclude, verbose)
+    G <- .qpFastRndGraph(p, d, exclude, verbose)
   } else {
 
     if (verbose)

@@ -221,6 +221,13 @@ static int unweighted_clique_search_single(int *table, int min_size,
 			clique_size[v]=clique_size[w];
 		}
 
+    R_CheckUserInterrupt();
+#ifdef Win32
+    R_ProcessEvents();
+#endif
+#ifdef HAVE_AQUA
+    R_ProcessEvents();
+#endif
 #ifndef _WIN32
 		if (opts && opts->time_function) {
 			gettimeofday(&timeval,NULL);
@@ -445,6 +452,13 @@ j=-1;
 while ((j=set_return_next(current_clique,j)) >= 0)
   Rprintf("%d ",j);
 Rprintf("}\n");
+#endif
+    R_CheckUserInterrupt();
+#ifdef Win32
+    R_ProcessEvents();
+#endif
+#ifdef HAVE_AQUA
+    R_ProcessEvents();
 #endif
 #ifndef _WIN32
 		if (opts->time_function) {

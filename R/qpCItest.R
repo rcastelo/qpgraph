@@ -3,7 +3,7 @@
 ##                   graphical models and deal with microarray and genetic data in order
 ##                   to build network models of molecular regulation
 ##
-## Copyright (c) 2008-2013 R. Castelo and A. Roverato, with contributions from Inma Tur.
+## Copyright (c) 2008-2014 R. Castelo and A. Roverato, with contributions from Inma Tur.
 ## This package is open source and free software; you can redistribute it and/or
 ## modify it under the terms of the Artistic License 2.0
 ## as published at http://www.r-project.org/Licenses/Artistic-2.0
@@ -247,7 +247,7 @@ setMethod("qpCItest", signature(X="smlSet"),
 
             if (is.null(I)) {
               S <- qpCov(Xsub)
-              rval <- qpgraph:::.qpCItest(S, i, j, Q, R.code.only)
+              rval <- .qpCItest(S, i, j, Q, R.code.only)
             } else {
               if (any(nLevels[I] == 1))
                 stop(sprintf("Discrete variable %s has only one level", colnames(Xsub)[I[nLevels[I]==1]]))
@@ -260,7 +260,7 @@ setMethod("qpCItest", signature(X="smlSet"),
                 names(mapX2ssd) <- colnames(Xsub)
               }
 
-              rval <- qpgraph:::.qpCItestHMGM(Xsub, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
+              rval <- .qpCItestHMGM(Xsub, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
                                               exact.test, use, tol, R.code.only)
               if (is.nan(rval$statistic))
                 warning(paste(sprintf("CI test unavailable for i=%s, j=%s and Q={",
@@ -405,7 +405,7 @@ setMethod("qpCItest", signature(X="ExpressionSet"),
 
             if (is.null(I)) {
               S <- qpCov(Xsub)
-              rval <- qpgraph:::.qpCItest(S, i, j, Q, R.code.only)
+              rval <- .qpCItest(S, i, j, Q, R.code.only)
             } else {
               missingData <- any(missingMask)
               ssd <- mapX2ssd <- NULL
@@ -420,7 +420,7 @@ setMethod("qpCItest", signature(X="ExpressionSet"),
               if (any(nLevels[I] == 1))
                 stop(sprintf("Discrete variable %s has only one level", colnames(Xsub)[I[nLevels[I]==1]]))
 
-              rval <- qpgraph:::.qpCItestHMGM(Xsub, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
+              rval <- .qpCItestHMGM(Xsub, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
                                               exact.test, use, tol, R.code.only)
               if (is.nan(rval$statistic))
                 warning(paste(sprintf("CI test unavailable for i=%s, j=%s and Q={",
@@ -637,7 +637,7 @@ setMethod("qpCItest", signature(X="cross"),
 
             if (is.null(I)) {
               S <- qpCov(Xsub)
-              rval <- qpgraph:::.qpCItest(S, i, j, Q, R.code.only)
+              rval <- .qpCItest(S, i, j, Q, R.code.only)
             } else {
               if (any(nLevels[I] == 1))
                 stop(sprintf("Discrete variable %s has only one level", colnames(Xsub)[I[nLevels[I]==1]]))
@@ -650,7 +650,7 @@ setMethod("qpCItest", signature(X="cross"),
                 names(mapX2ssd) <- colnames(Xsub)
               }
 
-              rval <- qpgraph:::.qpCItestHMGM(Xsub, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
+              rval <- .qpCItestHMGM(Xsub, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
                                               exact.test, use, tol, R.code.only)
               if (is.nan(rval$statistic))
                 warning(paste(sprintf("CI test unavailable for i=%s, j=%s and Q={",
@@ -727,7 +727,7 @@ setMethod("qpCItest", signature(X="data.frame"),
               S <- qpCov(X)
               n <- nrow(X)
 
-              rval <- qpgraph:::.qpCItest(S, i, j, Q, R.code.only)
+              rval <- .qpCItest(S, i, j, Q, R.code.only)
             } else {
               if (!is.character(I) && !is.numeric(I) && !is.integer(I))
                 stop("I should be either variables names or indices\n")
@@ -758,7 +758,7 @@ setMethod("qpCItest", signature(X="data.frame"),
                 names(mapX2ssd) <- colnames(X)
               }
 
-              rval <- qpgraph:::.qpCItestHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
+              rval <- .qpCItestHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
                                               exact.test, use, tol, R.code.only)
               if (is.nan(rval$statistic))
                 warning(paste(sprintf("CI test unavailable for i=%s, j=%s and Q={",
@@ -838,7 +838,7 @@ setMethod("qpCItest", signature(X="matrix"),
               S <- qpCov(X)
               n <- nrow(X)
 
-              rval <- qpgraph:::.qpCItest(S, i, j, Q, R.code.only)
+              rval <- .qpCItest(S, i, j, Q, R.code.only)
             } else {
               if (!is.character(I) && !is.numeric(I) && !is.integer(I))
                 stop("argument I should contain either variables names or indices\n")
@@ -871,7 +871,7 @@ setMethod("qpCItest", signature(X="matrix"),
                 mapX2ssd[Y] <- 1:length(Y)
               }
 
-              rval <- qpgraph:::.qpCItestHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
+              rval <- .qpCItestHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
                                               exact.test, use, tol, R.code.only)
               if (is.nan(rval$statistic))
                 warning(paste(sprintf("CI test unavailable for i=%s, j=%s and Q={",
@@ -939,7 +939,7 @@ setMethod("qpCItest", signature(X="SsdMatrix"),
             if (is.null(rownames(X)))
               rownames(X) <- colnames(X)
 
-            rval <- qpgraph:::.qpCItest(X, i, j, Q, R.code.only)
+            rval <- .qpCItest(X, i, j, Q, R.code.only)
 
             class(rval) <- "htest" ## this is kind of redundant but otherwise
                                    ## the object returned by the C function does
@@ -951,7 +951,7 @@ setMethod("qpCItest", signature(X="SsdMatrix"),
 .qpCItest <- function(S, i=1L, j=2L, Q=c(), R.code.only=FALSE) {
 
   if (class(S) != "SsdMatrix")
-    stop("internal function qpgraph:::.qpCItest() expects an 'SsdMatrix' object as first argument\n");
+    stop("internal function .qpCItest() expects an 'SsdMatrix' object as first argument\n");
 
   p <- (d <- dim(S))[1]
   if (p != d[2] || !isSymmetric(S))
@@ -962,7 +962,7 @@ setMethod("qpCItest", signature(X="SsdMatrix"),
     stop("i, j and Q should contain only integer values when calling .qpCItest()")
 
   if (!R.code.only) {
-    return(qpgraph:::.qpFastCItestStd(S, i, j, Q));
+    return(.qpFastCItestStd(S, i, j, Q));
   }
 
   q       <- length(Q)
@@ -1329,14 +1329,14 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
     if (p != d[2] || !isSymmetric(ssdMat))
       stop("ssdMat is not squared and symmetric. Is it really an ssd matrix?\n")
     if (class(ssdMat) != "SsdMatrix")
-      stop("qpgraph:::.qpCItestHMGM: the ssdMat argument should be an object of class SsdMatrix\n")
+      stop(".qpCItestHMGM: the ssdMat argument should be an object of class SsdMatrix\n")
   }
 
   if (all(!is.na(match(c(i,j), I))))
     stop("i and j cannot be both discrete at the moment")
 
   if (!R.code.only) {
-    return(qpgraph:::.qpFastCItestHMGM(X, I, nLevels, Y, ssdMat, mapX2ssdMat,
+    return(.qpFastCItestHMGM(X, I, nLevels, Y, ssdMat, mapX2ssdMat,
                                        i, j, Q, exact.test, use, tol))
   }
 
@@ -1370,7 +1370,7 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
     if (!missingData && !is.null(ssdMat) && length(I) == 0)
       ssd <- ssdMat[mapX2ssdMat[Y], mapX2ssdMat[Y], drop=FALSE]
     else
-      ssd <- qpgraph:::.ssdStatsCompleteObs(X, I, Y, missingMask)
+      ssd <- .ssdStatsCompleteObs(X, I, Y, missingMask)
     ## cat("ssd:\n")
     ## print(as.matrix(ssd))
 
@@ -1378,12 +1378,12 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
     if (!missingData && !is.null(ssdMat) && length(setdiff(I, i)) == 0)
       ssd_i <- ssdMat[mapX2ssdMat[setdiff(Y, i)], mapX2ssdMat[setdiff(Y, i)], drop=FALSE]
     else
-      ssd_i <- qpgraph:::.ssdStatsCompleteObs(X, setdiff(I, i), setdiff(Y, i), missingMask)
+      ssd_i <- .ssdStatsCompleteObs(X, setdiff(I, i), setdiff(Y, i), missingMask)
     ## cat("ssd_i:\n")
     ## print(as.matrix(ssd_i))
 
     if (length(setdiff(Y, j)) > 0) {
-      ssd_j <- qpgraph:::.ssdStatsCompleteObs(X, I, setdiff(Y, j), missingMask)
+      ssd_j <- .ssdStatsCompleteObs(X, I, setdiff(Y, j), missingMask)
       ## cat("ssd_j:\n")
       ## print(ssd_j)
       if (length(setdiff(Y, c(i,j))) > 0) {
@@ -1391,7 +1391,7 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
           ssd_ij <- ssdMat[mapX2ssdMat[setdiff(Y, c(i, j))],
                            mapX2ssdMat[setdiff(Y, c(i, j))], drop=FALSE]
         else
-          ssd_ij <- qpgraph:::.ssdStatsCompleteObs(X, setdiff(I, i), setdiff(Y, c(i, j)), missingMask)
+          ssd_ij <- .ssdStatsCompleteObs(X, setdiff(I, i), setdiff(Y, c(i, j)), missingMask)
         ## cat("ssd_j:\n")
         ## print(ssd_ij)
       }
@@ -1411,7 +1411,7 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
     idxCompleteObs <- setdiff(1:n, idxMissingObs)
     mapAllObs2MissingObs <- rep(NA, n)
     mapAllObs2MissingObs[idxMissingObs] <- 1:length(idxMissingObs)
-    ssdMats <- qpgraph:::.ssdStatsEM(X, idxCompleteObs, idxMissingObs, mapAllObs2MissingObs,
+    ssdMats <- .ssdStatsEM(X, idxCompleteObs, idxMissingObs, mapAllObs2MissingObs,
                                        I, mapX2I, nLevels, Y, mapX2Y, i, j, Q, tol)
     ssd <- as.matrix(ssdMats$ssd)
     ssd_i <- as.matrix(ssdMats$ssd_i)
@@ -1528,7 +1528,7 @@ setMethod("qpAllCItests", signature(X="matrix"),
               stop("Using a cluster (clusterSize > 1) only works with R.code.only=FALSE\n")
 
             if (clusterSize > 1 &&
-               (!qpgraph:::.qpIsPackageInstalled("snow") || !qpgraph:::.qpIsPackageInstalled("Rmpi")))
+               (!.qpIsPackageInstalled("snow") || !.qpIsPackageInstalled("Rmpi")))
               stop("Using a cluster (clusterSize > 1) requires first installing packages 'snow' and 'Rmpi'\n")
 
             if (long.dim.are.variables &&
@@ -1538,7 +1538,7 @@ setMethod("qpAllCItests", signature(X="matrix"),
             if (is.null(colnames(X))) 
               colnames(X) <- 1:ncol(X)
 
-            qpgraph:::.qpAllCItests(X, I, Q, pairup.i, pairup.j,
+            .qpAllCItests(X, I, Q, pairup.i, pairup.j,
                                     exact.test, use, tol, return.type,
                                     verbose, R.code.only, clusterSize,
                                     startTime, nAdj2estimateTime)
@@ -1700,7 +1700,7 @@ setMethod("qpAllCItests", signature(X="matrix"),
 
     if (is.null(cl)) { ## single-processor execution
 
-      cit <- qpgraph:::.qpFastAllCItests(X, I, Y, Q, pairup.i.noint,
+      cit <- .qpFastAllCItests(X, I, Y, Q, pairup.i.noint,
                                          pairup.j.noint, pairup.ij.int,
                                          exact.test, use, tol, return.type, verbose,
                                          startTime["elapsed"], nAdj2estimateTime)
@@ -1723,11 +1723,11 @@ setMethod("qpAllCItests", signature(X="matrix"),
       ## clCall <- get("clusterCall", mode="function")
       valIdx <- list()
       if (verbose && startTime["elapsed"] == 0) { ## no cluster progress-call when only estimating time
-        valIdx <- clPrCall(cl, qpgraph:::.qpFastAllCItestsPar, n.adj, X, I, Y, Q,
+        valIdx <- clPrCall(cl, .qpFastAllCItestsPar, n.adj, X, I, Y, Q,
                            pairup.i.noint, pairup.j.noint, pairup.ij.int,
                            exact.test, use, tol, return.type, verbose, FALSE, nAdj2estimateTime)
       } else {
-        valIdx <- parallel::clusterCall(cl, qpgraph:::.qpFastAllCItestsPar, X, I, Y, Q,
+        valIdx <- parallel::clusterCall(cl, .qpFastAllCItestsPar, X, I, Y, Q,
                                         pairup.i.noint, pairup.j.noint, pairup.ij.int,
                                         exact.test, use, tol, return.type, verbose, startTime["elapsed"] > 0,
                                         nAdj2estimateTime)
@@ -1830,9 +1830,9 @@ setMethod("qpAllCItests", signature(X="matrix"),
       if (is.null(I)) {
         Xsub <- X[, c(i, j, Q), drop=FALSE]
         S <- qpCov(Xsub)
-        cit <- qpgraph:::.qpCItest(S, 1L, 2L, 2L+seq(along=Q), R.code.only=TRUE)
+        cit <- .qpCItest(S, 1L, 2L, 2L+seq(along=Q), R.code.only=TRUE)
       } else
-        cit <- qpgraph:::.qpCItestHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
+        cit <- .qpCItestHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
                                        exact.test, use, tol, R.code.only=TRUE)
 
       if (return.type == "all" || return.type == "p.value")
@@ -1863,9 +1863,9 @@ setMethod("qpAllCItests", signature(X="matrix"),
         if (is.null(I)) {
           Xsub <- X[, c(i, j, Q), drop=FALSE]
           S <- qpCov(Xsub)
-          cit <- qpgraph:::.qpCItest(S, 1L, 2L, 2L+seq(along=Q), R.code.only=TRUE)
+          cit <- .qpCItest(S, 1L, 2L, 2L+seq(along=Q), R.code.only=TRUE)
         } else
-          cit <- qpgraph:::.qpCItestHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
+          cit <- .qpCItestHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i, j, Q,
                                          exact.test, use, tol, R.code.only=TRUE)
 
         if (return.type == "all" || return.type == "p.value")
@@ -1900,9 +1900,9 @@ setMethod("qpAllCItests", signature(X="matrix"),
         if (is.null(I)) {
           Xsub <- X[, c(i, j, Q), drop=FALSE]
           S <- qpCov(Xsub)
-          cit <- qpgraph:::.qpCItest(S, 1L, 2L, 2L+seq(along=Q), R.code.only=TRUE)
+          cit <- .qpCItest(S, 1L, 2L, 2L+seq(along=Q), R.code.only=TRUE)
         } else
-          cit <- qpgraph:::.qpCItestHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i2, j2, Q,
+          cit <- .qpCItestHMGM(X, I, nLevels, Y, ssd, mapX2ssd, i2, j2, Q,
                                          exact.test, use, tol, R.code.only=TRUE)
 
         if (return.type == "all" || return.type == "p.value")
@@ -1964,7 +1964,7 @@ setMethod("qpAllCItests", signature(X="matrix"),
   x <- NULL
   if (!is.null(ssd)) {
     if (class(ssd) != "SsdMatrix")
-      stop("qpgraph:::.qpFastCItestHMGM: the ssd argument should be an object of class SsdMatrix\n")
+      stop(".qpFastCItestHMGM: the ssd argument should be an object of class SsdMatrix\n")
     x <- ssd@ssd@x
   }
 
