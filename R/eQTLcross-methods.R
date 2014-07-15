@@ -113,9 +113,10 @@ setMethod("eQTLcross", signature(map="map", genes="matrix", model="graphBAM"),
 
               ## additive effects per gene are the sum of additive effects from each eQTL
               a <- do.call("names<-", list(rep(0, length(cVertexLabels)), cVertexLabels))
-              a[maskpositivedeg] <- sapply(cVertexLabels[maskpositivedeg],
-                                           function(v) sum(unlist(edgeData(model, to=v, attr="a"), use.names=FALSE),
-                                                           na.rm=TRUE))
+              if (any(maskpositivedeg))
+                a[maskpositivedeg] <- sapply(cVertexLabels[maskpositivedeg],
+                                             function(v) sum(unlist(edgeData(model, to=v, attr="a"), use.names=FALSE),
+                                                             na.rm=TRUE))
 
               if (is.null(rownames(sigma)) || is.null(colnames(sigma)))
                 rownames(sigma) <- colnames(sigma) <- cVertexLabels
@@ -420,7 +421,7 @@ setMethod("plot", signature(x="eQTLcross"),
               names(qtlRelPos) <- rownames(qtl)
 
               plot(qtlRelPos[eqtl[, "QTL"]], geneRelPos[eqtl[, "gene"]], pch=".",
-                   xlab=xlab, ylab=ylab, cex=4, axes=FALSE, ...)
+                   xlim=c(0, 1), ylim=c(0, 1), xlab=xlab, ylab=ylab, cex=4, axes=FALSE, ...)
               segments(c(chrRelCumLen, 1), 0, c(chrRelCumLen, 1), 1, col=gray(0.75), lty="dotted", lwd=2)
               segments(0, c(chrRelCumLen, 1), 1, c(chrRelCumLen, 1), col=gray(0.75), lty="dotted", lwd=2)
               axis(1, at=(chrRelCumLen + c(chrRelCumLen[-1], 1))/2,
@@ -768,36 +769,41 @@ setMethod("sim.cross", c(map="map", model="matrix"), sim.cross.matrix)
 
 sim.cross.eQTLcross <- function(map, model, n.ind=100, ...) {
 
-            eQTLs <- alleQTL(model)[, c("chrom", "location")]
-            crossModel <- unique(eQTLs)
+  eQTLs <- alleQTL(model)[, c("chrom", "location")]
 
-            if (is.null(model@model@a) ||
-                (all(model@model$sigma[upper.tri(model@model$sigma)] == 0) && graph::numEdges(model$g) - nrow(eQTLs) > 0))
+  if (nrow(eQTLs) == 0)
+    stop("Input eQTL model has no eQTLs. Please add at least one with addeQTL().")
+
+  crossModel <- unique(eQTLs)
+
+  if (is.null(model@model@a) ||
+    (all(model@model$sigma[upper.tri(model@model$sigma)] == 0) && graph::numEdges(model$g) - nrow(eQTLs) > 0))
               stop("Parameters for the input 'eQTLcross' model have not been simulated. Please simulated them running 'reQTLcross()' with this 'eQTLcross' model as input argument.")
 
-            crossModel <- cbind(crossModel, dummya=rep(1, nrow(crossModel)))
-            cross <- qtl::sim.cross(map=map, model=crossModel, type=model$type, n.ind=n.ind, ...)
+  crossModel <- cbind(crossModel, dummya=rep(1, nrow(crossModel)))
+  cross <- qtl::sim.cross(map=map, model=crossModel, type=model$type, n.ind=n.ind, ...)
 
-            ## we use the same data matrix X to store the mean values employed
-            ## during the simulation process.
-            I <- model@model$I
-            Y <- model@model$Y
-            stopifnot(identical(I, colnames(cross$qtlgeno)))
-            cross$pheno <- .calculateCondMean(model@model, cross$qtlgeno) 
-            rownames(cross$pheno) <- 1:n.ind
-            colnames(cross$pheno) <- Y
-            cross$pheno <- as.data.frame(cross$pheno)
+  ## we use the same data matrix X to store the mean values employed
+  ## during the simulation process.
+  I <- model@model$I
+  Y <- model@model$Y
+  stopifnot(identical(I, as.character(colnames(cross$qtlgeno)))) ## coercion for NULL cases
+  cross$pheno <- .calculateCondMean(model@model, cross$qtlgeno) 
+  rownames(cross$pheno) <- 1:n.ind
+  colnames(cross$pheno) <- Y
+  cross$pheno <- as.data.frame(cross$pheno)
 
-            YxI <- Y[which(sapply(graph::edges(model@model$g)[Y], function(xYi, vt) sum(vt[xYi] == "discrete"), model@model@vtype) > 0)]
-            xtab <- tapply(1:n.ind, apply(cross$pheno[, YxI, drop=FALSE], 1, function(i) paste(i, collapse="")))
-            xtab <- split(as.data.frame(cross$qtlgeno[, I]), xtab)
-            for (i in 1:length(xtab)) {
-              li <- xtab[[i]]
-              which_n <- as.numeric(rownames(li))
-              cross$pheno[which_n, Y] <- mvtnorm::rmvnorm(length(which_n), mean=as.numeric(cross$pheno[which_n[1], Y]),
-                                                          sigma=as.matrix(model@model$sigma))
-            }
+  YxI <- Y[which(sapply(graph::edges(model@model$g)[Y], function(xYi, vt) sum(vt[xYi] == "discrete"), model@model@vtype) > 0)]
+  xtab <- tapply(1:n.ind, apply(cross$pheno[, YxI, drop=FALSE], 1, function(i) paste(i, collapse="")))
+  xtab <- split(as.data.frame(cross$qtlgeno[, I]), xtab)
+  for (i in 1:length(xtab)) {
+    li <- xtab[[i]]
+    which_n <- as.numeric(rownames(li))
+    cross$pheno[which_n, Y] <- mvtnorm::rmvnorm(length(which_n), mean=as.numeric(cross$pheno[which_n[1], Y]),
+                                                sigma=as.matrix(model@model$sigma))
+  }
 
-            cross
-          }
+  cross
+}
+
 setMethod("sim.cross", signature(map="map", model="eQTLcross"), sim.cross.eQTLcross)
