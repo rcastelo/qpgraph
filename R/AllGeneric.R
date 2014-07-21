@@ -1,3 +1,4 @@
+setGeneric("qpGraph", function(nrrMatrix, ...) standardGeneric("qpGraph"))
 setGeneric("rgraphBAM", function(n, param, ...) standardGeneric("rgraphBAM"))
 setGeneric("UGgmm", function(g, ...) standardGeneric("UGgmm"))
 setGeneric("HMgmm", function(g, ...) standardGeneric("HMgmm"))

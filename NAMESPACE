@@ -60,7 +60,9 @@ exportClasses("SsdMatrix",
               "UGgmm",
               "HMgmm",
               "eQTLcross",
-              "eQTLcrossParam")
+              "eQTLcrossParam",
+              "eQTLnetworkEstimationParam",
+              "qpGraph")
 
 S3method(rmvnorm, UGgmm)
 S3method(rmvnorm, numeric)
@@ -70,6 +72,7 @@ S3method(sim.cross, matrix)
 exportMethods("qpNrr",
               "qpAvgNrr",
               "qpGenNrr",
+              "qpGraph",
               "qpPAC",
               "qpPCC",
               "qpCItest",
@@ -105,7 +108,6 @@ export(qpHist,
        qpCliqueNumber,
        qpClique,
        qpBoundary,
-       qpGraph,
        qpAnyGraph,
        qpGetCliques,
        qpUpdateCliquesRemoving,

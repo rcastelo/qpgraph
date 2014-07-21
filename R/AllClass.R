@@ -129,6 +129,8 @@ setOldClass("map")
 ## class eQTLcrossParam to hold parameters to simulate eQTLcross objects
 setClass("eQTLcrossParam",
          representation(map="map",
+                        geneticMap="map",
+                        physicalMap="map",
                         type="character",
                         cis="numeric",
                         trans="integer",
@@ -141,10 +143,28 @@ setClass("eQTLcrossParam",
 ## quantitative trait loci (eQTL) and some underlying regulatory network between genes
 setClass("eQTLcross",
          representation(map="map",
+                        geneticMap="map",
+                        physicalMap="map",
                         genes="matrix",
                         model="HMgmm",
                         type="character"))
 
+setClass("eQTLnetworkEstimationParam",
+         representation(geneticMap="map",
+                        physicalMap="map",
+                        geneAnnotation="matrix",
+                        nullHypothesis="character",
+                        adjustMethod="character",
+                        pValueCutoff="numeric",
+                        qOrders="integer"))
+
+setClass("qpGraph",
+         representation(p="integer",
+                        n="integer",
+                        q="integer",
+                        nrrMatrix="dspMatrix",
+                        nrrCutoff="numeric",
+                        g="graphBAM"))
 
 ## class SsdMatrix to store matrices with sum of squares of deviations (ssd)
 ## these are dspMatrix objects with an additional slot 'n' indicating the

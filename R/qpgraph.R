@@ -2605,9 +2605,11 @@ qpHist <- function(nrrMatrix, A=NULL,
 ##                           a graphAM object or a graphBAM object
 ## return: adjacency matrix of the qp-graph
 
-qpGraph <- function(nrrMatrix, threshold=NULL, topPairs=NULL, pairup.i=NULL,
+.old_qpGraph <- function(nrrMatrix, threshold=NULL, topPairs=NULL, pairup.i=NULL,
                     pairup.j=NULL, return.type=c("adjacency.matrix", "edge.list",
                     "graphNEL", "graphAM", "graphBAM")) {
+
+  warning("The function call 'qpGraph()' using arguments 'threshold' or 'return.type' is being deprecated and will dissapear in the next release version. Please consult the help page of qpGraph().")
 
   return.type <- match.arg(return.type)
 
