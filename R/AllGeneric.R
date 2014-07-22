@@ -16,3 +16,5 @@ setGeneric("rcmvnorm", function(n, model, ...) standardGeneric("rcmvnorm"))
 
 setGeneric("qpCItest", function(X, ...) standardGeneric("qpCItest"))
 setGeneric("qpNrr", function(X, ...) standardGeneric("qpNrr"))
+setGeneric("qpEdgeNrr", function(X, ...) standardGeneric("qpEdgeNrr"))
+setGeneric("qpEdgeCor", function(X, ...) standardGeneric("qpEdgeCor"))

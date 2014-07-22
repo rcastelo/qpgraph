@@ -257,9 +257,9 @@ setMethod("qpNrr", signature(X="data.frame"),
               colnames(X) <- 1:ncol(X)
 
             .qpNrr(X, q, I, restrict.Q, fix.Q, nTests, alpha,
-                             pairup.i, pairup.j, verbose, identicalQs,
-                             exact.test, use, tol, R.code.only, clusterSize,
-                             startTime, nAdj2estimateTime)
+                   pairup.i, pairup.j, verbose, identicalQs,
+                   exact.test, use, tol, R.code.only, clusterSize,
+                   startTime, nAdj2estimateTime)
           })
 
           
@@ -293,9 +293,9 @@ setMethod("qpNrr", signature(X="matrix"),
               colnames(X) <- 1:ncol(X)
 
             .qpNrr(X, q, I, restrict.Q, fix.Q, nTests, alpha,
-                             pairup.i, pairup.j, verbose, identicalQs,
-                             exact.test, use, tol, R.code.only, clusterSize,
-                             startTime, nAdj2estimateTime)
+                   pairup.i, pairup.j, verbose, identicalQs,
+                   exact.test, use, tol, R.code.only, clusterSize,
+                   startTime, nAdj2estimateTime)
           })
 
 .qpNrr <- function(X, q=1, I=NULL, restrict.Q=NULL, fix.Q=NULL, nTests=100,
@@ -514,14 +514,14 @@ setMethod("qpNrr", signature(X="matrix"),
 
       if (identicalQs && is.null(I))
         nrrMatrix <- .qpFastNrrIdenticalQs(X, q, restrict.Q, fix.Q,
-                                                     nTests, alpha, pairup.i.noint,
-                                                     pairup.j.noint, pairup.ij.int, verbose,
-                                                     startTime["elapsed"], nAdj2estimateTime)
+                                           nTests, alpha, pairup.i.noint,
+                                           pairup.j.noint, pairup.ij.int, verbose,
+                                           startTime["elapsed"], nAdj2estimateTime)
       else
         nrrMatrix <- .qpFastNrr(X, I, Y, q, restrict.Q, fix.Q, nTests, alpha,
-                                          pairup.i.noint, pairup.j.noint,
-                                          pairup.ij.int, exact.test, verbose,
-                                          startTime["elapsed"], nAdj2estimateTime)
+                                pairup.i.noint, pairup.j.noint,
+                                pairup.ij.int, exact.test, verbose,
+                                startTime["elapsed"], nAdj2estimateTime)
 
       if (startTime["elapsed"] == 0)
         nrrMatrix <- new("dspMatrix", Dim=as.integer(c(n.var, n.var)),
@@ -642,7 +642,7 @@ setMethod("qpNrr", signature(X="matrix"),
 
       if (is.null(I))
         nrr <- .qpEdgeNrr(X, S, i, j, q, rQs, fix.Q, nTests,
-                                    alpha, R.code.only=TRUE)
+                          alpha, return.pcor=FALSE, R.code.only=TRUE)
       else {
         if (!is.null(restrict.Q) && is.matrix(restrict.Q))
             rQs <- union(which(restrict.Q[i, ]), which(restrict.Q[j, ]))
@@ -672,7 +672,7 @@ setMethod("qpNrr", signature(X="matrix"),
 
         if (is.null(I))
           nrr <- .qpEdgeNrr(X, S, i, j, q, rQs, fix.Q, nTests,
-                                      alpha, R.code.only=TRUE)
+                            alpha, return.pcor=FALSE, R.code.only=TRUE)
         else {
           if (!is.null(restrict.Q) && is.matrix(restrict.Q))
             rQs <- union(which(restrict.Q[i, ]), which(restrict.Q[j, ]))
@@ -706,7 +706,7 @@ setMethod("qpNrr", signature(X="matrix"),
 
         if (is.null(I))
           nrr <- .qpEdgeNrr(X, S, i2, j2, q, rQs, fix.Q, nTests,
-                                      alpha, R.code.only=TRUE)
+                            alpha, return.pcor=FALSE, R.code.only=TRUE)
         else {
           if (!is.null(restrict.Q) && is.matrix(restrict.Q))
             rQs <- union(which(restrict.Q[i2, ]), which(restrict.Q[j2, ]))
@@ -1726,7 +1726,7 @@ setMethod("qpEdgeNrr", signature(X="smlSet"),
               S <- NULL
 
               .qpEdgeNrr(XEP[, V, drop=FALSE], S, i, j, q, restrict.Q, fix.Q, nTests,
-                                   alpha, R.code.only)
+                         alpha, return.pcor=FALSE, R.code.only)
             } else {
 
               gLevels <- sum(unique(as.vector(as(GGBase::smList(X)[[1]][, 1:min(sByChr[1], 1000)], "matrix"))) > 0)
@@ -1885,7 +1885,7 @@ setMethod("qpEdgeNrr", signature(X="ExpressionSet"),
               S <- NULL
 
               .qpEdgeNrr(X[, V, drop=FALSE], S, i, j, q, restrict.Q, fix.Q, nTests,
-                                   alpha, R.code.only)
+                         alpha, return.pcor=FALSE, R.code.only)
             } else {
               Y <- varNames
               if (is.character(I)) ## isn't it I at this point always integer ?
@@ -1971,7 +1971,7 @@ setMethod("qpEdgeNrr", signature(X="data.frame"),
               S <- NULL
 
               .qpEdgeNrr(X[, V, drop=FALSE], S, i, j, q, restrict.Q, fix.Q, nTests,
-                                   alpha, R.code.only)
+                         alpha, return.pcor=FALSE, R.code.only)
             } else {
               if (!is.character(I) && !is.numeric(I) && !is.integer(I))
                 stop("I should be either variables names or indices\n")
@@ -2057,7 +2057,7 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
               S <- NULL
 
               .qpEdgeNrr(X[, V, drop=FALSE], S, i, j, q, restrict.Q, fix.Q, nTests,
-                                   alpha, R.code.only)
+                         alpha, return.pcor=FALSE, R.code.only)
             } else {
               if (!is.character(I) && !is.numeric(I) && !is.integer(I))
                 stop("I should be either variables names or indices\n")
@@ -2116,14 +2116,84 @@ setMethod("qpEdgeNrr", signature(X="SsdMatrix"),
               rownames(X) <- colnames(X)
 
             param <- .processParameters(varNames, p, p, 0, X@n, i=i, j=j, q=q,
-                                                  restrict.Q=restrict.Q, fix.Q=fix.Q)
+                                        restrict.Q=restrict.Q, fix.Q=fix.Q)
             i <- param$i
             j <- param$j
             restrict.Q <- param$restrict.Q
             fix.Q <- param$fix.Q
 
             .qpEdgeNrr(NULL, X, i, j, q, restrict.Q, fix.Q, nTests,
-                                 alpha, R.code.only)
+                       alpha, return.pcor=FALSE, R.code.only)
+          })
+
+## experimental
+
+setMethod("qpEdgeCor", signature(X="matrix"),
+          function(X, i=1, j=2, q=1, I=NULL, restrict.Q=NULL, fix.Q=NULL,
+                   nTests=100, alpha=0.05, long.dim.are.variables=TRUE,
+                   exact.test=TRUE, use=c("complete.obs", "em"), tol=0.01,
+                   R.code.only=FALSE) {
+
+            use <- match.arg(use)
+
+            if (long.dim.are.variables &&
+              sort(dim(X),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
+              X <- t(X)
+
+            if (is.null(colnames(X))) 
+              colnames(X) <- 1:ncol(X)
+            p <- ncol(X)
+            varNames <- colnames(X)
+
+            n <- nrow(X)
+            if (is.null(I)) {
+              param <- .processParameters(varNames, p, p, 0, n, i=i, j=j, q=q,
+                                                    restrict.Q=restrict.Q, fix.Q=fix.Q)
+              i <- param$i
+              j <- param$j
+              restrict.Q <- param$restrict.Q
+              fix.Q <- param$fix.Q
+
+              V <- 1:p
+              if (!is.null(restrict.Q)) {
+                V <- c(i, j, setdiff(restrict.Q, c(i, j)), fix.Q)
+                i <- 1L
+                j <- 2L
+                restrict.Q <- 2L+seq(along=setdiff(restrict.Q, c(i, j)))
+                fix.Q <- 2L+length(restrict.Q)+seq(along=fix.Q)
+              }
+
+              ## S <- qpCov(X[, V, drop=FALSE]) ## here is faster to calculate S for each margin
+              S <- NULL
+
+              matrix(data=.qpEdgeNrr(X[, V, drop=FALSE], S, i, j, q, restrict.Q, fix.Q, nTests,
+                                     alpha, return.pcor=TRUE, R.code.only),
+                     nrow=nTests, ncol=q+2, dimnames=list(NULL, c("pcor", "pval", paste0("Q", 1:q))))
+            } else
+              stop("'qpEdgeCor()' is not yet implemented for mixed continuous and discrete data.")
+          })
+
+setMethod("qpEdgeCor", signature(X="UGgmm"),
+          function(X, i=1, j=2, q=1, restrict.Q=NULL, fix.Q=NULL,
+                   nTests=100, alpha=0.05, R.code.only=FALSE) {
+
+            p <- gmm$p
+            varNames <- gmm$X
+
+            param <- .processParameters(varNames, p, p, 0, p+1L, i=i, j=j, q=q,
+                                        restrict.Q=restrict.Q, fix.Q=fix.Q)
+            i <- param$i
+            j <- param$j
+            restrict.Q <- param$restrict.Q
+            fix.Q <- param$fix.Q
+
+            if (R.code.only)
+              stop("R.code.only=TRUE is not implemented yet.")
+
+            ssd <- new("SsdMatrix", ssd=as(gmm$sigma, "dspMatrix"), n=NA_real_)
+            matrix(data=.qpEdgeNrr(NULL, ssd, i, j, q, restrict.Q, fix.Q, nTests,
+                                   alpha, return.pcor=TRUE, R.code.only),
+                   nrow=nTests, ncol=q+2, dimnames=list(NULL, c("pcor", "pval", paste0("Q", 1:q))))
           })
 
 ## ph contains the number of profile and phenotypic variables within varNames
@@ -2136,6 +2206,9 @@ setMethod("qpEdgeNrr", signature(X="SsdMatrix"),
 
   if (q < 0)
     stop(paste("q=", q, " < 0"))
+
+  if (q > p-2)
+    stop(paste("q=", q, " > p-2=", p-2))
 
   if (q > n-3)
     stop(paste("q=", q, " > n-3=", n-3))
@@ -2207,14 +2280,15 @@ setMethod("qpEdgeNrr", signature(X="SsdMatrix"),
 
 ## IMPORTANT: .qpEdgeNrr() assumes that .processParameters() has been
 ##            previously called and all arguments related to variables
-##            com as integers
+##            come as integers
 .qpEdgeNrr <- function(X, S, i=1, j=2, q=1, restrict.Q=NULL, fix.Q=NULL,
-                       nTests=100, alpha=0.05, R.code.only=FALSE) {
+                       nTests=100, alpha=0.05, return.pcor=FALSE,
+                       R.code.only=FALSE) {
 
   stopifnot(!is.null(X) || !is.null(S))
 
   if (!R.code.only) { ## assume restrict.Q and fix.Q are coordinately set!!!!
-    return(.qpFastEdgeNrr(X, S, i, j, q, restrict.Q, fix.Q, nTests, alpha));
+    return(.qpFastEdgeNrr(X, S, i, j, q, restrict.Q, fix.Q, nTests, alpha, return.pcor));
   }
 
   Qm <- NA
@@ -2247,7 +2321,7 @@ setMethod("qpEdgeNrr", signature(X="SsdMatrix"),
   for (k in 1:nTests) {
     Q <- c(sample(V, q-q.fix, replace=FALSE), fix.Q)
     if (work.with.margin) {
-      S <- qpgraph::qpCov(X[, c(i, j, Q)], corrected=TRUE)
+      S <- qpCov(X[, c(i, j, Q)], corrected=TRUE)
       cit <- .qpCItest(S, 1L, 2L, Qm, R.code.only=TRUE)
     } else
       cit <- .qpCItest(S, as.integer(i), as.integer(j),
@@ -5151,7 +5225,7 @@ clPrCall <- function(cl, fun, n.adj, ...) {
                                              myMaster, .GlobalEnv))
 }
 
-.qpFastEdgeNrr <- function(X, S, i, j, q, restrict.Q, fix.Q, nTests, alpha) {
+.qpFastEdgeNrr <- function(X, S, i, j, q, restrict.Q, fix.Q, nTests, alpha, return.pcor) {
   Sx <- n <- p <- NULL
   if (!is.null(S)) {
     Sx <- S@ssd@x
@@ -5162,9 +5236,10 @@ clPrCall <- function(cl, fun, n.adj, ...) {
     n <- nrow(X)
   }
 
-  return(.Call("qp_fast_edge_nrr", X, Sx, p, n, as.integer(i), as.integer(j),
-                                  as.integer(q), as.integer(restrict.Q), as.integer(fix.Q),
-                                  as.integer(nTests), as.double(alpha)))
+  return(.Call("qp_fast_edge_nrr", X, Sx, p, as.integer(n), as.integer(i), as.integer(j),
+                                  as.integer(q), as.integer(restrict.Q),
+                                  as.integer(fix.Q), as.integer(nTests),
+                                  as.double(alpha), as.integer(return.pcor)))
 }
 
 .qpFastEdgeNrrHMGM <- function(X, I, nLevels, Y, ssd, mapX2ssd, i, j, q, restrict.Q,

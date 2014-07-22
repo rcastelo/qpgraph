@@ -891,11 +891,6 @@ setMethod("qpCItest", signature(X="matrix"),
 setMethod("qpCItest", signature(X="SsdMatrix"),
           function(X, i=1, j=2, Q=c(), R.code.only=FALSE) {
 
-            use <- match.arg(use)
-
-            if (!is.double(X))
-              stop("X should be double-precision real numbers\n")
-
             if (is.null(colnames(X)))
               colnames(X) <- 1:ncol(X)
 
@@ -926,13 +921,6 @@ setMethod("qpCItest", signature(X="SsdMatrix"),
             }
             Q <- as.integer(Q)
             names(Q) <- nam_Q
-
-            if (is.character(I)) {
-              if (any(is.na(match(I, colnames(X)))))
-                stop(sprintf("%s in I does not form part of the variable names of the data\n",
-                     I[is.na(match(I, colnames(X)))]))
-              I <- match(I, colnames(X))
-            }
 
             rval <- NA
 

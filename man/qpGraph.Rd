@@ -1,5 +1,9 @@
 \name{qpGraph}
 \alias{qpGraph}
+\alias{qpGraph-class}
+\alias{show,qpGraph-method}
+\alias{qpGraph,dspMatrix-method}
+\alias{qpGraph,matrix-method}
 
 \title{
 The qp-graph

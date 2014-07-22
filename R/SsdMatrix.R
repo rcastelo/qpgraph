@@ -1,9 +1,9 @@
 setValidity("SsdMatrix",
             function(object) {
               x <- prod(dim(object@ssd))
-              if (x > 0 && object@n < 1)
+              if (!is.na(object@n) && x > 0 && object@n < 1)
                 "'n' should equal the number of observations of the data employed to estimate the ssd"
-              else if (x == 0 && object@n > 0)
+              else if (!is.na(object@n) && x == 0 && object@n > 0)
                 "'n' should equal 0 when ssd is empty"
               else
                 TRUE
@@ -12,7 +12,10 @@ setValidity("SsdMatrix",
 setMethod("show", signature(object = "SsdMatrix"),
           function(object) {
             Matrix:::prMatrix(object@ssd)
-            cat(sprintf("n = %d\n", object@n))
+            if (!is.na(object@n))
+              cat(sprintf("n = %d\n", object@n))
+            else
+              cat("n = NA\n")
           })
 
 setMethod("determinant", signature(x = "SsdMatrix", logarithm = "missing"),

@@ -91,7 +91,7 @@ X <- rmvnorm(nObs, sigma=as.matrix(Sigma))
 
 nrr.estimates <- qpNrr(X, verbose=FALSE)
 
-g <- qpGraph(nrr.estimates, 0.5)
+g <- qpGraph(nrr.estimates, threshold=0.5)
 
 pac.estimates <- qpPAC(X, g=g, verbose=FALSE)
 

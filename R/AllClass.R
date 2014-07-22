@@ -129,8 +129,6 @@ setOldClass("map")
 ## class eQTLcrossParam to hold parameters to simulate eQTLcross objects
 setClass("eQTLcrossParam",
          representation(map="map",
-                        geneticMap="map",
-                        physicalMap="map",
                         type="character",
                         cis="numeric",
                         trans="integer",
@@ -143,8 +141,6 @@ setClass("eQTLcrossParam",
 ## quantitative trait loci (eQTL) and some underlying regulatory network between genes
 setClass("eQTLcross",
          representation(map="map",
-                        geneticMap="map",
-                        physicalMap="map",
                         genes="matrix",
                         model="HMgmm",
                         type="character"))

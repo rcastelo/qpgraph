@@ -5,6 +5,9 @@
 \alias{qpEdgeNrr,data.frame-method}
 \alias{qpEdgeNrr,matrix-method}
 \alias{qpEdgeNrr,SsdMatrix-method}
+\alias{qpEdgeCor,UGgmm-method}
+\alias{qpEdgeCor,matrix-method}
+\alias{qpEdgeCor,SsdMatrix-method}
 
 \title{
 Non-rejection rate estimation for a pair of variables

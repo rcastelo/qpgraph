@@ -157,7 +157,7 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR,
 
 static SEXP
 qp_fast_edge_nrr(SEXP XR, SEXP S, SEXP n_varR, SEXP nR, SEXP iR, SEXP jR, SEXP qR,
-                 SEXP restrictQR, SEXP fixQR, SEXP nTestsR, SEXP alphaR);
+                 SEXP restrictQR, SEXP fixQR, SEXP nTestsR, SEXP alphaR, SEXP returnPcorR);
 
 static SEXP
 qp_fast_edge_nrr_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
@@ -171,12 +171,12 @@ qp_fast_edge_nrr_hmgm_sml(SEXP XR, SEXP cumsum_sByChrR, SEXP sR, SEXP gLevelsR,
                           SEXP fixQR, SEXP nTestsR, SEXP alphaR, SEXP exactTest);
 
 static double
-qp_edge_nrr(double* X, double* S, int p, int n, int i, int j, int q,
-            int* restrictQ, int n_rQ, int* fixQ, int n_fQ, int nTests, double alpha);
+qp_edge_nrr(double* X, double* S, int p, int n, int i, int j, int q, int* restrictQ,
+            int n_rQ, int* fixQ, int n_fQ, int nTests, double alpha, double* pcor);
 
 static double
 qp_edge_nrr_identicalQs(double* S, int n_var, int* Qs, double* Qinvs, int N, int i,
-                        int j, int q, int nTests, double alpha);
+                        int j, int q, int nTests, double alpha, double* pcor);
 
 static double
 qp_edge_nrr_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
@@ -406,7 +406,7 @@ callMethods[] = {
   {"qp_fast_nrr_identicalQs", (DL_FUNC) &qp_fast_nrr_identicalQs, 13},
   {"qp_fast_nrr_par", (DL_FUNC) &qp_fast_nrr_par, 20},
   {"qp_fast_nrr_identicalQs_par", (DL_FUNC) &qp_fast_nrr_identicalQs_par, 16},
-  {"qp_fast_edge_nrr", (DL_FUNC) &qp_fast_edge_nrr, 11},
+  {"qp_fast_edge_nrr", (DL_FUNC) &qp_fast_edge_nrr, 12},
   {"qp_fast_edge_nrr_hmgm", (DL_FUNC) &qp_fast_edge_nrr_hmgm, 14},
   {"qp_fast_edge_nrr_hmgm_sml", (DL_FUNC) &qp_fast_edge_nrr_hmgm_sml, 18},
   {"qp_fast_ci_test_std", (DL_FUNC) &qp_fast_ci_test_std, 6},
@@ -633,8 +633,8 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
         }
       }
 
-      nrr[UTE2I(i2, j2)] = n_I == 0 ? qp_edge_nrr(REAL(XR), S, n_var, N, i2, j2, q,
-                                                  restrictQ, n_rQ, fixQ, n_fQ, nTests, alpha) :
+      nrr[UTE2I(i2, j2)] = n_I == 0 ? qp_edge_nrr(REAL(XR), S, n_var, N, i2, j2, q, restrictQ,
+                                                  n_rQ, fixQ, n_fQ, nTests, alpha, NULL) :
                                       qp_edge_nrr_hmgm(REAL(XR), n_var, N, I, n_I,
                                                        INTEGER(n_levelsR), Y, n_Y,
                                                        ssdMat, mapX2ssd, i2, j2, q,
@@ -693,8 +693,8 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
           }
         }
 
-        nrr[UTE2I(i2, j2)] = n_I == 0 ? qp_edge_nrr(REAL(XR), S, n_var, N, i2, j2, q,
-                                                    restrictQ, n_rQ, fixQ, n_fQ, nTests, alpha) :
+        nrr[UTE2I(i2, j2)] = n_I == 0 ? qp_edge_nrr(REAL(XR), S, n_var, N, i2, j2, q, restrictQ,
+                                                    n_rQ, fixQ, n_fQ, nTests, alpha, NULL) :
                                         qp_edge_nrr_hmgm(REAL(XR), n_var, N, I, n_I,
                                                          INTEGER(n_levelsR), Y, n_Y,
                                                          ssdMat, mapX2ssd, i2, j2, q,
@@ -751,8 +751,8 @@ qp_fast_nrr(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR, SEXP restrictQR,
           }
         }
 
-        nrr[UTE2I(i2, j2)] = n_I == 0 ? qp_edge_nrr(REAL(XR), S, n_var, N, i2, j2, q,
-                                                    restrictQ, n_rQ, fixQ, n_fQ, nTests, alpha) :
+        nrr[UTE2I(i2, j2)] = n_I == 0 ? qp_edge_nrr(REAL(XR), S, n_var, N, i2, j2, q, restrictQ,
+                                                    n_rQ, fixQ, n_fQ, nTests, alpha, NULL) :
                                         qp_edge_nrr_hmgm(REAL(XR), n_var, N, I, n_I,
                                                          INTEGER(n_levelsR), Y, n_Y,
                                                          ssdMat, mapX2ssd, i2, j2, q,
@@ -1031,7 +1031,7 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR, SEXP nTes
       int j2 = pairup_ij_noint[j] - 1;
 
       nrr[UTE2I(i2, j2)] = qp_edge_nrr_identicalQs(S, n_var, q_by_T_samples, Qinv,
-                                                   N, i2, j2, q, nTests, alpha);
+                                                   N, i2, j2, q, nTests, alpha, NULL);
       k++;
       if (startTime > 0 && k == nAdjEtime)
         break;
@@ -1075,7 +1075,7 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR, SEXP nTes
         int j2 = pairup_j_noint[j] - 1;
 
         nrr[UTE2I(i2, j2)] = qp_edge_nrr_identicalQs(S, n_var, q_by_T_samples, Qinv,
-                                                     N, i2, j2, q, nTests, alpha);
+                                                     N, i2, j2, q, nTests, alpha, NULL);
         k++;
         if (startTime > 0 && k == nAdjEtime)
           break;
@@ -1117,7 +1117,7 @@ qp_fast_nrr_identicalQs(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR, SEXP nTes
         int j2 = pairup_ij_int[j] - 1;
 
         nrr[UTE2I(i2, j2)] = qp_edge_nrr_identicalQs(S, n_var, q_by_T_samples, Qinv,
-                                                     N, i2, j2, q, nTests, alpha);
+                                                     N, i2, j2, q, nTests, alpha, NULL);
         k++;
         if (startTime > 0 && k == nAdjEtime)
           break;
@@ -1427,7 +1427,7 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
         }
 
         nrr[k-firstAdj] = n_I == 0 ? qp_edge_nrr(REAL(XR), S, n_var, N, i2, j2, q, restrictQ,
-                                                 n_rQ, fixQ, n_fQ, nTests, alpha) :
+                                                 n_rQ, fixQ, n_fQ, nTests, alpha, NULL) :
                                      qp_edge_nrr_hmgm(REAL(XR), n_var, N, I, n_I,
                                                       INTEGER(n_levelsR), Y, n_Y,
                                                       ssdMat, mapX2ssd, i2, j2, q,
@@ -1488,7 +1488,7 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
         }
 
         nrr[k-firstAdj] = n_I == 0 ? qp_edge_nrr(REAL(XR), S, n_var, N, i2, j2, q, restrictQ,
-                                                 n_rQ, fixQ, n_fQ, nTests, alpha) :
+                                                 n_rQ, fixQ, n_fQ, nTests, alpha, NULL) :
                                      qp_edge_nrr_hmgm(REAL(XR), n_var, N, I, n_I,
                                                       INTEGER(n_levelsR), Y, n_Y,
                                                       ssdMat, mapX2ssd, i2, j2, q,
@@ -1546,7 +1546,7 @@ qp_fast_nrr_par(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP qR,
       }
 
       nrr[k-firstAdj] = n_I == 0 ?  qp_edge_nrr(REAL(XR), S, n_var, N, i2, j2, q, restrictQ,
-                                                n_rQ, fixQ, n_fQ, nTests, alpha) :
+                                                n_rQ, fixQ, n_fQ, nTests, alpha, NULL) :
                                     qp_edge_nrr_hmgm(REAL(XR), n_var, N, I, n_I,
                                                      INTEGER(n_levelsR), Y, n_Y,
                                                      ssdMat, mapX2ssd, i2, j2, q,
@@ -1815,7 +1815,7 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR,
         int j2 = pairup_ij_noint[j] - 1;
 
         nrr[k-firstAdj] = qp_edge_nrr_identicalQs(S, n_var, q_by_T_samples, Qinv,
-                                                  N, i2, j2, q, nTests, alpha);
+                                                  N, i2, j2, q, nTests, alpha, NULL);
         idx[k-firstAdj] = UTE2I(i2, j2) + 1;
         k++;
         if (startTime > 0 && k-firstAdj == nAdjEtime)
@@ -1860,7 +1860,7 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR,
         int j2 = pairup_j_noint[j] - 1;
 
         nrr[k-firstAdj] = qp_edge_nrr_identicalQs(S, n_var, q_by_T_samples, Qinv,
-                                                  N, i2, j2, q, nTests, alpha);
+                                                  N, i2, j2, q, nTests, alpha, NULL);
         idx[k-firstAdj] = UTE2I(i2, j2) + 1;
         k++;
         if (startTime > 0 && k-firstAdj == nAdjEtime)
@@ -1902,7 +1902,7 @@ qp_fast_nrr_identicalQs_par(SEXP XR, SEXP qR, SEXP restrictQR, SEXP fixQR,
       j2 = pairup_ij_int[j] - 1;
 
       nrr[k-firstAdj] = qp_edge_nrr_identicalQs(S, n_var, q_by_T_samples, Qinv,
-                                                N, i2, j2, q, nTests, alpha);
+                                                N, i2, j2, q, nTests, alpha, NULL);
       idx[k-firstAdj] = UTE2I(i2, j2) + 1;
       k++;
       if (startTime > 0 && k-firstAdj == nAdjEtime)
@@ -2966,8 +2966,8 @@ qp_fast_ci_test_std(SEXP SR, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP QR) {
   int*   Q;
   int    i,j,k;
   double t_value;
-  double df;
-  double p_value;
+  double df = NA_REAL;
+  double p_value = NA_REAL;
   double beta;
   char   dataname[4096];
   SEXP   result;
@@ -3003,8 +3003,11 @@ qp_fast_ci_test_std(SEXP SR, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP QR) {
   strcat(dataname, "}");
 
   t_value = qp_ci_test_std(REAL(SR), p, n, i, j, Q, q, &beta);
-  df = n - q - 2;
-  p_value = 2.0 * (1.0 - pt(fabs(t_value), df, 1, 0));
+  if (n != NA_INTEGER) {
+    df = n - q - 2;
+    p_value = 2.0 * (1.0 - pt(fabs(t_value), df, 1, 0));
+  } else
+    t_value = NA_REAL;
 
   PROTECT(result = allocVector(VECSXP,8));
   SET_VECTOR_ELT(result,0,result_stat = allocVector(REALSXP,1));
@@ -3085,8 +3088,8 @@ qp_fast_ci_test_opt(SEXP SR, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP QR) {
   int*   Q;
   int    i,j,k;
   double t_value;
-  double df;
-  double p_value;
+  double df = NA_REAL;
+  double p_value = NA_REAL;
   double beta;
   char   dataname[4096];
   SEXP   result;
@@ -3122,8 +3125,11 @@ qp_fast_ci_test_opt(SEXP SR, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP QR) {
   strcat(dataname, "}");
 
   t_value = qp_ci_test_opt(REAL(SR), p, n, i, j, Q, q, NULL, &beta);
-  df = n - q - 2;
-  p_value = 2.0 * (1.0 - pt(fabs(t_value), df, 1, 0));
+  if (n != NA_INTEGER) {
+    df = n - q - 2;
+    p_value = 2.0 * (1.0 - pt(fabs(t_value), df, 1, 0));
+  } else
+    t_value = NA_REAL;
 
   PROTECT(result = allocVector(VECSXP,8));
   SET_VECTOR_ELT(result,0,result_stat = allocVector(REALSXP,1));
@@ -3392,7 +3398,7 @@ qp_ci_test_opt(double* S, int n_var, int N, int i, int j, int* Q, int q,
   Free(Sqbyij);
   cov2cor(par_cor, par_cov, 2);
   Free(par_cov);
-  betahat = sqrt(N - q -2) * par_cor[2];
+  betahat = sqrt(N - q - 2) * par_cor[2];
   se = sqrt(1.0 - par_cor[2] * par_cor[2]);
 
   if (beta != NULL)
@@ -5054,13 +5060,14 @@ qp_ci_test_hmgm_sml(SEXP Xsml, int* cumsum_sByChr, int s, int gLevels, double* X
 */
 
 static double
-qp_edge_nrr(double* X, double* S, int p, int n, int i, int j, int q,
-            int* restrictQ, int n_rQ, int* fixQ, int n_fQ, int nTests, double alpha) {
-  double thr;
+qp_edge_nrr(double* X, double* S, int p, int n, int i, int j, int q, int* restrictQ,
+            int n_rQ, int* fixQ, int n_fQ, int nTests, double alpha, double* pcor) {
+  double thr = 0.0;
+  double beta_ij, beta_ji;
   int*   q_by_T_samples;
   int*   ijQ = NULL;
   int*   Q = NULL;
-  int    k, n_upper_tri;
+  int    k, l, df, n_upper_tri;
   int    nAcceptedTests = 0;
   int    work_with_margin = FALSE;
 
@@ -5083,7 +5090,10 @@ qp_edge_nrr(double* X, double* S, int p, int n, int i, int j, int q,
   else
     sampleQs(nTests, q, i, j, n_rQ, restrictQ, fixQ, n_fQ, q_by_T_samples);
 
-  thr = qt(1.0-(alpha/2.0), n-q-2, 1, 0);
+  if (n != NA_INTEGER) {
+    df = n - q - 2;
+    thr = qt(1.0-(alpha/2.0), n-q-2, 1, 0);
+  }
 
   for (k = 0; k < nTests; k++) {
     double t_value;
@@ -5092,12 +5102,25 @@ qp_edge_nrr(double* X, double* S, int p, int n, int i, int j, int q,
       Memcpy((int*) (ijQ+2), (int*) (q_by_T_samples+k*q), (size_t) q);
       memset(S, 0, sizeof(double) * n_upper_tri);
       n = ssd(X, p, n, ijQ, q+2, NULL, n, TRUE, NULL, S);
-      t_value = qp_ci_test_std(S, q+2, n, 0, 1, Q, q, NULL);
-    } else
-      t_value = qp_ci_test_std(S, p, n, i, j, (int*) (q_by_T_samples+k*q), q, NULL);
+      t_value = qp_ci_test_std(S, q+2, n, 0, 1, Q, q, &beta_ij);
+      if (pcor != NULL)
+        qp_ci_test_std(S, q+2, n, 1, 0, Q, q, &beta_ji);
+    } else {
+      t_value = qp_ci_test_std(S, p, n, i, j, (int*) (q_by_T_samples+k*q), q, &beta_ij);
+      if (pcor != NULL)
+        qp_ci_test_std(S, p, n, j, i, (int*) (q_by_T_samples+k*q), q, &beta_ji);
+    }
 
     if (fabs(t_value) < thr)
       nAcceptedTests++;
+
+    if (pcor != NULL) {
+      pcor[k] = -sqrt(beta_ij*beta_ji);                            /* partial correlation value */
+                                                                   /* p-value for zero partial correlation */
+      pcor[nTests+k] = n == NA_INTEGER ? NA_REAL : 2.0 * (1.0 - pt(fabs(t_value), df, 1, 0));
+      for (l=0; l < q; l++)                                        /* vertices in the conditioning set */
+        pcor[(2+l)*nTests+k] = q_by_T_samples[k*q+l]+1;
+    }
   }
 
   Free(q_by_T_samples);
@@ -5123,8 +5146,8 @@ qp_edge_nrr(double* X, double* S, int p, int n, int i, int j, int q,
 
 static double
 qp_edge_nrr_identicalQs(double* S, int n_var, int* Qs, double* Qinvs, int N, int i,
-                        int j, int q, int nTests, double alpha) {
-  double thr;
+                        int j, int q, int nTests, double alpha, double* pcor) {
+  double thr, beta_ij, beta_ji;
   int    k;
   int    nAcceptedTests = 0;
   int    nActualTests = 0;
@@ -5141,10 +5164,16 @@ qp_edge_nrr_identicalQs(double* S, int n_var, int* Qs, double* Qinvs, int N, int
 
     if (l >= q) {
       t_value = qp_ci_test_opt(S, n_var, N, i, j, (int*) (Qs+k*q), q,
-                               (double*) (Qinvs+k*q*q), NULL);
+                               (double*) (Qinvs+k*q*q), &beta_ij);
+      if (pcor != NULL) {
+        qp_ci_test_opt(S, n_var, N, i, j, (int*) (Qs+k*q), q,
+                       (double*) (Qinvs+k*q*q), &beta_ji);
+        pcor[k] = -sqrt(beta_ij*beta_ji);
+      }
 
       if (fabs(t_value) < thr)
         nAcceptedTests++;
+
 
       nActualTests++;
     } else
@@ -5395,20 +5424,22 @@ qp_edge_nrr_hmgm_sml(SEXP X, int* cumsum_sByChr, int s, int gLevels, double* XEP
 
 static SEXP
 qp_fast_edge_nrr(SEXP XR, SEXP SR, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP qR,
-                 SEXP restrictQR, SEXP fixQR, SEXP nTestsR, SEXP alphaR) {
+                 SEXP restrictQR, SEXP fixQR, SEXP nTestsR, SEXP alphaR, SEXP returnPcorR) {
   int     i,j,k;
   int     p = INTEGER(pR)[0];
   int     n;
   int     q;
   int     nTests;
-  double* X = NULL;
-  double* S = NULL;
+  double* X=NULL;
+  double* S=NULL;
   double  alpha;
   int*    restrictQ=NULL;
   int     n_rQ=length(restrictQR);
   int*    fixQ=NULL;
   int     n_fQ=length(fixQR);
   SEXP    nrr;
+  SEXP    pcorR;
+  double* pcor = NULL;
 
   PROTECT_INDEX Xpi, Spi;
 
@@ -5443,8 +5474,9 @@ qp_fast_edge_nrr(SEXP XR, SEXP SR, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP qR,
   if (q < 0)
     error("q=%d < 0",q);
 
-  if (q > n-3)
-    error("q=%d > n-3=%d", q, n-3);
+  if (n != NA_INTEGER) /* when S is in fact Sigma */
+    if (q > n-3)
+      error("q=%d > n-3=%d", q, n-3);
 
   if (n_rQ > 0) {
     restrictQ = Calloc(n_rQ, int);
@@ -5460,14 +5492,22 @@ qp_fast_edge_nrr(SEXP XR, SEXP SR, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP qR,
 
   PROTECT(nrr = allocVector(REALSXP,1));
 
+  if (INTEGER(returnPcorR)[0]) {
+    PROTECT(pcorR = allocVector(REALSXP, nTests*(q+2)));
+    pcor = REAL(pcorR);
+  }
+
   REAL(nrr)[0] = qp_edge_nrr(X, S, p, n, i, j, q, restrictQ, n_rQ,
-                             fixQ, n_fQ, nTests, alpha);
+                             fixQ, n_fQ, nTests, alpha, pcor);
 
   if (n_rQ > 0)
     Free(restrictQ);
 
   if (n_fQ > 0)
     Free(fixQ);
+
+  if (INTEGER(returnPcorR)[0])
+    UNPROTECT(1); /* pcor */
 
   UNPROTECT(1); /* nrr */
 
@@ -5476,6 +5516,9 @@ qp_fast_edge_nrr(SEXP XR, SEXP SR, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP qR,
 
   if (SR != R_NilValue)
     UNPROTECT(1); /* SR */
+
+  if (INTEGER(returnPcorR)[0])
+    return pcorR;
 
   return nrr;
 }
