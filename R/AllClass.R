@@ -146,8 +146,8 @@ setClass("eQTLcross",
                         type="character"))
 
 setClass("eQTLnetworkEstimationParam",
-         representation(geneticMap="map",
-                        physicalMap="map",
+         representation(geneticMap="ANY",
+                        physicalMap="ANY",
                         geneAnnotation="matrix",
                         nullHypothesis="character",
                         adjustMethod="character",

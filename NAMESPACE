@@ -132,4 +132,5 @@ export(qpHist,
        dRegularGraphParam,
        erMarkedGraphParam,
        dRegularMarkedGraphParam,
-       eQTLcrossParam)
+       eQTLcrossParam,
+       eQTLnetworkEstimationParam)
