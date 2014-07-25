@@ -19,12 +19,19 @@ importMethodsFrom(Biobase,
                   sampleNames,
                   varLabels)
 
+importMethodsFrom(S4Vectors,
+                  metadata)
+
 importMethodsFrom(GGBase,
                   smList)
 
 importMethodsFrom(AnnotationDbi,
+                  metadata,
                   mget,
                   revmap)
+
+importMethodsFrom(GenomeInfoDb,
+                  seqlevels)
 
 importFrom(Biobase,
            subListExtract)
@@ -40,6 +47,9 @@ importFrom(parallel,
            clusterExport,
            clusterApply,
            clusterCall)
+
+importFrom(GenomeInfoDb,
+           orderSeqlevels)
 
 importFrom(mvtnorm,
            rmvnorm)
@@ -103,7 +113,11 @@ exportMethods("qpNrr",
               "addGeneAssociation",
               "alleQTL",
               "ciseQTL",
-              "transeQTL")
+              "transeQTL",
+              "geneticMap",
+              "physicalMap",
+              "geneAnnotation",
+              "qOrders")
 
 export(qpHist,
        qpGraphDensity,
@@ -134,4 +148,5 @@ export(qpHist,
        erMarkedGraphParam,
        dRegularMarkedGraphParam,
        eQTLcrossParam,
-       eQTLnetworkEstimationParam)
+       eQTLnetworkEstimationParam,
+       eQTLnetworkEstimate)

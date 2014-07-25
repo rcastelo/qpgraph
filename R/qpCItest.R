@@ -1495,13 +1495,12 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
   RVAL
 }
 
-setGeneric("qpAllCItests", function(X, ...) standardGeneric("qpAllCItests"))
-
 setMethod("qpAllCItests", signature(X="matrix"),
           function(X, I=NULL, Q=NULL, pairup.i=NULL, pairup.j=NULL,
                    long.dim.are.variables=TRUE, exact.test=TRUE,
-                   use=c("complete.obs", "em"), tol=0.01, return.type=c("p.value", "statn", "all"),
-                   verbose=TRUE, R.code.only=FALSE, clusterSize=1, estimateTime=FALSE,
+                   use=c("complete.obs", "em"), tol=0.01,
+                   return.type=c("p.value", "statn", "all"), verbose=TRUE,
+                   R.code.only=FALSE, clusterSize=1, estimateTime=FALSE,
                    nAdj2estimateTime=10) {
 
             use <- match.arg(use)
@@ -1527,9 +1526,9 @@ setMethod("qpAllCItests", signature(X="matrix"),
               colnames(X) <- 1:ncol(X)
 
             .qpAllCItests(X, I, Q, pairup.i, pairup.j,
-                                    exact.test, use, tol, return.type,
-                                    verbose, R.code.only, clusterSize,
-                                    startTime, nAdj2estimateTime)
+                          exact.test, use, tol, return.type,
+                          verbose, R.code.only, clusterSize,
+                          startTime, nAdj2estimateTime)
           })
 
 .qpAllCItests <- function(X, I=NULL, Q=NULL, pairup.i=NULL, pairup.j=NULL,

@@ -146,12 +146,14 @@ setClass("eQTLcross",
                         type="character"))
 
 setClass("eQTLnetworkEstimationParam",
-         representation(geneticMap="ANY",
+         representation(ggData="matrix",
+                        geneticMap="ANY",
                         physicalMap="ANY",
+                        organism="character",
+                        genome="character",
                         geneAnnotation="matrix",
-                        nullHypothesis="character",
-                        adjustMethod="character",
-                        pValueCutoff="numeric",
+                        geneAnnotationTable="character",
+                        dVars="character",
                         qOrders="integer"))
 
 setClass("qpGraph",
