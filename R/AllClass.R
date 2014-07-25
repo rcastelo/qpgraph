@@ -156,8 +156,8 @@ setClass("eQTLnetworkEstimationParam",
 
 setClass("qpGraph",
          representation(p="integer",
-                        n="integer",
                         q="integer",
+                        n="integer",
                         nrrMatrix="dspMatrix",
                         nrrCutoff="numeric",
                         g="graphBAM"))

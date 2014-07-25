@@ -7,7 +7,8 @@
 \alias{qpEdgeNrr,SsdMatrix-method}
 \alias{qpEdgeCor,UGgmm-method}
 \alias{qpEdgeCor,matrix-method}
-\alias{qpEdgeCor,SsdMatrix-method}
+\alias{qpEdgeCor,UGgmm-method}
+\alias{qpEdgeCor}
 
 \title{
 Non-rejection rate estimation for a pair of variables

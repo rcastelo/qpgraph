@@ -45,7 +45,8 @@ importFrom(mvtnorm,
            rmvnorm)
 
 importFrom(qtl,
-           sim.cross)
+           sim.cross,
+           pull.map)
 
 importFrom(Rgraphviz,
            layoutGraph,

@@ -24,8 +24,10 @@ setMethod("qpGraph", signature(nrrMatrix="dspMatrix"),
   cbind(v, w)
 }
 
-.qpGraph <- function(nrrMatrix, n, q, nrrCutoff=NA_real_, topPairs=NA_integer_, pairup.i=NULL, pairup.j=NULL) {
+.qpGraph <- function(nrrMatrix, nrrCutoff=NA_real_, topPairs=NA_integer_,
+                     pairup.i=NULL, pairup.j=NULL, q, n) {
   p <- nrow(nrrMatrix)
+
   if (missing(n))
     n <- NA_integer_
   if (missing(q))
