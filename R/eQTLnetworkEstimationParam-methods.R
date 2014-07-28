@@ -103,12 +103,12 @@ eQTLnetworkEstimationParam <- function(ggData, geneticMap=NULL, physicalMap=NULL
     }, error=function(err) {
       stop(sprintf("package %s does not load a object with the same name of the package."))
     })
-    if (!is(geneAnnotation, "TranscriptDb"))
-      stop(sprintf("The object loaded with name %s is not a 'TranscriptDb' object.", geneAnnotation))
+    if (!is(geneAnnotation, "TxDb"))
+      stop(sprintf("The object loaded with name %s is not a 'TxDb' object.", geneAnnotation))
   }
 
   organism <- genome <- geneAnnotationTable <- character()
-  if (is(geneAnnotation, "TranscriptDb")) {
+  if (is(geneAnnotation, "TxDb")) {
     md <- metadata(geneAnnotation)
     organism <- md[md$name %in% "Organism", "value"]
     genome <- md[md$name %in% "Genome", "value"]
