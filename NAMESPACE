@@ -12,6 +12,9 @@ importClassesFrom(Biobase,
 importClassesFrom(GGBase,
                   smlSet)
 
+importClassesFrom(GenomicRanges,
+                  GRanges)
+
 importMethodsFrom(Biobase,
                   exprs,
                   pData,
@@ -32,6 +35,9 @@ importMethodsFrom(AnnotationDbi,
 
 importMethodsFrom(GenomeInfoDb,
                   seqlevels)
+
+importMethodsFrom(GenomicFeatures,
+                  transcripts)
 
 importFrom(Biobase,
            subListExtract)
@@ -116,8 +122,10 @@ exportMethods("qpNrr",
               "transeQTL",
               "geneticMap",
               "physicalMap",
-              "geneAnnotation",
-              "qOrders")
+              "ggData",
+              "markerNames",
+              "geneNames",
+              "geneAnnotation")
 
 export(qpHist,
        qpGraphDensity,

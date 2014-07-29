@@ -1688,9 +1688,9 @@ setMethod("qpAllCItests", signature(X="matrix"),
     if (is.null(cl)) { ## single-processor execution
 
       cit <- .qpFastAllCItests(X, I, Y, Q, pairup.i.noint,
-                                         pairup.j.noint, pairup.ij.int,
-                                         exact.test, use, tol, return.type, verbose,
-                                         startTime["elapsed"], nAdj2estimateTime)
+                               pairup.j.noint, pairup.ij.int,
+                               exact.test, use, tol, return.type, verbose,
+                               startTime["elapsed"], nAdj2estimateTime)
 
       if (startTime["elapsed"] == 0) {
         if (return.type == "all" || return.type == "p.value") {

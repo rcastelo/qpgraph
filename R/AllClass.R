@@ -151,10 +151,24 @@ setClass("eQTLnetworkEstimationParam",
                         physicalMap="ANY",
                         organism="character",
                         genome="character",
-                        geneAnnotation="matrix",
+                        geneAnnotation="GRanges",
+                        geneAnnotationTable="character",
+                        dVars="character"))
+
+setClass("eQTLnetwork",
+         representation(geneticMap="ANY",
+                        physicalMap="ANY",
+                        organism="character",
+                        genome="character",
+                        geneAnnotation="GRanges",
                         geneAnnotationTable="character",
                         dVars="character",
+                        pvaluesG0="dspMatrix",
+                        nrr="dspMatrix",
+                        modelFormula="character",
+                        rhs="list",
                         qOrders="integer"))
+
 
 setClass("qpGraph",
          representation(p="integer",

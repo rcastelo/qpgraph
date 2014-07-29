@@ -4,8 +4,7 @@
 
 ## eQTLnetworkEstimationParam constructor
 eQTLnetworkEstimationParam <- function(ggData, geneticMap=NULL, physicalMap=NULL,
-                                       dVars=NULL, genes=NULL, geneAnnotation,
-                                       qOrders=NA_integer_) {
+                                       dVars=NULL, genes=NULL, geneAnnotation) {
 
   ## check that 'ggData' is one of the allowed object classes
   if (!is(ggData, "cross") && !is(ggData, "matrix") && is(ggData, "data.frame"))
@@ -26,7 +25,7 @@ eQTLnetworkEstimationParam <- function(ggData, geneticMap=NULL, physicalMap=NULL
       stop("When 'ggData' is a 'qtl::cross' object, then argument 'dVars' must not be set.")
 
     geneticMap <- pull.map(ggData)
-    markerNames <- names(unlist(geneticMap))
+    markerNames <- unlist(lapply(geneticMap, names), use.names=FALSE)
   } else {                                             ## input data is a 'matrix' or 'data.frame' object
     if (!is.null(dVars)) {
       if (any(!dVars %in% colnames(ggData)))
@@ -36,13 +35,13 @@ eQTLnetworkEstimationParam <- function(ggData, geneticMap=NULL, physicalMap=NULL
     if (!is.null(geneticMap)) {
       if (!is(geneticMap, "list") && !is(geneticMap, "map"))
         stop("'geneticMap' should be either a 'qtl::map' object or a 'list' object.")
-      markerNames <- names(unlist(geneticMap))
+      markerNames <- unlist(lapply(geneticMap, names), use.names=FALSE)
     }
 
     if (!is.null(physicalMap)) {
       if (!is(physicalMap, "list") && !is(physicalMap, "map"))
         stop("'physicalMap' should be either a 'qtl::map' object or a 'list' object.")
-      markerNames <- names(unlist(physicalMap))
+      markerNames <- unlist(lapply(physicalMap, names), use.names=FALSE)
     }
 
     if (any(!markerNames %in% colnames(ggData)))
@@ -114,20 +113,23 @@ eQTLnetworkEstimationParam <- function(ggData, geneticMap=NULL, physicalMap=NULL
     genome <- md[md$name %in% "Genome", "value"]
     geneAnnotationTable <- paste(md[grep("Table", md$name)[1], ], collapse=" ") 
 
-    chr2idx <- seqlevels(geneAnnotation)
-    chr2idx <- do.call("names<-", list(orderSeqlevels(chr2idx), chr2idx))
-    suppressWarnings(geneAnnotation <- select(geneAnnotation, keys=keys(geneAnnotation),
-                                              columns=c("GENEID", "TXCHROM", "TXSTART"),
-                                              keytype="GENEID"))
-    geneAnnotation$GENEID <- make.names(geneAnnotation$GENEID)
-    minStart <- split(geneAnnotation$TXSTART, geneAnnotation$GENEID)
-    minStart <- sapply(minStart, min)
-    chr <- split(geneAnnotation$TXCHROM, geneAnnotation$GENEID)
-    chr <- sapply(chr, unique)
-    chr <- do.call("names<-", list(chr2idx[chr], names(chr)))
-    geneAnnotation <- cbind(as.integer(chr), as.integer(minStart))
-    rownames(geneAnnotation) <- names(chr)
-  }
+    geneAnnotation <- transcripts(geneAnnotation)
+    names(geneAnnotation) <- geneAnnotation$tx_name
+    ## chr2idx <- seqlevels(geneAnnotation)
+    ## chr2idx <- do.call("names<-", list(orderSeqlevels(chr2idx), chr2idx))
+    ## suppressWarnings(geneAnnotation <- select(geneAnnotation, keys=keys(geneAnnotation),
+    ##                                           columns=c("GENEID", "TXCHROM", "TXSTART"),
+    ##                                           keytype="GENEID"))
+    ## geneAnnotation$GENEID <- make.names(geneAnnotation$GENEID)
+    ## minStart <- split(geneAnnotation$TXSTART, geneAnnotation$GENEID)
+    ## minStart <- sapply(minStart, min)
+    ## chr <- split(geneAnnotation$TXCHROM, geneAnnotation$GENEID)
+    ## chr <- sapply(chr, unique)
+    ## chr <- do.call("names<-", list(chr2idx[chr], names(chr)))
+    ## geneAnnotation <- cbind(as.integer(chr), as.integer(minStart))
+    ## rownames(geneAnnotation) <- names(chr)
+  } else
+    stop("At the moment 'geneAnnotation' can only be a 'TxDb' object")
 
   ## store the all the input data into a big matrix
   ## this should be in the near future efficiently handled
@@ -173,20 +175,26 @@ eQTLnetworkEstimationParam <- function(ggData, geneticMap=NULL, physicalMap=NULL
   }
 
   ## remove from data genes without annotation
-  if (any(!genes %in% rownames(geneAnnotation))) {
-    warning(sprintf("%d genes were not found in 'geneAnnotation'. They will be removed from the input data for further analysis.",
-                    sum(!genes %in% rownames(geneAnnotation))))
-    mt <- match(genes[!genes %in% rownames(geneAnnotation)], colnames(ggDataMatrix))
-    ggDatamatrix <- ggDataMatrix[, -mt]
-    genes <- genes[genes %in% rownames(geneAnnotation)]
-    geneAnnotation <- geneAnnotation[genes, ]
+  if (any(!genes %in% names(geneAnnotation))) {
+    maskmissinggenes <- !genes %in% names(geneAnnotation)
+    if (any(genes[maskmissinggenes] %in% make.names(names(geneAnnotation))))
+      names(geneAnnotation) <- make.names(names(geneAnnotation))
+
+    if (any(!genes %in% names(geneAnnotation))) {
+      warning(sprintf("%d genes were not found in 'geneAnnotation'. They will be removed from the input data for further analysis.",
+                      sum(!genes %in% names(geneAnnotation))))
+      mt <- match(genes[!genes %in% names(geneAnnotation)], colnames(ggDataMatrix))
+      ggDataMatrix <- ggDataMatrix[, -mt, drop=FALSE]
+      genes <- genes[genes %in% names(geneAnnotation)]
+      geneAnnotation <- geneAnnotation[genes]
+    }
   }
 
   
   new("eQTLnetworkEstimationParam", ggData=ggDataMatrix, geneticMap=geneticMap,
       physicalMap=physicalMap, organism=organism, genome=genome,
       geneAnnotation=geneAnnotation, geneAnnotationTable=geneAnnotationTable,
-      dVars=dVars, qOrders=as.integer(qOrders))
+      dVars=dVars)
 }
 
 ## eQTLnetworkEstimationParam show method
@@ -202,8 +210,7 @@ setMethod("show", signature(object="eQTLnetworkEstimationParam"),
             cat(sprintf("  %d markers %d genes\n",
                 max(c(length(unlist(object@geneticMap, use.names=FALSE)),
                       length(unlist(object@physicalMap, use.names=FALSE)))),
-                nrow(object@geneAnnotation)))
-            cat(sprintf("  q orders: {%s}\n", paste(object@qOrders, collapse=", ")))
+                length(object@geneAnnotation)))
 
             invisible(object)
           })
@@ -219,17 +226,29 @@ setMethod("physicalMap", signature(object="eQTLnetworkEstimationParam"),
             object@physicalMap
           })
 
+setMethod("ggData", signature(object="eQTLnetworkEstimationParam"),
+          function(object) {
+            object@ggData
+          })
+
+setMethod("markerNames", signature(object="eQTLnetworkEstimationParam"),
+          function(object) {
+            markers <- character()
+            if (!is.null(object@geneticMap))
+              markers <- unlist(lapply(object@geneticMap, names), use.names=FALSE)
+
+            if (!is.null(object@physicalMap))
+              markers <- unlist(lapply(object@physicalMap, names), use.names=FALSE)
+
+            markers
+          })
+
+setMethod("geneNames", signature(object="eQTLnetworkEstimationParam"),
+          function(object) {
+            names(object@geneAnnotation)
+          })
+
 setMethod("geneAnnotation", signature(object="eQTLnetworkEstimationParam"),
           function(object) {
-            object@physicalMap
+            object@geneAnnotation
           })
-
-setMethod("qOrders", signature(object="eQTLnetworkEstimationParam"),
-          function(object) {
-            object@qOrders
-          })
-
-setReplaceMethod("qOrders", signature(object="eQTLnetworkEstimationParam", value="ANY"),
-                 function(object) {
-                   object@qOrders <- as.integer(value)
-                 })
