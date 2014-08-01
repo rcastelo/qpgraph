@@ -2038,7 +2038,7 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
             n <- nrow(X)
             if (is.null(I)) {
               param <- .processParameters(varNames, p, p, 0, n, i=i, j=j, q=q,
-                                                    restrict.Q=restrict.Q, fix.Q=fix.Q)
+                                          restrict.Q=restrict.Q, fix.Q=fix.Q)
               i <- param$i
               j <- param$j
               restrict.Q <- param$restrict.Q
@@ -2047,10 +2047,10 @@ setMethod("qpEdgeNrr", signature(X="matrix"),
               V <- 1:p
               if (!is.null(restrict.Q)) {
                 V <- c(i, j, setdiff(restrict.Q, c(i, j)), fix.Q)
+                restrict.Q <- match(restrict.Q, V)
+                fix.Q <- match(fix.Q, V)
                 i <- 1L
                 j <- 2L
-                restrict.Q <- 2L+seq(along=setdiff(restrict.Q, c(i, j)))
-                fix.Q <- 2L+length(restrict.Q)+seq(along=fix.Q)
               }
 
               ## S <- qpCov(X[, V, drop=FALSE]) ## here is faster to calculate S for each margin
@@ -2148,7 +2148,7 @@ setMethod("qpEdgeCor", signature(X="matrix"),
             n <- nrow(X)
             if (is.null(I)) {
               param <- .processParameters(varNames, p, p, 0, n, i=i, j=j, q=q,
-                                                    restrict.Q=restrict.Q, fix.Q=fix.Q)
+                                          restrict.Q=restrict.Q, fix.Q=fix.Q)
               i <- param$i
               j <- param$j
               restrict.Q <- param$restrict.Q
