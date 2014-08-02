@@ -5152,12 +5152,12 @@ clPrCall <- function(cl, fun, n.adj, ...) {
     stop(sprintf("Discrete variable %s has only one level", colnames(X)[I[nLevels[I]==1]]))
 
   return(.Call("qp_fast_nrr", X, as.integer(I), as.integer(nLevels),
-                             as.integer(Y), as.integer(q), restrict.Q, ## restrict.Q can be a matrix
-                             as.integer(fix.Q), as.integer(nTests), as.double(alpha),
-                             as.integer(pairup.i.noint), as.integer(pairup.j.noint),
-                             as.integer(pairup.ij.int), as.integer(exact.test),
-                             as.integer(verbose), as.double(startTime),
-                             as.integer(nAdj2estimateTime), .GlobalEnv))
+                              as.integer(Y), as.integer(q), restrict.Q, ## restrict.Q can be a matrix
+                              as.integer(fix.Q), as.integer(nTests), as.double(alpha),
+                              as.integer(pairup.i.noint), as.integer(pairup.j.noint),
+                              as.integer(pairup.ij.int), as.integer(exact.test),
+                              as.integer(verbose), as.double(startTime),
+                              as.integer(nAdj2estimateTime), .GlobalEnv))
 }
 
 .qpFastNrrIdenticalQs <- function(X, q, restrict.Q, fix.Q, nTests, alpha,
@@ -5165,13 +5165,13 @@ clPrCall <- function(cl, fun, n.adj, ...) {
                                   verbose, startTime, nAdj2estimateTime) {
 
   return(.Call("qp_fast_nrr_identicalQs", X, as.integer(q), as.integer(restrict.Q),
-                                         as.integer(fix.Q),
-                                         as.integer(nTests), as.double(alpha),
-                                         as.integer(pairup.i.noint),
-                                         as.integer(pairup.j.noint),
-                                         as.integer(pairup.ij.int),
-                                         as.integer(verbose), as.double(startTime),
-                                         as.integer(nAdj2estimateTime), .GlobalEnv))
+                                          as.integer(fix.Q),
+                                          as.integer(nTests), as.double(alpha),
+                                          as.integer(pairup.i.noint),
+                                          as.integer(pairup.j.noint),
+                                          as.integer(pairup.ij.int),
+                                          as.integer(verbose), as.double(startTime),
+                                          as.integer(nAdj2estimateTime), .GlobalEnv))
 }
 
 .qpFastNrrPar <- function(X, I, Y, q, restrict.Q, fix.Q, nTests, alpha,

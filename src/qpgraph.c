@@ -5097,12 +5097,13 @@ qp_edge_nrr(double* X, double* S, int p, int n, int i, int j, int q, int* restri
 
   for (k = 0; k < nTests; k++) {
     double t_value;
+    int    n_co;
 
     if (work_with_margin) {
       Memcpy((int*) (ijQ+2), (int*) (q_by_T_samples+k*q), (size_t) q);
       memset(S, 0, sizeof(double) * n_upper_tri);
-      n = ssd(X, p, n, ijQ, q+2, NULL, n, TRUE, NULL, S);
-      t_value = qp_ci_test_std(S, q+2, n, 0, 1, Q, q, &beta_ij);
+      n_co = ssd(X, p, n, ijQ, q+2, NULL, n, TRUE, NULL, S);
+      t_value = qp_ci_test_std(S, q+2, n_co, 0, 1, Q, q, &beta_ij);
       if (pcor != NULL)
         qp_ci_test_std(S, q+2, n, 1, 0, Q, q, &beta_ji);
     } else {
