@@ -28,11 +28,15 @@ setMethod("qpGraph", signature(nrrMatrix="dspMatrix"),
                      pairup.i=NULL, pairup.j=NULL, q, n) {
   p <- nrow(nrrMatrix)
 
+  if (!isSymmetric(nrrMatrix))
+    stop("'nrrMatrix' is not symmetric.")
+
   if (missing(n))
     n <- NA_integer_
   if (missing(q))
     q <- NA_integer_
 
+  vertex.labels <- NULL
   if (is.null(colnames(nrrMatrix))) {
     vertex.labels <- as.character(1:p)
   } else {
@@ -51,15 +55,15 @@ setMethod("qpGraph", signature(nrrMatrix="dspMatrix"),
 
   if (!is.null(pairup.i) && !is.null(pairup.j))  {
     if (is.null(colnames(nrrMatrix)))
-      stop("when using pairup.i and pairup.j, nrrMatrix should have row and column names\n")
+      stop("when using 'pairup.i' and 'pairup.j', nrrMatrix should have row and column names\n")
 
     var.names <- colnames(nrrMatrix)
     pairup.i <- match(pairup.i, var.names)
     if (sum(is.na(pairup.i)) > 0)
-      stop("pairup.i is not a subset of the variables forming the data\n")
+      stop("'pairup.i' is not a subset of the variables forming the data\n")
     pairup.j <- match(pairup.j, var.names)
     if (sum(is.na(pairup.j)) > 0)
-      stop("pairup.j is not a subset of the variables forming the data\n")
+      stop("'pairup.j' is not a subset of the variables forming the data\n")
 
     pairup.ij.int <- intersect(pairup.i, pairup.j)
     pairup.i.noint <- setdiff(pairup.i, pairup.ij.int)
@@ -94,7 +98,7 @@ setMethod("qpGraph", signature(nrrMatrix="dspMatrix"),
 
   g <- graphBAM(df, nodes=vertex.labels)
 
-  qpg <- new("qpGraph", p=p, n=n, q=q, nrrMatrix=nrrMatrix, nrrCutoff=nrrCutoff, g=g)
+  qpg <- new("qpGraph", p=p, n=n, q=q, nrrCutoff=nrrCutoff, g=g)
   qpg
 }
 

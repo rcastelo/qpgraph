@@ -167,14 +167,15 @@ setClass("eQTLnetwork",
                         nrr="dspMatrix",
                         modelFormula="formula",
                         rhs="list",
-                        qOrders="integer"))
+                        qOrders="integer",
+                        g.0="graphBAM",
+                        g.q="qpGraph"))
 
 
 setClass("qpGraph",
          representation(p="integer",
                         q="integer",
                         n="integer",
-                        nrrMatrix="dspMatrix",
                         nrrCutoff="numeric",
                         g="graphBAM"))
 

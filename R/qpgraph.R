@@ -2809,53 +2809,52 @@ qpHist <- function(nrrMatrix, A=NULL,
 ##                           a graphAM object or a graphBAM object
 ## return: adjacency matrix of the qp-graph
 
-qpAnyGraph <- function(measurementsMatrix, threshold=NULL, remove=c("below", "above"),
-                       topPairs=NULL, decreasing=TRUE, pairup.i=NULL, pairup.j=NULL,
-                       return.type=c("adjacency.matrix", "edge.list", "graphNEL",
-                                     "graphAM", "graphBAM")) {
+qpAnyGraph <- function(measurementsMatrix, threshold=NA_real_, remove=c("below", "above"),
+                       topPairs=NA_integer_, decreasing=TRUE, pairup.i=NULL, pairup.j=NULL) {
+  p <- nrow(measurementsMatrix)
+
+  if (!isSymmetric(measurementsMatrix))
+    stop("'measurementsMatrix' is not symmetric.")
 
   remove <- match.arg(remove)
-  return.type <- match.arg(return.type)
 
   ## by now we need to coerce the dspMatrix into a regular matrix
   ## hopefully in the near future we can do also [<- on dspMatrix matrices
-  measurementsMatrix <- as(measurementsMatrix, "matrix")
+  ## measurementsMatrix <- as(measurementsMatrix, "matrix")
 
-  n.var <- nrow(measurementsMatrix)
-
+  vertex.labels <- NULL
   if (is.null(colnames(measurementsMatrix))) {
-    vertex.labels <- as.character(1:n.var)
-  } else {
+    vertex.labels <- as.character(1:p)
+  } else
     vertex.labels <- colnames(measurementsMatrix)
-  }
 
-  if (is.null(threshold) && is.null(topPairs))
-    stop("either threshold or topPairs should be set different to NULL\n")
+  if (is.na(threshold) && is.na(topPairs))
+    stop("either 'threshold' or 'topPairs' should be set different to NULL\n")
 
-  if (!is.null(threshold) && !is.null(topPairs))
-    stop("only either threshold or topPairs can be set different to NULL\n")
+  if (!is.na(threshold) && !is.na(topPairs))
+    stop("only either 'threshold' or 'topPairs' can be set different to NULL\n")
 
   if ((!is.null(pairup.i) && is.null(pairup.j)) ||
       (is.null(pairup.i) && !is.null(pairup.j)))
-    stop("pairup.i and pairup.j should both either be set to NULL or contain subsets of variables\n")
+    stop("'pairup.i' and 'pairup.j' should both either be set to NULL or contain subsets of variables\n")
 
   if (!is.null(pairup.i) && !is.null(pairup.j))  {
     if (is.null(colnames(measurementsMatrix)))
-      stop("when using pairup.i and pairup.j, measurementsMatrix should have row and column names\n")
+      stop("when using 'pairup.i' and 'pairup.j', measurementsMatrix should have row and column names\n")
 
     var.names <- colnames(measurementsMatrix)
     pairup.i <- match(pairup.i, var.names)
     if (sum(is.na(pairup.i)) > 0)
-      stop("pairup.i is not a subset of the variables forming the data\n")
+      stop("'pairup.i' is not a subset of the variables forming the data\n")
     pairup.j <- match(pairup.j, var.names)
     if (sum(is.na(pairup.j)) > 0)
-      stop("pairup.j is not a subset of the variables forming the data\n")
+      stop("'pairup.j' is not a subset of the variables forming the data\n")
 
     pairup.ij.int <- intersect(pairup.i, pairup.j)
     pairup.i.noint <- setdiff(pairup.i, pairup.ij.int)
     pairup.j.noint <- setdiff(pairup.j, pairup.ij.int)
 
-    nomeasurementsMask <- matrix(FALSE,nrow=n.var,ncol=n.var)
+    nomeasurementsMask <- matrix(FALSE,nrow=p,ncol=p)
     nomeasurementsMask[as.matrix(
                        expand.grid(pairup.ij.int,
                                    c(pairup.i.noint, pairup.j.noint)))] <- TRUE
@@ -2867,67 +2866,26 @@ qpAnyGraph <- function(measurementsMatrix, threshold=NULL, remove=c("below", "ab
     measurementsMatrix[nomeasurementsMask] <- NA
   }
 
-  ## non-available measurements imply no edges
-  measurementsMatrix[is.na(measurementsMatrix)] <- NA
-
-  if (!is.null(threshold)) {
+  measurementsUT <- measurementsMatrix[upper.tri(measurementsMatrix)]
+  df <- NULL
+  if (!is.na(threshold)) {                                  ## threshold
+    idx <- NULL
     if (remove == "below")
-      A <- measurementsMatrix >= threshold
+      idx <- which(measurementsUT >= threshold)
     else
-      A <- measurementsMatrix <= threshold
-  } else { ## topPairs
-    if (decreasing)
-      bottomValue <- min(measurementsMatrix,na.rm=TRUE) - 1
-    else
-      bottomValue <- max(measurementsMatrix,na.rm=TRUE) + 1
-
-    measurementsMatrix[is.na(measurementsMatrix)] <- bottomValue
-    measurementsUppTriMatrix <- measurementsMatrix[upper.tri(measurementsMatrix)]
-    rowUppTri <- row(measurementsMatrix)[upper.tri(measurementsMatrix)]
-    colUppTri <- col(measurementsMatrix)[upper.tri(measurementsMatrix)]
-    orderedMeasurementsIdx <- sort(measurementsUppTriMatrix, index.return=TRUE,
-                                   decreasing=decreasing)$ix
-    ranking <- cbind(rowUppTri[orderedMeasurementsIdx],
-                     colUppTri[orderedMeasurementsIdx])
-    A <- matrix(FALSE, nrow=n.var, ncol=n.var)
-    A[ranking[1:topPairs,]] <- TRUE
-    A[cbind(ranking[1:topPairs,2], ranking[1:topPairs,1])] <- TRUE
+      idx <- which(measurementsUT <= threshold)
+    idx <- .i2e(idx-1) + 1 ## defined in qpGraph-methods.R
+    df <- data.frame(from=idx[, 1], to=idx[, 2], weight=rep(1, nrow(idx)))
+  } else {                                                  ## topPairs
+    measurementsUTsorted <- sort(measurementsUT, partial=topPairs, decreasing=decreasing)[1:topPairs]
+    idx <- which(measurementsUT %in% measurementsUTsorted)
+    if (length(idx) > topPairs)
+      idx <- idx[order(measurementsUT[idx])][1:topPairs]    ## handle when to measurements are identical
+    idx <- .i2e(idx-1) + 1 ## defined in qpGraph-methods.R
+    df <- data.frame(from=idx[, 1], to=idx[, 2], weight=rep(1, topPairs))
   }
 
-  A[is.na(A)] <- FALSE
-  rownames(A) <- colnames(A) <- vertex.labels
-  diag(A) <- FALSE ## whatever the threshold is the graph should have no loops
-
-  if (return.type == "adjacency.matrix") {
-    ## require(Matrix)
-    return(Matrix(A))
-  } else if (return.type == "edge.list") {
-    m <- cbind(row(A)[upper.tri(A) & A],col(A)[upper.tri(A) & A])
-    colnames(m) <- c("i","j")
-    return(m)
-  } else if (return.type == "graphNEL") {
-    vertices <- unique(c(vertex.labels[row(A)[upper.tri(A) & A]], vertex.labels[col(A)[upper.tri(A) & A]]))
-    edL <- vector("list", length=length(vertices))
-    names(edL) <- vertices
-    for (v in vertices)
-      edL[[v]] <- list(edges=vertex.labels[A[v, ]], weights=rep(1, sum(A[v, ])))
-    g <- new("graphNEL",nodes=vertices, edgeL=edL, edgemode="undirected")
-    return(g)
-  } else if (return.type == "graphAM") {
-    ## require(graph)
-    g <- new("graphAM", adjMat=A+0, edgemode="undirected", values=list(weight=1))
-    return(g)
-  } else if (return.type == "graphAM") {
-    vertices <- unique(c(vertex.labels[row(A)[upper.tri(A) & A]], vertex.labels[col(A)[upper.tri(A) & A]]))
-    edL <- vector("list", length=length(vertices))
-    names(edL) <- vertices
-    for (v in vertices)
-      edL[[v]] <- list(edges=vertex.labels[A[v, ]], weights=rep(1, sum(A[v, ])))
-    g <- new("graphNEL",nodes=vertices, edgeL=edL, edgemode="undirected")
-    return(as(g, "graphBAM"))
-  }
-
-  return(NA)
+  graphBAM(df, nodes=vertex.labels)
 }
 
 

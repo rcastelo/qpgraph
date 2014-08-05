@@ -9,8 +9,7 @@ Obtains an undirected graph from a matrix of pairwise measurements
 }
 \usage{
 qpAnyGraph(measurementsMatrix, threshold=NULL, remove=c("below", "above"),
-           topPairs=NULL, decreasing=TRUE, pairup.i=NULL, pairup.j=NULL,
-           return.type=c("adjacency.matrix", "edge.list", "graphNEL", "graphAM", "graphBAM"))
+           topPairs=NULL, decreasing=TRUE, pairup.i=NULL, pairup.j=NULL)
 }
 \arguments{
   \item{measurementsMatrix}{matrix of pairwise measurements.}
@@ -27,22 +26,14 @@ qpAnyGraph(measurementsMatrix, threshold=NULL, remove=c("below", "above"),
        in increasing order.}
   \item{pairup.i}{subset of vertices to pair up with subset \code{pairup.j}}
   \item{pairup.j}{subset of vertices to pair up with subset \code{pairup.i}}
-  \item{return.type}{type of data structure on which the resulting undirected
-       graph should be returned. Either a logical adjacency matrix with cells
-       set to TRUE when the two indexing variables are connected in the graph
-       (default), or a list of edges in a matrix where each row corresponds to
-       one edge and the two columns contain the two vertices defining each edge,
-       or a \code{graphNEL-class} object, or a \code{graphAM-class} object,
-       or a \code{graphBAM-class} object.}
 }
 \details{
-This function requires the \code{graph} package when \code{return.type="graphNEL"},
-\code{return.type="graphAM"} or \code{return.type="graphBAM"}.
+This is a general purpose function for thresholding a matrix of pairwise measurements
+to select pairs of variables corresponding to selected edges in an undirected graph.
 }
 \value{
-The resulting undirected graph as either an adjacency matrix, a \code{graphNEL}
-object or a \code{graphAM} object, depending on the value of the \code{return.type}
-parameter. Note that when some gold-standard graph is available for comparison,
+The resulting undirected graph as a \code{graphBAM} object.
+Note that when some gold-standard graph is available for comparison,
 a value for the parameter \code{threshold} can be found by calculating a
 precision-recall curve with \code{qpPrecisionRecall} with respect to this
 gold-standard, and then using \code{qpPRscoreThreshold}. Parameters
@@ -68,6 +59,7 @@ Gaussian graphical model search from microarray data with p larger than n,
 }
 \examples{
 require(mvtnorm)
+require(graph)
 
 nVar <- 50  ## number of variables
 maxCon <- 5 ## maximum connectivity per variable
@@ -87,14 +79,14 @@ g <- qpAnyGraph(abs(pcc.estimates$R), threshold=0.9,
                 remove="below")
 
 ## the sparser the qp-graph
-(sum(g)/2) / (nVar*(nVar-1)/2)
+numEdges(g) / choose(numNodes(g), 2)
 
 ## the lower the threshold
 g <- qpAnyGraph(abs(pcc.estimates$R), threshold=0.5,
                 remove="below")
 
 # the denser the graph
-(sum(g)/2) / (nVar*(nVar-1)/2)
+numEdges(g) / choose(numNodes(g), 2)
 }
 \keyword{models}
 \keyword{multivariate}

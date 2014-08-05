@@ -3,10 +3,11 @@
 setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
                                              model="formula",
                                              estimate="missing"),
-          function(param, model, estimate,
-                   verbose=TRUE, BPPARAM=bpparam("SerialParam")) {
-            if (!is(param, "eQTLnetworkEstimationParam"))
-              stop("argument 'param' must be an 'eQTLnetworkEstimationParam' object.")
+          function(param, model, estimate, p.value=NA_real_, method=p.adjust.methods,
+                   nrr=NA_real_, verbose=TRUE, BPPARAM=bpparam("SerialParam")) {
+
+            if (!is.na(p.value) || !is.na(nrr))
+              stop("'p.value' or 'nrr' cutoffs can only be specified without 'model'.")
 
             clusterSize <- 1 ## this should change to use BiocParallel
             if (!is(BPPARAM, "SerialParam")) {
@@ -66,19 +67,23 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
               }
             }
 
+            g.0 <- graphBAM(df=data.frame(from=character(), to=character(), weight=integer()))
+            g.q <- new("qpGraph", p=0L, q=integer(), n=NA_integer_, nrrCutoff=NA_real_, g=g.0)
             new("eQTLnetwork", geneticMap=geneticMap(param), physicalMap=physicalMap(param),
                 organism=param@organism, genome=param@genome, geneAnnotation=geneAnnotation(param),
                 geneAnnotationTable=param@geneAnnotationTable, dVars=param@dVars,
-                pvaluesG0=pvaluesG0, nrr=nrr, modelFormula=model, rhs=rhs, qOrders=qorders)
+                pvaluesG0=pvaluesG0, nrr=nrr, modelFormula=model, rhs=rhs, qOrders=qorders,
+                g.0=g.0, g.q=g.q)
           })
 
 setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
                                              model="formula",
                                              estimate="eQTLnetwork"),
-          function(param, model, estimate,
-                   verbose=TRUE, BPPARAM=bpparam("SerialParam")) {
-            if (!is(param, "eQTLnetworkEstimationParam"))
-              stop("argument 'param' must be an 'eQTLnetworkEstimationParam' object.")
+          function(param, model, estimate, p.value=NA_real_, method=p.adjust.methods,
+                   nrr=NA_real_, verbose=TRUE, BPPARAM=bpparam("SerialParam")) {
+
+            if (!is.na(p.value) || !is.na(nrr))
+              stop("'p.value' or 'nrr' cutoffs can only be specified without 'model'.")
 
             clusterSize <- 1 ## this should change to use BiocParallel
             if (!is(BPPARAM, "SerialParam")) {
@@ -162,11 +167,57 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
               model <- .replaceFormulaQs(model, qorders)
             }
 
+            g.0 <- graphBAM(df=data.frame(from=character(), to=character(), weight=integer()))
+            g.q <- new("qpGraph", p=0L, q=integer(), n=NA_integer_, nrrCutoff=NA_real_, g=g.0)
             new("eQTLnetwork", geneticMap=geneticMap(param), physicalMap=physicalMap(param),
                 organism=param@organism, genome=param@genome, geneAnnotation=geneAnnotation(param),
                 geneAnnotationTable=param@geneAnnotationTable, dVars=param@dVars,
-                pvaluesG0=pvaluesG0, nrr=nrr, modelFormula=model, rhs=rhs, qOrders=qorders)
+                pvaluesG0=pvaluesG0, nrr=nrr, modelFormula=model, rhs=rhs, qOrders=qorders,
+                g.0=g.0, g.q=g.q)
           })
+
+
+setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
+                                             model="missing",
+                                             estimate="eQTLnetwork"),
+          function(param, model, estimate, p.value=NA_real_, method=p.adjust.methods,
+                   nrr=NA_real_, verbose=TRUE, BPPARAM=bpparam("SerialParam")) {
+
+            method <- match.arg(p.adjust.methods)
+
+            if (!is.na(p.value) && nrow(estimate@pvaluesG0) < 1)
+              stop("argument 'estimate' has no pairwise (conditional) independence tests.")
+
+            if (!is.na(nrr) && nrow(estimate@nrr) < 1)
+              stop("argument 'estimate' has no non-rejection rates.")
+
+            g.0 <- g.q <- graphBAM(df=data.frame(from=character(), to=character(),
+                                                 weight=integer()))
+            if (!is.na(p.value)) {
+              ## here we assume that the diagonal is set to NA
+              p.adj <- estimate@pvaluesG0[upper.tri(estimate@pvaluesG0, diag=TRUE)]
+              p.adj[!is.na(p.adj)] <- p.adjust(p.adj[!is.na(p.adj)], method=method)
+              p.adj <- new("dspMatrix", Dim=dim(estimate@pvaluesG0),
+                           Dimnames=dimnames(estimate@pvaluesG0), x=p.adj)
+              g.0 <- qpAnyGraph(p.adj, threshold=p.value, remove="above",
+                                decreasing=FALSE)
+            }
+
+            if (!is.na(nrr))
+              g.q <- qpGraph(estimate@nrr, nrrCutoff=nrr, q=estimate@qOrders,
+                             n=nrow(param@ggData))@g
+
+            new("eQTLnetwork", geneticMap=geneticMap(param), physicalMap=physicalMap(param),
+                organism=param@organism, genome=param@genome, geneAnnotation=geneAnnotation(param),
+                geneAnnotationTable=param@geneAnnotationTable, dVars=param@dVars,
+                pvaluesG0=estimate@pvaluesG0, nrr=estimate@nrr, modelFormula=estimate@model,
+                rhs=estimate@rhs, qOrders=estimate@qOrders, g.0=g.0, g.q=g.q)
+          })
+
+
+##
+## private functions
+##
 
 .expandTerms <- function(termvec, param) {
   varsnqs <- lapply(termvec,
