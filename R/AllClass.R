@@ -165,7 +165,7 @@ setClass("eQTLnetwork",
                         dVars="character",
                         pvaluesG0="dspMatrix",
                         nrr="dspMatrix",
-                        modelFormula="character",
+                        modelFormula="formula",
                         rhs="list",
                         qOrders="integer"))
 

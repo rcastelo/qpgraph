@@ -12,5 +12,5 @@ setMethod("show", signature(object="eQTLnetwork"),
                 max(c(length(unlist(object@geneticMap, use.names=FALSE)),
                       length(unlist(object@physicalMap, use.names=FALSE)))),
                 length(object@geneAnnotation)))
-            cat("  Model formula: ", object@modelFormula, "\n")
+            cat("  Model formula: ", deparse(object@modelFormula), "\n")
           })

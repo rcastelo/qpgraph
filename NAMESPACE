@@ -125,7 +125,8 @@ exportMethods("qpNrr",
               "ggData",
               "markerNames",
               "geneNames",
-              "geneAnnotation")
+              "geneAnnotation",
+              "eQTLnetworkEstimate")
 
 export(qpHist,
        qpGraphDensity,
@@ -156,5 +157,4 @@ export(qpHist,
        erMarkedGraphParam,
        dRegularMarkedGraphParam,
        eQTLcrossParam,
-       eQTLnetworkEstimationParam,
-       eQTLnetworkEstimate)
+       eQTLnetworkEstimationParam)

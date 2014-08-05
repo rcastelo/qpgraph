@@ -1605,7 +1605,7 @@ setMethod("qpAllCItests", signature(X="matrix"),
 
   nLevels <- rep(NA_integer_, times=ncol(X))
   Y <- NULL
-  if (!is.null(I)) {
+  if (!is.null(I) && length(I) > 0) {
     if (is.character(I)) {
       if (any(is.na(match(I, var.names))))
         stop("Some variables in I do not form part of the variable names of the data in X\n")
@@ -1625,7 +1625,7 @@ setMethod("qpAllCItests", signature(X="matrix"),
       (is.null(pairup.i) && !is.null(pairup.j)))
     stop("pairup.i and pairup.j should both either be set to NULL or contain subsets of variables\n")
 
-  if (is.null(pairup.i))
+  if (is.null(pairup.i) || length(pairup.i==0))
     pairup.i <- 1:n.var
   else {
     if (is.character(pairup.i)) {
@@ -1635,7 +1635,7 @@ setMethod("qpAllCItests", signature(X="matrix"),
     }
   }
 
-  if (is.null(pairup.j)) {
+  if (is.null(pairup.j) || length(pairup.j==0)) {
     pairup.j <- 1:n.var
     if (!is.null(I)) { ## by now, interactions between discrete variables are not considered
         pairup.j <- (1:n.var)[-I]
@@ -1648,7 +1648,7 @@ setMethod("qpAllCItests", signature(X="matrix"),
     }
   }
 
-  if (!is.null(Q)) {
+  if (!is.null(Q) && length(Q) > 0) {
     if (is.character(Q)) {
       if (any(is.na(match(Q, var.names))))
         stop("Some variables in Q do not form part of the variable names of the data\n")
@@ -1661,6 +1661,9 @@ setMethod("qpAllCItests", signature(X="matrix"),
     ## variables in Q are removed from the pairs for which CI tests are performed
     pairup.i <- setdiff(pairup.i, Q)
     pairup.j <- setdiff(pairup.j, Q)
+
+    if (length(pairup.i) == 0 || length(pairup.j) == 0)
+      stop("Cannot condition on Q. Either Q is too large or there are too few variable pairs to test.")
   }
 
   ## pair the two sets pairup.i and pairup.j without pairing the same variable
