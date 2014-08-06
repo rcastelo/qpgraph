@@ -86,14 +86,18 @@ setMethod("qpGraph", signature(nrrMatrix="dspMatrix"),
   if (!is.na(nrrCutoff)) {                          ## nrrCutoff
     idx <- which(nrrUT <= nrrCutoff)
     idx <- .i2e(idx-1) + 1
-    df <- data.frame(from=idx[, 1], to=idx[, 2], weight=rep(1, nrow(idx)))
+    df <- data.frame(from=vertex.labels[idx[, 1]],
+                     to=vertex.labels[idx[, 2]],
+                     weight=rep(1, nrow(idx)))
   } else {                                          ## topPairs
     nrrUTsorted <- sort(nrrUT, partial=topPairs)[1:topPairs]
     idx <- which(nrrUT %in% nrrUTsorted)
     if (length(idx) > topPairs)
       idx <- idx[order(nrrUT[idx])][1:topPairs]     ## handle when two NRR values are identical
     idx <- .i2e(idx-1) + 1
-    df <- data.frame(from=idx[, 1], to=idx[, 2], weight=rep(1, topPairs))
+    df <- data.frame(from=vertex.labels[idx[, 1]],
+                     to=vertex.labels[idx[, 2]],
+                     weight=rep(1, topPairs))
   }
 
   g <- graphBAM(df, nodes=vertex.labels)

@@ -2803,11 +2803,7 @@ qpHist <- function(nrrMatrix, A=NULL,
 ##                          FALSE then is made in increasing order
 ##             pairup.i - subset of vertices to pair up with subset pairup.j
 ##             pairup.j - subset of vertices to pair up with subset pairup.i
-##             return.type - type of data structure on which the graph
-##                           should be returned, either an adjacency matrix,
-##                           a matrix with the list of edges, a graphNEL object,
-##                           a graphAM object or a graphBAM object
-## return: adjacency matrix of the qp-graph
+## return: a graphBAM object
 
 qpAnyGraph <- function(measurementsMatrix, threshold=NA_real_, remove=c("below", "above"),
                        topPairs=NA_integer_, decreasing=TRUE, pairup.i=NULL, pairup.j=NULL) {
@@ -2875,14 +2871,18 @@ qpAnyGraph <- function(measurementsMatrix, threshold=NA_real_, remove=c("below",
     else
       idx <- which(measurementsUT <= threshold)
     idx <- .i2e(idx-1) + 1 ## defined in qpGraph-methods.R
-    df <- data.frame(from=idx[, 1], to=idx[, 2], weight=rep(1, nrow(idx)))
+    df <- data.frame(from=vertex.labels[idx[, 1]],
+                     to=vertex.labels[idx[, 2]],
+                     weight=rep(1, nrow(idx)))
   } else {                                                  ## topPairs
     measurementsUTsorted <- sort(measurementsUT, partial=topPairs, decreasing=decreasing)[1:topPairs]
     idx <- which(measurementsUT %in% measurementsUTsorted)
     if (length(idx) > topPairs)
       idx <- idx[order(measurementsUT[idx])][1:topPairs]    ## handle when to measurements are identical
     idx <- .i2e(idx-1) + 1 ## defined in qpGraph-methods.R
-    df <- data.frame(from=idx[, 1], to=idx[, 2], weight=rep(1, topPairs))
+    df <- data.frame(from=vertex.labels[idx[, 1]],
+                     to=vertex.labels[idx[, 2]],
+                     weight=rep(1, topPairs))
   }
 
   graphBAM(df, nodes=vertex.labels)

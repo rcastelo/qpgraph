@@ -183,7 +183,7 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
           function(param, model, estimate, p.value=NA_real_, method=p.adjust.methods,
                    nrr=NA_real_, verbose=TRUE, BPPARAM=bpparam("SerialParam")) {
 
-            method <- match.arg(p.adjust.methods)
+            method <- match.arg(method)
 
             if (!is.na(p.value) && nrow(estimate@pvaluesG0) < 1)
               stop("argument 'estimate' has no pairwise (conditional) independence tests.")
@@ -191,8 +191,9 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
             if (!is.na(nrr) && nrow(estimate@nrr) < 1)
               stop("argument 'estimate' has no non-rejection rates.")
 
-            g.0 <- g.q <- graphBAM(df=data.frame(from=character(), to=character(),
-                                                 weight=integer()))
+            g.0 <- graphBAM(df=data.frame(from=character(), to=character(), weight=integer()))
+            g.q <- new("qpGraph", p=0L, q=integer(), n=NA_integer_, nrrCutoff=NA_real_, g=g.0)
+
             if (!is.na(p.value)) {
               ## here we assume that the diagonal is set to NA
               p.adj <- estimate@pvaluesG0[upper.tri(estimate@pvaluesG0, diag=TRUE)]
@@ -204,13 +205,13 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
             }
 
             if (!is.na(nrr))
-              g.q <- qpGraph(estimate@nrr, nrrCutoff=nrr, q=estimate@qOrders,
-                             n=nrow(param@ggData))@g
+              g.q <- qpGraph(nrrMatrix=estimate@nrr, nrrCutoff=nrr, q=estimate@qOrders,
+                             n=nrow(param@ggData))
 
             new("eQTLnetwork", geneticMap=geneticMap(param), physicalMap=physicalMap(param),
                 organism=param@organism, genome=param@genome, geneAnnotation=geneAnnotation(param),
                 geneAnnotationTable=param@geneAnnotationTable, dVars=param@dVars,
-                pvaluesG0=estimate@pvaluesG0, nrr=estimate@nrr, modelFormula=estimate@model,
+                pvaluesG0=estimate@pvaluesG0, nrr=estimate@nrr, modelFormula=estimate@modelFormula,
                 rhs=estimate@rhs, qOrders=estimate@qOrders, g.0=g.0, g.q=g.q)
           })
 
