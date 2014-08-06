@@ -24,7 +24,7 @@ setMethod("qpGraph", signature(nrrMatrix="dspMatrix"),
   cbind(v, w)
 }
 
-.qpGraph <- function(nrrMatrix, nrrCutoff=NA_real_, topPairs=NA_integer_,
+.qpGraph <- function(nrrMatrix, epsilon=NA_real_, topPairs=NA_integer_,
                      pairup.i=NULL, pairup.j=NULL, q, n) {
   p <- nrow(nrrMatrix)
 
@@ -43,11 +43,11 @@ setMethod("qpGraph", signature(nrrMatrix="dspMatrix"),
     vertex.labels <- colnames(nrrMatrix)
   }
 
-  if (is.na(nrrCutoff) && is.na(topPairs))
-    stop("either 'nrrCutoff' or 'topPairs' should be set different to NULL\n")
+  if (is.na(epsilon) && is.na(topPairs))
+    stop("either 'epsilon' or 'topPairs' should be set different to NULL\n")
 
-  if (!is.na(nrrCutoff) && !is.na(topPairs))
-    stop("only either 'nrrCutoff' or 'topPairs' can be set different to NULL\n")
+  if (!is.na(epsilon) && !is.na(topPairs))
+    stop("only either 'epsilon' or 'topPairs' can be set different to NULL\n")
 
   if ((!is.null(pairup.i) && is.null(pairup.j)) ||
        (is.null(pairup.i) && !is.null(pairup.j)))
@@ -83,8 +83,8 @@ setMethod("qpGraph", signature(nrrMatrix="dspMatrix"),
 
   nrrUT <- nrrMatrix[upper.tri(nrrMatrix)]
   df <- NULL
-  if (!is.na(nrrCutoff)) {                          ## nrrCutoff
-    idx <- which(nrrUT <= nrrCutoff)
+  if (!is.na(epsilon)) {                            ## epsilon (cutoff on the non-rejection rate)
+    idx <- which(nrrUT <= epsilon)
     idx <- .i2e(idx-1) + 1
     df <- data.frame(from=vertex.labels[idx[, 1]],
                      to=vertex.labels[idx[, 2]],
@@ -102,7 +102,7 @@ setMethod("qpGraph", signature(nrrMatrix="dspMatrix"),
 
   g <- graphBAM(df, nodes=vertex.labels)
 
-  qpg <- new("qpGraph", p=p, n=n, q=q, nrrCutoff=nrrCutoff, g=g)
+  qpg <- new("qpGraph", p=p, n=n, q=q, epsilon=epsilon, g=g)
   qpg
 }
 

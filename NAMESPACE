@@ -54,6 +54,9 @@ importFrom(parallel,
            clusterApply,
            clusterCall)
 
+importFrom(BiocParallel, bpparam,
+                         bplapply)
+
 importFrom(GenomeInfoDb,
            orderSeqlevels)
 

@@ -17,30 +17,23 @@ setMethod("show", signature(object="eQTLnetwork"),
               warning("Both the genetic and the physical map are empty.")
 
             gNames <- names(object@geneAnnotation)
-            cat(sprintf("  Total #: %d markers %d genes\n", length(mNames), length(gNames)))
+            cat(sprintf("  Input size: %d markers %d genes\n", length(mNames), length(gNames)))
             cat("  Model formula: ", deparse(object@modelFormula), "\n")
-            g.0 <- object@g.0
-            if (numNodes(g.0) > 0) {
-              edg <- extractFromTo(g.0)
-              cat(sprintf("  G^(0): %d vertices and %d edges corresponding to\n         %d eQTLs and %d gene-gene associations\n         involving %d genes and %d loci\n",
-                          numNodes(g.0), numEdges(g.0),
-                          sum(edg$from %in% mNames | edg$to %in% mNames), sum(edg$from %in% gNames & edg$to %in% gNames),
-                          length(intersect(nodes(g.0), gNames)), length(intersect(nodes(g.0), mNames))))
-            }
-            g.q <- object@g.q@g
-            if (numNodes(g.q) > 0) {
-              edg <- extractFromTo(g.q)
-              cat(sprintf("  G^(q): %d vertices and %d edges corresponding to\n         %d eQTLs and %d gene-gene associations\n         involving %d genes and %d loci\n",
-                          numNodes(g.q), numEdges(g.q),
-                          sum(edg$from %in% mNames | edg$to %in% mNames), sum(edg$from %in% gNames & edg$to %in% gNames),
-                          length(intersect(nodes(g.q), gNames)), length(intersect(nodes(g.q), mNames))))
-            }
-            if (numNodes(g.0) > 0 && numNodes(g.q) > 0) {
-              g <- graphIntersect(g.0, g.q)
+            g <- object@qpg@g
+            if (numNodes(g) > 0) {
               edg <- extractFromTo(g)
-              cat(sprintf("  G^(0,q): %d vertices and %d edges corresponding to\n           %d eQTLs and %d gene-gene associations\n           involving %d genes and %d loci\n",
-                          numNodes(g), numEdges(g),
+              qstr <- NULL
+              if (!is.na(object@p.value))
+                qstr <- "0"
+              if (!is.na(object@epsilon))
+                qstr <- ifelse(qstr == "0",
+                               sprintf("0,%s", paste(object@qOrders, collapsed=",")),
+                               paste(object@qOrders, collapsed=","))
+              if (!is.na(object@alpha))
+                qstr <- paste(qstr, "*", sep=",")
+              cat(sprintf("  G^(%s): %d vertices and %d edges corresponding to\n         %d eQTLs and %d gene-gene associations\n         involving %d genes and %d loci meeting a\n         %s-adjusted p-value < %.2f\n",
+                          qstr, numNodes(g), numEdges(g),
                           sum(edg$from %in% mNames | edg$to %in% mNames), sum(edg$from %in% gNames & edg$to %in% gNames),
-                          length(intersect(nodes(g), gNames)), length(intersect(nodes(g), mNames))))
+                          length(intersect(nodes(g), gNames)), length(intersect(nodes(g), mNames)), object@adjustMethod, object@p.value))
             }
           })

@@ -20,7 +20,7 @@
   has been deprecated and replaced by this class and corresponding
   constructor methods of the same name. The main difference with respect
   to earlier 1.x versions is that the argument \code{threshold} is now
-  called \code{nrrCutoff}, the argument \code{return.type} has been
+  called \code{epsilon}, the argument \code{return.type} has been
   removed and the current version returns an object of this class
   \code{qpGraph} described in this manual page.
 }
@@ -31,11 +31,10 @@
 }
 \section{Slots}{
   \describe{
-    \item{\code{nrrMatrix}:}{matrix of non-rejection rates.}
     \item{\code{p}:}{number of vertices, in one-to-one correspondence with random variables.}
     \item{\code{q}:}{order of the qp-graph, always smaller than \code{p-2}.}
     \item{\code{n}:}{when the qp-graph has been estimated from data, this is the number of observations in the data set, which must be larger than \code{q+2}.}
-    \item{\code{nrrCutoff}:}{maximum cutoff value of the non-rejection rate met by the edges that are present in the qp-graph.}
+    \item{\code{epsilon}:}{maximum cutoff value of the non-rejection rate met by the edges that are present in the qp-graph.}
     \item{\code{g}:}{undirected graph structure of the qp-graph stored as a \code{\link[graph]{graphBAM-class}} object.}
   }
 }
@@ -47,13 +46,12 @@
   }
 }
 \arguments{
-  \item{nrrMatrix}{matrix of non-rejection rates.}
-  \item{nrrCutoff}{maximum cutoff value met by the edges present in the
+  \item{epsilon}{maximum cutoff value met by the edges present in the
                    qp-graph.}
   \item{topPairs}{number of edges from the top of the ranking, defined by the
                   non-rejection rates in \code{nrrMatrix}, to use to form the
                   resulting qp-graph. This parameter is incompatible with a
-                  value different from \code{NULL} in \code{nrrCutoff}.}
+                  value different from \code{NULL} in \code{epsilon}.}
   \item{pairup.i}{subset of vertices to pair up with subset \code{pairup.j}}
   \item{pairup.j}{subset of vertices to pair up with subset \code{pairup.i}}
   \item{q}{q-order employed to derive the input matrix of non-rejection rates

@@ -168,15 +168,18 @@ setClass("eQTLnetwork",
                         modelFormula="formula",
                         rhs="list",
                         qOrders="integer",
-                        g.0="graphBAM",
-                        g.q="qpGraph"))
+                        p.value="numeric",
+                        adjustMethod="character",
+                        epsilon="numeric",
+                        alpha="numeric",
+                        qpg="qpGraph"))
 
 
 setClass("qpGraph",
          representation(p="integer",
                         q="integer",
                         n="integer",
-                        nrrCutoff="numeric",
+                        epsilon="numeric",
                         g="graphBAM"))
 
 ## class SsdMatrix to store matrices with sum of squares of deviations (ssd)

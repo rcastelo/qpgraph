@@ -8,8 +8,8 @@ A graph
 Obtains an undirected graph from a matrix of pairwise measurements
 }
 \usage{
-qpAnyGraph(measurementsMatrix, threshold=NULL, remove=c("below", "above"),
-           topPairs=NULL, decreasing=TRUE, pairup.i=NULL, pairup.j=NULL)
+qpAnyGraph(measurementsMatrix, threshold=NA_real_, remove=c("below", "above"),
+           topPairs=NA_integer_, decreasing=TRUE, pairup.i=NULL, pairup.j=NULL)
 }
 \arguments{
   \item{measurementsMatrix}{matrix of pairwise measurements.}

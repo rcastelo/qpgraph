@@ -40,7 +40,7 @@ The plotted graph is invisibly returned as a \code{graphNEL-class} object.
 require(Rgraphviz)
 
 rndassociations <- qpUnifRndAssociation(10)
-g <- qpAnyGraph(abs(rndassociations), threshold=0.7, remove="below", return.type="graphNEL")
+g <- qpAnyGraph(abs(rndassociations), threshold=0.7, remove="below")
 qpPlotNetwork(g)
 }
 \keyword{models}

@@ -1,13 +1,15 @@
 ## methods for estimating eQTL networks
 
+## estimate parameters of the eQTLnetwork
 setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
                                              model="formula",
                                              estimate="missing"),
           function(param, model, estimate, p.value=NA_real_, method=p.adjust.methods,
-                   nrr=NA_real_, verbose=TRUE, BPPARAM=bpparam("SerialParam")) {
+                   epsilon=NA_real_, alpha=NA_real_, verbose=TRUE,
+                   BPPARAM=bpparam("SerialParam")) {
 
-            if (!is.na(p.value) || !is.na(nrr))
-              stop("'p.value' or 'nrr' cutoffs can only be specified without 'model'.")
+            if (!is.na(p.value) || !is.na(epsilon))
+              stop("'p.value' or 'epsilon' cutoffs can only be specified without 'model'.")
 
             clusterSize <- 1 ## this should change to use BiocParallel
             if (!is(BPPARAM, "SerialParam")) {
@@ -68,22 +70,26 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
             }
 
             g.0 <- graphBAM(df=data.frame(from=character(), to=character(), weight=integer()))
-            g.q <- new("qpGraph", p=0L, q=integer(), n=NA_integer_, nrrCutoff=NA_real_, g=g.0)
-            new("eQTLnetwork", geneticMap=geneticMap(param), physicalMap=physicalMap(param),
-                organism=param@organism, genome=param@genome, geneAnnotation=geneAnnotation(param),
+            qpg <- new("qpGraph", p=0L, q=integer(), n=NA_integer_, epsilon=NA_real_, g=g.0)
+            new("eQTLnetwork", geneticMap=geneticMap(param),
+                physicalMap=physicalMap(param), organism=param@organism,
+                genome=param@genome, geneAnnotation=geneAnnotation(param),
                 geneAnnotationTable=param@geneAnnotationTable, dVars=param@dVars,
-                pvaluesG0=pvaluesG0, nrr=nrr, modelFormula=model, rhs=rhs, qOrders=qorders,
-                g.0=g.0, g.q=g.q)
+                pvaluesG0=pvaluesG0, nrr=nrr, modelFormula=model, rhs=rhs,
+                qOrders=qorders, p.value=NA_real_, adjustMethod="none",
+                epsilon=NA_real_, qpg=qpg)
           })
 
+## estimate parameters of the eQTLnetwork given an existing estimate
 setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
                                              model="formula",
                                              estimate="eQTLnetwork"),
           function(param, model, estimate, p.value=NA_real_, method=p.adjust.methods,
-                   nrr=NA_real_, verbose=TRUE, BPPARAM=bpparam("SerialParam")) {
+                   epsilon=NA_real_, alpha=NA_real_, verbose=TRUE,
+                   BPPARAM=bpparam("SerialParam")) {
 
-            if (!is.na(p.value) || !is.na(nrr))
-              stop("'p.value' or 'nrr' cutoffs can only be specified without 'model'.")
+            if (!is.na(p.value) || !is.na(epsilon))
+              stop("'p.value' or 'epsilon' cutoffs can only be specified without 'model'.")
 
             clusterSize <- 1 ## this should change to use BiocParallel
             if (!is(BPPARAM, "SerialParam")) {
@@ -168,31 +174,49 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
             }
 
             g.0 <- graphBAM(df=data.frame(from=character(), to=character(), weight=integer()))
-            g.q <- new("qpGraph", p=0L, q=integer(), n=NA_integer_, nrrCutoff=NA_real_, g=g.0)
-            new("eQTLnetwork", geneticMap=geneticMap(param), physicalMap=physicalMap(param),
-                organism=param@organism, genome=param@genome, geneAnnotation=geneAnnotation(param),
+            qpg <- new("qpGraph", p=0L, q=integer(), n=NA_integer_, epsilon=NA_real_, g=g.0)
+            new("eQTLnetwork", geneticMap=geneticMap(param),
+                physicalMap=physicalMap(param), organism=param@organism,
+                genome=param@genome, geneAnnotation=geneAnnotation(param),
                 geneAnnotationTable=param@geneAnnotationTable, dVars=param@dVars,
-                pvaluesG0=pvaluesG0, nrr=nrr, modelFormula=model, rhs=rhs, qOrders=qorders,
-                g.0=g.0, g.q=g.q)
+                pvaluesG0=pvaluesG0, nrr=nrr, modelFormula=model, rhs=rhs,
+                qOrders=qorders, p.value=NA_real_, epsilon=NA_real_,
+                adjustMethod="none", qpg=qpg)
           })
 
 
+## estimate the eQTLnetwork based on the estimated parameters and given cutoffs
 setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
                                              model="missing",
                                              estimate="eQTLnetwork"),
           function(param, model, estimate, p.value=NA_real_, method=p.adjust.methods,
-                   nrr=NA_real_, verbose=TRUE, BPPARAM=bpparam("SerialParam")) {
+                   epsilon=NA_real_, alpha=NA_real_, verbose=TRUE,
+                   BPPARAM=bpparam("SerialParam")) {
 
             method <- match.arg(method)
 
             if (!is.na(p.value) && nrow(estimate@pvaluesG0) < 1)
               stop("argument 'estimate' has no pairwise (conditional) independence tests.")
 
-            if (!is.na(nrr) && nrow(estimate@nrr) < 1)
+            if (!is.na(epsilon) && nrow(estimate@nrr) < 1)
               stop("argument 'estimate' has no non-rejection rates.")
 
-            g.0 <- graphBAM(df=data.frame(from=character(), to=character(), weight=integer()))
-            g.q <- new("qpGraph", p=0L, q=integer(), n=NA_integer_, nrrCutoff=NA_real_, g=g.0)
+            mNames <- NULL
+            if (length(estimate@geneticMap) > 0)
+              mNames <- as.vector(sapply(estimate@geneticMap, names))
+            else if (length(estimate@physicalMap) > 0)
+              mNames <- as.vector(sapply(estimate@physicalMap, names))
+            else
+              stop("Both the genetic and the physical map in 'estimate' are empty.")
+
+            if (!identical(mNames, markerNames(param)))
+              stop("Markers are different between 'param' and 'estimate'.")
+
+            gNames <- names(estimate@geneAnnotation)
+            if (!identical(gNames, geneNames(param)))
+              stop("Genes are different between 'param' and 'estimate'.")
+
+            qpg <- estimate@qpg
 
             if (!is.na(p.value)) {
               ## here we assume that the diagonal is set to NA
@@ -202,17 +226,75 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
                            Dimnames=dimnames(estimate@pvaluesG0), x=p.adj)
               g.0 <- qpAnyGraph(p.adj, threshold=p.value, remove="above",
                                 decreasing=FALSE)
+              if (qpg@p > 0) {
+                if (nrow(param@ggData) != qpg@n)
+                  stop("The qp-graph in the given eQTL network was estimated from different data.")
+                g <- graphIntersect(qpg@g, g.0)
+                qpg <- new("qpGraph", p=numNodes(g), q=unique(sort(c(0L, qpg@q))),
+                           n=qpg@n, epsilon=qpg@epsilon, g=g)
+              } else
+                qpg <- new("qpGraph", p=numNodes(g.0), q=0L, n=nrow(param@ggData),
+                           epsilon=NA_real_, g=g.0)
             }
 
-            if (!is.na(nrr))
-              g.q <- qpGraph(nrrMatrix=estimate@nrr, nrrCutoff=nrr, q=estimate@qOrders,
-                             n=nrow(param@ggData))
+            if (!is.na(epsilon)) {
+              if (nrow(estimate@nrr) < 1)
+                stop("non-rejection rates have not been calculated.")
 
-            new("eQTLnetwork", geneticMap=geneticMap(param), physicalMap=physicalMap(param),
-                organism=param@organism, genome=param@genome, geneAnnotation=geneAnnotation(param),
-                geneAnnotationTable=param@geneAnnotationTable, dVars=param@dVars,
-                pvaluesG0=estimate@pvaluesG0, nrr=estimate@nrr, modelFormula=estimate@modelFormula,
-                rhs=estimate@rhs, qOrders=estimate@qOrders, g.0=g.0, g.q=g.q)
+              g.q <- qpGraph(nrrMatrix=estimate@nrr, epsilon=epsilon, q=estimate@qOrders,
+                             n=nrow(param@ggData))
+              if (qpg@p > 0) {
+                if (nrow(param@ggData) != qpg@n)
+                  stop("The qp-graph in the given eQTL network was estimated from different data.")
+                g <- graphIntersect(qpg@g, g.q)
+                qpg <- new("qpGraph", p=numNodes(g), q=unique(sort(c(qpg@q, estimate@qOrders))),
+                           n=qpg@n, epsilon=epsilon, g=g)
+              }
+            }
+
+            if (!is.na(alpha)) {
+              if (numNodes(qpg@g) < 1 || nrow(estimate@nrr) < 1)
+                stop("forward selection with an 'alpha' cutoff requires non-rejection rates and a given 'epsilon' cutoff")
+              if (nrow(estimate@nrr) < 1)
+                stop("non-rejection rates have not been calculated.")
+
+              edg <- edges(qpg@g)[intersect(nodes(qpg@g), gNames)]
+              edg <- lapply(edg, function(x, I) intersect(x, I), mNames)
+              edg <- edg[sapply(edg, length) > 0]
+              edg <- mapply(function(m, g) c(g, m), edg, as.list(names(edg)),
+                            SIMPLIFY=FALSE) ## add the gene before markers
+              edg <- bplapply(edg, function(v, X, nrr) {
+                                     o <- order(nrr[cbind(rep(v[1], times=length(v)-1), v[-1])])
+                                     v[-1] <- v[-1][o]
+                                     dropMask <- vector(mode="logical", length=length(v[-1]))
+                                     Q <- NULL
+                                     for (i in 1:length(v[-1])) {
+                                       dropMask[i] <- qpCItest(X, I=v[-1], i=v[1],
+                                                               j=v[i+1], Q=Q)$p.value > alpha
+                                       Q <- c(Q, v[i+1])
+                                     }
+                                     ## NAs may occur when not sufficient data is available
+                                     v[-1][dropMask | is.na(dropMask)] ## forward??
+                                   }, ggData(param), estimate@nrr, BPPARAM=BPPARAM)
+              edg <- edg[sapply(edg, length) > 0]
+              if (length(edg) > 0) {
+                elen <- sapply(edg, length)
+                qpg@g <- removeEdge(from=rep(names(edg), times=elen),
+                                    to=unlist(edg, use.names=FALSE),
+                                    qpg@g)
+              }
+            }
+
+            new("eQTLnetwork", geneticMap=geneticMap(param),
+                physicalMap=physicalMap(param),
+                organism=param@organism, genome=param@genome,
+                geneAnnotation=geneAnnotation(param),
+                geneAnnotationTable=param@geneAnnotationTable,
+                dVars=param@dVars, pvaluesG0=estimate@pvaluesG0,
+                nrr=estimate@nrr, modelFormula=estimate@modelFormula,
+                rhs=estimate@rhs, qOrders=estimate@qOrders,
+                p.value=p.value, adjustMethod=method,
+                epsilon=epsilon, alpha=alpha, qpg=qpg)
           })
 
 
