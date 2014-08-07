@@ -308,8 +308,8 @@ setMethod("names", signature(x="eQTLcross"),
 ## alleQTL method
 setMethod("alleQTL", signature(x="eQTLcross"),
           function(x) {
-            eQTLedges <- graph::edges(x@model$g)[x@model$I]
-            n.eqtl <- length(unlist(graph::edges(x@model$g)[x@model$I], use.names=FALSE))
+            eQTLedges <- edges(x@model$g)[x@model$I]
+            n.eqtl <- length(unlist(edges(x@model$g)[x@model$I], use.names=FALSE))
             df <- as.data.frame(matrix(NA, nrow=0, ncol=5, dimnames=list(NULL, c("chrom", "location", "QTL", "gene", "a"))))
 
             if (n.eqtl > 0) {

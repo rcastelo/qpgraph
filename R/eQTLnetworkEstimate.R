@@ -191,7 +191,7 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
                                              estimate="eQTLnetwork"),
           function(param, model, estimate, p.value=NA_real_, method=p.adjust.methods,
                    epsilon=NA_real_, alpha=NA_real_, verbose=TRUE,
-                   BPPARAM=bpparam("SerialParam")) {
+                   BPPARAM=bpparam()) {
 
             method <- match.arg(method)
 
@@ -203,9 +203,9 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
 
             mNames <- NULL
             if (length(estimate@geneticMap) > 0)
-              mNames <- as.vector(sapply(estimate@geneticMap, names))
+              mNames <- unlist(sapply(estimate@geneticMap, names), use.names=FALSE)
             else if (length(estimate@physicalMap) > 0)
-              mNames <- as.vector(sapply(estimate@physicalMap, names))
+              mNames <- unlist(sapply(estimate@physicalMap, names), use.names=FALSE)
             else
               stop("Both the genetic and the physical map in 'estimate' are empty.")
 
@@ -241,18 +241,23 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
               if (nrow(estimate@nrr) < 1)
                 stop("non-rejection rates have not been calculated.")
 
+              if (is.na(p.value)) {
+                p.value <- estimate@p.value
+                method <- estimate@adjustMethod
+              }
+
               g.q <- qpGraph(nrrMatrix=estimate@nrr, epsilon=epsilon, q=estimate@qOrders,
                              n=nrow(param@ggData))
               if (qpg@p > 0) {
-                if (nrow(param@ggData) != qpg@n)
-                  stop("The qp-graph in the given eQTL network was estimated from different data.")
-                g <- graphIntersect(qpg@g, g.q)
+                g <- graphIntersect(qpg@g, g.q@g)
                 qpg <- new("qpGraph", p=numNodes(g), q=unique(sort(c(qpg@q, estimate@qOrders))),
                            n=qpg@n, epsilon=epsilon, g=g)
-              }
+              } else
+                qpg <- g.q
             }
 
             if (!is.na(alpha)) {
+              epsilon <- estimate@epsilon
               if (is.na(p.value)) {
                 p.value <- estimate@p.value
                 method <- estimate@adjustMethod
@@ -268,32 +273,33 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
               edg <- edg[sapply(edg, length) > 0]
               edg <- mapply(function(m, g) c(g, m), edg, as.list(names(edg)),
                             SIMPLIFY=FALSE) ## add the gene before markers
-              edg <- lapply(edg, function(v, X, nrr) {
-              ## X <- ggData(param)
-              ## nrr <- estimate@nrr
-              ## for (k in 1:length(edg)) {
-                ## v <- edg[[k]]
-                                     o <- order(nrr[cbind(rep(v[1], times=length(v)-1), v[-1])])
-                                     v[-1] <- v[-1][o]
-                                     dropMask <- vector(mode="logical", length=length(v[-1]))
-                                     Q <- NULL
-                                     for (i in 1:length(v[-1])) {
-                                       dropMask[i] <- qpCItest(X, I=v[-1], i=v[1],
-                                                               j=v[i+1], Q=Q)$p.value > alpha
-                                       Q <- c(Q, v[i+1])
-                                     }
-                                     ## NAs may occur when not sufficient data is available
-                                     v[-1][dropMask | is.na(dropMask)] ## forward??
-              ##   cat(names(edg)[k], " removed ", sum(dropMask | is.na(dropMask)), "eQTLs\n")
-              ## }
-                                   }, ggData(param), estimate@nrr)##, BPPARAM=BPPARAM)
+              edg <- bplapply(edg,
+                              function(v, X, nrr, alpha) {
+                                o <- order(nrr[cbind(rep(v[1], times=length(v)-1), v[-1])])
+                                v[-1] <- v[-1][o]
+                                dropMask <- rep(FALSE, times=length(v[-1]))
+                                Q <- NULL
+                                pv <- 0
+                                i <- 1
+                                while (i <= length(v[-1]) && pv <= alpha) { ## fwd selection
+                                  pv <- qpCItest(X, I=v[-1], i=v[1], j=v[i+1], Q=Q)$p.value
+                                  dropMask[i] <- pv > alpha
+                                  Q <- c(Q, v[i+1])
+                                  i <- i + 1
+                                }
+                                if (i < length(v[-1]))
+                                  dropMask[i:length(v[-1])] <- TRUE
+                                ## NAs may occur when not sufficient data is available
+                                v[-1][dropMask | is.na(dropMask)]
+                              }, ggData(param), estimate@nrr, alpha=alpha, BPPARAM=BPPARAM)
               edg <- edg[sapply(edg, length) > 0]
               if (length(edg) > 0) {
-                ## THERE'S CURRENTLY A BUG IN removeEdge() AND THIS DOES NOT WORK
+                ## THERE'S CURRENTLY A BUG IN graph::removeEdge() AND THIS DOES NOT WORK
                 ## elen <- sapply(edg, length)
                 ## qpg@g <- removeEdge(from=rep(names(edg), times=elen),
                 ##                     to=unlist(edg, use.names=FALSE),
                 ##                     as(qpg@g, "graphNEL"))
+                ## WORKAROUND BY RE-BUILDING AGAIN THE graphBAM object
                 alledg <- extractFromTo(qpg@g)
                 alledg$from <- as.character(alledg$from)
                 alledg$to <- as.character(alledg$to)
@@ -308,7 +314,7 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
                 elen <- sapply(edg, length)
                 rmedg <- data.frame(from=unlist(edg, use.names=FALSE),
                                     to=rep(names(edg), times=elen))
-                keepMask <- paste(mgedg$from, mgedg$to, sep="__") %in% paste(rmedg$from, rmedg$to, sep="__")
+                keepMask <- !paste(mgedg$from, mgedg$to, sep="__") %in% paste(rmedg$from, rmedg$to, sep="__")
                 mgedg <- mgedg[keepMask, ]
                 qpg@g <- graphBAM(rbind(ggedg, mgedg, stringsAsFactors=FALSE))
               }
