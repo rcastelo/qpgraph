@@ -253,6 +253,11 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
             }
 
             if (!is.na(alpha)) {
+              if (is.na(p.value)) {
+                p.value <- estimate@p.value
+                method <- estimate@adjustMethod
+              }
+
               if (numNodes(qpg@g) < 1 || nrow(estimate@nrr) < 1)
                 stop("forward selection with an 'alpha' cutoff requires non-rejection rates and a given 'epsilon' cutoff")
               if (nrow(estimate@nrr) < 1)
@@ -263,7 +268,11 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
               edg <- edg[sapply(edg, length) > 0]
               edg <- mapply(function(m, g) c(g, m), edg, as.list(names(edg)),
                             SIMPLIFY=FALSE) ## add the gene before markers
-              edg <- bplapply(edg, function(v, X, nrr) {
+              edg <- lapply(edg, function(v, X, nrr) {
+              ## X <- ggData(param)
+              ## nrr <- estimate@nrr
+              ## for (k in 1:length(edg)) {
+                ## v <- edg[[k]]
                                      o <- order(nrr[cbind(rep(v[1], times=length(v)-1), v[-1])])
                                      v[-1] <- v[-1][o]
                                      dropMask <- vector(mode="logical", length=length(v[-1]))
@@ -275,13 +284,33 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
                                      }
                                      ## NAs may occur when not sufficient data is available
                                      v[-1][dropMask | is.na(dropMask)] ## forward??
-                                   }, ggData(param), estimate@nrr, BPPARAM=BPPARAM)
+              ##   cat(names(edg)[k], " removed ", sum(dropMask | is.na(dropMask)), "eQTLs\n")
+              ## }
+                                   }, ggData(param), estimate@nrr)##, BPPARAM=BPPARAM)
               edg <- edg[sapply(edg, length) > 0]
               if (length(edg) > 0) {
+                ## THERE'S CURRENTLY A BUG IN removeEdge() AND THIS DOES NOT WORK
+                ## elen <- sapply(edg, length)
+                ## qpg@g <- removeEdge(from=rep(names(edg), times=elen),
+                ##                     to=unlist(edg, use.names=FALSE),
+                ##                     as(qpg@g, "graphNEL"))
+                alledg <- extractFromTo(qpg@g)
+                alledg$from <- as.character(alledg$from)
+                alledg$to <- as.character(alledg$to)
+                ggedg <- alledg[alledg$from %in% gNames & alledg$to %in% gNames, ]
+                mgedg <- alledg[alledg$from %in% mNames | alledg$to %in% mNames, ]
+                maskSwappedGenesMarkers <- mgedg$from %in% gNames
+                if (any(maskSwappedGenesMarkers)) { ## put markers in 'from' and genes in 'to
+                  swappedGeneNames <- mgedg$from[maskSwappedGenesMarkers]
+                  mgedg$from[swappedGenesMarkers] <- mgedg$to[swappedGenesMarkers]
+                  mgedg$to[swappedGenesMarkers] <- mgedg$to[swappedGenesMarkers]
+                }
                 elen <- sapply(edg, length)
-                qpg@g <- removeEdge(from=rep(names(edg), times=elen),
-                                    to=unlist(edg, use.names=FALSE),
-                                    qpg@g)
+                rmedg <- data.frame(from=unlist(edg, use.names=FALSE),
+                                    to=rep(names(edg), times=elen))
+                keepMask <- paste(mgedg$from, mgedg$to, sep="__") %in% paste(rmedg$from, rmedg$to, sep="__")
+                mgedg <- mgedg[keepMask, ]
+                qpg@g <- graphBAM(rbind(ggedg, mgedg, stringsAsFactors=FALSE))
               }
             }
 

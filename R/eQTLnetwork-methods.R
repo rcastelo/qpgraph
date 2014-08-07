@@ -31,9 +31,10 @@ setMethod("show", signature(object="eQTLnetwork"),
                                paste(object@qOrders, collapsed=","))
               if (!is.na(object@alpha))
                 qstr <- paste(qstr, "*", sep=",")
-              cat(sprintf("  G^(%s): %d vertices and %d edges corresponding to\n         %d eQTLs and %d gene-gene associations\n         involving %d genes and %d loci meeting a\n         %s-adjusted p-value < %.2f\n",
+              cat(sprintf("  G^(%s): %d vertices and %d edges corresponding to\n         %d eQTLs and %d gene-gene associations\n         meeting a %s-adjusted p-value < %.2f\n         and involving %d genes and %d loci\n",
                           qstr, numNodes(g), numEdges(g),
                           sum(edg$from %in% mNames | edg$to %in% mNames), sum(edg$from %in% gNames & edg$to %in% gNames),
-                          length(intersect(nodes(g), gNames)), length(intersect(nodes(g), mNames)), object@adjustMethod, object@p.value))
+                          object@adjustMethod, object@p.value,
+                          length(intersect(nodes(g), gNames)), length(intersect(nodes(g), mNames))))
             }
           })
