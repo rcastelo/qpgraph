@@ -129,7 +129,8 @@ exportMethods("qpNrr",
               "markerNames",
               "geneNames",
               "geneAnnotation",
-              "eQTLnetworkEstimate")
+              "eQTLnetworkEstimate",
+              "varExplained")
 
 export(qpHist,
        qpGraphDensity,
