@@ -332,6 +332,33 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
                 epsilon=epsilon, alpha=alpha, qpg=qpg)
           })
 
+setMethod("varExplained", signature=c(param="eQTLnetworkEstimationParam",
+                                      estimate="eQTLnetwork"),
+          function(param, estimate, BPPARAM=bpparam()) {
+            if (nrow(estimate@nrr) < 1)
+              stop("non-rejection rates are required at the moment to calculate the explained variance per gene\n")
+            eqtls <- alleQTL(estimate)
+            eqtls <- split(eqtls$QTL, eqtls$gene)
+            ## add gene before markers
+            eqtls <- mapply(function(m, g) c(g, m), eqtls, as.list(names(eqtls)))
+            eta2xgene <- bplapply(eqtls,
+                                  function(qtls, X, nrr) {
+                                    o <- order(nrr[cbind(rep(qtls[1], times=length(qtls)-1), qtls[-1])])
+                                    qtls[-1] <- qtls[-1][o]
+                                    eta2 <- 0
+                                    Q <- NULL
+                                    for (i in 1:length(qtls[-1])) {
+                                      this.eta2 <- qpCItest(X, I=qtls[-1], i=qtls[1], j=qtls[i+1], Q=Q)$estimate
+                                      eta2 <- eta2 + this.eta2
+                                      Q <- c(Q, qtls[i+1])
+                                    }
+                                    eta2
+                                  }, ggData(param), estimate@nrr, BPPARAM=BPPARAM)
+            eta2xgene <- unlist(lapply(eta2xgene, as.vector))
+            df <- data.frame(eta2eQTLs=eta2xgene)
+            rownames(df) <- names(eta2xgene)
+            df
+          })
 
 ##
 ## private functions
