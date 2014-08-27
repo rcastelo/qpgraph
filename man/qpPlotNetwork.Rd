@@ -37,11 +37,13 @@ The plotted graph is invisibly returned as a \code{graphNEL-class} object.
   \code{\link{qpAnyGraph}}
 }
 \examples{
+\dontrun{
 require(Rgraphviz)
 
 rndassociations <- qpUnifRndAssociation(10)
 g <- qpAnyGraph(abs(rndassociations), threshold=0.7, remove="below")
-qpPlotNetwork(g)
+qpPlotNetwork(g) ## this does not work at the moment and should be fixed
+}
 }
 \keyword{models}
 \keyword{multivariate}

@@ -2822,7 +2822,7 @@ qpAnyGraph <- function(measurementsMatrix, threshold=NA_real_, remove=c("below",
   if (is.null(colnames(measurementsMatrix))) {
     vertex.labels <- as.character(1:p)
   } else
-    vertex.labels <- colnames(measurementsMatrix)
+    vertex.labels <- as.character(colnames(measurementsMatrix))
 
   if (is.na(threshold) && is.na(topPairs))
     stop("either 'threshold' or 'topPairs' should be set different to NULL\n")
@@ -2873,7 +2873,8 @@ qpAnyGraph <- function(measurementsMatrix, threshold=NA_real_, remove=c("below",
     idx <- .i2e(idx-1) + 1 ## defined in qpGraph-methods.R
     df <- data.frame(from=vertex.labels[idx[, 1]],
                      to=vertex.labels[idx[, 2]],
-                     weight=rep(1, nrow(idx)))
+                     weight=rep(1, nrow(idx)),
+                     stringsAsFactors=FALSE)
   } else {                                                  ## topPairs
     measurementsUTsorted <- sort(measurementsUT, partial=topPairs, decreasing=decreasing)[1:topPairs]
     idx <- which(measurementsUT %in% measurementsUTsorted)
@@ -2882,7 +2883,8 @@ qpAnyGraph <- function(measurementsMatrix, threshold=NA_real_, remove=c("below",
     idx <- .i2e(idx-1) + 1 ## defined in qpGraph-methods.R
     df <- data.frame(from=vertex.labels[idx[, 1]],
                      to=vertex.labels[idx[, 2]],
-                     weight=rep(1, topPairs))
+                     weight=rep(1, topPairs),
+                     stringsAsFactors=FALSE)
   }
 
   graphBAM(df, nodes=vertex.labels)
