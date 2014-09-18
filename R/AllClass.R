@@ -155,6 +155,13 @@ setClass("eQTLnetworkEstimationParam",
                         geneAnnotationTable="character",
                         dVars="character"))
 
+setClass("qpGraph",
+         representation(p="integer",
+                        q="integer",
+                        n="integer",
+                        epsilon="numeric",
+                        g="graphBAM"))
+
 setClass("eQTLnetwork",
          representation(geneticMap="ANY",
                         physicalMap="ANY",
@@ -174,13 +181,6 @@ setClass("eQTLnetwork",
                         alpha="numeric",
                         qpg="qpGraph"))
 
-
-setClass("qpGraph",
-         representation(p="integer",
-                        q="integer",
-                        n="integer",
-                        epsilon="numeric",
-                        g="graphBAM"))
 
 ## class SsdMatrix to store matrices with sum of squares of deviations (ssd)
 ## these are dspMatrix objects with an additional slot 'n' indicating the

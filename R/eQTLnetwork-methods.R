@@ -39,7 +39,7 @@ setMethod("show", signature(object="eQTLnetwork"),
                           sum(edg$from %in% gNames & edg$to %in% gNames)))
               commaflag <- FALSE
               if (!is.na(object@p.value)) {
-                cat(sprintf("meeting\n%sa %s-adjusted p-value < %.2f",
+                cat(sprintf(" meeting\n%sa %s-adjusted p-value < %.2f",
                             padstr, object@adjustMethod, object@p.value))
                 commaflag <- TRUE
               }
@@ -63,26 +63,53 @@ setMethod("show", signature(object="eQTLnetwork"),
             }
           })
 
-## alleQTL method
+## getter and setter methods
+setMethod("geneticMap", signature(object="eQTLnetwork"),
+          function(object) {
+            object@geneticMap
+          })
+
+setMethod("physicalMap", signature(object="eQTLnetwork"),
+          function(object) {
+            object@physicalMap
+          })
+
+setMethod("geneAnnotation", signature(object="eQTLnetwork"),
+          function(object) {
+            object@geneAnnotation
+          })
+
 setMethod("alleQTL", signature(x="eQTLnetwork"),
-          function(x) {
+          function(x, map=c("genetic", "physical")) {
+            map <- match.arg(map)
+            gMap <- geneticMap(x)
+            pMap <- physicalMap(x)
+
+            if (length(gMap) < 1 && length(pMap) < 1)
+              stop("Both, genetic and physical maps in the input object are empty.")
+            if (length(gMap) < 1 && map == "genetic")
+              stop("The genetic map in the input object is empty. Try setting 'map=\"physical\"'")
+            if (length(pMap) < 1 && map == "physical")
+              stop("The physical map in the input object is empty. Try setting 'map=\"genetic\"'")
+
             mNames <- mChr <- mLoc <- NULL
-            if (length(x@geneticMap) > 0) {
-              mNames <- unlist(sapply(x@geneticMap, names), use.names=FALSE)
-              mLoc <- unlist(x@geneticMap, use.names=FALSE)
+            if (length(gMap) > 0 && map == "genetic") {
+              mNames <- unlist(sapply(gMap, names), use.names=FALSE)
+              mLoc <- unlist(gMap, use.names=FALSE)
               names(mLoc) <- mNames
-              elen <- sapply(x@geneticMap, length)
-              mChr <- rep(names(x@geneticMap), times=elen)
+              elen <- sapply(gMap, length)
+              mChr <- rep(names(gMap), times=elen)
               names(mChr) <- mNames
-            } else if (length(x@physicalMap) > 0) {
-              mNames <- unlist(sapply(x@physicalMap, names), use.names=FALSE)
-              mLoc <- unlist(x@physicalMap, use.names=FALSE)
+            }
+
+            if (length(pMap) > 0 && map == "physical") {
+              mNames <- unlist(sapply(pMap, names), use.names=FALSE)
+              mLoc <- unlist(pMap, use.names=FALSE)
               names(mLoc) <- mNames
-              elen <- sapply(x@physicalMap, length)
-              mChr <- rep(names(x@geneticMap), times=elen)
+              elen <- sapply(pMap, length)
+              mChr <- rep(names(gMap), times=elen)
               names(mChr) <- mNames
-            } else
-              stop("Both the genetic and the physical map are empty.")
+            }
 
             gNames <- names(x@geneAnnotation)
             eQTLedges <- edges(x@qpg@g)[mNames]
@@ -112,3 +139,58 @@ setMethod("alleQTL", signature(x="eQTLnetwork"),
             df
           })
 
+setMethod("resetCutoffs", signature(object="eQTLnetwork"),
+          function(object) {
+            object@p.value <- NA_real_
+            object@epsilon <- NA_real_
+            object@alpha <- NA_real_
+            g.0 <- graphBAM(df=data.frame(from=character(), to=character(), weight=integer()))
+            object@qpg <- new("qpGraph", p=0L, q=integer(), n=NA_integer_, epsilon=NA_real_, g=g.0)
+            object
+          })
+
+## plot method
+setMethod("plot", signature(x="eQTLnetwork"),
+          function(x, type=c("dot"), xlab="eQTL location", ylab="Gene location", axes=TRUE, ...) {
+            type <- match.arg(type)
+
+            if (type == "dot") {
+              eqtl <- alleQTL(x, map="physical")
+
+              ## get the genes and their annotations involved
+              eqtlgenes <- geneAnnotation(x)[unique(eqtl$gene)]
+              mcols(eqtlgenes) <- cbind(mcols(eqtlgenes),
+                                        DataFrame(seqnamesRnk=rankSeqlevels(as.vector(seqnames(eqtlgenes)))))
+
+              ## get the loci involved
+              qtl <- unique(eqtl[, c("chrom", "location", "QTL")])
+              rownames(qtl) <- qtl$QTL
+              qtl <- qtl[, c("chrom", "location")]
+              qtl$chrom <- rankSeqlevels(qtl$chrom)
+
+              ## re-scale genes and marker locations in eQTL, between 0 and 1
+              chrinvolved <- sort(unique(intersect(qtl$chrom, eqtlgenes$seqnamesRnk)))
+              chrLen <- seqlengths(eqtlgenes)[chrinvolved]
+              chrRelLen <- chrLen / sum(chrLen)
+              chrRelCumLen <- c(0, cumsum(chrRelLen)[-length(chrRelLen)])
+              geneRelPos <- chrRelCumLen[eqtlgenes$seqnamesRnk] +
+                            chrRelLen[eqtlgenes$seqnamesRnk]*(start(eqtlgenes) / chrLen[eqtlgenes$seqnamesRnk])
+              names(geneRelPos) <- names(eqtlgenes)
+
+              qtlRelPos <- chrRelCumLen[qtl$chrom] +
+                           chrRelLen[qtl$chrom]*(qtl$location/chrLen[qtl$chrom]) 
+              names(qtlRelPos) <- rownames(qtl)
+
+              ## perform the dot plot
+              plot(qtlRelPos[eqtl$QTL], geneRelPos[eqtl$gene], pch=".",
+                   xlim=c(0, 1), ylim=c(0, 1), xlab=xlab, ylab=ylab, cex=4, axes=FALSE, ...)
+              segments(c(chrRelCumLen, 1), 0, c(chrRelCumLen, 1), 1, col=gray(0.75), lty="dotted", lwd=2)
+              segments(0, c(chrRelCumLen, 1), 1, c(chrRelCumLen, 1), col=gray(0.75), lty="dotted", lwd=2)
+              if (axes) {
+                axis(1, at=(chrRelCumLen + c(chrRelCumLen[-1], 1))/2,
+                          labels=names(chrLen), tick=FALSE, cex.axis=0.9)
+                axis(2, at=(chrRelCumLen + c(chrRelCumLen[-1], 1))/2,
+                          labels=names(chrLen), tick=FALSE, cex.axis=0.9, las=1)
+              }
+            }
+          })
