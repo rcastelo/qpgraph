@@ -139,6 +139,33 @@ setMethod("alleQTL", signature(x="eQTLnetwork"),
             df
           })
 
+setMethod("ciseQTL", signature(x="eQTLnetwork", cisr="numeric"),
+          function(x, cisr) {
+            eqtl <- alleQTL(x, map="physical")
+            eqtl$chrom <- rankSeqlevels(eqtl$chrom)
+
+            ## get the genes and their annotations involved
+            eqtlgenes <- geneAnnotation(x)[eqtl$gene]
+            mcols(eqtlgenes) <- cbind(mcols(eqtlgenes),
+                                      DataFrame(seqnamesRnk=rankSeqlevels(as.vector(seqnames(eqtlgenes)))))
+
+            ## add chromosome and location of the TSS of each eQTL gene
+            ciseqtl <- cbind(eqtl,
+                             genechrom=eqtlgenes$seqnamesRnk,
+                             genelocation=ifelse(strand(eqtlgenes) == "+",
+                                                 start(eqtlgenes),
+                                                 end(eqtlgenes)))
+
+            ## select those eQTLs occurring on the same chromosome as their target
+            ## gene and within a cis radius absolute distance smaller or equal than 'cisr'
+            ciseqtl <- ciseqtl[ciseqtl$chrom == ciseqtl$genechrom &
+                               abs(ciseqtl$location - ciseqtl$genelocation) <= cisr, ]
+
+            ciseqtl <- ciseqtl[, 1:4]
+            rownames(ciseqtl) <- 1:nrow(ciseqtl)
+            ciseqtl
+          })
+
 setMethod("resetCutoffs", signature(object="eQTLnetwork"),
           function(object) {
             object@p.value <- NA_real_
