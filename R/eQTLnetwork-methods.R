@@ -106,10 +106,15 @@ setMethod("geneAnnotation", signature(object="eQTLnetwork"),
           })
 
 setMethod("alleQTL", signature(x="eQTLnetwork"),
-          function(x, map=c("genetic", "physical")) {
+          function(x, map=c("genetic", "physical"), gene.loc=FALSE) {
             map <- match.arg(map)
             gMap <- geneticMap(x)
             pMap <- physicalMap(x)
+
+            if (gene.loc && map == "genetic") {
+              warning("setting map=\"genetic\" because gene.loc=TRUE")
+              map <- "physical"
+            }
 
             if (length(gMap) < 1 && length(pMap) < 1)
               stop("Both, genetic and physical maps in the input object are empty.")
@@ -151,45 +156,47 @@ setMethod("alleQTL", signature(x="eQTLnetwork"),
               mgedg$from[swappedGenesMarkers] <- mgedg$to[swappedGenesMarkers]
               mgedg$to[swappedGenesMarkers] <- mgedg$to[swappedGenesMarkers]
             }
-            df <- as.data.frame(matrix(NA, nrow=0, ncol=4, dimnames=list(NULL, c("chrom", "location", "QTL", "gene"))))
+
+            cnames <- c("chrom", "location", "QTL", "gene")
+            if (gene.loc)
+              cnames <- c(cnames, "genechrom", "genelocation", "distance")
+
+            eqtls <- as.data.frame(matrix(NA, nrow=0, ncol=length(cnames),
+                                          dimnames=list(NULL, cnames)))
             n.eqtl <- nrow(mgedg)
             if (n.eqtl > 0) {
-              df <- data.frame(chrom=rep(NA_character_, n.eqtl),
-                               location=rep(NA_real_, n.eqtl),
-                               QTL=mgedg$from,
-                               gene=mgedg$to,
-                               stringsAsFactors=FALSE)
-              df$chrom <- mChr[df$QTL]
-              df$location <- mLoc[df$QTL]
+              eqtls <- data.frame(chrom=rep(NA_character_, n.eqtl),
+                                  location=rep(NA_real_, n.eqtl),
+                                  QTL=mgedg$from,
+                                  gene=mgedg$to,
+                                  stringsAsFactors=FALSE)
+              eqtls$chrom <- rankSeqlevels(mChr[eqtls$QTL])
+              eqtls$location <- mLoc[eqtls$QTL]
+              if (gene.loc) {
+                ## get the genes and their annotations involved
+                genesGR <- geneAnnotation(x)[eqtls$gene]
+                mcols(genesGR) <- cbind(mcols(genesGR),
+                                        DataFrame(seqnamesRnk=rankSeqlevels(as.vector(seqnames(genesGR)))))
+                ## add chromosome and location of the TSS of each eQTL gene
+                eqtls <- cbind(eqtls,
+                               genechrom=genesGR$seqnamesRnk,
+                               genelocation=ifelse(strand(genesGR) == "+",
+                                                   start(genesGR),
+                                                   end(genesGR)))
+                eqtls$distance <- rep(Inf, times=nrow(eqtls))
+                masksamechrom <- eqtls$chrom == eqtls$genechrom
+                eqtls$distance[masksamechrom] <- abs(eqtls$location[masksamechrom] - eqtls$genelocation[masksamechrom])
+              }
             }
-            df
+            eqtls 
           })
 
 setMethod("ciseQTL", signature(x="eQTLnetwork", cisr="numeric"),
           function(x, cisr) {
-            eqtl <- alleQTL(x, map="physical")
-            eqtl$chrom <- rankSeqlevels(eqtl$chrom)
-
-            ## get the genes and their annotations involved
-            eqtlgenes <- geneAnnotation(x)[eqtl$gene]
-            mcols(eqtlgenes) <- cbind(mcols(eqtlgenes),
-                                      DataFrame(seqnamesRnk=rankSeqlevels(as.vector(seqnames(eqtlgenes)))))
-
-            ## add chromosome and location of the TSS of each eQTL gene
-            ciseqtl <- cbind(eqtl,
-                             genechrom=eqtlgenes$seqnamesRnk,
-                             genelocation=ifelse(strand(eqtlgenes) == "+",
-                                                 start(eqtlgenes),
-                                                 end(eqtlgenes)))
-
-            ## select those eQTLs occurring on the same chromosome as their target
-            ## gene and within a cis radius absolute distance smaller or equal than 'cisr'
-            ciseqtl <- ciseqtl[ciseqtl$chrom == ciseqtl$genechrom &
-                               abs(ciseqtl$location - ciseqtl$genelocation) <= cisr, ]
-
-            ciseqtl <- ciseqtl[, 1:4]
-            rownames(ciseqtl) <- 1:nrow(ciseqtl)
-            ciseqtl
+            eqtls <- alleQTL(x, map="physical", gene.loc=TRUE)
+            ciseqtls <- eqtls[eqtls$distance <= cisr, ]
+            rownames(ciseqtls) <- 1:nrow(ciseqtls)
+            ciseqtls
           })
 
 setMethod("resetCutoffs", signature(object="eQTLnetwork"),
