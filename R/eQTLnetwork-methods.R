@@ -105,6 +105,11 @@ setMethod("geneAnnotation", signature(object="eQTLnetwork"),
             object@geneAnnotation
           })
 
+setMethod("graph", signature(object="eQTLnetwork"),
+          function(object) {
+            object@qpg@g
+          })
+
 setMethod("alleQTL", signature(x="eQTLnetwork"),
           function(x, map=c("genetic", "physical"), gene.loc=FALSE) {
             map <- match.arg(map)
