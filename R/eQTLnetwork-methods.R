@@ -8,11 +8,11 @@ setMethod("show", signature(object="eQTLnetwork"),
               cat(sprintf("  Genome: %s\n", object@genome))
             if (length(object@geneAnnotationTable) > 0)
               cat(sprintf("  Gene annotation: %s\n", object@geneAnnotationTable))
-            mNames <- NULL
-            if (length(object@geneticMap) > 0)
-              mNames <- unlist(sapply(object@geneticMap, names), use.names=FALSE)
-            else if (length(object@physicalMap) > 0)
-              mNames <- unlist(sapply(object@physicalMap, names), use.names=FALSE)
+            mNames <- character()
+            if (length(geneticMap(object)) > 0)
+              mNames <- unlist(sapply(geneticMap(object), names), use.names=FALSE)
+            else if (length(physicalMap(object)) > 0)
+              mNames <- unlist(sapply(physicalMap(object), names), use.names=FALSE)
             else
               warning("Both the genetic and the physical map are empty.")
 
@@ -64,6 +64,32 @@ setMethod("show", signature(object="eQTLnetwork"),
           })
 
 ## getter and setter methods
+setMethod("geneNames", signature(object="eQTLnetwork"),
+          function(object) {
+            gnames <- character()
+            g <- object@qpg@g
+            if (numNodes(g) > 0)
+              gnames <- intersect(nodes(g), names(geneAnnotation(object)))
+            gnames
+          })
+
+setMethod("markerNames", signature(object="eQTLnetwork"),
+          function(object) {
+            mNames <- character()
+            if (length(geneticMap(object)) > 0)
+              mNames <- unlist(sapply(geneticMap(object), names), use.names=FALSE)
+            else if (length(physicalMap(object)) > 0)
+              mNames <- unlist(sapply(physicalMap(object), names), use.names=FALSE)
+            else
+              warning("Both the genetic and the physical map are empty.")
+
+            g <- object@qpg@g
+            if (numNodes(g) > 0)
+              mNames <- intersect(nodes(g), mNames)
+
+            mNames
+          })
+
 setMethod("geneticMap", signature(object="eQTLnetwork"),
           function(object) {
             object@geneticMap
