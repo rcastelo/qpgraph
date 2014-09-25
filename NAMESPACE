@@ -6,6 +6,19 @@ import(graph)
 
 import(Matrix)
 
+importFrom(grid,
+           grid.lines,
+           grid.text,
+           grid.newpage,
+           grid.rect,
+           grid.segments,
+           grid.curve,
+           grid.points,
+           gpar,
+           viewport,
+           unit,
+           pushViewport)
+ 
 import(GenomicRanges)
 
 importClassesFrom(Biobase,
@@ -134,6 +147,7 @@ exportMethods("qpNrr",
               "alleQTL",
               "ciseQTL",
               "transeQTL",
+              "allGeneAssociations",
               "geneticMap",
               "physicalMap",
               "graph",

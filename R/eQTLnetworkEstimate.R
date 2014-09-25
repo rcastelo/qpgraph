@@ -23,7 +23,7 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
                 clusterSize <- BPPARAM$.clusterargs$spec
             }
 
-            rhs <- .parseFormula(model)
+            rhs <- .parseFormula(model, param)
 
             pvaluesG0 <- nrr <- as(Matrix(numeric(), nrow=0, ncol=0), "dspMatrix")
             fix.Q <- restrict.Q <- NULL
@@ -103,7 +103,7 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
                 clusterSize <- BPPARAM$.clusterargs$spec
             }
 
-            rhs <- .parseFormula(model)
+            rhs <- .parseFormula(model, param)
 
             pvaluesG0 <- nrr <- as(Matrix(numeric(), nrow=0, ncol=0), "dspMatrix")
             fix.Q <- restrict.Q <- NULL
@@ -389,7 +389,7 @@ setMethod("varExplained", signature=c(param="eQTLnetworkEstimationParam",
   varsnqs
 }
 
-.parseFormula <- function(f) {
+.parseFormula <- function(f, param) {
   tryCatch({
     rhs <- deparse(f[[2]])
   }, error=function(err) {

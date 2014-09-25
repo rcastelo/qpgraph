@@ -10,6 +10,7 @@ setGeneric("addGeneAssociation", function(eQTLcross, ...) standardGeneric("addGe
 setGeneric("reQTLcross", function(n, network, ...) standardGeneric("reQTLcross"))
 setGeneric("alleQTL", function(x, ...) standardGeneric("alleQTL"))
 setGeneric("ciseQTL", function(x, cisr, ...) standardGeneric("ciseQTL"))
+setGeneric("allGeneAssociations", function(x, ...) standardGeneric("allGeneAssociations"))
 setGeneric("transeQTL", function(x, cisr, ...) standardGeneric("transeQTL"))
 setGeneric("rcmvnorm", function(n, model, ...) standardGeneric("rcmvnorm"))
 
