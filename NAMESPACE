@@ -19,8 +19,6 @@ importFrom(grid,
            unit,
            pushViewport)
  
-import(GenomicRanges)
-
 importClassesFrom(Biobase,
                   ExpressionSet)
 
@@ -40,7 +38,12 @@ importMethodsFrom(Biobase,
 importMethodsFrom(IRanges,
                   as.vector)
 
+importMethodsFrom(GenomicRanges,
+                  c, cbind, rbind,
+                  "[", "[<-", "[[", "[[<-", "$", "$<-")
+
 importMethodsFrom(S4Vectors,
+                  mcols,
                   metadata)
 
 importMethodsFrom(AnnotationDbi,
@@ -58,6 +61,9 @@ importMethodsFrom(GenomicFeatures,
 
 importFrom(Biobase,
            subListExtract)
+
+importFrom(S4Vectors,
+           DataFrame)
 
 importFrom(annotate,
            getAnnMap)
