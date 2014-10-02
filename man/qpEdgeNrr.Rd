@@ -1,6 +1,5 @@
 \name{qpEdgeNrr}
 \alias{qpEdgeNrr}
-\alias{qpEdgeNrr,smlSet-method}
 \alias{qpEdgeNrr,ExpressionSet-method}
 \alias{qpEdgeNrr,data.frame-method}
 \alias{qpEdgeNrr,matrix-method}
@@ -17,10 +16,6 @@ Non-rejection rate estimation for a pair of variables
 Estimates the non-rejection rate for one pair of variables.
 }
 \usage{
-\S4method{qpEdgeNrr}{smlSet}(X, i=1, j=2, q=1, restrict.Q=NULL, fix.Q=NULL,
-                                    nTests=100, alpha=0.05, exact.test=TRUE,
-                                    use=c("complete.obs", "em"), tol=0.01,
-                                    R.code.only=FALSE)
 \S4method{qpEdgeNrr}{ExpressionSet}(X, i=1, j=2, q=1, restrict.Q=NULL, fix.Q=NULL,
                                     nTests=100, alpha=0.05, exact.test=TRUE,
                                     use=c("complete.obs", "em"), tol=0.01,
@@ -38,7 +33,7 @@ Estimates the non-rejection rate for one pair of variables.
 }
 \arguments{
   \item{X}{data set from where the non-rejection rate should be estimated. It
-       can be either an \code{smlSet} object , an \code{ExpressionSet} object a
+       can be either an \code{ExpressionSet} object a
        data frame, a matrix or an \code{\link{SsdMatrix-class}} object. In the
        latter case, the input matrix should correspond to a sample covariance matrix
        of data from which we want to estimate the non-rejection rate for a pair of

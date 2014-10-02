@@ -1,6 +1,5 @@
 \name{qpCItest}
 \alias{qpCItest}
-\alias{qpCItest,smlSet-method}
 \alias{qpCItest,ExpressionSet-method}
 \alias{qpCItest,cross-method}
 \alias{qpCItest,data.frame-method}
@@ -15,8 +14,6 @@ Performs a conditional independence test between two variables given
 a conditioning set.
 }
 \usage{
-\S4method{qpCItest}{smlSet}(X, i=1, j=2, Q=c(), exact.test=TRUE, use=c("complete.obs", "em"),
-                            tol=0.01, R.code.only=FALSE)
 \S4method{qpCItest}{ExpressionSet}(X, i=1, j=2, Q=c(), exact.test=TRUE, use=c("complete.obs", "em"),
                                    tol=0.01, R.code.only=FALSE)
 \S4method{qpCItest}{cross}(X, i=1, j=2, Q=c(), exact.test=TRUE, use=c("complete.obs", "em"),
@@ -28,8 +25,8 @@ a conditioning set.
 \S4method{qpCItest}{SsdMatrix}(X, i=1, j=2, Q=c(), R.code.only=FALSE)
 }
 \arguments{
-  \item{X}{data set where the test should be performed. It can be either an
-       \code{GGBase::smlSet} object, an \code{ExpressionSet} object, a \code{qtl::cross} object,
+  \item{X}{data set where the test should be performed. It can be either
+       an \code{ExpressionSet} object, a \code{qtl::cross} object,
        a data frame, a matrix or an \code{\link{SsdMatrix-class}} object. In the latter case,
        the input matrix should correspond to a sample covariance matrix of data on which we
        want to test for conditional independence. The function \code{\link{qpCov}()}

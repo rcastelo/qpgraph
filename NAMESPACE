@@ -27,9 +27,6 @@ importClassesFrom(Biobase,
 importClassesFrom(S4Vectors,
                   Rle)
 
-importClassesFrom(GGBase,
-                  smlSet)
-
 importClassesFrom(GenomicRanges,
                   GRanges)
 
@@ -45,9 +42,6 @@ importMethodsFrom(IRanges,
 
 importMethodsFrom(S4Vectors,
                   metadata)
-
-importMethodsFrom(GGBase,
-                  smList)
 
 importMethodsFrom(AnnotationDbi,
                   metadata,
