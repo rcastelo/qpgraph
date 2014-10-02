@@ -33,10 +33,8 @@
 \alias{show,eQTLcrossParam-method}
 \alias{plot,eQTLcross,ANY-method}
 \alias{alleQTL,eQTLcross-method}
-\alias{alleQTL}
 \alias{ciseQTL,eQTLcross,missing-method}
 \alias{ciseQTL,eQTLcross,numeric-method}
-\alias{ciseQTL}
 \alias{transeQTL,eQTLcross,missing-method}
 \alias{transeQTL,eQTLcross,numeric-method}
 \alias{transeQTL}

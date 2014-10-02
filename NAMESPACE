@@ -106,6 +106,7 @@ exportClasses("SsdMatrix",
               "eQTLcross",
               "eQTLcrossParam",
               "eQTLnetworkEstimationParam",
+              "eQTLnetwork",
               "qpGraph")
 
 S3method(rmvnorm, UGgmm)

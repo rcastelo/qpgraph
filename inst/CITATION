@@ -26,3 +26,15 @@ citEntry(entry="Article",
                       "Reverse engineering molecular regulatory networks from microarray data with qp-graphs",
                       "J Comput Biol, 16(2):213-27, 2009.")
 )
+
+citEntry(entry="Article",
+  author = personList(as.person("Inma Tur"),
+                      as.person("Alberto Roverato"),
+                      as.person("Robert Castelo")),
+  title = "Mapping eQTL networks with mixed graphical Markov models",
+  journal = "Genetics",
+  year = "2014",
+  textVersion = paste("Tur, I., Roverato, A. and Castelo, R.",
+                      "Mapping eQTL networks with mixed graphical Markov models",
+                      "Genetics, 2014, in press.")
+)

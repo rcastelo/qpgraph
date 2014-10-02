@@ -195,6 +195,11 @@ setMethod("alleQTL", signature(x="eQTLnetwork"),
             eqtls 
           })
 
+setMethod("ciseQTL", signature(x="eQTLnetwork", cisr="missing"),
+          function(x, cisr) {
+            ciseQTL(x, cisr=1000L)
+          })
+
 setMethod("ciseQTL", signature(x="eQTLnetwork", cisr="numeric"),
           function(x, cisr) {
             eqtls <- alleQTL(x, map="physical", gene.loc=TRUE)

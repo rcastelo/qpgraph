@@ -9,13 +9,41 @@ setValidity("SsdMatrix",
                 TRUE
             })
 
-setMethod("show", signature(object = "SsdMatrix"),
+## adapted from Matrix:::prMatrix()
+setMethod("show", signature(object="SsdMatrix"),
           function(object) {
-            Matrix:::prMatrix(object@ssd)
+            digits <- getOption("digits")
+            maxp <-getOption("max.print")
+            d <- dim(object)
+            cl <- class(object)
+            tri <- extends(cl, "triangularMatrix")
+            xtra <- if(tri && object@diag == "U") " (unitriangular)" else ""
+            cat(sprintf('%d x %d SsdMatrix extending class "%s"%s\n',
+                        d[1], d[2], cl, xtra))
+            if (prod(d) <= maxp) {
+              if (tri) {
+                upper <- object@uplo == "U"
+                m <- as(object, "matrix")
+                cf <- format(m, digits=digits, justify="none")
+                cf[if (upper) row(cf) > col(df) else row(cf) < col(cf)] <- "."
+                print(cf, quote=FALSE, right=TRUE, max=maxp)
+              } else
+                print(as(object, "matrix"), digits=digits, max=maxp)
+            } else { ## d[1] > maxp / d[2] >= nr
+              m <- as(object, "matrix")
+              nr <- maxp %/% d[2]
+              n2 <- ceiling(nr / 2)
+              print(head(m, max(1, n2)))
+              cat("\n...........\n\n")
+              print(tail(m, max(1, nr - n2)))
+              cat("\n...........\n\n")
+            }
             if (!is.na(object@n))
               cat(sprintf("n = %d\n", object@n))
             else
               cat("n = NA\n")
+
+            invisible(object)
           })
 
 setMethod("determinant", signature(x = "SsdMatrix", logarithm = "missing"),
