@@ -180,7 +180,7 @@ setMethod("alleQTL", signature(x="eQTLnetwork"),
                 ## get the genes and their annotations involved
                 genesGR <- geneAnnotation(x)[eqtls$gene]
                 mcols(genesGR) <- cbind(mcols(genesGR),
-                                        DataFrame(seqnamesRnk=rankSeqlevels(as.vector(seqnames(genesGR)))))
+                                        DataFrame(seqnamesRnk=rankSeqlevels(IRanges::as.vector(seqnames(genesGR)))))
                 ## add chromosome and location of the TSS of each eQTL gene
                 eqtls <- cbind(eqtls,
                                genechrom=genesGR$seqnamesRnk,

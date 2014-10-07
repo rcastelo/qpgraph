@@ -35,11 +35,9 @@ importMethodsFrom(Biobase,
                   sampleNames,
                   varLabels)
 
-importMethodsFrom(IRanges,
-                  as.vector)
-
 importMethodsFrom(GenomicRanges,
                   c, cbind, rbind,
+                  "mcols<-", start, end, strand, sort,
                   "[", "[<-", "[[", "[[<-", "$", "$<-")
 
 importMethodsFrom(S4Vectors,
