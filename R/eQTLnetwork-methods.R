@@ -22,6 +22,8 @@ setMethod("show", signature(object="eQTLnetwork"),
             g <- object@qpg@g
             if (numNodes(g) > 0) {
               edg <- extractFromTo(g)
+              edg$from <- as.character(edg$from)
+              edg$to <- as.character(edg$to)
               qstr <- NULL
               if (!is.na(object@p.value))
                 qstr <- "0"
@@ -57,9 +59,11 @@ setMethod("show", signature(object="eQTLnetwork"),
                             padstr, object@alpha))
               }
 
+              connectedVtc <- unique(c(edg$from, edg$to))
               cat(sprintf("\n%sand involving %d genes and %d eQTLs\n",
-                          padstr, length(intersect(nodes(g), gNames)),
-                          length(intersect(nodes(g), mNames))))
+                          padstr,
+                          length(intersect(connectedVtc, gNames)),
+                          length(intersect(connectedVtc, mNames))))
             }
           })
 
@@ -77,9 +81,9 @@ setMethod("markerNames", signature(object="eQTLnetwork"),
           function(object) {
             mNames <- character()
             if (length(geneticMap(object)) > 0)
-              mNames <- unlist(sapply(geneticMap(object), names), use.names=FALSE)
+              mNames <- unlist(sapply(geneticMap(object), names, simplify=FALSE), use.names=FALSE)
             else if (length(physicalMap(object)) > 0)
-              mNames <- unlist(sapply(physicalMap(object), names), use.names=FALSE)
+              mNames <- unlist(sapply(physicalMap(object), names, simplify=FALSE), use.names=FALSE)
             else
               warning("Both the genetic and the physical map are empty.")
 

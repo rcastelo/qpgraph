@@ -1391,7 +1391,7 @@ setMethod("qpAllCItests", signature(X="matrix"),
       (is.null(pairup.i) && !is.null(pairup.j)))
     stop("pairup.i and pairup.j should both either be set to NULL or contain subsets of variables\n")
 
-  if (is.null(pairup.i) || length(pairup.i==0))
+  if (is.null(pairup.i) || length(pairup.i) == 0)
     pairup.i <- 1:n.var
   else {
     if (is.character(pairup.i)) {
@@ -1401,7 +1401,7 @@ setMethod("qpAllCItests", signature(X="matrix"),
     }
   }
 
-  if (is.null(pairup.j) || length(pairup.j==0)) {
+  if (is.null(pairup.j) || length(pairup.j) == 0) {
     pairup.j <- 1:n.var
     if (!is.null(I)) { ## by now, interactions between discrete variables are not considered
         pairup.j <- (1:n.var)[-I]

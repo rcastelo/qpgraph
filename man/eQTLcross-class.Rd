@@ -28,6 +28,8 @@
 \alias{reQTLcross,integer,eQTLcross-method}
 \alias{reQTLcross}
 \alias{names,eQTLcross-method}
+\alias{geneNames,eQTLcross-method}
+\alias{markerNames,eQTLcross-method}
 \alias{$,eQTLcross-method}
 \alias{show,eQTLcross-method}
 \alias{show,eQTLcrossParam-method}

@@ -367,6 +367,16 @@ setMethod("transeQTL", signature(x="eQTLcross", cisr="numeric"),
             transeqtl[, 1:5]
           })
 
+setMethod("geneNames", signature(object="eQTLcross"),
+          function(object) {
+            object$model$Y
+          })
+
+setMethod("markerNames", signature(object="eQTLcross"),
+          function(object) {
+            unlist(sapply(object@map, names, simplify=FALSE), use.names=FALSE)
+          })
+
 ## show method
 setMethod("show", signature(object="eQTLcross"),
           function(object) {

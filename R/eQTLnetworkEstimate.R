@@ -49,6 +49,7 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
               message("Calculating pairwise (conditional) independence tests\n")
               pvaluesG0 <- qpAllCItests(ggData(param), I=param@dVars, Q=fix.Q,
                                         pairup.i=geneNames(param), pairup.j=rhs$explanatory,
+                                        long.dim.are.variables=FALSE, exact.test=TRUE,
                                         return.type="p.value", clusterSize=clusterSize,
                                         verbose=verbose)$p.value
               qorders <- qorders[qorders > 0]
@@ -61,7 +62,9 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
                 q <- qorders[i]
                 message(sprintf("Estimating non-rejection rates with q=%d\n", q))
                 nrr.q <- qpNrr(ggData(param), I=param@dVars, q=q, pairup.i=geneNames(param), pairup.j=rhs$explanatory,
-                               restrict.Q=restrict.Q, fix.Q=fix.Q, clusterSize=clusterSize, verbose=verbose)
+                               long.dim.are.variables=FALSE, exact.test=TRUE,
+                               restrict.Q=restrict.Q, fix.Q=fix.Q,
+                               clusterSize=clusterSize, verbose=verbose)
                 if (i+k == 1)
                   nrr <- nrr.q
                 else
@@ -77,7 +80,7 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
                 geneAnnotationTable=param@geneAnnotationTable, dVars=param@dVars,
                 pvaluesG0=pvaluesG0, nrr=nrr, modelFormula=model, rhs=rhs,
                 qOrders=qorders, p.value=NA_real_, adjustMethod="none",
-                epsilon=NA_real_, qpg=qpg)
+                epsilon=NA_real_, alpha=NA_real_, qpg=qpg)
           })
 
 ## estimate parameters of the eQTLnetwork given an existing estimate
@@ -88,8 +91,8 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
                    epsilon=NA_real_, alpha=NA_real_, verbose=TRUE,
                    BPPARAM=bpparam("SerialParam")) {
 
-            if (!is.na(p.value) || !is.na(epsilon))
-              stop("'p.value' or 'epsilon' cutoffs can only be specified without 'model'.")
+            if (!is.na(p.value) || !is.na(epsilon) || !is.na(alpha))
+              stop("'p.value', 'epsilon' or 'alpha' cutoffs can only be specified without 'model'.")
 
             clusterSize <- 1 ## this should change to use BiocParallel
             if (!is(BPPARAM, "SerialParam")) {
@@ -139,6 +142,11 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
             if (nrow(estimate@pvaluesG0 > 0)) #### CHECK THIS 
               pvaluesG0 <- estimate@pvaluesG0
 
+            ## take p-value, adjust method and qp-graph parameters from the estimate
+            p.value <- estimate@p.value
+            method <- estimate@adjustMethod
+            qpg <- estimate@qpg
+
             if (nrow(estimate@nrr > 0)) #### CHECK THIS
               nrr <- estimate@nrr
 
@@ -149,10 +157,11 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
               rhs$conditioning <- estimate@rhs@conditioning
 
               message("Calculating pairwise (conditional) independence tests\n")
-              pvaluesG0<- qpAllCItests(ggData(param), I=param@dVars, Q=NULL,
-                                       pairup.i=geneNames(param), pairup.j=rhs$explanatory,
-                                       return.type="p.value", clusterSize=clusterSize,
-                                       verbose=verbose)$p.value
+              pvaluesG0 <- qpAllCItests(ggData(param), I=param@dVars, Q=NULL,
+                                        pairup.i=geneNames(param), pairup.j=rhs$explanatory,
+                                        long.dim.are.variables=FALSE, exact.test=TRUE,
+                                        return.type="p.value", clusterSize=clusterSize,
+                                        verbose=verbose)$p.value
               qorders <- qorders[qorders > 0]
             }
            
@@ -163,7 +172,9 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
                 q <- qorders[i]
                 message(sprintf("Estimating non-rejection rates with q=%d\n", q))
                 nrr.q <- qpNrr(ggData(param), I=param@dVars, q=q, pairup.i=geneNames(param), pairup.j=rhs$explanatory,
-                               restrict.Q=restrict.Q, fix.Q=fix.Q, clusterSize=clusterSize, verbose=verbose)
+                               long.dim.are.variables=FALSE, exact.test=TRUE,
+                               restrict.Q=restrict.Q, fix.Q=fix.Q,
+                               clusterSize=clusterSize, verbose=verbose)
                 if (i+k == 1)
                   nrr <- nrr.q
                 else
@@ -173,15 +184,16 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
               model <- .replaceFormulaQs(model, qorders)
             }
 
-            g.0 <- graphBAM(df=data.frame(from=character(), to=character(), weight=integer()))
-            qpg <- new("qpGraph", p=0L, q=integer(), n=NA_integer_, epsilon=NA_real_, g=g.0)
+            ## g.0 <- graphBAM(df=data.frame(from=character(), to=character(), weight=integer()))
+            ## qpg <- new("qpGraph", p=0L, q=integer(), n=NA_integer_, epsilon=NA_real_, g=g.0)
+
             new("eQTLnetwork", geneticMap=geneticMap(param),
                 physicalMap=physicalMap(param), organism=param@organism,
                 genome=param@genome, geneAnnotation=geneAnnotation(param),
                 geneAnnotationTable=param@geneAnnotationTable, dVars=param@dVars,
                 pvaluesG0=pvaluesG0, nrr=nrr, modelFormula=model, rhs=rhs,
-                qOrders=qorders, p.value=NA_real_, epsilon=NA_real_,
-                adjustMethod="none", qpg=qpg)
+                qOrders=qorders, p.value=p.value, adjustMethod=method,
+                epsilon=epsilon, alpha=alpha, qpg=qpg)
           })
 
 
@@ -191,7 +203,7 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
                                              estimate="eQTLnetwork"),
           function(param, model, estimate, p.value=NA_real_, method=p.adjust.methods,
                    epsilon=NA_real_, alpha=NA_real_, verbose=TRUE,
-                   BPPARAM=bpparam()) {
+                   BPPARAM=bpparam("SerialParam")) {
 
             method <- match.arg(method)
 
@@ -201,13 +213,7 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
             if (!is.na(epsilon) && nrow(estimate@nrr) < 1)
               stop("argument 'estimate' has no non-rejection rates.")
 
-            mNames <- NULL
-            if (length(estimate@geneticMap) > 0)
-              mNames <- unlist(sapply(estimate@geneticMap, names), use.names=FALSE)
-            else if (length(estimate@physicalMap) > 0)
-              mNames <- unlist(sapply(estimate@physicalMap, names), use.names=FALSE)
-            else
-              stop("Both the genetic and the physical map in 'estimate' are empty.")
+            mNames <- markerNames(estimate)
 
             if (!identical(mNames, markerNames(param)))
               stop("Markers are different between 'param' and 'estimate'.")
@@ -227,13 +233,13 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
               g.0 <- qpAnyGraph(p.adj, threshold=p.value, remove="above",
                                 decreasing=FALSE)
               if (qpg@p > 0) {
-                if (nrow(param@ggData) != qpg@n)
+                if (nrow(ggData(param)) != qpg@n)
                   stop("The qp-graph in the given eQTL network was estimated from different data.")
                 g <- graphIntersect(qpg@g, g.0)
                 qpg <- new("qpGraph", p=numNodes(g), q=unique(sort(c(0L, qpg@q))),
                            n=qpg@n, epsilon=qpg@epsilon, g=g)
               } else
-                qpg <- new("qpGraph", p=numNodes(g.0), q=0L, n=nrow(param@ggData),
+                qpg <- new("qpGraph", p=numNodes(g.0), q=0L, n=nrow(ggData(param)),
                            epsilon=NA_real_, g=g.0)
             }
 
@@ -247,7 +253,7 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
               }
 
               g.q <- qpGraph(nrrMatrix=estimate@nrr, epsilon=epsilon, q=estimate@qOrders,
-                             n=nrow(param@ggData))
+                             n=nrow(ggData(param)))
               if (qpg@p > 0) {
                 g <- graphIntersect(qpg@g, g.q@g)
                 qpg <- new("qpGraph", p=numNodes(g), q=unique(sort(c(qpg@q, estimate@qOrders))),
@@ -282,7 +288,7 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
                                 pv <- 0
                                 i <- 1
                                 while (i <= length(v[-1]) && pv <= alpha) { ## fwd selection
-                                  pv <- qpCItest(X, I=v[-1], i=v[1], j=v[i+1], Q=Q)$p.value
+                                  pv <- qpCItest(X, i=v[1], j=v[i+1], Q=Q, I=v[-1], long.dim.are.variables=FALSE)$p.value
                                   dropMask[i] <- pv > alpha
                                   Q <- c(Q, v[i+1])
                                   i <- i + 1
@@ -334,7 +340,7 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
 
 setMethod("varExplained", signature=c(param="eQTLnetworkEstimationParam",
                                       estimate="eQTLnetwork"),
-          function(param, estimate, BPPARAM=bpparam()) {
+          function(param, estimate, BPPARAM=bpparam("SerialParam")) {
             if (nrow(estimate@nrr) < 1)
               stop("non-rejection rates are required at the moment to calculate the explained variance per gene\n")
             eqtls <- alleQTL(estimate)
@@ -348,7 +354,7 @@ setMethod("varExplained", signature=c(param="eQTLnetworkEstimationParam",
                                     eta2 <- 0
                                     Q <- NULL
                                     for (i in 1:length(qtls[-1])) {
-                                      this.eta2 <- qpCItest(X, I=qtls[-1], i=qtls[1], j=qtls[i+1], Q=Q)$estimate
+                                      this.eta2 <- qpCItest(X, i=qtls[1], j=qtls[i+1], Q=Q, I=qtls[-1], long.dim.are.variables=FALSE)$estimate
                                       eta2 <- eta2 + this.eta2
                                       Q <- c(Q, qtls[i+1])
                                     }

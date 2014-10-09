@@ -420,7 +420,7 @@ setMethod("qpNrr", signature(X="matrix"),
       (is.null(pairup.i) && !is.null(pairup.j)))
     stop("pairup.i and pairup.j should both either be set to NULL or contain subsets of variables\n")
 
-  if (is.null(pairup.i))
+  if (is.null(pairup.i) || length(pairup.i) == 0)
     pairup.i <- 1:n.var
   else {
     if (is.character(pairup.i)) {
@@ -430,7 +430,7 @@ setMethod("qpNrr", signature(X="matrix"),
     }
   }
 
-  if (is.null(pairup.j)) {
+  if (is.null(pairup.j) || length(pairup.j) == 0) {
     pairup.j <- 1:n.var
     if (!is.null(I)) { ## by now, interactions between discrete variables are not considered
         pairup.j <- (1:n.var)[-I]
@@ -4236,7 +4236,7 @@ qpTopPairs <- function(measurementsMatrix=NULL, refGraph=NULL, n=6L, file=NULL,
     if (!all(names(fcOutput) == c("txRegNet", "txRegNetGO", "functionalCoherenceValues")))
       stop("'fcOutput' should be the output of 'qpFunctionalCoherence'.\n")
 
-    if (is.null(pairup.i))
+    if (is.null(pairup.i) || length(pairup.i) == 0)
       stop("When 'fcOutput' is set 'pairup.i' and 'pairup.j' should be also set.\n")
 
     edgeRnk <- cbind(edgeRnk, funCoherence=NA_real_)

@@ -4,7 +4,7 @@
 
 ## eQTLnetworkEstimationParam constructor
 eQTLnetworkEstimationParam <- function(ggData, geneticMap=NULL, physicalMap=NULL,
-                                       dVars=NULL, genes=NULL, geneAnnotation) {
+                                       dVars=NULL, genes=NULL, geneAnnotation, genome=NA_character_) {
 
   ## check that 'ggData' is one of the allowed object classes
   if (!is(ggData, "cross") && !is(ggData, "matrix") && is(ggData, "data.frame"))
@@ -86,6 +86,9 @@ eQTLnetworkEstimationParam <- function(ggData, geneticMap=NULL, physicalMap=NULL
   if (length(genes) == 0)
     stop("no genes present in the input data in 'ggData'.")
 
+  if (missing(geneAnnotation))
+    stop("argument 'geneAnnotation' must be set either as a character string, a 'data.frame' object or a TxDb object.")
+
   if (class(geneAnnotation) == "character") {
     if (!exists(geneAnnotation)) {
       if (!geneAnnotation %in% installed.packages()[, "Package"])
@@ -103,8 +106,34 @@ eQTLnetworkEstimationParam <- function(ggData, geneticMap=NULL, physicalMap=NULL
       stop(sprintf("package %s does not load a object with the same name of the package."))
     })
     if (!is(geneAnnotation, "TxDb"))
-      stop(sprintf("The object loaded with name %s is not a 'TxDb' object.", geneAnnotation))
-  }
+      stop(sprintf("the object loaded with name %s is not a 'TxDb' object.", geneAnnotation))
+  } else if (class(geneAnnotation) == "data.frame") {
+    if (is.null(rownames(geneAnnotation)))
+      stop("when argument 'geneAnnotation' is a 'data.frame' object, it should have row names uniquely identifying each gene.")
+
+    clsannot <- sapply(geneAnnotation, class)
+       
+    if ((clsannot[1] != "character" && clsannot[1] != "factor") ||
+        (clsannot[2] != "numeric" && clsannot[2] != "integer") ||
+        (clsannot[3] != "numeric" && clsannot[3] != "integer") ||
+        (clsannot[4] != "character" && clsannot[4] != "factor"))
+      stop("the first four column classes in the 'data.frame' object 'geneAnnotation' must be character or factor, numeric or integer, numeric or integer and character or factor, corresponding to chromosome, start position, end position and strand of the gene annotation in the genome.")
+    geneAnnotation[[1]] <- as.character(geneAnnotation[[1]])
+    geneAnnotation[[4]] <- as.character(geneAnnotation[[4]])
+
+    map <- geneticMap
+    if (is.null(map))
+      map <- physicalMap
+
+    geneIDs <- rownames(geneAnnotation)
+
+    geneAnnotation <- GRanges(seqnames=geneAnnotation[[1]],
+                              IRanges(start=geneAnnotation[[2]], end=geneAnnotation[[3]]),
+                              strand=geneAnnotation[[4]],
+                              seqinfo=Seqinfo(seqnames=names(map), seqlengths=sapply(map, max), NA, genome))
+    names(geneAnnotation) <- geneIDs
+  } else if (!is(geneAnnotation, "TxDb"))
+    stop("argument 'geneAnnotation' must be either a character string, a 'data.frame' object or a 'TxDb' object")
 
   organism <- genome <- geneAnnotationTable <- character()
   if (is(geneAnnotation, "TxDb")) {
@@ -115,21 +144,7 @@ eQTLnetworkEstimationParam <- function(ggData, geneticMap=NULL, physicalMap=NULL
 
     geneAnnotation <- transcripts(geneAnnotation)
     names(geneAnnotation) <- geneAnnotation$tx_name
-    ## chr2idx <- seqlevels(geneAnnotation)
-    ## chr2idx <- do.call("names<-", list(orderSeqlevels(chr2idx), chr2idx))
-    ## suppressWarnings(geneAnnotation <- select(geneAnnotation, keys=keys(geneAnnotation),
-    ##                                           columns=c("GENEID", "TXCHROM", "TXSTART"),
-    ##                                           keytype="GENEID"))
-    ## geneAnnotation$GENEID <- make.names(geneAnnotation$GENEID)
-    ## minStart <- split(geneAnnotation$TXSTART, geneAnnotation$GENEID)
-    ## minStart <- sapply(minStart, min)
-    ## chr <- split(geneAnnotation$TXCHROM, geneAnnotation$GENEID)
-    ## chr <- sapply(chr, unique)
-    ## chr <- do.call("names<-", list(chr2idx[chr], names(chr)))
-    ## geneAnnotation <- cbind(as.integer(chr), as.integer(minStart))
-    ## rownames(geneAnnotation) <- names(chr)
-  } else
-    stop("At the moment 'geneAnnotation' can only be a 'TxDb' object")
+  }
 
   ## store the all the input data into a big matrix
   ## this should be in the near future efficiently handled
@@ -186,9 +201,11 @@ eQTLnetworkEstimationParam <- function(ggData, geneticMap=NULL, physicalMap=NULL
       mt <- match(genes[!genes %in% names(geneAnnotation)], colnames(ggDataMatrix))
       ggDataMatrix <- ggDataMatrix[, -mt, drop=FALSE]
       genes <- genes[genes %in% names(geneAnnotation)]
-      geneAnnotation <- geneAnnotation[genes]
     }
   }
+
+  ## remove annotations from genes not in the data
+  geneAnnotation <- geneAnnotation[genes]
 
   
   new("eQTLnetworkEstimationParam", ggData=ggDataMatrix, geneticMap=geneticMap,

@@ -79,8 +79,15 @@ importFrom(BiocParallel, bpparam,
                          bplapply)
 
 importFrom(GenomeInfoDb,
+           Seqinfo,
            rankSeqlevels,
            orderSeqlevels)
+
+importFrom(IRanges,
+           IRanges)
+
+importFrom(GenomicRanges,
+           GRanges)
 
 importFrom(mvtnorm,
            rmvnorm)
