@@ -1,3 +1,26 @@
+CHANGES IN VERSION 2.00
+-----------------------
+
+USER VISIBLE CHANGES
+
+    o Function qpGraph() has been replaced by a class of objects called qpGraph whose constructor implements the functionality that the qpGraph() function was providing. However, a couple of arguments have changed and it returns an object of the new defined class qpGraph. Please consult its manual page for more information.
+
+    o Removed methods qpCItest() and qpEdgeNrr() taking an 'smlSet' object as input.
+
+    o Added a new (first version) vignette showing the new functionality to estimate eQTL networks from genetical genomics data.
+
+NEW FEATURES
+
+    o New functions, eQTLnetworkEstimate(), object classes, eQTLnetwork, and corresponding methods to ease the estimation of eQTL networks from genetical genomics data using higher-order conditional independence as described in the recent paper by Tur, Roverato and Castelo (2014).
+
+BUG FIXES
+
+    o Bugfix in qpEdgeNrr() when using arguments restrict.Q and fix.Q and input was 'data.frame' or 'ExpressionSet'.
+
+    o Bugfix in the calculation of marginal covariances with missing observations.
+
+    o Bugfix in qpAnyGraph()
+
 CHANGES IN VERSION 1.20
 -----------------------
 
