@@ -12,7 +12,7 @@ BiocStyle::latex(use.unsrturl=FALSE)
 
 \bioctitle[Estimate eQTL networks using \Biocpkg{qpgraph}]%
     {Estimate eQTL networks using {\tt qpgraph}}
-\author{Inma Tur$^1$, Alberto Roverato$^2$ and Robert Castelo$^1$}
+\author{Inma Tur$^{1,3}$, Alberto Roverato$^2$ and Robert Castelo$^1$}
 
 \begin{document}
 
@@ -42,7 +42,8 @@ try(detach("package:qtl"), silent=TRUE)
 \begin{quote}
 {\scriptsize
 1. Universitat Pompeu Fabra, Barcelona, Spain. \\
-2. Universit\`a di Bologna, Bologna, Italy.
+2. Universit\`a di Bologna, Bologna, Italy. \\
+3. Now at Kernel Analytics, Barcelona, Spain.
 }
 \end{quote}
 
@@ -57,12 +58,9 @@ the functionality described in another vignette from this package, entitled
 functions described in this vignette in your own research, please cite the following article:
 
 \begin{quote}
-  Tur, I., Roverato., A. and Castelo, R. Mapping eQTL networks with mixed graphical
+  Tur, I., Roverato, A. and Castelo, R. Mapping eQTL networks with mixed graphical
   Markov models. \textit{Genetics, in press} (\texttt{http://dx.doi.org/10.1534/genetics.114.169573}). 
 \end{quote}
-
-This is a very first and very simple version of this vignette. We expect to extend it
-and improve it for the next release.
 
 \section{Simulating an eQTL network and data from it}
 
@@ -71,57 +69,50 @@ We are going to simulate an eQTL network in the following steps:
 \begin{enumerate}
   \item Load the necessary packages.
 <<>>=
+library(GenomeInfoDb)
 library(qtl)
 library(qpgraph)
 @
-  \item Simulate a genetic map using the R/CRAN package \CRANpkg{qtl}, consisting of one
-        chromosome 100 cM long with 10 markers equally spaced along the chromosome and no
-        telomeric markers.
+  \item Simulate a genetic map using the R/CRAN package \CRANpkg{qtl}, consisting of nine
+        chromosomes, being 100 cM long with 10 markers equally spaced along each of them,
+        no telomeric markers and no X sexual chromosome.
 <<>>=
-map <- sim.map(len=100,
-               n.mar=10,
+map <- sim.map(len=rep(100, times=9),
+               n.mar=rep(10, times=9),
                anchor.tel=FALSE,
                eq.spacing=TRUE,
                include.x=FALSE)
 @
   \item Create a first empty eQTL network as an empty \Rclass{eQTLcross} object using
             the previously simulated genetic map.
-<<>>=
-eqtlcross <- eQTLcross(map)
-@
-  \item Add five genes to this \Rclass{eQTLcross} object.
-<<>>=
-eqtlcross <- addGenes(eqtlcross, 5)
-@
-  \item Add one eQTL association linking the first marker to the first gene. Genes are
-    simulated with names \texttt{g1}, \texttt{g2}, and so on. Using the \Rfunction{plot()}
-    function below we can obtain a graphical representation of this eQTL network shown
-    in Figure~\ref{fig:simeqtlnet}.
-<<>>=
-eqtlcross <- addeQTL(eqtlcross, "g1", location=map[[1]][1])
-@
-<<simeqtlnet, fig=TRUE, include=FALSE, echo=TRUE, results=verbatim, height=5, width=5>>=
-plot(eqtlcross, type="network", main="eQTL network")
-@
-  \item Simulate the parameters of the eQTL network setting an additive effect of 1 unit
-        of the eQTL on gene \texttt{g1}. We seed the random number generator
-        to enable reproducing exactly the same simulation.
+  \item Simulate an eQTL network consisting of 50 genes, where half of them have one
+        \textit{cis}-acting (local) eQTL, there are 5 eQTL \textit{trans}-acting
+        (distant) on 5 genes each and each gene is connected to 2 other genes (default).
+        Each eQTL has an additive effect of $a=2$ and each gene-gene association has
+        a marginal correlation $\rho=0.5$. We seed the random number generator to
+        enable reproducing the same eQTL network employed in this vignette. A dot plot
+        of the simualted eQTL associations is displayed in Figure~\ref{fig:simeqtlnet}.
+
 <<>>=
 set.seed(12345)
-sim.eqtl <- reQTLcross(eqtlcross, a=1)
-sim.eqtl
+sim.eqtl <- reQTLcross(eQTLcrossParam(map=map, genes=50, cis=0.5, trans=rep(5, 5)),
+                       a=2, rho=0.5)
+@
+<<simeqtlnet, fig=TRUE, include=FALSE, echo=TRUE, results=verbatim, height=5, width=5>>=
+plot(sim.eqtl, main="Simulated eQTL network")
 @
   \item Simulate genotyping and expression data for 100 individuals from this eQTL network.
-        We seed again the random number generator.
+        We seed again the random number generator to enable random sampling the same data.
 <<>>=
 set.seed(12345)
 cross <- sim.cross(map, sim.eqtl, n.ind=100)
+cross
 @
 \end{enumerate}
 
 \begin{figure}
-  \centerline{\includegraphics[width=0.3\textwidth]{eQTLnetworks-simeqtlnet}}
-  \caption{A simulated eQTL network with one eQTL association.}
+  \centerline{\includegraphics[width=0.7\textwidth]{eQTLnetworks-simeqtlnet}}
+  \caption{Dot plot of eQTL associations in a simulated eQTL network.}
   \label{fig:simeqtlnet}
 \end{figure}
 
@@ -131,33 +122,45 @@ Here we briefly illustrate how to estimate an eQTL network from genetical genomi
 stored as a R/CRAN \CRANpkg{qtl} \Rclass{cross} object. This object is the one we have
 simulated before.
 
-To use this functionality we need to provide an annotation for the five genes we have
-in our data. For this very simple example, we are just going to assign random positions
-to these genes within the range of the simulated chromosome.
+To use this functionality we need to provide an annotation for the genes we have
+in our data. This is retrieved from the simulated eQTL network object.
 
 <<>>=
-set.seed(12345)
-gstarts <-runif(5, min=range(map[[1]])[1], max=range(map[[1]])[2])
-annot <- data.frame(chr=rep(names(map)[1], 5),
-                    start=gstarts, end=gstarts+1,
-                    strand=rep("+", 5),
-                    row.names=sim.eqtl$model$Y,
+annot <- data.frame(chr=as.character(sim.eqtl$genes[, "chr"]),
+                    start=sim.eqtl$genes[, "location"],
+                    end=sim.eqtl$genes[, "location"],
+                    strand=rep("+", nrow(sim.eqtl$genes)),
+                    row.names=rownames(sim.eqtl$genes),
                     stringsAsFactors=FALSE)
-annot
+@
+For later visualization purposes, we also need a physical map, which we calculate
+assuming a constant Kb/cM rate of 5. We scale the gene annotations and chromosome
+lengths also using this Kb/cM rate. We create a \Rclass{Seqinfo} object storing
+the chromosome lengths of this simulated genome.
+
+<<>>=
+pMap <- lapply(map, function(x) x * 5)
+class(pMap) <- "map"
+annot$start <- floor(annot$start * 5)
+annot$end <- floor(annot$end * 5)
+genome <- Seqinfo(seqnames=names(map), seqlengths=rep(100 * 5, nchr(pMap)),
+                  NA, "simulatedGenome")
 @
 The entire estimation procedure can be performed in the following steps.
 
 \begin{enumerate}
   \item Create a paramter object of class \Rclass{eQTLnetworkEstimationParam}.
 <<>>=
-param <- eQTLnetworkEstimationParam(cross, geneAnnotation=annot,
-                                    genome="simulatedGenome")
+param <- eQTLnetworkEstimationParam(cross, physicalMap=pMap,
+                                    geneAnnotation=annot, genome=genome)
 @
+        \medskip
   \item Calculate all marginal associations between markers and genes.
 <<>>=
 eqtlnet.q0 <- eQTLnetworkEstimate(param, ~ marker + gene, verbose=FALSE)
 eqtlnet.q0
 @
+        \medskip
   \item Obtain a first estimate of the eQTL network by selecting associations
         at FDR $< 0.05$.
 <<>>=
@@ -165,12 +168,32 @@ eqtlnet.q0.fdr <- eQTLnetworkEstimate(param, estimate=eqtlnet.q0,
                                       p.value=0.05, method="fdr")
 eqtlnet.q0.fdr
 @
-  \item Calculate non-rejection rate values with $q=1$ between markers and genes.
+        \medskip
+        Display a comparison of the dot plot of the simulated eQTL associations
+        with the ones estimated by marginal associations at FDR $< 0.05$. The
+        result is shown in Figure~\ref{fig:simeqtlnetvsfdr}.
+
+<<simeqtlnetvsfdr, fig=TRUE, include=FALSE, echo=TRUE, results=verbatim, height=5, width=10>>=
+par(mfrow=c(1, 2))
+plot(sim.eqtl, main="Simulated eQTL network")
+plot(eqtlnet.q0.fdr, main="Esiimated eQTL network")
+@
+\begin{figure}
+  \centerline{\includegraphics[width=0.9\textwidth]{eQTLnetworks-simeqtlnetvsfdr}}
+  \caption{Dot plots of eQTL associations in a simulated eQTL network (left) and
+           in an estimated eQTL network (right) selecting marginal associations at
+           FDR $< 5\%$.}
+  \label{fig:simeqtlnetvsfdr}
+\end{figure}
+
+        \medskip
+  \item Calculate non-rejection rate values with $q=3$ between markers and genes.
 <<>>=
-eqtlnet.q0.fdr.nrr <- eQTLnetworkEstimate(param, ~ marker + gene | gene(q=1),
+eqtlnet.q0.fdr.nrr <- eQTLnetworkEstimate(param, ~ marker + gene | gene(q=3),
                                           estimate=eqtlnet.q0.fdr, verbose=FALSE)
 eqtlnet.q0.fdr.nrr
 @
+        \medskip
   \item Obtain a second estimate of the eQTL network by selecting associations
         at FDR $< 0.05$ and with non-rejection rate value $\epsilon < 0.1$.
 <<>>=
@@ -178,22 +201,111 @@ eqtlnet.q0.fdr.nrr <- eQTLnetworkEstimate(param, estimate=eqtlnet.q0.fdr.nrr,
                                           epsilon=0.1)
 eqtlnet.q0.fdr.nrr
 @
-  \item Let's examine the eQTL associations we have discovered so far.
-<<>>=
-alleQTL(eqtlnet.q0.fdr.nrr)
+        \medskip
+        Display a comparison of the dot plot of the simulated eQTL associations
+        with the ones estimated by marginal associations at FDR $< 0.05$ and
+        non-rejection rates meeting a cutoff $\epsilon < 0.1$. The
+        result is shown in Figure~\ref{fig:simeqtlnetvsnrr}.
+
+<<simeqtlnetvsnrr, fig=TRUE, include=FALSE, echo=TRUE, results=verbatim, height=5, width=10>>=
+par(mfrow=c(1, 2))
+plot(sim.eqtl, main="Simulated eQTL network")
+plot(eqtlnet.q0.fdr.nrr, main="Esiimated eQTL network")
 @
-  \item Observe that while the true eQTL network has only one eQTL association between
-        the first marker and gene \texttt{g1}, we have eQTL associations to this gene
-        from several markers in a range of 55 cM. All these markers are tagging the
-        same causal eQTL. To remove redundant eQTL associations we perform a forward
-        selection procedure at $\alpha < 0.05$ as follows:
+\begin{figure}
+  \centerline{\includegraphics[width=0.9\textwidth]{eQTLnetworks-simeqtlnetvsnrr}}
+  \caption{Dot plots of eQTL associations in a simulated eQTL network (left) and
+           in an estimated eQTL network (right) selecting marginal associations at
+           FDR $< 5\%$ and non-rejection rate meeting a cutoff $\epsilon < 0.1$.}
+  \label{fig:simeqtlnetvsnrr}
+\end{figure}
+
+        \medskip
+        Examine the median number of eQTLs per gene.
+<<>>=
+eqtls <- alleQTL(eqtlnet.q0.fdr.nrr)
+median(sapply(split(eqtls$QTL, eqtls$gene), length))
+@
+  \item Note that while we have simulated at most one eQTL per gene, we have
+        currently estimated a median of 6 eQTLs per gene. This leads to the horizontal
+        patterns in the dot plot where multiple markers in the same chromosome
+        target the same gene and are the result of independently mapping eQTLs that are
+        tagging the same causal one. To remove these redundant eQTL associations we
+        perform a forward selection procedure at a nominal significance level $\alpha < 0.05$,
+        as follows:
+
 <<>>=
 eqtlnet.q0.fdr.nrr.sel <- eQTLnetworkEstimate(param, estimate=eqtlnet.q0.fdr.nrr,
                                               alpha=0.05)
-alleQTL(eqtlnet.q0.fdr.nrr.sel)
+eqtlnet.q0.fdr.nrr.sel
 @
-        We can see that all redundant eQTL associations have been effectively discarded.
 \end{enumerate}
+
+In Figure~\ref{fig:simeqtlnetvsnrrsel} we can see a comparison between the dot plots 
+of the simulated eQTL network and the final estimate obtained by first selecting
+marginal associations at FDR $< 0.05$, discarding those that did not meet a NRR
+cutoff $\epsilon < 0.1$ and further performing a forward selection procedure at
+a significance level $\alpha < 0.05$ among eQTLs within the same chromosomes
+targeting a common gene. Observe that in this final eQTL network estimate many of
+the redundant eQTL associations have been effectively discarded.
+
+<<simeqtlnetvsnrrsel, fig=TRUE, include=FALSE, echo=TRUE, results=verbatim, height=5, width=10>>=
+par(mfrow=c(1, 2))
+plot(sim.eqtl, main="Simulated eQTL network")
+plot(eqtlnet.q0.fdr.nrr.sel, main="Esiimated eQTL network")
+@
+\begin{figure}
+  \centerline{\includegraphics[width=0.9\textwidth]{eQTLnetworks-simeqtlnetvsnrrsel}}
+  \caption{Dot plots of eQTL associations in a simulated eQTL network (left) and
+           in an estimated eQTL network (right) selecting marginal associations at
+           FDR $< 5\%$ and non-rejection rate with $\epsilon < 0.1$.}
+  \label{fig:simeqtlnetvsnrrsel}
+\end{figure}
+
+Finally, the \Biocpkg{qpgraph} package provides functionality to ease the visualization
+of the eQTL network,  going beyond the dot plot to display not only eQTL associations,
+but also the gene-gene associations where one of the two genes has at least one eQTL.
+This functionality is based on the concept of hive plot \citep{Krzywinski:2012} and has
+been adapted from the code provided by the \CRANpkg{HiveR} package \citep{Hanson:2014}
+to display eQTL networks. It uses the \CRANpkg{grid} package for plotting purposes and
+the code below illusrates how to produce the hive plots in Figure~\ref{fig:hiveplot},
+which shows a hive plot per chromosome of the final estimated eQTL network. The fact
+that in hive plots vertex (node) positions are fixed eases the task of comparing them.
+In our context, this facilitates the comparison of the genetic control of gene expression
+across chromosomes.
+
+<<hiveplot, fig=TRUE, include=FALSE, echo=TRUE, results=verbatim, height=7, width=7>>=
+library(grid)
+library(graph)
+grid.newpage()
+pushViewport(viewport(layout=grid.layout(3, 3)))
+for (i in 1:3) {
+  for (j in 1:3) {
+    chr <- (i-1) * 3 + j
+    pushViewport(viewport(layout.pos.col=j, layout.pos.row=i))
+    plot(eqtlnet.q0.fdr.nrr.sel, type="hive", chr=chr)
+    grid.text(paste0("chr", as.roman(chr)), x=unit(0.05, "npc"),
+              y=unit(0.9, "npc"), just="left")
+    grid.text("genes", x=unit(0.08, "npc"), y=unit(0.1, "npc"), just="left", gp=gpar(cex=0.9))
+    grid.text("all chr", x=unit(0.92, "npc"), y=unit(0.2, "npc"), just="right", gp=gpar(cex=0.9))
+    grid.text("genes", x=unit(0.92, "npc"), y=unit(0.1, "npc"), just="right", gp=gpar(cex=0.9))
+    grid.text("markers", x=unit(0.5, "npc"), y=unit(0.95, "npc"), just="centre", gp=gpar(cex=0.9))
+    popViewport(2)
+  }
+}
+@
+\begin{figure}
+  \centerline{\includegraphics[width=0.7\textwidth]{eQTLnetworks-hiveplot}}
+  \caption{Hive plots of an eQTL network estimated from simulated data, involving only
+           connected components with at least one eQTL association. For each
+           chromosome, the hive plot shows three axes, where markers and genes are ordered
+           from the center according to their genomic location. Vertical and left axes
+           represent the chromosome in the corresponding plot, while the right axis
+           represents the entire genome alternating black and gray along consecutive
+           chromosomes. Edges between genes axes correspond to gene-gene associations.}
+  \label{fig:hiveplot}
+\end{figure}
+
 
 \section{Session information}
 
@@ -201,8 +313,7 @@ alleQTL(eqtlnet.q0.fdr.nrr.sel)
 toLatex(sessionInfo())
 @
 
-%% NO BIBLIOGRAPHY TO CITE YET
-%%\bibliography{qpgraph}
-%%\bibliographystyle{apalike}
+\bibliography{qpgraph}
+\bibliographystyle{apalike}
 
 \end{document}

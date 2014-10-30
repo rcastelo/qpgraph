@@ -4,7 +4,7 @@
 
 ## eQTLnetworkEstimationParam constructor
 eQTLnetworkEstimationParam <- function(ggData, geneticMap=NULL, physicalMap=NULL,
-                                       dVars=NULL, genes=NULL, geneAnnotation, genome=NA_character_) {
+                                       dVars=NULL, genes=NULL, geneAnnotation, genome=Seqinfo()) {
 
   ## check that 'ggData' is one of the allowed object classes
   if (!is(ggData, "cross") && !is(ggData, "matrix") && is(ggData, "data.frame"))
@@ -110,6 +110,8 @@ eQTLnetworkEstimationParam <- function(ggData, geneticMap=NULL, physicalMap=NULL
   } else if (class(geneAnnotation) == "data.frame") {
     if (is.null(rownames(geneAnnotation)))
       stop("when argument 'geneAnnotation' is a 'data.frame' object, it should have row names uniquely identifying each gene.")
+    if (!is(genome, "Seqinfo"))
+      stop("when argument 'geneAnnotation' is a 'data.frame' object, argument 'genome' should contain a 'Seqinfo' object.")
 
     clsannot <- sapply(geneAnnotation, class)
        
@@ -130,16 +132,17 @@ eQTLnetworkEstimationParam <- function(ggData, geneticMap=NULL, physicalMap=NULL
     geneAnnotation <- GRanges(seqnames=geneAnnotation[[1]],
                               IRanges(start=geneAnnotation[[2]], end=geneAnnotation[[3]]),
                               strand=geneAnnotation[[4]],
-                              seqinfo=Seqinfo(seqnames=names(map), seqlengths=sapply(map, max), NA, genome))
+                              seqinfo=genome)
     names(geneAnnotation) <- geneIDs
   } else if (!is(geneAnnotation, "TxDb"))
     stop("argument 'geneAnnotation' must be either a character string, a 'data.frame' object or a 'TxDb' object")
 
-  organism <- genome <- geneAnnotationTable <- character()
+  organism <- geneAnnotationTable <- character()
   if (is(geneAnnotation, "TxDb")) {
     md <- metadata(geneAnnotation)
     organism <- md[md$name %in% "Organism", "value"]
-    genome <- md[md$name %in% "Genome", "value"]
+    ## genome <- md[md$name %in% "Genome", "value"]
+    genome <- seqinfo(geneAnnotation)
     geneAnnotationTable <- paste(md[grep("Table", md$name)[1], ], collapse=" ") 
 
     geneAnnotation <- transcripts(geneAnnotation)
@@ -221,7 +224,7 @@ setMethod("show", signature(object="eQTLnetworkEstimationParam"),
             if (length(object@organism) > 0)
               cat(sprintf("  Organism: %s\n", object@organism))
             if (length(object@genome) > 0)
-              cat(sprintf("  Genome: %s\n", object@genome))
+              cat(sprintf("  Genome: %s\n", unique(genome(object@genome))))
             if (length(object@geneAnnotationTable) > 0)
               cat(sprintf("  Gene annotation: %s\n", object@geneAnnotationTable))
             cat(sprintf("  %d markers %d genes\n",

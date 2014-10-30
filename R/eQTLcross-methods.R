@@ -295,6 +295,7 @@ setMethod("$", signature(x="eQTLcross"),
                      map=x@map,
                      model=x@model,
                      g=x@model$g,
+                     genes=x@genes,
                      stop("unknown eQTLcross slot or parameter. Use names() to find out which are the valid ones.")
                      )
           })
@@ -302,7 +303,7 @@ setMethod("$", signature(x="eQTLcross"),
 ## names method
 setMethod("names", signature(x="eQTLcross"),
           function(x) {
-            c("g", "map", "model", "type")
+            c("g", "genes", "map", "model", "type")
           })
 
 ## alleQTL method
@@ -442,7 +443,7 @@ setMethod("plot", signature(x="eQTLcross"),
           }) 
 
 ## eQTLcrossParam constructor
-eQTLcrossParam <- function(map=do.call("class<-", list(list("1"=do.call("class<-", list(do.call("names<-", list(seq(0, 100, length.out=20), paste0("m", 1:20))), "A"))), "map")),
+eQTLcrossParam <- function(map=do.call("class<-", list(list("1"=do.call("class<-", list(do.call("names<-", list(seq(1, 100, length.out=20), paste0("m", 1:20))), "A"))), "map")),
                            type="bc", genes=20, cis=1, trans=as.integer(NULL), cisr=1, d2m=0,
                            networkParam=dRegularGraphParam()) {
   type <- match.arg(type)
@@ -564,8 +565,11 @@ setMethod("reQTLcross", signature(n="integer", network="eQTLcrossParam"),
                 ## enforce genes with cis-QTL being located at least 1 x cisr cM apart
                 while (!nocis && j < 10) {
                   idx.m.cisQTL <- sample(1:nm, size=n.cisQTL, replace=FALSE)
-                  chr.genes.cisQTL <- sapply(idx.m.cisQTL, function(j, cs) sum(cs < j)+1, csnmbychr)
+                  chr.genes.cisQTL <- sapply(idx.m.cisQTL,
+                                             function(j, cs) sum(cs < j)+1, csnmbychr)
                   loc.genes.cisQTL <- mcmloc[idx.m.cisQTL] + d2m
+                  ## if (any(loc.genes.cisQTL < 1))
+                  ##   stop("Simulated gene position at < 1 cM from the beginning of the chromosome. Consider simulating a genetic map with markers at positions > 1 cM.")
                   nocis <- sapply(split(loc.genes.cisQTL, chr.genes.cisQTL),
                                   function(gxc, cisr) {
                                     nocis <- TRUE
@@ -595,7 +599,8 @@ setMethod("reQTLcross", signature(n="integer", network="eQTLcrossParam"),
                                                nocis <- FALSE
                                                pos <- NA
                                                while (!nocis && k < 10) {
-                                                 pos <- runif(1, min=0, max=chrlen[chr[j]])
+                                                 ## minimum position is 1cM
+                                                 pos <- runif(1, min=1, max=chrlen[chr[j]])
                                                  if (!is.na(match(as.character(chr[j]), names(genes.cisQTL))))
                                                    nocis <- all(abs(pos-genes.cisQTL[[as.character(chr[j])]]) > 1*cisr)
                                                  else

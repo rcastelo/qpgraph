@@ -80,6 +80,8 @@ importFrom(BiocParallel, bpparam,
 
 importFrom(GenomeInfoDb,
            Seqinfo,
+           seqinfo,
+           genome,
            rankSeqlevels,
            orderSeqlevels)
 

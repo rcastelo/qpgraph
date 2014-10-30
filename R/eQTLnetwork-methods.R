@@ -5,7 +5,7 @@ setMethod("show", signature(object="eQTLnetwork"),
             if (length(object@organism) > 0)
               cat(sprintf("  Organism: %s\n", object@organism))
             if (length(object@genome) > 0)
-              cat(sprintf("  Genome: %s\n", object@genome))
+              cat(sprintf("  Genome: %s\n", unique(genome(object@genome))))
             if (length(object@geneAnnotationTable) > 0)
               cat(sprintf("  Gene annotation: %s\n", object@geneAnnotationTable))
             mNames <- character()
@@ -227,7 +227,7 @@ setMethod("allGeneAssociations", signature(x="eQTLnetwork"),
               ## get the genes and their annotations involved
               genesGR <- geneAnnotation(x)[gNodes]
               mcols(genesGR) <- cbind(mcols(genesGR),
-                                      DataFrame(seqnamesRnk=rankSeqlevels(as.vector(seqnames(genesGR)))))
+                                      DataFrame(seqnamesRnk=rankSeqlevels(IRanges::as.vector(seqnames(genesGR)))))
               ## add chromosome and location of the TSS of each gene
               mtfrom <- match(alledg$genefrom, names(genesGR))
               mtto <- match(alledg$geneto, names(genesGR))
@@ -257,22 +257,22 @@ setMethod("resetCutoffs", signature(object="eQTLnetwork"),
 
 ## plot method
 setMethod("plot", signature(x="eQTLnetwork"),
-          function(x, type=c("dot", "hive"), chr=1, xlab="eQTL location", ylab="Gene location", axes=TRUE, ...) {
+          function(x, type=c("dot", "hive"), chr=1, xlab="eQTL location", ylab="Gene location", axes=TRUE, map="physical", ...) {
             type <- match.arg(type)
 
             if (type == "dot") {
-              eqtl <- alleQTL(x, map="physical")
+              eqtl <- alleQTL(x, map=map)
 
               ## get the genes and their annotations involved
               eqtlgenes <- geneAnnotation(x)[unique(eqtl$gene)]
               mcols(eqtlgenes) <- cbind(mcols(eqtlgenes),
-                                        DataFrame(seqnamesRnk=rankSeqlevels(as.vector(seqnames(eqtlgenes)))))
+                                        DataFrame(seqnamesRnk=rankSeqlevels(IRanges::as.vector(seqnames(eqtlgenes)))))
 
               ## get the loci involved
               qtl <- unique(eqtl[, c("chrom", "location", "QTL")])
               rownames(qtl) <- qtl$QTL
               qtl <- qtl[, c("chrom", "location")]
-              qtl$chrom <- rankSeqlevels(qtl$chrom)
+              qtl$chrom <- rankSeqlevels(as.character(qtl$chrom))
 
               ## re-scale genes and marker locations in eQTL, between 0 and 1
               chrinvolved <- sort(unique(intersect(qtl$chrom, eqtlgenes$seqnamesRnk)))
@@ -299,7 +299,7 @@ setMethod("plot", signature(x="eQTLnetwork"),
                           labels=names(chrLen), tick=FALSE, cex.axis=0.9, las=1)
               }
             } else if (type == "hive") {
-              eqtl <- alleQTL(x, map="physical", gene.loc=TRUE)
+              eqtl <- alleQTL(x, map=map, gene.loc=TRUE)
               eqtl <- eqtl[eqtl$chrom == chr, , drop=FALSE]
 
               ## split eQTL between cis (same chromosome) and trans (different chromosomes)
@@ -316,10 +316,10 @@ setMethod("plot", signature(x="eQTLnetwork"),
 
               pMap <- physicalMap(x)
               markerPos <- data.frame(chromosome=rep(rankSeqlevels(names(pMap)), times=qtl::nmar(pMap)),
-                                                              position=unlist(pMap, use.names=FALSE))
+                                      position=unlist(pMap, use.names=FALSE))
               rownames(markerPos) <- unlist(sapply(pMap, names), use.names=FALSE)
 
-              genePos <- data.frame(chromosome=rankSeqlevels(as.vector(seqnames(sort(x@geneAnnotation)))),
+              genePos <- data.frame(chromosome=rankSeqlevels(IRanges::as.vector(seqnames(sort(x@geneAnnotation)))),
                                     position=ifelse(strand(sort(x@geneAnnotation)) == "-",
                                                     end(sort(x@geneAnnotation)),
                                                     start(sort(x@geneAnnotation))))
@@ -350,7 +350,7 @@ setMethod("plot", signature(x="eQTLnetwork"),
   ## calculate gene relative position to the interval [0, 1]
   chrRelLen <- cl/sum(cl)
   chrRelCumLen <- c(0, cumsum(chrRelLen)[-length(chrRelLen)])
-  names(chrRelCumLen) <- paste("chr", 1:16, sep="")
+  names(chrRelCumLen) <- paste("chr", seq(along=cl), sep="")
   grp <- chrRelCumLen[gp[, 1]] +
          chrRelLen[gp[, 1]] * (gp[, 2]/cl[gp[, 1]])
   names(grp) <- rownames(gp)
@@ -358,13 +358,22 @@ setMethod("plot", signature(x="eQTLnetwork"),
   mp1 <- mp[mp[, 1] == chr, ]
   gp1 <- gp[gp[, 1] == chr, ]
 
+  ## add dummy markers at first and last chromosome position
+  ## to force the functions below plotting the entire chromosome for
+  ## the marker axis
+  mp1 <- rbind(data.frame(chromosome=chr, position=0, row.names="dummyBeginning"),
+               mp1,
+               data.frame(chromosome=chr, position=cl[chr], row.names="dummyEnd"))
+
+  ## add dummy gene annotations at first and last chromosome position
+  ## to force the functions below plotting the entire chromosome for
+  ## the self-chromosome gene axis
+  gp1 <- rbind(data.frame(chromosome=chr, position=0, row.names="dummyBeginning"),
+               gp1,
+               data.frame(chromosome=chr, position=cl[chr], row.names="dummyEnd"))
+
   rmp <- mp1[,2]/cl[chr] ## normalize position to the [0-1] scale
   rgp <- gp1[,2]/cl[chr] ## normalize position to the [0-1] scale
-
-  ## cis  <- edg[edg[ ,1] %in% rownames(mp1) & edg[, 2] %in% rownames(gp1) &
-  ##             as.numeric(edg[, 4]) < nrrcutoff, 1:2]
-  ## trans <- edg[edg[ ,1] %in% rownames(mp1) & !(edg[ ,2] %in% rownames(gp1)) &
-  ##              as.numeric(edg[, 4]) < nrrcutoff, 1:2]
 
   ## calculate relative chromosome positions
   cis1c <- match(cis[ ,1], rownames(mp1))
@@ -397,12 +406,7 @@ setMethod("plot", signature(x="eQTLnetwork"),
   transseed1 <- trans1c[tseed]
   transseed2 <- trans2c[tseed]
   
-  ## select gene-gene associations with nrr < 0.1
-  ## mask <- rownames(nrrgenes) %in% rownames(gp1)
-  ## gg <- which(nrrgenes[mask, ] < nrrcutoff, arr.ind=TRUE)
-  ## gg <- matrix(c(rownames(nrrgenes)[mask][gg[, 1]], colnames(nrrgenes)[gg[, 2]]), ncol=2)
-
-  ## among gene-gene associations with nrr < 0.1 select those related to this
+  ## among gene-gene associations select those with cis-eQTLs in this
   ## chromosome and annotate function or seed
   gene1_cis <- gene2_cis <- gene1_ctf <- gene2_ctf <- gene1_crbp <- gene2_crbp <- gene1_seed <- gene2_seed <- c()
   cisg <- gg[, 1] %in% cis[, 2]
@@ -431,7 +435,8 @@ setMethod("plot", signature(x="eQTLnetwork"),
     gene2_cseed <- match(seedg[, 2], names(grp)) + nrow(mp1) + nrow(gp1)  
   }
 
-  ## among gene-gene associations with nrr < 0.1 select those related to other chromosome and annotate function
+  ## among gene-gene associations select those with trans-eQTLs in other
+  ## chromosomes and annotate function
   gene1_trans <- gene2_trans <- gene1_ttf <- gene2_ttf <- gene1_trbp <- gene2_trbp <- gene1_seed <- gene2_seed <- gene1_tseed <- gene2_tseed <- c()
   transg <- gg[, 2] %in% trans[, 2]
   transg2 <- gg[, 1] %in% trans[, 2]
@@ -459,7 +464,9 @@ setMethod("plot", signature(x="eQTLnetwork"),
     gene2_tseed <- match(seedg[, 2], names(grp)) + nrow(mp1) + nrow(gp1)  
   }
   
-  ## create the HivePlotData structure with all the information to be plotted with the 'HiveR' package
+  ## create a list object with all the information to be plotted with
+  ## the function '.eQTLplotHive()' that has been adapted from the
+  ## R/CRAN package HiveR
   col_nodes <- rep(chr.cols[1], nrow(mp1) + nrow(gp1) + ng) 
   col_nodes[c(rep(FALSE, nrow(mp1)+ nrow(gp1)), (gp[ ,1] %% 2) == 0)] <- chr.cols[2]
   size_nodes <- rep(size.nodes, nrow(mp1) + nrow(gp1) + ng)
@@ -504,7 +511,7 @@ setMethod("plot", signature(x="eQTLnetwork"),
   .eQTLplotHive(hpd, ch=0.1, dr.nodes=TRUE, np=FALSE, ...)
 }
 
-## adapted from the plotHive function in package HiveR by Bryan Hanson
+## adapted from the plotHive function in the R/CRAN package HiveR by Bryan Hanson
 ## see http://cran.r-project.org/web/packages/HiveR/index.html
 .eQTLplotHive <- function(HPD, ch = 1, ## method = "abs", ## MODIFICATION WE DON'T NEED THIS ARGUMENT
 	dr.nodes = TRUE, bkgnd = "white",

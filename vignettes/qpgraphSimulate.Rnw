@@ -12,7 +12,7 @@ BiocStyle::latex(use.unsrturl=FALSE)
 
 \bioctitle[Simulating networks using \Biocpkg{qpgraph}]%
     {Simulating molecular regulatory networks using {\tt qpgraph}}
-\author{Inma Tur$^1$, Alberto Roverato$^2$ and Robert Castelo$^1$}
+\author{Inma Tur$^{1,3}$, Alberto Roverato$^2$ and Robert Castelo$^1$}
 
 \begin{document}
 
@@ -42,7 +42,8 @@ try(detach("package:qtl"), silent=TRUE)
 \begin{quote}
 {\scriptsize
 1. Universitat Pompeu Fabra, Barcelona, Spain. \\
-2. Universit\`a di Bologna, Bologna, Italy.
+2. Universit\`a di Bologna, Bologna, Italy. \\
+3. Now at Kernel Analytics, Barcelona, Spain.
 }
 \end{quote}
 
@@ -54,6 +55,13 @@ way to understand the underpinnings of these models is to simulate them and simu
 data from them. More importantly, these simulated data may serve the purpose of verifying
 properties of GMM estimation procedures, such as correctness or asymptotic behavior.
 Here we illustrate the functionalities of \Biocpkg{qpgraph} to perform these simulations.
+If you use them in your own research, please cite the following article:
+
+\begin{quote}
+  Tur, I., Roverato, A. and Castelo, R. Mapping eQTL networks with mixed graphical
+  Markov models. \textit{Genetics, in press} (\texttt{http://dx.doi.org/10.1534/genetics.114.169573}).
+\end{quote}
+
 The interface provided by \Biocpkg{qpgraph} tries to comply with the available functions
 in the base R \CRANpkg{stats} package for simulating data from probability distributions
 and the names of functions described below for the purpose of simulating graphs, models
@@ -479,23 +487,33 @@ matrix completion algorithm that is involved in the construction of the conditio
 covariance matrix (\Robject{tol=0.001}) and whether progress on the calculations
 should be shown \Robject{verbose=FALSE}.
 
-To simulate a larger \Rclass{eQTLcross} object we load an example genetic map object
-called \Robject{map10} from the \CRANpkg{qtl} package \citep{Broman:2003fk}:
+To simulate a larger \Rclass{eQTLcross} object we need to simulate a genetic map
+using the \Rfunction{sim.map()} function from the \CRANpkg{qtl} package \citep{Broman:2003fk},
+which should be loaded first. Since \Biocpkg{qpgraph} overloads the \CRANpkg{qtl}
+function \Rfunction{sim.cross()}, which will be used later to simulate data from
+an \Rclass{eQTLcross} object, we will detach \Biocpkg{qpgraph} before loading
+\CRANpkg{qtl}, and load \Biocpkg{qpgraph} again.
 
 <<>>=
-data(map10, package="qtl")
-class(map10)
-head(lapply(map10, head))
+detach("package:qpgraph")
+library(qtl)
+library(qpgraph)
+
+map <- sim.map(len=rep(100, times=20),
+               n.mar=rep(10, times=20),
+               anchor.tel=FALSE,
+               eq.spacing=FALSE,
+               include.x=TRUE)
 @
-and using it in combination with a larger number of genes (100) we can easily
+and using it in combination with a larger number of genes (50) we can easily
 simulate this larger \Rclass{eQTLcross} object:
 
 <<>>=
-eqtl <- reQTLcross(eQTLcrossParam(map=map10, genes=100))
+eqtl <- reQTLcross(eQTLcrossParam(map=map, genes=50))
 class(eqtl)
 eqtl
 @
-which, as we can see, it corresponds a backcross model with 100 genes each of them associated
+which, as we can see, it corresponds a backcross model with 50 genes each of them associated
 to a {\it cis}-eQTL, and with a certain underlying gene network embedded into an
 homogeneous mixed GMM that forms part of this object and which can be accessed as
 follows:
@@ -511,7 +529,7 @@ and on the left panel the genetic map plotted by the plot function defined in th
 
 <<geneticmap, fig=TRUE, include=FALSE, echo=TRUE, results=verbatim, height=6, width=12>>=
 par(mfrow=c(1,2))
-plot(map10)
+plot(map)
 plot(eqtl, main="eQTL model with cis-associations only")
 @
 \begin{figure}
@@ -527,7 +545,7 @@ the \Robject{trans} argument as follows:
 
 <<>>=
 set.seed(123)
-eqtl <- reQTLcross(eQTLcrossParam(map=map10, genes=100,
+eqtl <- reQTLcross(eQTLcrossParam(map=map, genes=50,
                                   cis=0.5, trans=c(5, 5)), a=5)
 @
 In this call, \Robject{cis=0.5} indicates that 50\% of the genes should have {\it cis}-eQTL
@@ -562,7 +580,7 @@ the eQTL associations into the corresponding genetic loci:
 
 <<>>=
 set.seed(123)
-cross <- sim.cross(map10, eqtl)
+cross <- sim.cross(map, eqtl)
 cross
 @
 Note that here, the genotype data is simulated by the procedures implemented in
@@ -591,17 +609,11 @@ connectedGenes <- connectedGenes[connectedGenes %in% eqtl$model$Y]
 connectedGenes
 @
 Now, using the \CRANpkg{qtl} package \citep{Broman:2003fk} and its \Rfunction{scanone()}
-function, we perform a simple QTL analysis by marker regression using the expression
+function, we perform a simple QTL analysis by single marker regression using the expression
 profiles from genes \Sexpr{paste(c(gene, connectedGenes), collapse=", ")} as
-phenotypes\footnote{Note that when we load below the \CRANpkg{qtl} package \citep{Broman:2003fk},
-the definition of \Rfunction{sim.cross()} in \Biocpkg{qpgraph} gets masked by the original
-definition of this function in \CRANpkg{qtl}. This means we would need, from that point on, to
-use the notation \Robject{qpgraph::sim.cross()} to call the \Biocpkg{qpgraph} definition
-of this function unless we detach \CRANpkg{qtl} from the search path}:
+phenotypes:
 
 <<>>=
-library(qtl)
-
 out.mr <- scanone(cross, method="mr", pheno.col=c(gene, connectedGenes))
 @
 By using the plotting functionalities of the \CRANpkg{qtl} package \citep{Broman:2003fk} we
@@ -611,7 +623,7 @@ eQTL of gene \Sexpr{gene} is located:
 <<lodprofiles, fig=TRUE, include=FALSE, echo=TRUE, results=verbatim, height=6, width=6>>=
 plot(out.mr, chr=chrom, ylab="LOD score", lodcolumn=1:3, col=c("black", "blue", "red"), lwd=2)
 abline(v=allcis[allcis$gene == gene, "location"])
-legend("topright", names(out.mr)[3:5], col=c("black", "blue", "red"), lwd=2, inset=0.05)
+legend("topleft", names(out.mr)[3:5], col=c("black", "blue", "red"), lwd=2, inset=0.05)
 @
 \begin{figure}
   \centerline{\includegraphics[width=0.6\textwidth]{qpgraphSimulate-lodprofiles}}
