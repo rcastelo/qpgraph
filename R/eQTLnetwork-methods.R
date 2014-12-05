@@ -1,3 +1,35 @@
+## pretty printing of q orders when there are more than 5, using integer ranges
+qPretty <- function(object, cutoff=5) {
+  qstr <- ""
+  if (!is.na(object@p.value))
+    qstr <- "0"
+
+  qstr2 <- paste(object@qOrders, collapse=",")
+  if (length(object@qOrders) > 5) {
+     dif <- c(object@qOrders[-1], object@qOrders[length(object@qOrders)]+2) - object@qOrders
+     qstr2 <- "" ; il <- NA ; ir <- NA
+     for (i in seq(along=dif)) {
+       if (dif[i] == 1 && is.na(il))
+         il <- object@qOrders[i]
+       else if (dif[i] > 1 && !is.na(il)) {
+         ir <- object@qOrders[i]
+         qstr2 <- paste(qstr2, sprintf("%d-%d", il, ir), sep=",")
+         il <- ir <- NA
+       } else if (dif[i] > 1 && is.na(il))
+         qstr2 <- paste(qstr2, object@qOrders[i], sep=",")
+     }
+     qstr2 <- gsub("^,", "", qstr2)
+  }
+
+  if (nchar(qstr) > 0) { ## must be "0"
+    qstr <- sprintf("0,%s", qstr2)
+  } else {
+    qstr <- qstr2
+  }
+
+  qstr
+}
+
 ## eQTLnetwork show method
 setMethod("show", signature(object="eQTLnetwork"),
           function(object) {
@@ -18,19 +50,18 @@ setMethod("show", signature(object="eQTLnetwork"),
 
             gNames <- names(object@geneAnnotation)
             cat(sprintf("  Input size: %d markers %d genes\n", length(mNames), length(gNames)))
-            cat("  Model formula: ", deparse(object@modelFormula), "\n")
+            fnoq <- gsub("\\(.*\\)", "", paste(deparse(object@modelFormula), collapse=""))
+            qstr <- qPretty(object, cutoff=5)
+            if (nchar(qstr) > 0)
+              cat(sprintf("  Model formula: %s (q = %s)\n", fnoq, qstr))
+            else
+              cat(sprintf("  Model formula: %s\n", fnoq))
+
             g <- object@qpg@g
             if (numNodes(g) > 0) {
               edg <- extractFromTo(g)
               edg$from <- as.character(edg$from)
               edg$to <- as.character(edg$to)
-              qstr <- NULL
-              if (!is.na(object@p.value))
-                qstr <- "0"
-              if (!is.na(object@epsilon))
-                qstr <- ifelse(!is.null(qstr), ## must be "0"
-                               sprintf("0,%s", paste(object@qOrders, collapse=",")),
-                               paste(object@qOrders, collapse=","))
               if (!is.na(object@alpha))
                 qstr <- paste(qstr, "*", sep=",")
               padstr <- paste(rep(" ", times=nchar(qstr)+8), collapse="")

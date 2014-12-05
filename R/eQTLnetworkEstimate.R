@@ -214,7 +214,6 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
               stop("argument 'estimate' has no non-rejection rates.")
 
             mNames <- markerNames(estimate)
-
             if (!identical(mNames, markerNames(param)))
               stop("Markers are different between 'param' and 'estimate'.")
 
@@ -300,29 +299,25 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
                               }, ggData(param), estimate@nrr, alpha=alpha, BPPARAM=BPPARAM)
               edg <- edg[sapply(edg, length) > 0]
               if (length(edg) > 0) {
-                ## THERE'S CURRENTLY A BUG IN graph::removeEdge() AND THIS DOES NOT WORK
-                ## elen <- sapply(edg, length)
-                ## qpg@g <- removeEdge(from=rep(names(edg), times=elen),
-                ##                     to=unlist(edg, use.names=FALSE),
-                ##                     as(qpg@g, "graphNEL"))
-                ## WORKAROUND BY RE-BUILDING AGAIN THE graphBAM object
-                alledg <- extractFromTo(qpg@g)
-                alledg$from <- as.character(alledg$from)
-                alledg$to <- as.character(alledg$to)
-                ggedg <- alledg[alledg$from %in% gNames & alledg$to %in% gNames, ]
-                mgedg <- alledg[alledg$from %in% mNames | alledg$to %in% mNames, ]
-                maskSwappedGenesMarkers <- mgedg$from %in% gNames
-                if (any(maskSwappedGenesMarkers)) { ## put markers in 'from' and genes in 'to
-                  swappedGeneNames <- mgedg$from[maskSwappedGenesMarkers]
-                  mgedg$from[swappedGenesMarkers] <- mgedg$to[swappedGenesMarkers]
-                  mgedg$to[swappedGenesMarkers] <- mgedg$to[swappedGenesMarkers]
-                }
                 elen <- sapply(edg, length)
-                rmedg <- data.frame(from=unlist(edg, use.names=FALSE),
-                                    to=rep(names(edg), times=elen))
-                keepMask <- !paste(mgedg$from, mgedg$to, sep="__") %in% paste(rmedg$from, rmedg$to, sep="__")
-                mgedg <- mgedg[keepMask, ]
-                qpg@g <- graphBAM(rbind(ggedg, mgedg, stringsAsFactors=FALSE))
+                qpg@g <- removeEdge(from=rep(names(edg), times=elen), to=unlist(edg, use.names=FALSE), qpg@g)
+                ## alledg <- extractFromTo(qpg@g)
+                ## alledg$from <- as.character(alledg$from)
+                ## alledg$to <- as.character(alledg$to)
+                ## ggedg <- alledg[alledg$from %in% gNames & alledg$to %in% gNames, ]
+                ## mgedg <- alledg[alledg$from %in% mNames | alledg$to %in% mNames, ]
+                ## maskSwappedGenesMarkers <- mgedg$from %in% gNames
+                ## if (any(maskSwappedGenesMarkers)) { ## put markers in 'from' and genes in 'to
+                ##   swappedGeneNames <- mgedg$from[maskSwappedGenesMarkers]
+                ##   mgedg$from[swappedGenesMarkers] <- mgedg$to[swappedGenesMarkers]
+                ##   mgedg$to[swappedGenesMarkers] <- mgedg$to[swappedGenesMarkers]
+                ## }
+                ## elen <- sapply(edg, length)
+                ## rmedg <- data.frame(from=unlist(edg, use.names=FALSE),
+                ##                     to=rep(names(edg), times=elen))
+                ## keepMask <- !paste(mgedg$from, mgedg$to, sep="__") %in% paste(rmedg$from, rmedg$to, sep="__")
+                ## mgedg <- mgedg[keepMask, ]
+                ## qpg@g <- graphBAM(rbind(ggedg, mgedg, stringsAsFactors=FALSE))
               }
             }
 
@@ -395,9 +390,9 @@ setMethod("varExplained", signature=c(param="eQTLnetworkEstimationParam",
   varsnqs
 }
 
-.parseFormula <- function(f, param) {
+.parseFormula <- function(f, param, expand=TRUE) {
   tryCatch({
-    rhs <- deparse(f[[2]])
+    rhs <- paste(deparse(f[[2]]), collapse="")
   }, error=function(err) {
     cat("Malformed model formula\n")
     stop(conditionMessage(err), call.=FALSE)
@@ -416,9 +411,11 @@ setMethod("varExplained", signature=c(param="eQTLnetworkEstimationParam",
   ## rhs[[1]] <- unlist(lapply(rhs[[1]], strsplit, " *\\* *| *: *"), recursive=FALSE)
   ## rhs[[2]] <- unlist(lapply(rhs[[2]], strsplit, " *\\* *| *: *"), recursive=FALSE)
 
-  rhs$explanatory <- unlist(lapply(.expandTerms(rhs$explanatory, param), function(x) x$v))
-  if (length(rhs$conditioning) > 0)
-    rhs$conditioning <- .expandTerms(rhs$conditioning, param)
+  if (expand) {
+    rhs$explanatory <- unlist(lapply(.expandTerms(rhs$explanatory, param), function(x) x$v))
+    if (length(rhs$conditioning) > 0)
+      rhs$conditioning <- .expandTerms(rhs$conditioning, param)
+  }
 
   rhs
 }
