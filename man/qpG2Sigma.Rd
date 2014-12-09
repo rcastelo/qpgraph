@@ -39,8 +39,8 @@ A random positive definite matrix that can be used as a covariance matrix
 for a Gaussian graphical model with graph \code{G}.
 }
 \references{
-Castelo, R. and Roverato, A. Utilities for large Gaussian graphical model
-inference and simulation with the R package qpgraph, submitted.
+Tur, I., Roverato, A. and Castelo, R. Mapping eQTL networks with mixed graphical Markov models.
+\emph{Genetics}, 198(4):1377-1393, 2014.
 }
 \author{A. Roverato}
 \seealso{

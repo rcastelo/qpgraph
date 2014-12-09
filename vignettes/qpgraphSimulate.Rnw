@@ -59,7 +59,7 @@ If you use them in your own research, please cite the following article:
 
 \begin{quote}
   Tur, I., Roverato, A. and Castelo, R. Mapping eQTL networks with mixed graphical
-  Markov models. \textit{Genetics, in press} (\texttt{http://dx.doi.org/10.1534/genetics.114.169573}).
+  Markov models. \textit{Genetics}, 198(4):1377-1393, 2014.
 \end{quote}
 
 The interface provided by \Biocpkg{qpgraph} tries to comply with the available functions

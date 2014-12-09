@@ -34,7 +34,10 @@ citEntry(entry="Article",
   title = "Mapping eQTL networks with mixed graphical Markov models",
   journal = "Genetics",
   year = "2014",
+  volume = "198",
+  number = "4",
+  pages = "1377-93",
   textVersion = paste("Tur, I., Roverato, A. and Castelo, R.",
                       "Mapping eQTL networks with mixed graphical Markov models",
-                      "Genetics, 2014, in press.")
+                      "Genetics, 198(4):1377-93, 2014.")
 )

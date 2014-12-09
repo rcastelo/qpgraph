@@ -38,6 +38,9 @@ covariance matrix. \emph{J. Am. Statist. Assoc.} 61, 199-203, 1966.
 
 Press, S.J. \emph{Applied Multivariate Analysis: Using Bayesian and Frequentist
 Methods of Inference}. New York: Holt, Rinehalt and Winston, 1972.
+
+Tur, I., Roverato, A. and Castelo, R. Mapping eQTL networks with mixed graphical Markov models.
+\emph{Genetics}, 198(4):1377-1393, 2014.
 }
 \author{A. Roverato}
 \seealso{

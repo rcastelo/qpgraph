@@ -42,6 +42,9 @@ Castelo, R. and Roverato, A. A robust procedure for
 Gaussian graphical model search from microarray data with p larger than n.
 \emph{J. Mach. Learn. Res.}, 7:2621-2650, 2006.
 
+Tur, I., Roverato, A. and Castelo, R. Mapping eQTL networks with mixed graphical Markov models.
+\emph{Genetics}, 198(4):1377-1393, 2014.
+
 Whittaker, J. \emph{Graphical models in applied multivariate statistics.}
 Wiley, 1990.
 }

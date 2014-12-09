@@ -59,7 +59,7 @@ functions described in this vignette in your own research, please cite the follo
 
 \begin{quote}
   Tur, I., Roverato, A. and Castelo, R. Mapping eQTL networks with mixed graphical
-  Markov models. \textit{Genetics, in press} (\texttt{http://dx.doi.org/10.1534/genetics.114.169573}). 
+  Markov models. \textit{Genetics}, 198(4):1377-1393, 2014.
 \end{quote}
 
 \section{Simulating an eQTL network and data from it}
