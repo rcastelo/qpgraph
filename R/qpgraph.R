@@ -1985,8 +1985,8 @@ setMethod("qpEdgeCor", signature(X="UGgmm"),
           function(X, i=1, j=2, q=1, restrict.Q=NULL, fix.Q=NULL,
                    nTests=100, alpha=0.05, R.code.only=FALSE) {
 
-            p <- gmm$p
-            varNames <- gmm$X
+            p <- X$p
+            varNames <- X$X
 
             param <- .processParameters(varNames, p, p, 0, p+1L, i=i, j=j, q=q,
                                         restrict.Q=restrict.Q, fix.Q=fix.Q)
@@ -1998,7 +1998,7 @@ setMethod("qpEdgeCor", signature(X="UGgmm"),
             if (R.code.only)
               stop("R.code.only=TRUE is not implemented yet.")
 
-            ssd <- new("SsdMatrix", ssd=as(gmm$sigma, "dspMatrix"), n=NA_real_)
+            ssd <- new("SsdMatrix", ssd=as(X$sigma, "dspMatrix"), n=NA_real_)
             matrix(data=.qpEdgeNrr(NULL, ssd, i, j, q, restrict.Q, fix.Q, nTests,
                                    alpha, return.pcor=TRUE, R.code.only),
                    nrow=nTests, ncol=q+2, dimnames=list(NULL, c("pcor", "pval", paste0("Q", 1:q))))
