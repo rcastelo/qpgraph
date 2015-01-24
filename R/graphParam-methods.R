@@ -97,7 +97,7 @@ setMethod("plot", signature(x="graphBAM"),
                                                                    do.call("c", as.list(vlabels[vtype == "continuous"]))))))
               Rgraphviz::renderGraph(g, ...)
             } else
-              invisible(callNextMethod())
+              invisible(callNextMethod(x, ...))
           })
 
 ## graph simulation methods
