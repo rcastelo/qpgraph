@@ -102,7 +102,9 @@ setMethod("qpGraph", signature(nrrMatrix="dspMatrix"),
 
   g <- graphBAM(df, nodes=vertex.labels)
 
-  qpg <- new("qpGraph", p=p, n=n, q=q, epsilon=epsilon, g=g)
+  qpg <- new("qpGraph", p=as.integer(p), n=as.integer(n),
+             q=as.integer(q), epsilon=as.numeric(epsilon),
+             g=g)
   qpg
 }
 
