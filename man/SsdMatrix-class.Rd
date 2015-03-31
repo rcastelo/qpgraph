@@ -3,6 +3,7 @@
 \alias{SsdMatrix-class}
 \alias{show,SsdMatrix-method}
 \alias{determinant,SsdMatrix,missing-method}
+\alias{det,SsdMatrix-method}
 \alias{dim,SsdMatrix-method}
 \alias{dimnames,SsdMatrix-method}
 
@@ -39,6 +40,7 @@
     \item{dim}{\code{signature(x = "SsdMatrix")}}
     \item{dimnames}{\code{signature(x = "SsdMatrix")}}
     \item{show}{\code{signature(object = "SsdMatrix")}}
+    \item{det}{\code{signature(object = "SsdMatrix")}}
     \item{determinant}{\code{signature(object = "SsdMatrix", logarithm = "missing")}}
   }
 }
