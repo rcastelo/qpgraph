@@ -50,6 +50,10 @@ setMethod("determinant", signature(x = "SsdMatrix", logarithm = "missing"),
           function(x, logarithm, ...)
             Matrix::determinant(x@ssd, logarithm=TRUE, ...))
 
+setMethod("determinant", signature(x = "SsdMatrix", logarithm = "logical"),
+          function(x, logarithm=TRUE, ...)
+            Matrix::determinant(x@ssd, logarithm, ...))
+
 setMethod("det", signature(x = "SsdMatrix"),
           function(x, ...)
             Matrix::det(x@ssd, ...))
