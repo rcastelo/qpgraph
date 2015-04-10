@@ -1,3 +1,14 @@
+CHANGES IN VERSION 2.20
+-----------------------
+
+USER VISIBLE CHANGES
+
+    o Updated the vignette "Estimate eQTL networks using qpgraph". It includes more detailed simulations illustrating the steps involved in the estimation of eQTL networks with qpgraph.
+
+BUG FIXES
+
+    o Bugfix on the display of eQTL networks with hive plots
+
 CHANGES IN VERSION 2.00
 -----------------------
 
