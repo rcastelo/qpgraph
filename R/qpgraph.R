@@ -3561,7 +3561,7 @@ qpPrecisionRecall <- function(measurementsMatrix, refGraph, decreasing=TRUE,
 
   } else { ## graphNEL, graphAM or graphBAM
     if (any(is.na(match(graph::nodes(refGraph), rownames(measurementsMatrix)))) ||
-        length(graph::nodes(refGraph) != dim(measurementsMatrix)[1]))
+        length(graph::nodes(refGraph)) != dim(measurementsMatrix)[1])
       stop("The vertex set in refGraph does not correspond to the row and column names in measurementsMatrix\n")
     refA <- as(refGraph, "matrix") == 1
     if (!all(match(rownames(refA), rownames(measurementsMatrix)) == 1:dim(refA)[1])) { ## force matching the vertex order
