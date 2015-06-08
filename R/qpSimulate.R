@@ -236,7 +236,7 @@ qpRndGraph <- function(p=6, d=2, labels=1:p, exclude=NULL, verbose=FALSE,
 ## return: a matrix of uniformly random correlation values between -1 and +1 for
 ##         every pair of variables
 
-qpUnifRndAssociation <- function (n.var, var.names=1:n.var) {
+qpUnifRndAssociation <- function (n.var, var.names=as.character(1:n.var)) {
   n.var <- as.integer(n.var)
   x=runif((n.var*(n.var-1))/2+n.var, min=-1, max=+1)
   x[cumsum(1:n.var)] <- 1
