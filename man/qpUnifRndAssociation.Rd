@@ -10,7 +10,7 @@ for all pairs of variables that follow from the number of variables given
 as input argument.
 }
 \usage{
-qpUnifRndAssociation(n.var, var.names=1:n.var)
+qpUnifRndAssociation(n.var, var.names=as.character(1:n.var))
 }
 \arguments{
   \item{n.var}{number of variables.}
