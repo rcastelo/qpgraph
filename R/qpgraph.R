@@ -2004,6 +2004,47 @@ setMethod("qpEdgeCor", signature(X="UGgmm"),
                    nrow=nTests, ncol=q+2, dimnames=list(NULL, c("pcor", "pval", paste0("Q", 1:q))))
           })
 
+setMethod("qpPathWeight", signature(path="numeric"),
+          function(path, sigma, Q=integer(0), normalized=TRUE, R.code.only=TRUE) {
+
+            if (!is.null(colnames(sigma))) {
+              allvtc <- colnames(sigma)
+            if (!is.character(path))
+              path <- allvtc[path]
+            if (!is.character(Q))
+              Q <- allvtc[Q]
+            } else {
+              allvtc <- 1:ncol(sigma)
+              stopifnot(class(path) != "character")
+            }
+            R <- unique(c(path, Q))
+
+            map2R <- vector(mode="integer", ncol(sigma))
+            names(map2R) <- allvtc
+            map2R[R] <- seq(along=R)
+            edges <- cbind(map2R[path[-length(path)]], map2R[path[-1]])
+            sgn <- ifelse(length(path) %% 2 == 0, -1, 1)
+
+            if (!R.code.only)
+              return(.Call("qp_fast_path_weight", as.integer(path), sigma, as.integer(Q),
+                                                  as.integer(R), as.integer(map2R), edges,
+                                                  as.integer(sgn), as.integer(normalized)))
+
+            K <- solve(sigma[R, R])
+            pw <- sgn*prod(K[edges])*det(sigma[path, path]) 
+            if (normalized) {
+              fstvtx <- map2R[path[1]]
+              lstvtx <- map2R[path[length(path)]]
+              PCOV <- solve(K[c(fstvtx, lstvtx), c(fstvtx, lstvtx)])
+              pw <- pw / sqrt(PCOV[1, 1] * PCOV[2, 2])
+            }
+
+            pw
+          })
+
+
+## private functions
+
 ## ph contains the number of profile and phenotypic variables within varNames
 ## init_ph contains the initial number of profile and phenotypic variables on
 ## which integer values for i, j, restrict.Q or fix.Q could be based on.

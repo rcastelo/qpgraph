@@ -170,6 +170,10 @@ qp_fast_edge_nrr_hmgm_sml(SEXP XR, SEXP cumsum_sByChrR, SEXP sR, SEXP gLevelsR,
                           SEXP mapX2ssdR, SEXP iR, SEXP jR, SEXP qR, SEXP restrictQR,
                           SEXP fixQR, SEXP nTestsR, SEXP alphaR, SEXP exactTest);
 
+static SEXP
+qp_fast_path_weight(SEXP pathR, SEXP sigmaR, SEXP QR, SEXP RR, SEXP map2RR, SEXP edgesR,
+                    SEXP sgnR, SEXP normalizedR);
+
 static double
 qp_edge_nrr(double* X, double* S, int p, int n, int i, int j, int q, int* restrictQ,
             int n_rQ, int* fixQ, int n_fQ, int nTests, double alpha, double* pcor);
@@ -409,6 +413,7 @@ callMethods[] = {
   {"qp_fast_edge_nrr", (DL_FUNC) &qp_fast_edge_nrr, 12},
   {"qp_fast_edge_nrr_hmgm", (DL_FUNC) &qp_fast_edge_nrr_hmgm, 14},
   {"qp_fast_edge_nrr_hmgm_sml", (DL_FUNC) &qp_fast_edge_nrr_hmgm_sml, 18},
+  {"qp_fast_path_weight", (DL_FUNC) &qp_fast_path_weight, 8},
   {"qp_fast_ci_test_std", (DL_FUNC) &qp_fast_ci_test_std, 6},
   {"qp_fast_ci_test_opt", (DL_FUNC) &qp_fast_ci_test_opt, 6},
   {"qp_fast_ci_test_hmgm", (DL_FUNC) &qp_fast_ci_test_hmgm, 12},
