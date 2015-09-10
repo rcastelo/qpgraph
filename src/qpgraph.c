@@ -201,6 +201,7 @@ sampleQs(int T, int q, int v_i, int v_j, int p, int* restrictQ, int* fixQ,
 
 static SEXP
 qp_fast_ci_test_std(SEXP SR, SEXP n_varR, SEXP NR, SEXP iR, SEXP jR, SEXP C);
+
 static double
 qp_ci_test_std(double* S, int n_var, int N, int i, int j, int* C, int q, double*);
 
@@ -5766,6 +5767,56 @@ qp_fast_edge_nrr_hmgm_sml(SEXP XR, SEXP cumsum_sByChrR, SEXP sR, SEXP gLevelsR,
   Free(mapX2ssd);
 
   return nrr;
+}
+
+
+
+/*
+  FUNCTION: qp_fast_path_weight
+  PURPOSE: wrapper to the C function that estimates path weights
+  RETURNS: the estimate of the path weight
+*/
+
+static SEXP
+qp_fast_path_weight(SEXP pathR, SEXP sigmaR, SEXP QR, SEXP RR, SEXP map2RR, SEXP edgesR,
+                    SEXP sgnR, SEXP normalizedR) {
+  int*   Q;
+  int*   R;
+  int    q, r;
+  int    k;
+
+  PROTECT_INDEX Spi, Qpi, Rpi, sgnpi;
+
+  PROTECT_WITH_INDEX(SR, &Spi);
+  PROTECT_WITH_INDEX(QR, &Qpi);
+  PROTECT_WITH_INDEX(RR, &Rpi);
+  PROTECT_WITH_INDEX(sgnR, &sgnpi);
+
+  REPROTECT(SR = coerceVector(SR, REALSXP), Spi);
+  REPROTECT(QR = coerceVector(QR, INTSXP), Qpi);
+  REPROTECT(RR = coerceVector(RR, INTSXP), Rpi);
+  REPROTECT(sgnR = coerceVector(sgnR, INTSXP), sgnpi);
+
+  q = length(QR);
+
+  Q = Calloc(q, int);
+  for (k=0;k<q;k++)
+    Q[k] = INTEGER(QR)[k]-1;
+
+  r = length(RR);
+
+  R = Calloc(q, int);
+  for (k=0;k<r;k++)
+    R[k] = INTEGER(RR)[k]-1;
+
+
+
+  Free(Q);
+  Free(R);
+
+  UNPROTECT(4); /* S Q R sgn */
+
+  return pathR;
 }
 
 
