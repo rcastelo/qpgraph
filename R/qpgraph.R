@@ -2026,9 +2026,11 @@ setMethod("qpPathWeight", signature(path="numeric"),
             sgn <- ifelse(length(path) %% 2 == 0, -1, 1)
 
             if (!R.code.only)
-              return(.Call("qp_fast_path_weight", as.integer(path), sigma, as.integer(Q),
-                                                  as.integer(R), as.integer(map2R), edges,
-                                                  as.integer(sgn), as.integer(normalized)))
+              stop("C implementation not yet available\n")
+
+              ## return(.Call("qp_fast_path_weight", as.integer(path), sigma, as.integer(Q),
+              ##                                     as.integer(R), as.integer(map2R), edges,
+              ##                                     as.integer(sgn), as.integer(normalized)))
 
             K <- solve(sigma[R, R])
             pw <- sgn*prod(K[edges])*det(sigma[path, path]) 

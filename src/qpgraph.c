@@ -171,7 +171,7 @@ qp_fast_edge_nrr_hmgm_sml(SEXP XR, SEXP cumsum_sByChrR, SEXP sR, SEXP gLevelsR,
                           SEXP fixQR, SEXP nTestsR, SEXP alphaR, SEXP exactTest);
 
 static SEXP
-qp_fast_path_weight(SEXP pathR, SEXP sigmaR, SEXP QR, SEXP RR, SEXP map2RR, SEXP edgesR,
+qp_fast_path_weight(SEXP pathR, SEXP SR, SEXP QR, SEXP RR, SEXP map2RR, SEXP edgesR,
                     SEXP sgnR, SEXP normalizedR);
 
 static double
@@ -320,6 +320,9 @@ matprod(double *x, int nrx, int ncx, double *y, int nry, int ncy, double *z);
  
 static void
 matinv(double* inv, double* M, int n, int p);
+
+static void
+symmatinv(double* inv, double* M, int n);
 
 static double
 symmatlogdet(double* M, int n, int* sign);
@@ -4250,7 +4253,7 @@ suf_stats_t
 stat_mis(double* X, int p, int n, int* missing_mask, int n_mis, int* I, int n_I,
          int* Is, int n_Is, int *Y, int n_Y, int* n_levels, int n_joint_levels,
          com_stats_t com_stats, double* pr, double* mu, double* Sigma) {
-  int         i,j,k;
+  /* int         i,j,k; */
   suf_stats_t ss;
   double*     m;
   double*     h;
@@ -4290,13 +4293,13 @@ lr_em(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
   double*     Sigma0;
   double*     Sigma;
   com_stats_t comStats_i, comStats_j, comStats_ij;
-  suf_stats_t sufStats_i, sufStats_j, sufStats_ij;
+  /* suf_stats_t sufStats_i, sufStats_j, sufStats_ij; */
   int*        Y_i = NULL;
-  int*        Y_j = NULL;
+  /* int*        Y_j = NULL; */
   int*        I_ij = NULL;
   int*        Y_ij = NULL;
   int*        missing_mask;
-  double      mdiff;
+  /* double      mdiff; */
   int         k, l, n_I_i, n_Y_i, n_Y_j, n_I_ij, n_Y_ij;
   int         n_mis, n_upper_tri, n_joint_levels=1;
   int         n_joint_levels_i, n_joint_levels_j, n_joint_levels_ij;
@@ -4460,6 +4463,8 @@ lr_em(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
   }
 
   /* first round */
+
+  /*
   mdiff = 1.0;
   while (mdiff > tol) {
     sufStats_i = stat_mis(X, p, n, missing_mask, n_mis, I, n_I, I, n_I_i, Y_i,
@@ -4473,6 +4478,7 @@ lr_em(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
                            pr, mu, Sigma);
     mdiff = 0.0;
   }
+  */
 
   free_com_stats(comStats_i);
   free_com_stats(comStats_j);
@@ -5778,12 +5784,26 @@ qp_fast_edge_nrr_hmgm_sml(SEXP XR, SEXP cumsum_sByChrR, SEXP sR, SEXP gLevelsR,
 */
 
 static SEXP
-qp_fast_path_weight(SEXP pathR, SEXP sigmaR, SEXP QR, SEXP RR, SEXP map2RR, SEXP edgesR,
+qp_fast_path_weight(SEXP pathR, SEXP SR, SEXP QR, SEXP RR, SEXP map2RR, SEXP edgesR,
                     SEXP sgnR, SEXP normalizedR) {
-  int*   Q;
-  int*   R;
-  int    q, r;
-  int    k;
+  int     p;
+  int     nedg;
+  int     pathlen=length(pathR);
+  int*    path;
+  int*    Q;
+  int*    R;
+  int     q=length(QR);
+  int     r=length(RR);
+  int     k;
+  int     sgn = INTEGER(sgnR)[0];
+  int     detsgn;
+  int     normalized = INTEGER(normalizedR)[0];
+  double* S;
+  double* Srr;
+  double* Spathpath;
+  double  SpathpathDet;
+  double* K;
+  double* pw;
 
   PROTECT_INDEX Spi, Qpi, Rpi, sgnpi;
 
@@ -5797,22 +5817,40 @@ qp_fast_path_weight(SEXP pathR, SEXP sigmaR, SEXP QR, SEXP RR, SEXP map2RR, SEXP
   REPROTECT(RR = coerceVector(RR, INTSXP), Rpi);
   REPROTECT(sgnR = coerceVector(sgnR, INTSXP), sgnpi);
 
-  q = length(QR);
+  p = INTEGER(getAttrib(SR, R_DimSymbol))[0];
+  nedg = INTEGER(getAttrib(edgesR, R_DimSymbol))[0];
+
+  path = Calloc(pathlen, int);
+  for (k=0;k<pathlen;k++)
+    path[k] = INTEGER(pathR)[k]-1;
 
   Q = Calloc(q, int);
   for (k=0;k<q;k++)
     Q[k] = INTEGER(QR)[k]-1;
 
-  r = length(RR);
-
   R = Calloc(q, int);
   for (k=0;k<r;k++)
     R[k] = INTEGER(RR)[k]-1;
 
+  Srr = Calloc((r * (r + 1)) / 2, double); /* upper triangle includes the diagonal */
+  symmatsubm(Srr, REAL(SR), p, R, r);
 
+  K = Calloc(r*r, double);
+  symmatinv(K, Srr, r); /* shouild the result be an upper triangle too ? */
 
+  Spathpath = Calloc((pathlen * (pathlen + 1)) / 2, double);
+  symmatsubm(Spathpath, REAL(SR), p, path, pathlen);
+  SpathpathDet = exp(symmatlogdet(Spathpath, pathlen, &detsgn));
+
+  Rprintf("|Spathpath|=%.2f\n", SpathpathDet);
+
+  Free(Spathpath);
+  Free(K);
+  Free(Srr);
+  Free(S);
   Free(Q);
   Free(R);
+  Free(path);
 
   UNPROTECT(4); /* S Q R sgn */
 
@@ -7461,8 +7499,34 @@ matinv(double* inv, double* M, int n, int p) {
 
 
 /*
+  FUNCTION: symmatinv
+  PURPOSE: calculates the inverse of a symmetric matrix by first blowing
+           the upper triangle into a full matrix and then calling matinv()
+  RETURNS: none
+*/
+
+static void
+symmatinv(double* inv, double* M, int n) {
+  double* A;
+  int     i,j;
+
+  /* blowing up the memory footprint, it would be nice to
+   * make these calculations directly on a symmetric matrix */
+  A = Calloc(n*n, double);
+  for (i=0; i < n; i++)
+    for (j=0; j <= i; j++)
+      A[i + j*n] = A[j + i*n] = M[UTE2I(i, j)];
+
+  matinv(inv, A, n, n);
+
+  Free(A);
+}
+
+
+
+/*
   FUNCTION: symmatlogdet
-  PURPOSE: calculates de determinant of a symmetric matrix by using the LaPACK
+  PURPOSE: calculates the determinant of a symmetric matrix by using the LaPACK
            library that comes along with the R distribution, this code is taken
            from the function moddet_ge_real in file
 
