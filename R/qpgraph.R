@@ -253,7 +253,7 @@ setMethod("qpNrr", signature(X="data.frame"),
                 sort(dim(X),decreasing=TRUE,index.return=TRUE)$ix[1] == 1)
               X <- t(X)
 
-            if (is.null(colnames(m)))
+            if (is.null(colnames(X)))
               colnames(X) <- 1:ncol(X)
 
             .qpNrr(X, q, I, restrict.Q, fix.Q, nTests, alpha,

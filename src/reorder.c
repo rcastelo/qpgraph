@@ -431,6 +431,10 @@ int *reorder_by_degree(graph_t *g, boolean weighted) {
  *       numbers.  srand() is re-initialized every time reorder_by_random()
  *       is called using the system time.
  */
+/*
+
+   IT'S NOT NECESSARY AND RAISES A NOTE IN R CMD check
+
 int *reorder_by_random(graph_t *g, boolean weighted) {
 #ifndef _WIN32
 	struct tms t;
@@ -443,9 +447,9 @@ int *reorder_by_random(graph_t *g, boolean weighted) {
 #else
         srand(time(NULL));
 #endif
-	/* new=calloc(g->n, sizeof(int)); */
+	* new=calloc(g->n, sizeof(int)); *
 	new=Calloc(g->n, int);
-	/* used=calloc(g->n, sizeof(boolean)); */
+	* used=calloc(g->n, sizeof(boolean)); *
 	used=Calloc(g->n, boolean);
 	for (i=0; i < g->n; i++) {
 		do {
@@ -454,8 +458,8 @@ int *reorder_by_random(graph_t *g, boolean weighted) {
 		new[i]=r;
 		used[r]=TRUE;
 	}
-	/* free(used); */
+	* free(used); *
         Free(used);
 	return new;
 }
-
+*/

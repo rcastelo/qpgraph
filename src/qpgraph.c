@@ -5798,7 +5798,6 @@ qp_fast_path_weight(SEXP pathR, SEXP SR, SEXP QR, SEXP RR, SEXP map2RR, SEXP edg
   int     sgn = INTEGER(sgnR)[0];
   int     detsgn;
   int     normalized = INTEGER(normalizedR)[0];
-  double* S;
   double* Srr;
   double* Spathpath;
   double  SpathpathDet;
@@ -5847,7 +5846,6 @@ qp_fast_path_weight(SEXP pathR, SEXP SR, SEXP QR, SEXP RR, SEXP map2RR, SEXP edg
   Free(Spathpath);
   Free(K);
   Free(Srr);
-  Free(S);
   Free(Q);
   Free(R);
   Free(path);

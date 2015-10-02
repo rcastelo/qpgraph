@@ -729,8 +729,8 @@ setMethod("reQTLcross", signature(n="integer", network="eQTLcross"),
             sim.g <- graph::subGraph(genes, network$g)
             Ylabels <- network$model$Y ## to be used later to re-order sigma rows and columns
 
-            if ((class(a) == "numeric" || class(a) == "integer") && length(a) > 1 && length(a) != n.eQTL)
-              stop(sprintf("argument 'a' contains %d values of eQTL additive effects while the total number of eQTL is %d.", length(a), n.eQTL))
+            if ((class(a) == "numeric" || class(a) == "integer") && length(a) > 1 && length(a) != n.eQTLs)
+              stop(sprintf("argument 'a' contains %d values of eQTL additive effects while the total number of eQTL is %d.", length(a), n.eQTLs))
 
             if (class(a) == "function" && length(formals(a)) != 1)
               stop("when argument 'a' is a function it should contain one argument taking the number of eQTL.")

@@ -192,8 +192,8 @@ setMethod("alleQTL", signature(x="eQTLnetwork"),
             maskSwappedGenesMarkers <- mgedg$from %in% gNames
             if (any(maskSwappedGenesMarkers)) { ## put markers in 'from' and genes in 'to
               swappedGeneNames <- mgedg$from[maskSwappedGenesMarkers]
-              mgedg$from[swappedGenesMarkers] <- mgedg$to[swappedGenesMarkers]
-              mgedg$to[swappedGenesMarkers] <- mgedg$to[swappedGenesMarkers]
+              mgedg$from[maskSwappedGenesMarkers] <- mgedg$to[maskSwappedGenesMarkers]
+              mgedg$to[maskSwappedGenesMarkers] <- swappedGeneNames
             }
 
             cnames <- c("chrom", "location", "QTL", "gene")
