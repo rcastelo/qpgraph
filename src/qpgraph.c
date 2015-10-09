@@ -5787,6 +5787,7 @@ static SEXP
 qp_fast_path_weight(SEXP pathR, SEXP SR, SEXP QR, SEXP RR, SEXP map2RR, SEXP edgesR,
                     SEXP sgnR, SEXP normalizedR) {
   int     p;
+  int*    edges = INTEGER(edgesR);
   int     nedg;
   int     pathlen=length(pathR);
   int*    path;
@@ -5800,9 +5801,9 @@ qp_fast_path_weight(SEXP pathR, SEXP SR, SEXP QR, SEXP RR, SEXP map2RR, SEXP edg
   int     normalized = INTEGER(normalizedR)[0];
   double* Srr;
   double* Spathpath;
-  double  SpathpathDet;
+  double  Spathpathdet;
   double* K;
-  double* pw;
+  double  pw;
 
   PROTECT_INDEX Spi, Qpi, Rpi, sgnpi;
 
@@ -5834,14 +5835,40 @@ qp_fast_path_weight(SEXP pathR, SEXP SR, SEXP QR, SEXP RR, SEXP map2RR, SEXP edg
   Srr = Calloc((r * (r + 1)) / 2, double); /* upper triangle includes the diagonal */
   symmatsubm(Srr, REAL(SR), p, R, r);
 
-  K = Calloc(r*r, double);
+  K = Calloc((r*(r+1))/2, double);
   symmatinv(K, Srr, r); /* shouild the result be an upper triangle too ? */
 
   Spathpath = Calloc((pathlen * (pathlen + 1)) / 2, double);
   symmatsubm(Spathpath, REAL(SR), p, path, pathlen);
-  SpathpathDet = exp(symmatlogdet(Spathpath, pathlen, &detsgn));
+  Spathpathdet = exp(symmatlogdet(Spathpath, pathlen, &detsgn));
 
-  Rprintf("|Spathpath|=%.2f\n", SpathpathDet);
+  Rprintf("|Spathpath|=%.2f\n", Spathpathdet);
+
+  pw = ((double) sgn) * Spathpathdet;
+  for (k=0; k < nedg; k++) {
+    int i = edges[k, 0];
+    int j = edges[k, 1];
+
+    pw = pw * K[UTE2I(i, j)];
+  }
+
+  if (normalized) {
+    int fstvtx = INTEGER(map2RR)[path[1]];
+    int lstvtx = INTEGER(map2RR)[path[pathlen]];
+    double* Kfl;
+    double* pcov;
+
+    Kfl = Calloc(4, double);
+    Kfl[0] = K[UTE2I(fstvtx, fstvtx)];
+    Kfl[1] = Kfl[2] = K[UTE2I(fstvtx, lstvtx)];
+    Kfl[3] = K[UTE2I(lstvtx, lstvtx)];
+    pcov = Calloc(4, double);
+    matinv(pcov, Kfl, 2, 0);
+    pw = pw / sqrt(pcov[0]*pcov[2]);
+
+    Free(pcov);
+    Free(Kfl);
+  }
 
   Free(Spathpath);
   Free(K);
