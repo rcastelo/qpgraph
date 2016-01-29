@@ -36,12 +36,12 @@ importMethodsFrom(Biobase,
                   varLabels)
 
 importMethodsFrom(GenomicRanges,
-                  c, cbind, rbind,
-                  "mcols<-", start, end, strand, sort,
-                  "[", "[<-", "[[", "[[<-", "$", "$<-")
+                  c, start, end, strand, sort,
+                  "[", "[<-", "$", "$<-")
 
 importMethodsFrom(S4Vectors,
-                  mcols,
+                  cbind, rbind,
+                  mcols, "mcols<-", "[[", "[[<-",
                   metadata)
 
 importMethodsFrom(AnnotationDbi,

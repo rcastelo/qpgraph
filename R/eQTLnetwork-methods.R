@@ -215,7 +215,8 @@ setMethod("alleQTL", signature(x="eQTLnetwork"),
                 ## get the genes and their annotations involved
                 genesGR <- geneAnnotation(x)[eqtls$gene]
                 mcols(genesGR) <- cbind(mcols(genesGR),
-                                        DataFrame(seqnamesRnk=rankSeqlevels(IRanges::as.vector(seqnames(genesGR)))))
+                                        DataFrame(seqnamesRnk=rankSeqlevels(as.character(seqnames(genesGR)))))
+                                        ## DataFrame(seqnamesRnk=rankSeqlevels(IRanges::as.vector(seqnames(genesGR)))))
                 ## add chromosome and location of the TSS of each eQTL gene
                 eqtls <- cbind(eqtls,
                                genechrom=genesGR$seqnamesRnk,
@@ -258,7 +259,8 @@ setMethod("allGeneAssociations", signature(x="eQTLnetwork"),
               ## get the genes and their annotations involved
               genesGR <- geneAnnotation(x)[gNodes]
               mcols(genesGR) <- cbind(mcols(genesGR),
-                                      DataFrame(seqnamesRnk=rankSeqlevels(IRanges::as.vector(seqnames(genesGR)))))
+                                      DataFrame(seqnamesRnk=rankSeqlevels(as.character(seqnames(genesGR)))))
+                                      ## DataFrame(seqnamesRnk=rankSeqlevels(IRanges::as.vector(seqnames(genesGR)))))
               ## add chromosome and location of the TSS of each gene
               mtfrom <- match(alledg$genefrom, names(genesGR))
               mtto <- match(alledg$geneto, names(genesGR))
@@ -297,7 +299,8 @@ setMethod("plot", signature(x="eQTLnetwork"),
               ## get the genes and their annotations involved
               eqtlgenes <- geneAnnotation(x)[unique(eqtl$gene)]
               mcols(eqtlgenes) <- cbind(mcols(eqtlgenes),
-                                        DataFrame(seqnamesRnk=rankSeqlevels(IRanges::as.vector(seqnames(eqtlgenes)))))
+                                        DataFrame(seqnamesRnk=rankSeqlevels(as.character(seqnames(eqtlgenes)))))
+                                        ## DataFrame(seqnamesRnk=rankSeqlevels(IRanges::as.vector(seqnames(eqtlgenes)))))
 
               ## get the loci involved
               qtl <- unique(eqtl[, c("chrom", "location", "QTL")])
@@ -350,7 +353,8 @@ setMethod("plot", signature(x="eQTLnetwork"),
                                       position=unlist(pMap, use.names=FALSE))
               rownames(markerPos) <- unlist(sapply(pMap, names), use.names=FALSE)
 
-              genePos <- data.frame(chromosome=rankSeqlevels(IRanges::as.vector(seqnames(sort(x@geneAnnotation)))),
+              ## genePos <- data.frame(chromosome=rankSeqlevels(IRanges::as.vector(seqnames(sort(x@geneAnnotation)))),
+              genePos <- data.frame(chromosome=rankSeqlevels(as.character(seqnames(sort(x@geneAnnotation)))),
                                     position=ifelse(strand(sort(x@geneAnnotation)) == "-",
                                                     end(sort(x@geneAnnotation)),
                                                     start(sort(x@geneAnnotation))))
