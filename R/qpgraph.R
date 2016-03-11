@@ -2004,7 +2004,7 @@ setMethod("qpEdgeCor", signature(X="UGgmm"),
                    nrow=nTests, ncol=q+2, dimnames=list(NULL, c("pcor", "pval", paste0("Q", 1:q))))
           })
 
-setMethod("qpPathWeight", signature(path="numeric"),
+setMethod("qpPathWeight", signature(path="character"),
           function(path, sigma, Q=integer(0), normalized=TRUE, R.code.only=TRUE) {
 
             if (!is.null(colnames(sigma))) {

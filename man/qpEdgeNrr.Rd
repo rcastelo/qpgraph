@@ -7,7 +7,7 @@
 \alias{qpEdgeCor,UGgmm-method}
 \alias{qpEdgeCor,matrix-method}
 \alias{qpEdgeCor}
-\alias{qpPathWeight,numeric-method}
+\alias{qpPathWeight,character-method}
 \alias{qpPathWeight}
 
 \title{
