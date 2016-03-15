@@ -2032,7 +2032,7 @@ setMethod("qpPathWeight", signature(path="character"),
               ##                                     as.integer(R), as.integer(map2R), edges,
               ##                                     as.integer(sgn), as.integer(normalized)))
 
-            K <- solve(sigma[R, R])
+            K <- solve(sigma)[R, R]
             pw <- sgn*prod(K[edges])*det(sigma[path, path]) 
             if (normalized) {
               fstvtx <- map2R[path[1]]
