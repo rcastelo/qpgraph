@@ -7,8 +7,6 @@
 \alias{qpEdgeCor,UGgmm-method}
 \alias{qpEdgeCor,matrix-method}
 \alias{qpEdgeCor}
-\alias{qpPathWeight,character-method}
-\alias{qpPathWeight}
 
 \title{
 Non-rejection rate estimation for a pair of variables

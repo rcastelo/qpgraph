@@ -18,7 +18,31 @@ importFrom(grid,
            viewport,
            unit,
            pushViewport)
- 
+
+importFrom(graphics,
+           abline,
+           axis,
+           boxplot,
+           close.screen,
+           hist,
+           legend,
+           screen,
+           segments,
+           split.screen,
+           text)
+
+importFrom(grDevices,
+           gray,
+           grey)
+
+importFrom(utils,
+           combn,
+           installed.packages,
+           read.table,
+           setTxtProgressBar,
+           txtProgressBar,
+           write.table)
+
 importClassesFrom(Biobase,
                   ExpressionSet)
 
