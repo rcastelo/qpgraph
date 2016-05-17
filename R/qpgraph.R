@@ -2004,22 +2004,37 @@ setMethod("qpEdgeCor", signature(X="UGgmm"),
                    nrow=nTests, ncol=q+2, dimnames=list(NULL, c("pcor", "pval", paste0("Q", 1:q))))
           })
 
-setMethod("qpPathWeight", signature(path="character"),
-          function(path, sigma, Q=integer(0), normalized=TRUE, R.code.only=TRUE) {
+setMethod("qpPathWeight", signature(X="matrix"),
+          function(X, path, Q=integer(0), normalized=TRUE, R.code.only=TRUE) {
 
-            if (!is.null(colnames(sigma))) {
-              allvtc <- colnames(sigma)
+            p <- (d <- dim(X))[1]
+            if (p != d[2])
+              stop("non-squared matrix in 'X'")
+
+            if (!isSymmetric(X))
+              stop("non-symmetric matrix in 'X'")
+
+            if (class(X[1, 1]) != "numeric")
+              stop("non-numeric values in 'X'")
+
+            if (!all(eigen(X)$values > 0))
+              stop("non-positive definite matrix in 'X'")
+
+            S <- X
+
+            if (!is.null(colnames(S))) {
+              allvtc <- colnames(S)
             if (!is.character(path))
               path <- allvtc[path]
             if (!is.character(Q))
               Q <- allvtc[Q]
             } else {
-              allvtc <- 1:ncol(sigma)
+              allvtc <- 1:ncol(S)
               stopifnot(class(path) != "character")
             }
             R <- unique(c(path, Q))
 
-            map2R <- vector(mode="integer", ncol(sigma))
+            map2R <- vector(mode="integer", ncol(S))
             names(map2R) <- allvtc
             map2R[R] <- seq(along=R)
             edges <- cbind(map2R[path[-length(path)]], map2R[path[-1]])
@@ -2028,12 +2043,12 @@ setMethod("qpPathWeight", signature(path="character"),
             if (!R.code.only)
               stop("C implementation not yet available\n")
 
-              ## return(.Call("qp_fast_path_weight", as.integer(path), sigma, as.integer(Q),
+              ## return(.Call("qp_fast_path_weight", S, as.integer(path), as.integer(Q),
               ##                                     as.integer(R), as.integer(map2R), edges,
               ##                                     as.integer(sgn), as.integer(normalized)))
 
-            K <- solve(sigma)[R, R]
-            pw <- sgn*prod(K[edges])*det(sigma[path, path]) 
+            K <- solve(S)[R, R]
+            pw <- sgn*prod(K[edges])*det(S[path, path]) 
             if (normalized) {
               fstvtx <- map2R[path[1]]
               lstvtx <- map2R[path[length(path)]]

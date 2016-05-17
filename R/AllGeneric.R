@@ -19,7 +19,7 @@ setGeneric("qpAllCItests", function(X, ...) standardGeneric("qpAllCItests"))
 setGeneric("qpNrr", function(X, ...) standardGeneric("qpNrr"))
 setGeneric("qpEdgeNrr", function(X, ...) standardGeneric("qpEdgeNrr"))
 setGeneric("qpEdgeCor", function(X, ...) standardGeneric("qpEdgeCor"))
-setGeneric("qpPathWeight", function(path, ...) standardGeneric("qpPathWeight"))
+setGeneric("qpPathWeight", function(X, ...) standardGeneric("qpPathWeight"))
 setGeneric("qpGraph", function(nrrMatrix, ...) standardGeneric("qpGraph"))
 
 setGeneric("geneticMap", function(object) standardGeneric("geneticMap"))
