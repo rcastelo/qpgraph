@@ -32,7 +32,8 @@ Calculation of path weights. This implementation is still under development and 
 The calculated path weight for the given path.
 }
 \references{
-Roverato, A. and Castelo, R. The networked partial correlation and its application to the analysis of genetic interactions. \emph{J. R. Stat. Soc. Ser. C-Appl. Stat., accepted}.
+Roverato, A. and Castelo, R. The networked partial correlation and its application to the analysis of genetic interactions. \emph{J. R. Stat. Soc. Ser. C-Appl. Stat., in press}.
+\url{http://dx.doi.org/10.1111/rssc.12166}
 }
 \author{R. Castelo and A. Roverato}
 \examples{
@@ -64,7 +65,7 @@ npc <- sapply(1:nrow(edg), function(i) qpPathWeight(S, edg[i, ]))
 
 ## note that while all partial correlations are zero for missing
 ## edges and are equal to -0.4 for present edges, the corresponding
-## networked partial ## correlations are also zero for missing edges
+## networked partial correlations are also zero for missing edges
 ## but may be different between them for present edges, depending on
 ## the connections between the vertices
 cbind(edg, npc)

@@ -6,6 +6,27 @@ import(graph)
 
 import(Matrix)
 
+importFrom(stats,
+           approxfun,
+           cov,
+           df,
+           formula,
+           integrate,
+           median,
+           p.adjust,
+           p.adjust.methods,
+           pbeta,
+           pchisq,
+           phyper,
+           pt,
+           qbeta,
+           qchisq,
+           qt,
+           rchisq,
+           rnorm,
+           runif,
+           var)
+
 importFrom(grid,
            grid.lines,
            grid.text,
