@@ -121,8 +121,8 @@ Castelo, R. and Roverato, A. Reverse engineering molecular regulatory
 networks from microarray data with qp-graphs. \emph{J. Comp. Biol.},
 16(2):213-227, 2009.
 
-Tur, I., Roverato, A. and Castelo, R. Mapping eQTL networks with mixed graphical models.
-\emph{Submitted}, \url{http://arxiv.org/abs/1402.4547}, 2014.
+Tur, I., Roverato, A. and Castelo, R. Mapping eQTL networks with mixed graphical Markov models.
+\emph{Genetics}, 198:1377-1393, 2014.
 }
 \author{R. Castelo and A. Roverato}
 \seealso{

@@ -107,8 +107,8 @@ Lauritzen, S.L. \emph{Graphical models}. Oxford University Press, 1996.
 Lauritzen, S.L and Wermuth, N. Graphical Models for associations between variables,
 some of which are qualitative and some quantitative. \emph{Ann. Stat.}, 17(1):31-57, 1989.
 
-Tur, I., Roverato, A. and Castelo, R. Mapping eQTL networks with mixed graphical models.
-\emph{Submitted}, \url{http://arxiv.org/abs/1402.4547}, 2014.
+Tur, I., Roverato, A. and Castelo, R. Mapping eQTL networks with mixed graphical Markov models.
+\emph{Genetics}, 198:1377-1393, 2014.
 }
 \author{R. Castelo and A. Roverato}
 \seealso{
