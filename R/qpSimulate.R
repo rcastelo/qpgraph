@@ -99,19 +99,19 @@ qpRndGraph <- function(p=6, d=2, labels=1:p, exclude=NULL, verbose=FALSE,
   if (return.type == "edge.list") {
     m <- cbind(labels[row(G)[upper.tri(G) & G]], labels[col(G)[upper.tri(G) & G]])
     colnames(m) <- c("i", "j")
-    return (m)
+    return(m)
   } else if (return.type == "graphBAM") {
     df <- data.frame(from=labels[row(G)[upper.tri(G) & G]],
                      to=labels[col(G)[upper.tri(G) & G]],
                      weight = rep(1, sum(G)/2))
     Gbam <- graphBAM(df, edgemode = "undirected", nodes=labels)
-    return (Gbam)
+    return(Gbam)
   } else if (return.type == "graphNEL") {
     df <- data.frame(from=labels[row(G)[upper.tri(G) & G]],
                      to=labels[col(G)[upper.tri(G) & G]],
                      weight = rep(1, sum(G)/2))
     Gnel <- as(graphBAM(df, edgemode = "undirected", nodes=labels), "graphNEL")
-    return (Gnel)
+    return(Gnel)
   }
 
 
@@ -190,19 +190,19 @@ qpRndGraph <- function(p=6, d=2, labels=1:p, exclude=NULL, verbose=FALSE,
   if (return.type == "edge.list") {
     m <- cbind(labels[row(G)[upper.tri(G) & G]], labels[col(G)[upper.tri(G) & G]])
     colnames(m) <- c("i", "j")
-    return (m)
+    return(m)
   } else if (return.type == "graphBAM") {
     df <- data.frame(from=labels[row(G)[upper.tri(G) & G]],
                      to=labels[col(G)[upper.tri(G) & G]],
                      weight = rep(1, sum(G)/2))
     Gbam <- graphBAM(df, edgemode = "undirected", nodes=labels)
-    return (Gbam)
+    return(Gbam)
   } else if (return.type == "graphNEL") {
     df <- data.frame(from=labels[row(G)[upper.tri(G) & G]],
                      to=labels[col(G)[upper.tri(G) & G]],
                      weight = rep(1, sum(G)/2))
     Gnel <- as(graphBAM(df, edgemode = "undirected", nodes=labels), "graphNEL")
-    return (Gnel)
+    return(Gnel)
   }
 
 
