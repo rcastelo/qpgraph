@@ -3330,7 +3330,8 @@ qpHTF <- function(S, g, tol = 0.001, verbose = FALSE,
 ##          partial correlation coefficient (PAC) and its corresponding p-value
 ##          for each edge in the graph
 ## parameters: X - data set from where to estimate the PACs
-##             g - either a graphNEL object or an adjacency matrix of the graph
+##             g - either a qpGraph object, or a graphNEL, graphAM or graphBAM object,
+##                 or an adjacency matrix of the graph
 ##             long.dim.are.variables - if TRUE it assumes that when the data is
 ##                                      a data frame or a matrix, the longer
 ##                                      dimension is the one defining the random
@@ -3394,6 +3395,9 @@ setMethod("qpPAC", signature(X="matrix"),
   matrix.completion <- match.arg(matrix.completion)
 
   A <- matrix(FALSE, nrow=ncol(X), ncol=ncol(X), dimnames=list(colnames(X), colnames(X)))
+  if (class(g) == "qpGraph")
+    g <- g$g
+
   if (class(g) == "graphNEL" || class(g) == "graphAM" || class(g) == "graphBAM") {
     ## require(graph)
     if (graph::edgemode(g) != "undirected")

@@ -17,6 +17,26 @@ setMethod("qpGraph", signature(nrrMatrix="dspMatrix"),
             .qpGraph(nrrMatrix, ...)
           })
 
+## names method
+setMethod("names", signature(x="qpGraph"),
+          function(x) {
+            c("X", "p", "q", "n", "epsilon", "g")
+          })
+
+## $ accessor operator
+setMethod("$", signature(x="qpGraph"),
+          function(x, name) {
+            switch(name,
+                   X=graph::nodes(x@g),
+                   p=x@p,
+                   q=x@q,
+                   n=x@n,
+                   epsilon=x@epsilon,
+                   g=x@g,
+                   stop("unknown qpGraph slot or parameter. Use names() to find out which are the valid ones.")
+                   )
+          })
+
 ## mapping of non-negative integers to unordered edges of non-negative integer vertices
 .i2e <- function(i) {
   v <- 1 + floor(-0.5+sqrt(0.25+2*i))

@@ -5,6 +5,8 @@
 \alias{show,qpGraph-method}
 \alias{qpGraph,dspMatrix-method}
 \alias{qpGraph,matrix-method}
+\alias{names,qpGraph-method}
+\alias{$,qpGraph-method}
 
 \title{The qp-graph}
 
