@@ -28,7 +28,9 @@ P-values between all pairs of variables from an input data set.
 \details{
 The calculations made by this function are the same as the ones made for
 a single pair of variables by the function \code{\link{cor.test}} but for
-all the pairs of variables in the data set.
+all the pairs of variables in the data set, with the exception of the treatment
+of missing values, since only complete observations across all variables in
+\code{X} are used.
 }
 \value{
 A list with two matrices, one with the estimates of the PCCs and the other with

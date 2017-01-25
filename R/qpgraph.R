@@ -3518,10 +3518,10 @@ setMethod("qpPCC", signature(X="matrix"),
 .qpPCC <- function(X) {
 
   var.names <- colnames(X)
-  N <- nrow(X)
 
   ## calculate sample covariance matrix
   S <- qpCov(X)
+  N <- S@n
 
   ## estimate PCCs by scaling the covariance matrix
   ## somehow Matrix::cov2cor() refuses to scale non-positive definite matrices stored as dspMatrix objects (?)
