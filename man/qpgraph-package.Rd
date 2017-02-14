@@ -3,17 +3,11 @@
 \alias{qpgraph}
 \docType{package}
 \title{
-The q-order partial correlation graph learning software, qpgraph.
+Estimation of genetic and molecular regulatory networks from high-throughput genomics data
 }
 \description{
+Estimate gene and eQTL networks from high-throughput expression and genotyping assays.
 %%\Sexpr{packageDescription("qpgraph")[["Description"]]}
-q-order partial correlation graphs, or qp-graphs for short, are
-undirected Gaussian graphical Markov models built from q-order
-partial correlations. They are useful for learning undirected
-graphical Gaussian Markov models from data sets where the number
-of random variables p exceeds the available sample size n as, for
-instance, in the case of microarray data where they can be
-employed to reverse engineer a molecular regulatory network.
 }
 \section{Functions}{
   \itemize{
@@ -81,7 +75,8 @@ employed to reverse engineer a molecular regulatory network.
   }
 
 This package provides an implementation of the procedures described in (Castelo
-and Roverato, 2006, 2009). An example of its use for reverse-engineering of
+and Roverato, 2006, 2009) and (Tur, Roverato and Castelo, 2014).
+An example of its use for reverse-engineering of
 transcriptional regulatory networks from microarray data is available in the
 vignette \code{qpTxRegNet} and, the same directory, contains a pre-print of a book chapter describing the basic functionality of the package which serves the purpose of a basic users's guide. This package is a contribution to the Bioconductor
 (Gentleman et al., 2004) and gR (Lauritzen, 2002) projects.
@@ -110,8 +105,10 @@ A.J., Sawitzki, G., Smith, C., Smyth, G., Tierney, L., Yang, T.Y.H. and
 Zhang, J. Bioconductor: open software development for computational biology
 and bioinformatics. \emph{Genome Biol.}, 5:R80, 2004.
 
-Lauritzen, S.L. (2002). gRaphical Models in R. \emph{R News}, 3(2)39.
+Lauritzen, S.L. gRaphical Models in R. \emph{R News}, 3(2)39, 2002.
 
+Tur, I., Roverato, A. and Castelo, R. Mapping eQTL networks with mixed graphical Markov models.
+\emph{Genetics}, 198:1377-1393, 2014.
 }
 \keyword{package}
 \keyword{multivariate}
