@@ -1,26 +1,33 @@
-CHANGES IN VERSION 2.80
+CHANGES IN VERSION 2.10
 -----------------------
+
+BUG FIXES
+
+    o Bugfix in the calculation of the p-values of qpPCC() when missing observations are present in the input data.
+
+CHANGES IN VERSION 2.8
+----------------------
 
 USER VISIBLE CHANGES
 
     o Updated documentation about qpPathWeight().
 
-CHANGES IN VERSION 2.60
------------------------
+CHANGES IN VERSION 2.6
+----------------------
 
 USER VISIBLE CHANGES
 
     o Added a first version of the function qpPathWeight() implementing the path weight calculations described in Roverato and Castelo, J. R. Soc. Ser.-C Appl. Stat., accepted.
 
-CHANGES IN VERSION 2.40
------------------------
+CHANGES IN VERSION 2.4
+----------------------
 
 BUG FIXES
 
     o Bugfix on qpPrecisionRecall() when argument 'refGraph' is a graphBAM object.
 
-CHANGES IN VERSION 2.20
------------------------
+CHANGES IN VERSION 2.2
+----------------------
 
 USER VISIBLE CHANGES
 
@@ -30,8 +37,8 @@ BUG FIXES
 
     o Bugfix on the display of eQTL networks with hive plots
 
-CHANGES IN VERSION 2.00
------------------------
+CHANGES IN VERSION 2.0
+----------------------
 
 USER VISIBLE CHANGES
 
