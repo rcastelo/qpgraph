@@ -25,19 +25,19 @@ Calculates the path weight for a path of an undirected graph.
         (not yet available); if TRUE then only R code is executed (default).} } 
 
 \details{
-Calculation of path weights. This implementation is still under development and will give only correct results with either population covariance matrices or sample covariance matrices estimated from data with n >> p. Consult (Roverato and Castelo, accepted) for further details.
+Calculation of path weights. This implementation is still under development and will give only correct results with either population covariance matrices or sample covariance matrices estimated from data with n >> p. Consult (Roverato and Castelo, 2017) for further details.
 }
 
 \value{
 The calculated path weight for the given path.
 }
 \references{
-Roverato, A. and Castelo, R. The networked partial correlation and its application to the analysis of genetic interactions. \emph{J. R. Stat. Soc. Ser. C-Appl. Stat., in press}.
+Roverato, A. and Castelo, R. The networked partial correlation and its application to the analysis of genetic interactions. \emph{J. R. Stat. Soc. Ser. C-Appl. Stat., 66:647-665, 2017}.
 \url{http://dx.doi.org/10.1111/rssc.12166}
 }
 \author{R. Castelo and A. Roverato}
 \examples{
-## example in Figure 1 from (Castelo and Roverato, accepted)
+## example in Figure 1 from (Castelo and Roverato, 2017)
 
 ## undirected graph on 9 vertices
 edg <- matrix(c(1, 4,

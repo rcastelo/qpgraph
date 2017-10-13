@@ -41,3 +41,16 @@ citEntry(entry="Article",
                       "Mapping eQTL networks with mixed graphical Markov models",
                       "Genetics, 198(4):1377-93, 2014.")
 )
+
+citEntry(entry="Article",
+  author = personList(as.person("Alberto Roverato")),
+                      as.person("Robert Castelo"),
+  title = "The networked partial correlation and its application to the analysis of genetic interactions",
+  journal = "J R Stat Soc Ser C-Appl Stat",
+  year = "2017",
+  volume = "66",
+  pages = "647-65",
+  textVersion = paste("Roverato, A. and Castelo R.",
+                      "The networked partial correlation and its application to the analysis of genetic interactions.",
+                      "J R Stat Soc Ser C-Appl Stat, 66:647-65, 2017.")
+)
