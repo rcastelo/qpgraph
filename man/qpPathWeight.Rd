@@ -1,6 +1,7 @@
 \name{qpPathWeight}
 \alias{qpPathWeight}
 \alias{qpPathWeight,matrix-method}
+\alias{qpPathWeight,dspMatrix-method}
 
 \title{
 Calculation of path weights

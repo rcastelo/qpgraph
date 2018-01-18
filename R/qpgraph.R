@@ -2004,6 +2004,11 @@ setMethod("qpEdgeCor", signature(X="UGgmm"),
                    nrow=nTests, ncol=q+2, dimnames=list(NULL, c("pcor", "pval", paste0("Q", 1:q))))
           })
 
+setMethod("qpPathWeight", signature(X="dspMatrix"),
+          function(X, path, Q=integer(0), normalized=TRUE, R.code.only=TRUE) {
+            qpPathWeight(as.matrix(X), path, Q, normalized, R.code.only)
+          })
+
 setMethod("qpPathWeight", signature(X="matrix"),
           function(X, path, Q=integer(0), normalized=TRUE, R.code.only=TRUE) {
 
@@ -2024,10 +2029,10 @@ setMethod("qpPathWeight", signature(X="matrix"),
 
             if (!is.null(colnames(S))) {
               allvtc <- colnames(S)
-            if (!is.character(path))
-              path <- allvtc[path]
-            if (!is.character(Q))
-              Q <- allvtc[Q]
+              if (!is.character(path))
+                path <- allvtc[path]
+              if (!is.character(Q))
+                Q <- allvtc[Q]
             } else {
               allvtc <- 1:ncol(S)
               stopifnot(class(path) != "character")
