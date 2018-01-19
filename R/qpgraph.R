@@ -2005,12 +2005,12 @@ setMethod("qpEdgeCor", signature(X="UGgmm"),
           })
 
 setMethod("qpPathWeight", signature(X="dspMatrix"),
-          function(X, path, Q=integer(0), normalized=TRUE, R.code.only=TRUE) {
-            qpPathWeight(as.matrix(X), path, Q, normalized, R.code.only)
+          function(X, path, Q=integer(0), M=integer(0), normalized=TRUE, R.code.only=TRUE) {
+            qpPathWeight(as.matrix(X), path, Q, M, normalized, R.code.only)
           })
 
 setMethod("qpPathWeight", signature(X="matrix"),
-          function(X, path, Q=integer(0), normalized=TRUE, R.code.only=TRUE) {
+          function(X, path, Q=integer(0), M=integer(0), normalized=TRUE, R.code.only=TRUE) {
 
             p <- (d <- dim(X))[1]
             if (p != d[2])
@@ -2036,9 +2036,11 @@ setMethod("qpPathWeight", signature(X="matrix"),
             } else {
               allvtc <- 1:ncol(S)
               stopifnot(class(path) != "character")
+              stopifnot(class(Q) != "character")
+              stopifnot(class(M) != "character")
             }
-            R <- unique(c(path, Q))
 
+            R <- setdiff(allvtc, M)
             map2R <- vector(mode="integer", ncol(S))
             names(map2R) <- allvtc
             map2R[R] <- seq(along=R)
@@ -2052,7 +2054,8 @@ setMethod("qpPathWeight", signature(X="matrix"),
               ##                                     as.integer(R), as.integer(map2R), edges,
               ##                                     as.integer(sgn), as.integer(normalized)))
 
-            K <- solve(S)[R, R]
+            K <- solve(S[R, R])
+            rownames(K) <- colnames(K) <- R
             pw <- sgn*prod(K[edges])*det(S[path, path]) 
             if (normalized) {
               fstvtx <- map2R[path[1]]

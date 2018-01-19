@@ -10,8 +10,8 @@ Calculation of path weights
 Calculates the path weight for a path of an undirected graph.
 }
 \usage{
-\S4method{qpPathWeight}{matrix}(X, path, Q=integer(0), normalized=TRUE,
-                                R.code.only=TRUE)
+\S4method{qpPathWeight}{matrix}(X, path, Q=integer(0), M=integer(0),
+                                normalized=TRUE, R.code.only=TRUE)
 }
 \arguments{
   \item{X}{covariance matrix.}
@@ -19,6 +19,8 @@ Calculates the path weight for a path of an undirected graph.
               undirected graph.}
   \item{Q}{indexes or names of the variables in \code{sigma} that should be
            used for conditioning.}
+  \item{M}{indexes or names of the variables in \code{sigma} over which we
+           want to marginalize.}
   \item{normalized}{logical; TRUE (default) when the calculated path weight should be
         normalized so that weights are comparable between paths with different endpoints,
         and false otherwise.}
