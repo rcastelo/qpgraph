@@ -8251,7 +8251,7 @@ qp_fast_rnd_graph(SEXP pR, SEXP dR, SEXP excludeR, SEXP verboseR) {
   int*        exclude;
   SEXP        GR;
   SEXP        pb=R_NilValue;
-  Rboolean*   G;
+  int*        G;
   double*     deg_diff;
   IntWithIdx* deg;
   IntWithIdx* working_deg;
@@ -8299,7 +8299,7 @@ qp_fast_rnd_graph(SEXP pR, SEXP dR, SEXP excludeR, SEXP verboseR) {
       deg[i].x = 0;
       deg[i].ix = i;
     } 
-    memset(G, FALSE, sizeof(Rboolean) * n_upper_tri);
+    memset(G, FALSE, sizeof(int) * n_upper_tri);
 
     R_CheckUserInterrupt();
 #ifdef Win32
