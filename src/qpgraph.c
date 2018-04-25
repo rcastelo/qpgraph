@@ -3699,8 +3699,9 @@ lr_complete_obs(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y,
   int     flag_i_discrete = FALSE;
   int*    idx_misobs=NULL;
   double* ssd_mat;
-  double  rss0=0; /* IMPORTANT TO HAVE IT INITIZALIZED TO ZERO !! */
-  double  rss1, rss2;
+  double  rss0=0.0; /* IMPORTANT TO HAVE IT INITIZALIZED TO ZERO !! */
+  double  rss1=0.0;
+  double  rss2=0.0;
   double  x;
   double  lr = 0.0;
 
@@ -5102,6 +5103,7 @@ qp_edge_nrr(double* X, double* S, int p, int n, int i, int j, int q, int* restri
   else
     sampleQs(nTests, q, i, j, n_rQ, restrictQ, fixQ, n_fQ, q_by_T_samples);
 
+  df = -1;
   if (n != NA_INTEGER) {
     df = n - q - 2;
     thr = qt(1.0-(alpha/2.0), n-q-2, 1, 0);
@@ -5451,8 +5453,8 @@ qp_fast_edge_nrr(SEXP XR, SEXP SR, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP qR,
   int*    fixQ=NULL;
   int     n_fQ=length(fixQR);
   SEXP    nrr;
-  SEXP    pcorR;
-  double* pcor = NULL;
+  SEXP    pcorR=R_NilValue;
+  double* pcor=NULL;
 
   PROTECT_INDEX Xpi, Spi;
 
@@ -8154,7 +8156,7 @@ ssd_A(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y, int n_Y,
       int* excobs_mask, int* missing_mask, double* ssd_A) {
   int*    obs_idx;
   int     n_obs, n_co;
-  int     i,j,k,m;
+  int     i,j;
 
   obs_idx = Calloc(n, int);
   global_xtab = Calloc(n, int);

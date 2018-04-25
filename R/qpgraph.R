@@ -2708,7 +2708,6 @@ qpCliqueNumber <- function(g, exact.calculation=TRUE, return.vertices=FALSE,
                            approx.iter=100, verbose=TRUE, R.code.only=FALSE) {
 
   if (class(g) == "graphNEL" || class(g) == "graphAM" || class(g) == "graphBAM") {
-    ## require(graph)
     if (graph::edgemode(g) != "undirected")
       stop("g should be an undirected graph\n")
 
@@ -3104,7 +3103,6 @@ qpBoundary <- function(nrrMatrix, n=NA, threshold.lim=c(0,1), breaks=5, vertexSu
 qpGetCliques <- function(g, clqspervtx=FALSE, verbose=TRUE) {
 
   if (class(g) == "graphNEL" || class(g) == "graphAM" || class(g) == "graphBAM") {
-    ## require(graph)
     if (graph::edgemode(g) != "undirected")
       stop("g should be an undirected graph\n")
 
@@ -3133,11 +3131,11 @@ qpGetCliques <- function(g, clqspervtx=FALSE, verbose=TRUE) {
     clqlst <- list(1:p)
     if (clqspervtx)
       clqlst <- c(clqlst, as.list(rep(1, times=p)))
-    return(list(1:p))
+    return(clqlst)
   }
 
   return(.qpFastCliquerGetCliques(as.matrix(A), clqspervtx=clqspervtx,
-                                            verbose=verbose))
+                                  verbose=verbose))
 }
 
 
@@ -3164,7 +3162,6 @@ qpGetCliques <- function(g, clqspervtx=FALSE, verbose=TRUE) {
 
 qpUpdateCliquesRemoving <- function(g, clqlst, v, w, verbose=TRUE) {
   if (class(g) == "graphNEL" || class(g) == "graphAM" || class(g) == "graphBAM") {
-    ## require(graph)
     if (graph::edgemode(g) != "undirected")
       stop("g should be an undirected graph\n")
 
@@ -3407,7 +3404,6 @@ setMethod("qpPAC", signature(X="matrix"),
     g <- g$g
 
   if (class(g) == "graphNEL" || class(g) == "graphAM" || class(g) == "graphBAM") {
-    ## require(graph)
     if (graph::edgemode(g) != "undirected")
       stop("g should be an undirected graph\n")
 
@@ -3931,7 +3927,7 @@ setMethod("qpFunctionalCoherence",
       stopCl(cl)
       stop("The package 'qpgraph' could not be loaded in some of the nodes of the cluster")
     }
-    res <- clEvalQ(cl, require(GOstats, quietly=TRUE))
+    res <- clEvalQ(cl, requireNamespace("GOstats", quietly=TRUE))
     if (!all(unlist(res))) {
       stopCl(cl)
       stop("The package 'GOstats' could not be loaded in some of the nodes of the cluster")

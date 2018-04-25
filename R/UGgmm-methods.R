@@ -161,7 +161,7 @@ setMethod("rUGgmm", signature(n="integer", g="matrix"),
               }
             }
 
-            rUGgmm(n=n, g=graphBAM(df), rho, tol, verbose)
+            rUGgmm(n=n, g=graphBAM(df, nodes=vlabels), rho, tol, verbose)
           })
 
 setMethod("rUGgmm", signature(n="graphBAM", g="missing"),
