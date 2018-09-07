@@ -16,12 +16,13 @@
 This is the __development__ version of the R/Bioconductor package qpgraph. This version is unstable and should be used only to test new features. If you are looking for the __release__ version of this package please go to its package release landing page at [http://bioconductor.org/packages/qpgraph](http://bioconductor.org/packages/qpgraph) and follow the instructions there to install it.
 
 If you were really looking for this development version, then to install it you
-need first to install the development version of R that you can find at [http://cran.r-project.org](http://cran.r-project.org) and then type the following instructions from the R shell:
+need first to install the version of R that works with Bioc-devel.
+See [here](https://www.bioconductor.org/developers/how-to/useDevel/) for more details.
 
 ```r
-install.packages("BiocManager")
-BiocManager::install("BiocInstaller", version="devel")
-BiocInstaller::useDevel()
+if (!requireNamespace("BiocManager", quietly=TRUE))
+    install.packages("BiocManager")
+BiocManager::install(version = "devel")
 BiocManager::install("qpgraph")
 ```
 
