@@ -2,7 +2,7 @@
 
 [![Bioconductor Time](https://bioconductor.org/shields/years-in-bioc/qpgraph.svg)](https://bioconductor.org/packages/release/bioc/html/qpgraph.html "How long has been qpgraph in a release of Bioconductor")
 [![Bioconductor Downloads](https://bioconductor.org/shields/downloads/qpgraph.svg)](https://bioconductor.org/packages/stats/bioc/qpgraph.html "Ranking by number of downloads. A lower number means the package is downloaded more frequently. Determined within a package type (software, experiment, annotation, workflow) and uses the number of distinct IPs for the last 12 months")
-[![Bioconductor Commits](https://bioconductor.org/shields/lastcommit/bioc/qpgraph.svg)](https://bioconductor.org/checkResults/devel/bioc-LATEST/qpgraph "Time since last commit, possible values: today, < 1 week, < 1 month, < 3 months, since release, before release")
+[![Bioconductor Commits](https://bioconductor.org/shields/lastcommit/release/bioc/qpgraph.svg)](https://bioconductor.org/checkResults/devel/bioc-LATEST/qpgraph "Time since last commit, possible values: today, < 1 week, < 1 month, < 3 months, since release, before release")
 [![Support posts](https://bioconductor.org/shields/posts/qpgraph.svg)](https://support.bioconductor.org/t/qpgraph/ "Support site activity on qpgraph, last 6 months: tagged questions/avg. answers per question/avg. comments per question/accepted answers, or 0 if no tagged posts.")
 
 **Current build status**
