@@ -2,16 +2,17 @@
 
 [![Bioconductor Time](https://bioconductor.org/shields/years-in-bioc/qpgraph.svg)](https://bioconductor.org/packages/release/bioc/html/qpgraph.html "How long has been qpgraph in a release of Bioconductor")
 [![Bioconductor Downloads](https://bioconductor.org/shields/downloads/qpgraph.svg)](https://bioconductor.org/packages/stats/bioc/qpgraph.html "Ranking by number of downloads. A lower number means the package is downloaded more frequently. Determined within a package type (software, experiment, annotation, workflow) and uses the number of distinct IPs for the last 12 months")
-[![Bioconductor Commits](https://bioconductor.org/shields/lastcommit/release/bioc/qpgraph.svg)](https://bioconductor.org/checkResults/devel/bioc-LATEST/qpgraph "Time since last commit, possible values: today, < 1 week, < 1 month, < 3 months, since release, before release")
 [![Support posts](https://bioconductor.org/shields/posts/qpgraph.svg)](https://support.bioconductor.org/t/qpgraph/ "Support site activity on qpgraph, last 6 months: tagged questions/avg. answers per question/avg. comments per question/accepted answers, or 0 if no tagged posts.")
 
 **Current build status**
 - `release` [![Bioconductor Availability](https://bioconductor.org/shields/availability/release/qpgraph.svg)](https://bioconductor.org/packages/release/bioc/html/qpgraph.html#archives "Whether qpgraph release is available on all platforms") 
-[![Bioconductor Release Build](https://bioconductor.org/shields/build/release/bioc/qpgraph.svg)](https://bioconductor.org/checkResults/release/bioc-LATEST/qpgraph/ "Bioconductor release build")
 [![Bioconductor Dependencies](https://bioconductor.org/shields/dependencies/release/qpgraph.svg)](https://bioconductor.org/packages/release/bioc/html/qpgraph.html#since "Number of recursive dependencies needed to install package")
+[![Bioconductor Commits](https://bioconductor.org/shields/lastcommit/release/bioc/qpgraph.svg)](https://bioconductor.org/checkResults/devel/bioc-LATEST/qpgraph "Time since last commit, possible values: today, < 1 week, < 1 month, < 3 months, since release, before release")
+[![Bioconductor Release Build](https://bioconductor.org/shields/build/release/bioc/qpgraph.svg)](https://bioconductor.org/checkResults/release/bioc-LATEST/qpgraph/ "Bioconductor release build")
 - `development` [![Bioconductor Availability](https://bioconductor.org/shields/availability/devel/qpgraph.svg)](https://bioconductor.org/packages/devel/bioc/html/qpgraph.html#archives "Whether qpgraph devel is available on all platforms") 
-[![Bioconductor Devel Build](https://bioconductor.org/shields/build/devel/bioc/qpgraph.svg)](https://bioconductor.org/checkResults/devel/bioc-LATEST/qpgraph/ "Bioconductor devel build")
 [![Bioconductor Dependencies](https://bioconductor.org/shields/dependencies/devel/qpgraph.svg)](https://bioconductor.org/packages/devel/bioc/html/qpgraph.html#since "Number of recursive dependencies needed to install package")
+[![Bioconductor Commits](https://bioconductor.org/shields/lastcommit/devel/bioc/qpgraph.svg)](https://bioconductor.org/checkResults/devel/bioc-LATEST/qpgraph "Time since last commit, possible values: today, < 1 week, < 1 month, < 3 months, since release, before release")
+[![Bioconductor Devel Build](https://bioconductor.org/shields/build/devel/bioc/qpgraph.svg)](https://bioconductor.org/checkResults/devel/bioc-LATEST/qpgraph/ "Bioconductor devel build")
 
 ## Installation
 
