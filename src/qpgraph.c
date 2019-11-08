@@ -5848,8 +5848,8 @@ qp_fast_path_weight(SEXP pathR, SEXP SR, SEXP QR, SEXP RR, SEXP map2RR, SEXP edg
 
   pw = ((double) sgn) * Spathpathdet;
   for (k=0; k < nedg; k++) {
-    int i = edges[k, 0];
-    int j = edges[k, 1];
+    int i = edges[k];
+    int j = edges[nedg + k];
 
     pw = pw * K[UTE2I(i, j)];
   }

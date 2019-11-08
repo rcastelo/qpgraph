@@ -243,4 +243,5 @@ export(qpHist,
        erMarkedGraphParam,
        dRegularMarkedGraphParam,
        eQTLcrossParam,
-       eQTLnetworkEstimationParam)
+       eQTLnetworkEstimationParam,
+       filterCollinearities)

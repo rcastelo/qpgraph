@@ -2048,11 +2048,9 @@ setMethod("qpPathWeight", signature(X="matrix"),
             sgn <- ifelse(length(path) %% 2 == 0, -1, 1)
 
             if (!R.code.only)
-              stop("C implementation not yet available\n")
-
-              ## return(.Call("qp_fast_path_weight", S, as.integer(path), as.integer(Q),
-              ##                                     as.integer(R), as.integer(map2R), edges,
-              ##                                     as.integer(sgn), as.integer(normalized)))
+              return(.Call("qp_fast_path_weight", S, as.integer(path), as.integer(Q),
+                                                  as.integer(R), as.integer(map2R), edges,
+                                                  as.integer(sgn), as.integer(normalized)))
 
             K <- solve(S[R, R])
             rownames(K) <- colnames(K) <- R
