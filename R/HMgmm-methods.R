@@ -432,7 +432,7 @@ calculateEta2 <- function(object) {
       stop("the input HMgmm has too many joint levels to calculate all conditional mean vectors, please specify which are the ones to calculate\n")
   }
 
-  if (class(i) == "numeric" || class(i) == "integer") {
+  if (any(c("numeric", "integer") %in% class(i))) {
     if (any(i < 1) || any(log(i) > x@pI*log(x@dLevels)))
       stop(sprintf("'i' is either < 1 or larger than %d^%d", x@dLevels, x@pI))
 
@@ -456,13 +456,13 @@ calculateEta2 <- function(object) {
     }
   }
 
-  if (class(i) == "character" || class(i) == "factor") {
+  if (any(c("character", "factor") %in% class(i))) {
     if (length(i) != x@pI)
       stop("'i' should be either a matrix or a data.frame object with discrete joint levels on the rows and discrete variables on the columns.")
     i <- matrix(i, nrow=1, ncol=x@pI, byrow=TRUE)
   }
 
-  if (class(i) != "matrix" && class(i) != "data.frame")
+  if (!any(c("matrix", "data.frame") %in% class(i)))
     stop("'i' should be either a matrix or a data.frame object with discrete joint levels on the rows and discrete variables on the columns.")
 
   p <- x@pI + x@pY

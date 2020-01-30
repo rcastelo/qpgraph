@@ -314,12 +314,12 @@ qpG2Sigma <- function (g, rho=0, matrix.completion=c("HTF", "IPF"), tol=0.001,
   matrix.completion <- match.arg(matrix.completion)
   n.var <- NULL
   var.names <- NULL
-  if (class(g) == "matrix" || length(grep("Matrix", class(g))) > 0) {
+  if ("matrix" %in% class(g) || length(grep("Matrix", class(g))) > 0) {
     n.var <- nrow(g)
     var.names <- rownames(g)
     if (is.null(var.names))
       var.names <- 1:n.var
-  } else if (class(g) == "graphNEL" || class(g) == "graphAM" || class(g) == "graphBAM") {
+  } else if (any(c("graphNEL", "graphAM", "graphBAM") %in% class(g))) {
     n.var <- length(graph::nodes(g))
     var.names <- nodes(g)
   }

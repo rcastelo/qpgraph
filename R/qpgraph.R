@@ -2705,12 +2705,12 @@ qpGraphDensity <- function(nrrMatrix, threshold.lim=c(0,1), breaks=5,
 qpCliqueNumber <- function(g, exact.calculation=TRUE, return.vertices=FALSE,
                            approx.iter=100, verbose=TRUE, R.code.only=FALSE) {
 
-  if (class(g) == "graphNEL" || class(g) == "graphAM" || class(g) == "graphBAM") {
+  if (any(c("graphNEL", "graphAM", "graphBAM") %in% class(g))) {
     if (graph::edgemode(g) != "undirected")
       stop("g should be an undirected graph\n")
 
     A <- as(g, "matrix") == 1
-  } else if (class(g) == "matrix" || length(grep("Matrix", class(g))) > 0) {
+  } else if ("matrix" %in% class(g) || length(grep("Matrix", class(g))) > 0) {
     A <- g
     p <- (d <- dim(A))[1]
     if (p != d[2])
@@ -3100,12 +3100,12 @@ qpBoundary <- function(nrrMatrix, n=NA, threshold.lim=c(0,1), breaks=5, vertexSu
 
 qpGetCliques <- function(g, clqspervtx=FALSE, verbose=TRUE) {
 
-  if (class(g) == "graphNEL" || class(g) == "graphAM" || class(g) == "graphBAM") {
+  if (any(c("graphNEL", "graphAM", "graphBAM") %in% class(g))) {
     if (graph::edgemode(g) != "undirected")
       stop("g should be an undirected graph\n")
 
     A <- as(g, "matrix") == 1
-  } else if (class(g) == "matrix" || length(grep("Matrix", class(g))) > 0) {
+  } else if ("matrix" %in% class(g) || length(grep("Matrix", class(g))) > 0) {
     A <- g
     p <- (d <- dim(A))[1]
     if (p != d[2])
@@ -3159,12 +3159,12 @@ qpGetCliques <- function(g, clqspervtx=FALSE, verbose=TRUE) {
 ## return: an updated list of maximal cliques
 
 qpUpdateCliquesRemoving <- function(g, clqlst, v, w, verbose=TRUE) {
-  if (class(g) == "graphNEL" || class(g) == "graphAM" || class(g) == "graphBAM") {
+  if (any(c("graphNEL", "graphAM", "graphBAM") %in% class(g))) {
     if (graph::edgemode(g) != "undirected")
       stop("g should be an undirected graph\n")
 
     A <- as(g, "matrix") == 1
-  } else if (class(g) == "matrix" || length(grep("Matrix", class(g))) > 0) {
+  } else if ("matrix" %in% class(g) || length(grep("Matrix", class(g))) > 0) {
     A <- g
     p <- (d <- dim(A))[1]
     if (p != d[2])
@@ -3264,7 +3264,7 @@ qpHTF <- function(S, g, tol = 0.001, verbose = FALSE,
   A <- NULL
   n.var <- NULL
   var.names <- NULL
-  if (class(g) == "matrix" || length(grep("Matrix", class(g))) > 0) {
+  if ("matrix" %in% class(g) || length(grep("Matrix", class(g))) > 0) {
     n.var <- nrow(g)
     var.names <- rownames(g)
     if (is.null(rownames(var.names)))
@@ -3276,7 +3276,7 @@ qpHTF <- function(S, g, tol = 0.001, verbose = FALSE,
     ## but in the future this should be working with the more memory-efficient dspMatrix class
     A <- as.matrix(A)
   }
-  if (class(g) == "graphNEL" || class(g) == "graphAM" || class(g) == "graphBAM") {
+  if (any(c("graphNEL", "graphAM", "graphBAM") %in% class(g))) {
     n.var <- length(graph::nodes(g))
     var.names <- nodes(g)
     A <- as(g, "matrix") == 1 ## get a logical adjacency matrix
@@ -3398,10 +3398,10 @@ setMethod("qpPAC", signature(X="matrix"),
   matrix.completion <- match.arg(matrix.completion)
 
   A <- matrix(FALSE, nrow=ncol(X), ncol=ncol(X), dimnames=list(colnames(X), colnames(X)))
-  if (class(g) == "qpGraph")
+  if ("qpGraph" %in% class(g))
     g <- g$g
 
-  if (class(g) == "graphNEL" || class(g) == "graphAM" || class(g) == "graphBAM") {
+  if (any(c("graphNEL", "graphAM", "graphBAM") %in% class(g))) {
     if (graph::edgemode(g) != "undirected")
       stop("g should be an undirected graph\n")
 
@@ -3410,7 +3410,7 @@ setMethod("qpPAC", signature(X="matrix"),
       stop("some variables in the graph 'g' do not match the variables in the data")
 
     A[rownames(Ag), colnames(Ag)] <- Ag
-  } else if (class(g) == "matrix" || length(grep("Matrix", class(g))) > 0) {
+  } else if ("matrix" %in% class(g) || length(grep("Matrix", class(g))) > 0) {
     A <- g
     p <- (d <- dim(A))[1]
     if (p != d[2])
@@ -3583,21 +3583,18 @@ qpPrecisionRecall <- function(measurementsMatrix, refGraph, decreasing=TRUE,
                               pairup.i=NULL, pairup.j=NULL,
                               recallSteps=seq(0.0, 1.0, by=0.1)) {
 
-  if (class(measurementsMatrix) != "matrix" && class(measurementsMatrix) != "dspMatrix" &&
-      class(measurementsMatrix) != "dgeMatrix")
+  if (!any(c("matrix", "dspMatrix", "dgeMatrix") %in% class(measurementsMatrix)))
     stop("measurementsMatrix should be a numerical matrix\n")
 
   p <- (d <- dim(measurementsMatrix))[1]
   if (p != d[2])
     stop("measurementsMatrix should be a squared matrix\n")
 
-  if (class(refGraph) != "data.frame" && class(refGraph) != "matrix" &&
-      class(refGraph) != "graphNEL" && class(refGraph) != "graphAM" &&
-      class(refGraph) != "graphBAM" &&
+  if (!any(c("data.frame", "matrix", "graphNEL", "graphAM", "graphBAM") %in% class(refGraph)) &&
       length(grep("Matrix", class(refGraph))) == 0)
     stop("refGraph should be provided either as an adjacency matrix, a two-column matrix of edges, a graphNEL object, a graphAM object or a graphBAM object\n")
 
-  if (class(refGraph) == "data.frame" || class(refGraph) == "matrix" ||
+  if (any(c("data.frame", "matrix") %in% class(refGraph)) ||
       length(grep("Matrix", class(refGraph))) > 0) {
     p <- (d <- dim(refGraph))[1]
     if (p != d[2] && ncol(refGraph) != 2)
@@ -4124,8 +4121,7 @@ qpTopPairs <- function(measurementsMatrix=NULL, refGraph=NULL, n=6L, file=NULL,
     stop("A proper value for either 'measurementsMatrix' or 'refGraph' should be provided\n")
 
   if (is.null(measurementsMatrix)) {
-    if (class(refGraph) != "matrix" && class(refGraph) != "graphNEL" &&
-        class(refGraph) != "graphAM" && class(refGraph) != "graphBAM" &&
+    if (!any(c("matrix", "graphNEL", "graphAM", "graphBAM") %in% class(refGraph)) &&
         length(grep("Matrix", class(refGraph))) == 0)
       stop("refGraph should be provided either as an adjacency matrix, a graphNEL object, a graphAM object or a graphBAM object\n")
 
@@ -4144,8 +4140,7 @@ qpTopPairs <- function(measurementsMatrix=NULL, refGraph=NULL, n=6L, file=NULL,
 
     measurementsMatrix <- matrix(0, nrow=nrow(refGraph), ncol=ncol(refGraph), dimnames=dimnames(refGraph))
   } else {
-    if (class(measurementsMatrix) != "matrix" && class(measurementsMatrix) != "dspMatrix" &&
-        class(measurementsMatrix) != "dgeMatrix")
+    if (!any(c("matrix", "dspMatrix", "dgeMatrix") %in% class(measurementsMatrix)))
       stop("'measurementsMatrix' should be a numerical matrix\n")
 
     p <- (d <- dim(measurementsMatrix))[1]
@@ -4167,12 +4162,11 @@ qpTopPairs <- function(measurementsMatrix=NULL, refGraph=NULL, n=6L, file=NULL,
                        ncol=ncol(measurementsMatrix),
                        dimnames=dimnames(measurementsMatrix))
   } else {
-    if (class(refGraph) != "matrix" && class(refGraph) != "graphNEL" &&
-        class(refGraph) != "graphAM" && class(refGraph) != "graphBAM" &&
+    if (!any(c("matrix", "graphNEL", "graphAM", "graphBAM") %in% class(refGraph)) &&
         length(grep("Matrix", class(refGraph))) == 0)
       stop("'refGraph' should be provided either as an adjacency matrix, a graphNEL object, a graphAM object or a graphBAM object\n")
 
-    if (class(refGraph) == "graphNEL" || class(refGraph) == "graphAM" || class(refGraph) == "graphBAM")
+    if (any(c("graphNEL", "graphAM", "graphBAM") %in% class(refGraph)))
       refGraph <- graph::ugraph(refGraph)
 
     refGraph <- as(refGraph, "matrix")
