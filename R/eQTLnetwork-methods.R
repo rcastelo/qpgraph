@@ -443,7 +443,7 @@ setMethod("plot", signature(x="eQTLnetwork"),
   
   ## among gene-gene associations select those with cis-eQTLs in this
   ## chromosome and annotate function or seed
-  gene1_cis <- gene2_cis <- gene1_ctf <- gene2_ctf <- gene1_crbp <- gene2_crbp <- gene1_seed <- gene2_seed <- c()
+  gene1_cis <- gene2_cis <- gene1_ctf <- gene2_ctf <- gene1_crbp <- gene2_crbp <- gene1_cseed <- gene2_cseed <- c()
   cisg <- gg[, 1] %in% cis[, 2]
   cisg2 <- gg[, 2] %in% cis[, 2]
   genesCis <- matrix(NA, nrow=0, ncol=ncol(gg))
@@ -472,7 +472,7 @@ setMethod("plot", signature(x="eQTLnetwork"),
 
   ## among gene-gene associations select those with trans-eQTLs in other
   ## chromosomes and annotate function
-  gene1_trans <- gene2_trans <- gene1_ttf <- gene2_ttf <- gene1_trbp <- gene2_trbp <- gene1_seed <- gene2_seed <- gene1_tseed <- gene2_tseed <- c()
+  gene1_trans <- gene2_trans <- gene1_ttf <- gene2_ttf <- gene1_trbp <- gene2_trbp <- gene1_tseed <- gene2_tseed <- c()
   transg <- gg[, 2] %in% trans[, 2]
   transg2 <- gg[, 1] %in% trans[, 2]
   genesTrans <- matrix(NA, nrow=0, ncol=ncol(gg))
