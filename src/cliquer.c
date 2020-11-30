@@ -28,6 +28,13 @@
 
 #include "cliquer.h"
 
+#ifdef Win32
+extern void R_ProcessEvents(void);
+#endif
+#ifdef HAVE_AQUA
+extern void R_ProcessEvents(void);
+#endif
+
 
 /* Default cliquer options */
 #ifndef _WIN32
