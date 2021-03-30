@@ -233,6 +233,8 @@ jobs:
         run: |
           ## Install BiocGenerics
           BiocManager::install("BiocGenerics")
+          ## Install the package itself, otherwise BiocGenerics:::testPackage() doesn't find it
+          install.packages(".", repos=NULL)
           BiocGenerics:::testPackage()
         shell: Rscript {0}
 
