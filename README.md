@@ -7,7 +7,7 @@
 [![codecov.io](https://codecov.io/github/rcastelo/qpgraph/coverage.svg?branch=master)](https://codecov.io/github/rcastelo/qpgraph?branch=master)
 
 
-**Current build status**
+**Current Bioconductor build status**
 - `release` [![Bioconductor Availability](https://bioconductor.org/shields/availability/release/qpgraph.svg)](https://bioconductor.org/packages/release/bioc/html/qpgraph.html#archives "Whether qpgraph release is available on all platforms") 
 [![Bioconductor Dependencies](https://bioconductor.org/shields/dependencies/release/qpgraph.svg)](https://bioconductor.org/packages/release/bioc/html/qpgraph.html#since "Number of recursive dependencies needed to install package")
 [![Bioconductor Commits](https://bioconductor.org/shields/lastcommit/release/bioc/qpgraph.svg)](https://bioconductor.org/checkResults/devel/bioc-LATEST/qpgraph "Time since last commit, possible values: today, < 1 week, < 1 month, < 3 months, since release, before release")
