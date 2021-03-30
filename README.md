@@ -3,6 +3,9 @@
 [![Bioconductor Time](https://bioconductor.org/shields/years-in-bioc/qpgraph.svg)](https://bioconductor.org/packages/release/bioc/html/qpgraph.html "How long has been qpgraph in a release of Bioconductor")
 [![Bioconductor Downloads](https://bioconductor.org/shields/downloads/release/qpgraph.svg)](https://bioconductor.org/packages/stats/bioc/qpgraph/ "Ranking by number of downloads. A lower number means the package is downloaded more frequently. Determined within a package type (software, experiment, annotation, workflow) and uses the number of distinct IPs for the last 12 months.")
 [![Support posts](https://bioconductor.org/shields/posts/qpgraph.svg)](https://support.bioconductor.org/t/qpgraph/ "Support site activity on qpgraph, last 6 months: answered posts/total posts.")
+[![R-CMD-check-bioc](https://github.com/rcastelo/qpgraph/workflows/R-CMD-check-bioc/badge.svg)](https://github.com/rcastelo/qpgraph/actions?query=workflow%3AR-CMD-check-bioc)
+[![codecov.io](https://codecov.io/github/rcastelo/qpgraph/coverage.svg?branch=master)](https://codecov.io/github/rcastelo/qpgraph?branch=master)
+
 
 **Current build status**
 - `release` [![Bioconductor Availability](https://bioconductor.org/shields/availability/release/qpgraph.svg)](https://bioconductor.org/packages/release/bioc/html/qpgraph.html#archives "Whether qpgraph release is available on all platforms") 
