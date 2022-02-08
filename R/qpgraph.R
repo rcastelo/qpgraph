@@ -3258,6 +3258,7 @@ qpIPF <- function(vv, clqlst, tol = 0.001, verbose = FALSE,
 qpHTF <- function(S, g, tol = 0.001, verbose = FALSE,
                   R.code.only = FALSE) {
 
+  inputisdspmatrix <- is(S, "dspMatrix")
   ## this should be changed so that the rest of the algorithm deals with dspMatrix matrices
   S <- as(S, "matrix")
 
@@ -3307,9 +3308,11 @@ qpHTF <- function(S, g, tol = 0.001, verbose = FALSE,
       s12 <- S[-i, i, drop=FALSE]
       Ai <- A[i, ]
       Ai <- Ai[-i]
-      beta <- rep(0, n.var-1)
-      beta[Ai] <- solve(W11[Ai, Ai, drop=FALSE], s12[Ai, , drop=FALSE])
-      w <- W11 %*% beta
+      w <- beta <- rep(0, n.var-1)
+      if (any(Ai)) {
+        beta[Ai] <- solve(W11[Ai, Ai, drop=FALSE], s12[Ai, , drop=FALSE])
+        w <- W11 %*% beta
+      }
       W[-i, i] <- W[i, -i] <- w
 
       pct <- floor((i * 100) / n.var)
@@ -3318,12 +3321,14 @@ qpHTF <- function(S, g, tol = 0.001, verbose = FALSE,
         ppct <- pct
       }
     }
-    precision <- max(abs(W - Wprev))
+    precision <- norm(W-Wprev)
     if (verbose)
       cat("\nqpHTF: precision =", precision, "\n")
   }
 
-  return(as(W, "dspMatrix"))
+  if (inputisdspmatrix)
+    W <- as(W, "dspMatrix")
+  return(W)
 }
 
 
