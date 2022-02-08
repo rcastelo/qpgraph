@@ -81,7 +81,7 @@ importMethodsFrom(Biobase,
                   varLabels)
 
 importMethodsFrom(GenomicRanges,
-                  c, start, end, strand, sort,
+                  start, end, strand, sort,
                   "[", "[<-", "$", "$<-")
 
 importMethodsFrom(S4Vectors,
