@@ -20,6 +20,13 @@
 */
 
 
+/* from https://cran.r-project.org/doc/manuals/r-devel/R-exts.html#Fortran-character-strings */
+#define USE_FC_LEN_T
+#include <Rconfig.h>
+#include <R_ext/BLAS.h>
+#ifndef FCONE
+# define FCONE
+#endif
 
 #include <R.h>
 #include <Rinternals.h>
@@ -7465,7 +7472,7 @@ matprod(double *x, int nrx, int ncx, double *y, int nry, int ncy, double *z) {
                 }
         } else
             F77_CALL(dgemm)(transa, transb, &nrx, &ncy, &ncx, &one,
-                            x, &nrx, y, &nry, &zero, z, &nrx);
+                            x, &nrx, y, &nry, &zero, z, &nrx FCONE FCONE);
     } else /* zero-extent operations should return zeroes */
         for(i = 0; i < nrx*ncy; i++) z[i] = 0;
 }
@@ -7510,11 +7517,11 @@ matinv(double* inv, double* M, int n, int p) {
   if (info > 0)
     error("Lapack routine dgesv: system is exactly singular");
 
-  anorm = F77_CALL(dlange)("1", &n, &n, M, &n, (double*) NULL);
+  anorm = F77_CALL(dlange)("1", &n, &n, M, &n, (double*) NULL FCONE);
 
   work = (double *) Calloc(4*n, double);
 
-  F77_CALL(dgecon)("1", &n, avals, &n, &anorm, &rcond, work, ipiv, &info);
+  F77_CALL(dgecon)("1", &n, avals, &n, &anorm, &rcond, work, ipiv, &info FCONE);
   if (rcond < tol)
     error("system is computationally singular: reciprocal condition number = %g",rcond);
 
