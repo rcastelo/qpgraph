@@ -1,3 +1,12 @@
+CHANGES IN VERSION 2.30
+-----------------------
+
+BUG FIXES
+
+    o Fixed NAMESPACE issues
+
+    o Fixed calls to some Fortran LAPACK functions to comply with Writing R Extensions §6.6.1
+
 CHANGES IN VERSION 2.22
 -----------------------
 
