@@ -25,10 +25,6 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
 
             rhs <- .parseFormula(model, param)
 
-            ## fix for the error
-            ## no method or default for coercing “ddiMatrix” to “dsyMatrix”
-            ## caused by new version of Matrix 1.3
-            ## pvaluesG0 <- nrr <- as(Matrix(numeric(), nrow=0, ncol=0), "dspMatrix")
             pvaluesG0 <- nrr <- new("dspMatrix", x=numeric())
             fix.Q <- restrict.Q <- NULL
             qorders <- integer()
@@ -112,10 +108,6 @@ setMethod("eQTLnetworkEstimate", signature=c(param="eQTLnetworkEstimationParam",
 
             rhs <- .parseFormula(model, param)
 
-            ## fix for the error
-            ## no method or default for coercing “ddiMatrix” to “dsyMatrix”
-            ## caused by new version of Matrix 1.3
-            ## pvaluesG0 <- nrr <- as(Matrix(numeric(), nrow=0, ncol=0), "dspMatrix")
             pvaluesG0 <- nrr <- new("dspMatrix", x=numeric())
             fix.Q <- restrict.Q <- NULL
             qorders <- integer()

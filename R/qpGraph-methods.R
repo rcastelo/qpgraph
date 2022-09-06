@@ -5,7 +5,7 @@ setMethod("qpGraph", signature(nrrMatrix="matrix"),
             if ("threshold" %in% otherArgs || "return.type" %in% otherArgs)
               return(.old_qpGraph(nrrMatrix, ...))
 
-            .qpGraph(as(nrrMatrix, "dspMatrix"), ...)
+            .qpGraph(as(as(as(nrrMatrix, "dMatrix"), "symmetrixMatrix"), "packedMatrix"), ...)
           })
 
 setMethod("qpGraph", signature(nrrMatrix="dspMatrix"),

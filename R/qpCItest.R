@@ -772,7 +772,7 @@ setMethod("qpCItest", signature(X="SsdMatrix"),
                 lapply(as.list(1:length(xtab)),
                        function(i, x) qpCov(as.matrix(x[[i]]), corrected=FALSE)@ssd, xtab))
                         ##function(i, x, ni, n) (ni[i]-1)*cov(x[[i]]), xtab, ni, n))
-  new("SsdMatrix", ssd=as(ssd, "dspMatrix"), n=n.co)
+  new("SsdMatrix", ssd=as(as(as(ssd, "dMatrix"), "symmetricMatrix"), "packedMatrix"), n=n.co)
 }
 
 ##
@@ -1692,7 +1692,7 @@ setMethod("qpAllCItests", signature(X="matrix"),
   }
 
   ## this is necessary till we find out how to properly assign values in a dspMatrix
-  ## nrrMatrix <- as(nrrMatrix, "dspMatrix")
+  ## nrrMatrix <- as(as(as(nrrMatrix, "dMatrix"), "symmetricMatrix"), "packedMatrix")
 
   if (elapsedTime > 0) {
     elapsedTime <- elapsedTime + (proc.time()-startTime)["elapsed"]

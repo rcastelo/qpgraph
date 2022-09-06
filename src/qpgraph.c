@@ -88,31 +88,31 @@ static SEXP installAttrib(SEXP, SEXP, SEXP);
 
 static SEXP installAttrib(SEXP vec, SEXP name, SEXP val)
 {
-    SEXP s, t;
+  SEXP s, t;
 
-    if(TYPEOF(vec) == CHARSXP)
-	error("cannot set attribute on a CHARSXP");
-    PROTECT(vec);
-    PROTECT(name);
-    PROTECT(val);
-    for (s = ATTRIB(vec); s != R_NilValue; s = CDR(s)) {
-	if (TAG(s) == name) {
-	    SETCAR(s, val);
-	    UNPROTECT(3);
-	    return val;
-	}
+  if (TYPEOF(vec) == CHARSXP)
+    error("cannot set attribute on a CHARSXP");
+  PROTECT(vec);
+  PROTECT(name);
+  PROTECT(val);
+  for (s = ATTRIB(vec); s != R_NilValue; s = CDR(s)) {
+    if (TAG(s) == name) {
+      SETCAR(s, val);
+      UNPROTECT(3);
+      return val;
     }
-    s = allocList(1);
-    SETCAR(s, val);
-    SET_TAG(s, name);
-    if (ATTRIB(vec) == R_NilValue)
-	SET_ATTRIB(vec, s);
-    else {
-	t = nthcdr(ATTRIB(vec), length(ATTRIB(vec)) - 1);
-	SETCDR(t, s);
-    }
-    UNPROTECT(3);
-    return val;
+  }
+  s = allocList(1);
+  SETCAR(s, val);
+  SET_TAG(s, name);
+  if (ATTRIB(vec) == R_NilValue)
+    SET_ATTRIB(vec, s);
+  else {
+    t = nthcdr(ATTRIB(vec), length(ATTRIB(vec)) - 1);
+    SETCDR(t, s);
+  }
+  UNPROTECT(3);
+  return val;
 }
 
 /* from Mutils.h */

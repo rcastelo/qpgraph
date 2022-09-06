@@ -74,7 +74,7 @@ setClass("UGgmm",
                                                    dimnames=list(NULL, c("from", "to", "weight")))),
                               nodes=sprintf("X%d", 1:5)),
                    mean=do.call("names<-", list(rep(0, 5), sprintf("X%d", 1:5))),
-                   sigma=as(diag(1:5), "dspMatrix")))
+                   sigma=as(as(as(diag(1:5), "dMatrix"), "symmetricMatrix"), "packedMatrix")))
 
 setClass("UGgmmSummary",
          representation(model="UGgmm",
@@ -107,7 +107,7 @@ setClass("HMgmm",
                    dLevels=2L,
                    a=do.call("names<-", list(rep(0, 4), sprintf("Y%d", 1:4))),
                    rho=0.5,
-                   sigma=as(diag(1:5), "dspMatrix"),
+                   sigma=as(as(as(diag(1:5), "dMatrix"), "symmetricMatrix"), "packedMatrix"),
                    mean=new.env(parent=emptyenv()),
                    eta2=new.env(parent=emptyenv())))
                    ## eta2=do.call("names<-", list(rep(NA, 4), sprintf("Y%d", 1:4)))))

@@ -5,3 +5,7 @@ GOenv <- function(what) {
     getAnnMap(what, "GO", load=TRUE,
               type=c("db", "env"))
 }
+
+.onLoad <- function(libname, pkgname) {
+  options(Matrix.warnDeprecatedCoerce = 2)
+}

@@ -116,7 +116,7 @@ qpRndGraph <- function(p=6, d=2, labels=1:p, exclude=NULL, verbose=FALSE,
 
 
   ## return.type == "adjacency.matrix" using a memory-efficient lspMatrix-classs object
-  G <- as(G, "lspMatrix")
+  G <- as(as(as(G, "lMatrix"), "symmetricMatrix"), "packedMatrix")
   dimnames(G) <- list(1:p, 1:p)
 
   return(G)
@@ -207,7 +207,7 @@ qpRndGraph <- function(p=6, d=2, labels=1:p, exclude=NULL, verbose=FALSE,
 
 
   ## return.type == "adjacency.matrix" using a memory-efficient lspMatrix-classs object
-  G <- as(G, "lspMatrix")
+  G <- as(as(as(G, "lMatrix"), "symmetricMatrix"), "packedMatrix")
   dimnames(G) <- list(1:p, 1:p)
 
   return(G)
@@ -294,7 +294,7 @@ qpRndWishart <- function(delta=1, P=0, df=NULL, n.var=NULL) {
   CW <- CWS %*% CV
   W <- t(CW) %*% CW
 
-  return(list(rW=as(W, "dspMatrix"), meanW=df * V))
+  return(list(rW=as(as(as(W, "dMatrix"), "symmetricMatrix"), "packedMatrix"), meanW=df * V))
 }
 
 
@@ -336,7 +336,7 @@ qpG2Sigma <- function (g, rho=0, matrix.completion=c("HTF", "IPF"), tol=0.001,
   } else
     Sigma <- qpHTF(W, g, tol=tol, verbose=verbose, R.code.only=R.code.only)
 
-  Sigma <- as(Sigma, "dspMatrix")
+  Sigma <- as(as(as(Sigma, "dMatrix"), "symmetricMatrix"), "packedMatrix")
   rownames(Sigma) <- colnames(Sigma) <- var.names
 
   return(Sigma)
