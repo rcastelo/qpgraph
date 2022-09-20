@@ -1,12 +1,12 @@
 Package: qpgraph
 Title: Estimation of genetic and molecular regulatory networks from high-throughput genomics data
-Version: 2.31.1
+Version: 2.31.2
 Authors@R: c(person("Robert", "Castelo", role=c("aut", "cre"), email="robert.castelo@upf.edu"),
              person("Alberto", "Roverato", role="aut", email="alberto.roverato@unibo.it"))
 Description: Estimate gene and eQTL networks from high-throughput expression and genotyping assays.
 License: GPL (>= 2)
 Depends: R (>= 3.5)
-Imports: methods, parallel, Matrix (>= 1.0), grid, annotate, graph (>= 1.45.1),
+Imports: methods, parallel, Matrix (>= 1.5-0), grid, annotate, graph (>= 1.45.1),
          Biobase, S4Vectors, BiocParallel, AnnotationDbi, IRanges,
          GenomeInfoDb, GenomicRanges, GenomicFeatures, mvtnorm, qtl, Rgraphviz
 Suggests: RUnit, BiocGenerics, BiocStyle, genefilter, org.EcK12.eg.db,
