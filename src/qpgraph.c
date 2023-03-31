@@ -3007,8 +3007,8 @@ qp_fast_ci_test_std(SEXP SR, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP QR) {
   j = INTEGER(jR)[0] - 1;
   q = length(QR);
 
-  sprintf(dataname, "%s and %s given {", CHAR(STRING_ELT(getAttrib(iR, R_NamesSymbol), 0)),
-          CHAR(STRING_ELT(getAttrib(jR, R_NamesSymbol), 0)));
+  snprintf(dataname, sizeof(dataname), "%s and %s given {", CHAR(STRING_ELT(getAttrib(iR, R_NamesSymbol), 0)),
+           CHAR(STRING_ELT(getAttrib(jR, R_NamesSymbol), 0)));
   Q = Calloc(q, int);
   for (k=0;k<q;k++) {
     Q[k] = INTEGER(QR)[k]-1;
@@ -3129,7 +3129,7 @@ qp_fast_ci_test_opt(SEXP SR, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP QR) {
   j = INTEGER(jR)[0] - 1;
   q = length(QR);
 
-  sprintf(dataname, "%s and %s given {", CHAR(STRING_ELT(getAttrib(iR, R_NamesSymbol), 0)),
+  snprintf(dataname, sizeof(dataname), "%s and %s given {", CHAR(STRING_ELT(getAttrib(iR, R_NamesSymbol), 0)),
           CHAR(STRING_ELT(getAttrib(jR, R_NamesSymbol), 0)));
   Q = Calloc(q, int);
   for (k=0;k<q;k++) {
@@ -3493,7 +3493,7 @@ qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
   for (k=0; k < n_Y; k++)
     Y[k] = INTEGER(YR)[k]-1;
 
-  sprintf(dataname, "%s and %s given {", CHAR(STRING_ELT(getAttrib(iR, R_NamesSymbol), 0)),
+  snprintf(dataname, sizeof(dataname), "%s and %s given {", CHAR(STRING_ELT(getAttrib(iR, R_NamesSymbol), 0)),
           CHAR(STRING_ELT(getAttrib(jR, R_NamesSymbol), 0)));
   Q = Calloc(q, int);
   for (k=0; k < q; k++) {
@@ -5293,16 +5293,16 @@ qp_edge_nrr_hmgm(double* X, int p, int n, int* I, int n_I, int* n_levels, int* Y
   if (nActualTests < nTests) {
     char buf[4096];
 
-    sprintf(buf, "Non-rejection rate estimation between i=%d and j=%d with q=%d was based on %d out of %d requested tests.\n"
+    snprintf(buf, sizeof(buf), "Non-rejection rate estimation between i=%d and j=%d with q=%d was based on %d out of %d requested tests.\n"
                  "For instance, the CI test between i=%d and j=%d given Q={",
             i+1, j+1, q, nActualTests, nTests, i+1, j+1);
     for (k=0; k < q; k++) {
       char tmp[256];
 
       if (k == 0)
-        sprintf(tmp, " %d", problematicQ[k]+1);
+        snprintf(tmp, sizeof(tmp), " %d", problematicQ[k]+1);
       else
-        sprintf(tmp, ", %d", problematicQ[k]+1);
+        snprintf(tmp, sizeof(tmp), ", %d", problematicQ[k]+1);
       strcat(buf, tmp);
     }
     strcat(buf, " }, could not be calculated. Try with smaller Q subsets or increase n if you can.\n");
@@ -5411,16 +5411,16 @@ qp_edge_nrr_hmgm_sml(SEXP X, int* cumsum_sByChr, int s, int gLevels, double* XEP
   if (nActualTests < nTests) {
     char buf[4096];
 
-    sprintf(buf, "Non-rejection rate estimation between i=%d and j=%d with q=%d was based on %d out of %d requested tests.\n"
+    snprintf(buf, sizeof(buf), "Non-rejection rate estimation between i=%d and j=%d with q=%d was based on %d out of %d requested tests.\n"
                  "For instance, the CI test between i=%d and j=%d given Q={",
             i+1, j+1, q, nActualTests, nTests, i+1, j+1);
     for (k=0; k < q; k++) {
       char tmp[256];
 
       if (k == 0)
-        sprintf(tmp, " %d", problematicQ[k]+1);
+        snprintf(tmp, sizeof(tmp), " %d", problematicQ[k]+1);
       else
-        sprintf(tmp, ", %d", problematicQ[k]+1);
+        snprintf(tmp, sizeof(tmp), ", %d", problematicQ[k]+1);
       strcat(buf, tmp);
     }
     strcat(buf, " }, could not be calculated. Try with smaller Q subsets or increase n if you can.\n");
