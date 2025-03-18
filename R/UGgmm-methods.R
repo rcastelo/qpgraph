@@ -5,20 +5,20 @@ setValidity("UGgmm",
               if (graph::edgemode(object@g) != "undirected")
                 valid <- "currently only undirected Gaussian graphical models are supported and 'g' is not undirected."
 
-              if (class(valid) == "logical" && length(object@mean) != object@p)
+              if (is.logical(valid) && length(object@mean) != object@p)
                 valid <- "'mean' should contain 'p' real numbers corresponding to the mean vector parameter."
 
-              if (class(valid) == "logical" && graph::numNodes(object@g) != object@p)
+              if (is.logical(valid) && graph::numNodes(object@g) != object@p)
                 valid <- "the number of vertices in 'g' should equal the length of the 'mean' vector."
 
               p <- (d <- dim(object@sigma))[1]
-              if (class(valid) == "logical" && p != d[2])
+              if (is.logical(valid) && p != d[2])
                 valid <- "'sigma' should be a squared matrix."
 
-              if (class(valid) == "logical" && p != object@p)
+              if (is.logical(valid) && p != object@p)
                 valid <- "the dimension of sigma should match the length of the mean vector."
 
-              if (class(valid) == "logical" && !isSymmetric(as(object@sigma, "matrix")))
+              if (is.logical(valid) && !isSymmetric(as(object@sigma, "matrix")))
                 valid <- "'sigma' should be symmetric."
 
               valid
@@ -56,7 +56,7 @@ setMethod("UGgmm", signature(g="matrix"),
               to <- vlabels[col(g)[upper.tri(g) & g]]
               df <- rbind(df, data.frame(from=from, to=to, weight=rep(1, length(from)), stringsAsFactors=FALSE))
             } else {
-              if (class(g[1, 1]) == "character")
+              if (is.character(g[1, 1]))
                 df <- rbind(df, data.frame(from=g[, 1], to=g[, 2], weight=rep(1, nrow(g)), stringsAsFactors=FALSE))
               else {
                 vlabels <- sprintf("%d", sort(unique(as.vector(g))))
@@ -140,7 +140,7 @@ setMethod("rUGgmm", signature(n="integer", g="matrix"),
               if (!isSymmetric(g))
                 stop("'g' is not a symmetric matrix\n")
 
-              if (class(g[1, 1]) == "integer" || class(g[1, 1]) == "numeric") {
+              if (is.integer(g[1, 1]) || is.numeric(g[1, 1])) {
                 if (verbose)
                   warning("coercing input numeric adjacency matrix 'g' to a logical adjacency matrix\n")
 
@@ -154,7 +154,7 @@ setMethod("rUGgmm", signature(n="integer", g="matrix"),
               to <- vlabels[col(g)[upper.tri(g) & g]]
               df <- rbind(df, data.frame(from=from, to=to, weight=rep(1, length(from)), stringsAsFactors=FALSE))
             } else {
-              if (class(g[1, 1]) == "character")
+              if (is.character(g[1, 1]))
                 df <- rbind(df, data.frame(from=g[, 1], to=g[, 2], weight=rep(1, nrow(g)), stringsAsFactors=FALSE))
               else {
                 vlabels <- sprintf("%d", sort(unique(as.vector(g))))

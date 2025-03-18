@@ -39,7 +39,7 @@ Estimate gene and eQTL networks from high-throughput expression and genotyping a
     \item \code{\link{qpRndWishart}} random generation for the Wishart
           distribution.
     \item \code{\link{qpCov}} calculates the sample covariance matrix, just as
-          the function \code{cov()} but returning a \code{\link{dspMatrix-class}}
+          the function \code{cov()} but returning a \code{\link[Matrix]{dspMatrix-class}}
           object which efficiently stores such a dense symmetric matrix.
     \item \code{\link{qpG2Sigma}} builds a random covariance matrix from an
           undrected graph. The inverse of the resulting matrix contains zeroes

@@ -5,35 +5,35 @@ setValidity("HMgmm",
               if (graph::edgemode(object@g) != "undirected")
                 valid <- "the underlying graph 'g' should have 'edgemode=\"undirected\" even though 'g' is treated as semi-directed'."
 
-              if (class(valid) == "logical" && length(object@a) != sum(object@vtype == "continuous"))
+              if (is.logical(valid) && length(object@a) != sum(object@vtype == "continuous"))
                 valid <- "the vector of additive effects 'a' should contain as many values as continuous variables."
 
-              if (class(valid) == "logical" && graph::numNodes(object@g) != object$pI+object$pY)
+              if (is.logical(valid) && graph::numNodes(object@g) != object$pI+object$pY)
                 valid <- "the number of vertices in 'g' does not match the number of variables."
 
               p <- (d <- dim(object$sigma))[1]
-              if (class(valid) == "logical" && p != d[2])
+              if (is.logical(valid) && p != d[2])
                 valid <- "'sigma' should be a squared matrix."
 
-              if (class(valid) == "logical" && p != sum(object@vtype == "continuous"))
+              if (is.logical(valid) && p != sum(object@vtype == "continuous"))
                 valid <- "the dimension of sigma should match the number of continuous variables."
 
               if (p > 0) {
-                if (class(valid) == "logical" && !isSymmetric(as(object$sigma, "matrix")))
+                if (is.logical(valid) && !isSymmetric(as(object$sigma, "matrix")))
                   valid <- "'sigma' should be symmetric."
 
-                if (class(valid) == "logical" && !identical(colnames(object$sigma), object$Y))
+                if (is.logical(valid) && !identical(colnames(object$sigma), object$Y))
                   valid <- "column names in 'sigma' should be identical to continuous variable names in 'Y'."
 
-                if (class(valid) == "logical" && !identical(unlist(graph::nodeData(object@g, nodes(object@g), "type"),
+                if (is.logical(valid) && !identical(unlist(graph::nodeData(object@g, nodes(object@g), "type"),
                                                                    use.names=FALSE),
                                                             as.character(object@vtype)))
                   valid <- "the type of vertices in 'vtype' does not match the node type information in 'g'."
 
-                if (class(valid) == "logical" && !identical(graph::nodes(object@g), names(object@vtype)))
+                if (is.logical(valid) && !identical(graph::nodes(object@g), names(object@vtype)))
                   valid <- "'vtype' should be a named vector whose names match the vertex labels in 'g'."
 
-                if (class(valid) == "logical" && !identical(graph::nodes(object@g)[object@vtype == "continuous"], names(object@a)))
+                if (is.logical(valid) && !identical(graph::nodes(object@g)[object@vtype == "continuous"], names(object@a)))
                     valid <- "'a' should be a named vector whose names match the vertex labels in 'g'."
               }
 
@@ -215,7 +215,7 @@ setMethod("rHMgmm", signature(n="integer", g="matrix"),
               if (!isSymmetric(g))
                 stop("'g' is not a symmetric matrix\n")
 
-              if (class(g[1, 1]) == "integer" || class(g[1, 1]) == "numeric") {
+              if (is.integer(g[1, 1]) || is.numeric(g[1, 1])) {
                 if (verbose)
                   warning("coercing input numeric adjacency matrix 'g' to a logical adjacency matrix\n")
 
@@ -250,7 +250,7 @@ setMethod("rHMgmm", signature(n="integer", g="matrix"),
 
             } else {
               vlabels <- sort(unique(as.vector(g)))
-              if (class(g[1, 1]) == "character") {
+              if (is.character(g[1, 1])) {
                 if (!is.character(I))
                   stop("if edges in 'g' are specified by character vertex labels, then vertices in 'I' should be specified as character vertex labels too.")
 

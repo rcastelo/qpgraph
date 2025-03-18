@@ -36,7 +36,7 @@ The calculated path weight for the given path.
 }
 \references{
 Roverato, A. and Castelo, R. The networked partial correlation and its application to the analysis of genetic interactions. \emph{J. R. Stat. Soc. Ser. C-Appl. Stat., 66:647-665, 2017}.
-\url{http://dx.doi.org/10.1111/rssc.12166}
+\doi{10.1111/rssc.12166}
 }
 \author{R. Castelo and A. Roverato}
 \examples{

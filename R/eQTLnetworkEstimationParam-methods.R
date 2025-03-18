@@ -89,7 +89,7 @@ eQTLnetworkEstimationParam <- function(ggData, geneticMap=NULL, physicalMap=NULL
   if (missing(geneAnnotation))
     stop("argument 'geneAnnotation' must be set either as a character string, a 'data.frame' object or a TxDb object.")
 
-  if (class(geneAnnotation) == "character") {
+  if (is.character(geneAnnotation)) {
     if (!exists(geneAnnotation)) {
       if (!geneAnnotation %in% installed.packages()[, "Package"])
         stop(sprintf("Please install the Bioconductor package %s.", geneAnnotation))
@@ -107,7 +107,7 @@ eQTLnetworkEstimationParam <- function(ggData, geneticMap=NULL, physicalMap=NULL
     })
     if (!is(geneAnnotation, "TxDb"))
       stop(sprintf("the object loaded with name %s is not a 'TxDb' object.", geneAnnotation))
-  } else if (class(geneAnnotation) == "data.frame") {
+  } else if (is.data.frame(geneAnnotation)) {
     if (is.null(rownames(geneAnnotation)))
       stop("when argument 'geneAnnotation' is a 'data.frame' object, it should have row names uniquely identifying each gene.")
     if (!is(genome, "Seqinfo"))

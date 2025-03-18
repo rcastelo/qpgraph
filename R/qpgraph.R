@@ -308,7 +308,7 @@ setMethod("qpNrr", signature(X="matrix"),
 
   cl <- NULL
  
-  if (class(clusterSize)[1] == "numeric" || class(clusterSize)[1] == "integer") {
+  if (is.numeric(clusterSize[1]) || is.integer(clusterSize[1])) {
     if (clusterSize > 1) {
       ## copying ShortRead's strategy, 'get()' are to quieten R CMD check, and for no other reason
       makeCl <- get("makeCluster", mode="function")
@@ -563,7 +563,7 @@ setMethod("qpNrr", signature(X="matrix"),
         startTime <- proc.time()
       }
 
-      if (class(clusterSize)[1] == "numeric" || class(clusterSize)[1] == "integer")
+      if (is.numeric(clusterSize) == "numeric" || is.integer(clusterSize))
         stopCl(cl)
 
       nrrMatrix <- new("dspMatrix", Dim=as.integer(c(n.var, n.var)),
@@ -2020,7 +2020,7 @@ setMethod("qpPathWeight", signature(X="matrix"),
             if (!isSymmetric(X))
               stop("non-symmetric matrix in 'X'")
 
-            if (class(X[1, 1]) != "numeric")
+            if (!is.numeric(X[1, 1]))
               stop("non-numeric values in 'X'")
 
             if (!all(eigen(X)$values > 0))
@@ -2036,9 +2036,9 @@ setMethod("qpPathWeight", signature(X="matrix"),
                 Q <- allvtc[Q]
             } else {
               allvtc <- 1:ncol(S)
-              stopifnot(class(path) != "character")
-              stopifnot(class(Q) != "character")
-              stopifnot(class(M) != "character")
+              stopifnot(!"character" %in% class(path))
+              stopifnot(!"character" %in% class(Q))
+              stopifnot(!"character" %in% class(M))
             }
 
             R <- setdiff(allvtc, M)
@@ -3272,7 +3272,7 @@ qpHTF <- function(S, g, tol = 0.001, verbose = FALSE,
     if (is.null(rownames(var.names)))
       var.names <- 1:n.var
     A <- g
-    if (class(A[1, 1]) != "logical")
+    if (!is.logical(A[1, 1]))
       A <- A == 1 ## get a logical adjacency matrix
     ## by now we have to coerce the adjacency matrix to a regular matrix
     ## but in the future this should be working with the more memory-efficient dspMatrix class
@@ -3608,7 +3608,7 @@ qpPrecisionRecall <- function(measurementsMatrix, refGraph, decreasing=TRUE,
       stop("If refGraph is a matrix then it should be either a squared adjacency matrix or a two-column matrix with rows corresponding to edges \n")
 
     if (p != d[2] && ncol(refGraph) == 2) {
-      if (class(refGraph[1, 1]) == "character") {
+      if (!is.character(refGraph[1, 1])) {
         refGraph <- cbind(match(refGraph[, 1], rownames(measurementsMatrix)),
                           match(refGraph[, 2], rownames(measurementsMatrix)))
         if (any(is.na(refGraph)))
@@ -3845,10 +3845,10 @@ setMethod("qpFunctionalCoherence",
   if (is.null(colnames(object)) || is.null(rownames(object)))
     stop("the adjacency matrix contained in the 'object' argument should have row and column names corresponding to the gene IDs")
 
-  if (class(object[1,1]) != "logical" && class(object[1,1]) != "numeric" && class(object[1,1]) != "integer")
+  if (!is.logical(object[1,1]) && !is.numeric(object[1,1]) && !is.integer(object[1,1]))
     stop("the adjacency matrix should be either logical or binary")
 
-  if (class(object[1,1]) == "numeric" || class(object[1,1]) == "integer")
+  if (is.numeric(object[1,1]) || is.integer(object[1,1]))
     object <- object == 1
 
   if (length(TFgenes) < 1)
@@ -4295,7 +4295,7 @@ qpTopPairs <- function(measurementsMatrix=NULL, refGraph=NULL, n=6L, file=NULL,
     edgeRnk <- edgeRnk[, -dim(edgeRnk)[2]]
 
   if (!is.null(fcOutput)) {
-    if (class(fcOutput) != "list")
+    if (!is.list(fcOutput))
       stop("'fcOutput' should be the output of 'qpFunctionalCoherence'.\n")
 
     if (!all(names(fcOutput) == c("txRegNet", "txRegNetGO", "functionalCoherenceValues")))
@@ -4921,7 +4921,7 @@ clPrCall <- function(cl, fun, n.adj, ...) {
                                fix.Q, nTests, alpha, exact.test) {
   ssdx <- NULL
   if (!is.null(ssd)) {
-    if (class(ssd) != "SsdMatrix")
+    if (!is(ssd, "SsdMatrix"))
       stop(".qpFastEdgeNrrHMGM: the ssd argument should be an object of class SsdMatrix\n")
     ssdx <- ssd@ssd@x
   }

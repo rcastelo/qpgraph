@@ -10,7 +10,8 @@ Plots a graph using the \code{Rgraphviz} library
 \usage{
 qpPlotNetwork(g, vertexSubset=graph::nodes(g), boundary=FALSE,
               minimumSizeConnComp=2, pairup.i=NULL, pairup.j=NULL,
-              highlight=NULL, annotation=NULL, layout=c("twopi", "dot", "neato", "circo", "fdp"))
+              highlight=NULL, annotation=NULL,
+              layout=c("twopi", "dot", "neato", "circo", "fdp"))
 }
 \arguments{
   \item{g}{graph to plot provided as a \code{graphNEL-class} object.}

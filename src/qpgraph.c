@@ -447,7 +447,7 @@ callMethods[] = {
 void
 R_init_qpgraph(DllInfo* info) {
 
-  R_registerRoutines(info,NULL,callMethods,NULL,0);
+  R_registerRoutines(info, NULL, callMethods, NULL, 0);
 
   /* from the Matrix package init.c */
   Matrix_DimNamesSym = install("Dimnames");
@@ -463,6 +463,7 @@ R_init_qpgraph(DllInfo* info) {
 
   GetRNGstate(); /* initialize the R-builtin RNG */
 
+  R_useDynamicSymbols(info, TRUE);
 }
 
 

@@ -1,8 +1,7 @@
 citHeader("To cite package 'qpgraph' in publications use:")
 
-citEntry(entry="Article",
-  author = personList(as.person("Robert Castelo"),
-                      as.person("Alberto Roverato")),
+bibentry(bibtype="Article",
+  author = c(person("Robert", "Castelo"), person("Alberto", "Roverato")),
   title = "A robust procedure for Gaussian graphical model search from microarray data with p larger than n",
   journal = "J Mach Learn Res",
   year = "2006",
@@ -13,9 +12,8 @@ citEntry(entry="Article",
                       "J Mach Learn Res, 7:2621-50, 2006.")
 )
 
-citEntry(entry="Article",
-  author = personList(as.person("Robert Castelo"),
-                      as.person("Alberto Roverato")),
+bibentry(bibtype="Article",
+  author = c(person("Robert", "Castelo"), person("Alberto", "Roverato")),
   title = "Reverse engineering molecular regulatory networks from microarray data with qp-graphs",
   journal = "J Comput Biol",
   year = "2009",
@@ -27,10 +25,8 @@ citEntry(entry="Article",
                       "J Comput Biol, 16(2):213-27, 2009.")
 )
 
-citEntry(entry="Article",
-  author = personList(as.person("Inma Tur"),
-                      as.person("Alberto Roverato"),
-                      as.person("Robert Castelo")),
+bibentry(bibtype="Article",
+  author = c(person("Inma Tur"), person("Robert", "Castelo"), person("Alberto", "Roverato")),
   title = "Mapping eQTL networks with mixed graphical Markov models",
   journal = "Genetics",
   year = "2014",
@@ -42,9 +38,8 @@ citEntry(entry="Article",
                       "Genetics, 198(4):1377-93, 2014.")
 )
 
-citEntry(entry="Article",
-  author = personList(as.person("Alberto Roverato")),
-                      as.person("Robert Castelo"),
+bibentry(bibtype="Article",
+  author = c(person("Alberto", "Roverato"), person("Robert", "Castelo")),
   title = "The networked partial correlation and its application to the analysis of genetic interactions",
   journal = "J R Stat Soc Ser C-Appl Stat",
   year = "2017",

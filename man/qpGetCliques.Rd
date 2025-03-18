@@ -43,7 +43,7 @@ theory of NP-completeness}. W.H. Freeman, San Francisco, 1979.
 
 Niskanen, S. Ostergard, P. Cliquer User's Guide, Version 1.0.
 Communications Laboratory, Helsinki University of Technology, Espoo, Finland,
-Tech. Rep. T48, 2003. (\url{http://users.tkk.fi/~pat/cliquer.html})
+Tech. Rep. T48, 2003. (\url{https://users.aalto.fi/~pat/cliquer.html})
 }
 \author{R. Castelo}
 \seealso{

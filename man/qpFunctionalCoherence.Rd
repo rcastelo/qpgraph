@@ -17,18 +17,24 @@ determine which genes encode for transcription factor proteins.
 }
 \usage{
 \S4method{qpFunctionalCoherence}{lsCMatrix}(object, TFgenes, geneUniverse=rownames(object),
-                                            chip, minRMsize=5, removeGOterm="transcription",
-                                            verbose=FALSE, clusterSize=1)
+                                            chip, minRMsize=5,
+                                            removeGOterm="transcription", verbose=FALSE,
+                                            clusterSize=1)
 \S4method{qpFunctionalCoherence}{lspMatrix}(object, TFgenes, geneUniverse=rownames(object),
-                                            chip, minRMsize=5, removeGOterm="transcription",
-                                            verbose=FALSE, clusterSize=1)
+                                            chip, minRMsize=5,
+                                            removeGOterm="transcription", verbose=FALSE,
+                                            clusterSize=1)
 \S4method{qpFunctionalCoherence}{lsyMatrix}(object, TFgenes, geneUniverse=rownames(object),
-                                            chip, minRMsize=5, removeGOterm="transcription",
-                                            verbose=FALSE, clusterSize=1)
+                                            chip, minRMsize=5,
+                                            removeGOterm="transcription", verbose=FALSE,
+                                            clusterSize=1)
 \S4method{qpFunctionalCoherence}{matrix}(object, TFgenes, geneUniverse=rownames(object),
                                          chip, minRMsize=5, removeGOterm="transcription",
                                          verbose=FALSE, clusterSize=1)
-\S4method{qpFunctionalCoherence}{list}(object, geneUniverse=unique(c(names(object), unlist(object, use.names=FALSE))),
+\S4method{qpFunctionalCoherence}{list}(object,
+                                       geneUniverse=unique(c(names(object),
+                                                             unlist(object,
+                                                                    use.names=FALSE))),
                                        chip, minRMsize=5, removeGOterm="transcription",
                                        verbose=FALSE, clusterSize=1)
 }

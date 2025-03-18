@@ -25,9 +25,9 @@ Estimates non-rejection rates for every pair of variables.
 \S4method{qpNrr}{data.frame}(X, q=1, I=NULL, restrict.Q=NULL, fix.Q=NULL, nTests=100,
                              alpha=0.05, pairup.i=NULL, pairup.j=NULL,
                              long.dim.are.variables=TRUE, verbose=TRUE,
-                             identicalQs=TRUE, exact.test=TRUE, use=c("complete.obs", "em"),
-                             tol=0.01, R.code.only=FALSE, clusterSize=1,
-                             estimateTime=FALSE, nAdj2estimateTime=10)
+                             identicalQs=TRUE, exact.test=TRUE,
+                             use=c("complete.obs", "em"), tol=0.01, R.code.only=FALSE,
+                             clusterSize=1, estimateTime=FALSE, nAdj2estimateTime=10)
 \S4method{qpNrr}{matrix}(X, q=1, I=NULL, restrict.Q=NULL, fix.Q=NULL, nTests=100,
                          alpha=0.05, pairup.i=NULL, pairup.j=NULL,
                          long.dim.are.variables=TRUE, verbose=TRUE, identicalQs=TRUE,
@@ -117,7 +117,7 @@ to all numeric phenotypes. Setting these arguments to values other than \code{NU
 allows the user to use those particular values being set.
 }
 \value{
-A \code{\link{dspMatrix-class}} symmetric matrix of estimated non-rejection
+A \code{\link[Matrix]{dspMatrix-class}} symmetric matrix of estimated non-rejection
 rates with the diagonal set to \code{NA} values. If arguments \code{pairup.i}
 and \code{pairup.j} are employed, those cells outside the constrained pairs
 will get also a \code{NA} value.

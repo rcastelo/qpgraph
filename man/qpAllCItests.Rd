@@ -70,7 +70,7 @@ will be used. Full details on these features can be found in Tur, Roverato and C
 }
 \value{
 A list with three entries called \code{p.value}, \code{statistic} and \code{n}
-corresponding to a \code{\link{dspMatrix-class}} symmetric matrix of p-values for the null
+corresponding to a \code{\link[Matrix]{dspMatrix-class}} symmetric matrix of p-values for the null
 hypothesis of coindtional independence with the diagonal set to \code{NA} values,
 an analogous matrix of the statistics of each test and of the sample sizes, respectively.
 These returned values, however, depend on the setting of argument \code{return.type} which,

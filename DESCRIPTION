@@ -1,6 +1,6 @@
 Package: qpgraph
-Title: Estimation of genetic and molecular regulatory networks from high-throughput genomics data
-Version: 2.41.1
+Title: Estimation of Genetic and Molecular Regulatory Networks from High-Throughput Genomics Data
+Version: 2.41.2
 Authors@R: c(person("Robert", "Castelo", role=c("aut", "cre"), email="robert.castelo@upf.edu"),
              person("Alberto", "Roverato", role="aut", email="alberto.roverato@unibo.it"))
 Description: Estimate gene and eQTL networks from high-throughput expression and genotyping assays.
@@ -13,7 +13,7 @@ Suggests: RUnit, BiocGenerics, BiocStyle, genefilter, org.EcK12.eg.db,
           rlecuyer, snow, Category, GOstats
 LazyData: yes
 URL: https://github.com/rcastelo/qpgraph
-BugReports: https://github.com/rcastelo/rcastelo/issues
+BugReports: https://github.com/rcastelo/qpgraph/issues
 biocViews: Microarray, GeneExpression, Transcription, Pathways,
            NetworkInference, GraphAndNetwork, GeneRegulation,
            Genetics, GeneticVariability, SNP, Software

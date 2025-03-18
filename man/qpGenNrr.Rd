@@ -15,8 +15,9 @@ two or more data sets.
 \usage{
 \S4method{qpGenNrr}{ExpressionSet}(X, datasetIdx=1, qOrders=NULL, I=NULL, restrict.Q=NULL,
                                    fix.Q=NULL, return.all=FALSE, nTests=100, alpha=0.05,
-                                   pairup.i=NULL, pairup.j=NULL, verbose=TRUE, identicalQs=TRUE,
-                                   exact.test=TRUE, use=c("complete.obs", "em"), tol=0.01,
+                                   pairup.i=NULL, pairup.j=NULL, verbose=TRUE,
+                                   identicalQs=TRUE, exact.test=TRUE,
+                                   use=c("complete.obs", "em"), tol=0.01,
                                    R.code.only=FALSE, clusterSize=1, estimateTime=FALSE,
                                    nAdj2estimateTime=10)
 \S4method{qpGenNrr}{data.frame}(X, datasetIdx=1, qOrders=NULL, I=NULL, restrict.Q=NULL,
@@ -115,7 +116,7 @@ be found in Tur, Roverato and Castelo (2014).
 }
 \value{
 A list containing the following two or more entries: a first one with name
-\code{genNrr} with a \code{\link{dspMatrix-class}} symmetric matrix of estimated
+\code{genNrr} with a \code{\link[Matrix]{dspMatrix-class}} symmetric matrix of estimated
 generalized non-rejection rates with the diagonal set to \code{NA} values. When
 using the arguments \code{pairup.i} and \code{pairup.j}, those cells outside the
 constraint pairs will get also a \code{NA} value; a second one with name

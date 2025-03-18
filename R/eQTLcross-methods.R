@@ -448,7 +448,7 @@ eQTLcrossParam <- function(map=do.call("class<-", list(list("1"=do.call("class<-
                            networkParam=dRegularGraphParam()) {
   type <- match.arg(type)
 
-  if (class(map) == "list")
+  if (is.list(map))
     class(map) <- "map"
 
   if (!is(networkParam, "graphParam"))
@@ -547,10 +547,10 @@ setMethod("reQTLcross", signature(n="integer", network="eQTLcrossParam"),
             n.cisQTL <- ifelse(cis > 1 || is.integer(cis), cis, floor(n.genes * cis)) ## number of cisQTL
             n.transQTL <- length(trans)                                               ## number of transQTL
 
-            if ((class(a) == "numeric" || class(a) == "integer") && length(a) > 1 && length(a) != n.cisQTL + n.transQTL)
+            if ((is.numeric(a) || is.integer(a)) && length(a) > 1 && length(a) != n.cisQTL + n.transQTL)
               stop(sprintf("argument 'a' contains %d values of eQTL additive effects while arguments 'genes', 'cis' and 'trans' determine a total number of %d eQTL.", length(a), n.cisQTL+n.transQTL))
 
-            if (class(a) == "function" && length(formals(a)) != 1)
+            if (is.function(a) && length(formals(a)) != 1)
               stop("when argument 'a' is a function it should contain one argument taking the number of eQTL.")
 
             sim <- list()
@@ -687,9 +687,9 @@ setMethod("reQTLcross", signature(n="integer", network="eQTLcrossParam"),
               qtl <- rbind(cisQTL, transQTL)
 
               ## simulate additive effect in QTL
-              if ((class(a) == "numeric" || class(a) == "integer") && length(a) == 1)
+              if ((is.numeric(a) || is.integer(a)) && length(a) == 1)
                 a <- rep(a, times=nrow(qtl))
-              else if (class(a) == "function")
+              else if (is.function(a))
                 a <- a(nrow(qtl))
 
               qtl <- cbind(qtl, a)
@@ -729,15 +729,15 @@ setMethod("reQTLcross", signature(n="integer", network="eQTLcross"),
             sim.g <- graph::subGraph(genes, network$g)
             Ylabels <- network$model$Y ## to be used later to re-order sigma rows and columns
 
-            if ((class(a) == "numeric" || class(a) == "integer") && length(a) > 1 && length(a) != n.eQTLs)
+            if ((is.numeric(a) || is.integer(a)) && length(a) > 1 && length(a) != n.eQTLs)
               stop(sprintf("argument 'a' contains %d values of eQTL additive effects while the total number of eQTL is %d.", length(a), n.eQTLs))
 
-            if (class(a) == "function" && length(formals(a)) != 1)
+            if (is.function(a) && length(formals(a)) != 1)
               stop("when argument 'a' is a function it should contain one argument taking the number of eQTL.")
 
-            if ((class(a) == "numeric" || class(a) == "integer") && length(a) == 1)
+            if ((is.numeric(a) || is.integer(a)) && length(a) == 1)
               a <- rep(a, times=n.eQTLs)
-            else if (class(a) == "function")
+            else if (is.function(a))
               a <- a(n.eQTLs)
 
             ## additive effects per gene are the sum of additive effects from each eQTL (not yet useful!)

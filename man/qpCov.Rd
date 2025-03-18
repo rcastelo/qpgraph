@@ -6,7 +6,7 @@ Calculation of the sample covariance matrix
 }
 \description{
 Calculates the sample covariance matrix, just as the function \code{cov()}
-but returning a \code{\link{dspMatrix-class}} object which efficiently
+but returning a \code{\link[Matrix]{dspMatrix-class}} object which efficiently
 stores such a dense symmetric matrix.
 }
 \usage{
@@ -23,12 +23,12 @@ qpCov(X, corrected=TRUE)
 \details{
 This function makes the same calculation as the \code{\link{cov}} function
 but returns a sample covariance matrix stored in the space-efficient class
-\code{\link{dspMatrix-class}} and, moreover, allows one for calculating
+\code{\link[Matrix]{dspMatrix-class}} and, moreover, allows one for calculating
 the uncorrected sum of squares and deviations which equals
 \code{(n-1) * cov()}.
 }
 \value{
-A sample covariance matrix stored as a \code{\link{dspMatrix-class}} object.
+A sample covariance matrix stored as a \code{\link[Matrix]{dspMatrix-class}} object.
 See the \code{Matrix} package for full details on this object class.
 }
 \author{R. Castelo}

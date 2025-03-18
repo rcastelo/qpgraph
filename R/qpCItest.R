@@ -704,7 +704,7 @@ setMethod("qpCItest", signature(X="SsdMatrix"),
 
 .qpCItest <- function(S, i=1L, j=2L, Q=c(), R.code.only=FALSE) {
 
-  if (class(S) != "SsdMatrix")
+  if (!is(S, "SsdMatrix"))
     stop("internal function .qpCItest() expects an 'SsdMatrix' object as first argument\n");
 
   p <- (d <- dim(S))[1]
@@ -1082,7 +1082,7 @@ convergence <- function(Sigma_update, mu_update, m_update, Sigma, mu, m) {
     p <- (d <- dim(ssdMat))[1]
     if (p != d[2] || !isSymmetric(ssdMat))
       stop("ssdMat is not squared and symmetric. Is it really an ssd matrix?\n")
-    if (class(ssdMat) != "SsdMatrix")
+    if (!is(ssdMat, "SsdMatrix"))
       stop(".qpCItestHMGM: the ssdMat argument should be an object of class SsdMatrix\n")
   }
 
@@ -1307,7 +1307,7 @@ setMethod("qpAllCItests", signature(X="matrix"),
   if (use == "em" && !R.code.only)
     stop("use=\"em\" does not work yet with R.code.only=FALSE\n")
  
-  if (class(clusterSize)[1] == "numeric" || class(clusterSize)[1] == "integer") {
+  if (is.numeric(clusterSize) || is.integer(clusterSize)) {
     if (clusterSize > 1) {
       ## copying ShortRead's strategy, 'get()' are to quieten R CMD check, and for no other reason
       ## makeCl <- get("makeCluster", mode="function")
@@ -1498,7 +1498,7 @@ setMethod("qpAllCItests", signature(X="matrix"),
         startTime <- proc.time()
       }
 
-      if (class(clusterSize)[1] == "numeric" || class(clusterSize)[1] == "integer")
+      if (is.numeric(clusterSize) || is.integer(clusterSize))
         parallel::stopCluster(cl)
 
         if (return.type == "all" || return.type == "p.value") {
@@ -1719,7 +1719,7 @@ setMethod("qpAllCItests", signature(X="matrix"),
                               exact.test, use, tol) {
   x <- NULL
   if (!is.null(ssd)) {
-    if (class(ssd) != "SsdMatrix")
+    if (!is(ssd, "SsdMatrix"))
       stop(".qpFastCItestHMGM: the ssd argument should be an object of class SsdMatrix\n")
     x <- ssd@ssd@x
   }

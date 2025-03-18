@@ -14,14 +14,22 @@ Performs a conditional independence test between two variables given
 a conditioning set.
 }
 \usage{
-\S4method{qpCItest}{ExpressionSet}(X, i=1, j=2, Q=c(), exact.test=TRUE, use=c("complete.obs", "em"),
+\S4method{qpCItest}{ExpressionSet}(X, i=1, j=2, Q=c(), exact.test=TRUE,
+                                   use=c("complete.obs", "em"),
                                    tol=0.01, R.code.only=FALSE)
-\S4method{qpCItest}{cross}(X, i=1, j=2, Q=c(), exact.test=TRUE, use=c("complete.obs", "em"),
+\S4method{qpCItest}{cross}(X, i=1, j=2, Q=c(), exact.test=TRUE,
+                           use=c("complete.obs", "em"),
                            tol=0.01, R.code.only=FALSE)
-\S4method{qpCItest}{data.frame}(X, i=1, j=2, Q=c(), I=NULL, long.dim.are.variables=TRUE,
-                                exact.test=TRUE, use=c("complete.obs", "em"), tol=0.01, R.code.only=FALSE)
-\S4method{qpCItest}{matrix}(X, i=1, j=2, Q=c(), I=NULL, long.dim.are.variables=TRUE,
-                            exact.test=TRUE, use=c("complete.obs", "em"), tol=0.01, R.code.only=FALSE)
+\S4method{qpCItest}{data.frame}(X, i=1, j=2, Q=c(), I=NULL,
+                                long.dim.are.variables=TRUE,
+                                exact.test=TRUE,
+                                use=c("complete.obs", "em"),
+                                tol=0.01, R.code.only=FALSE)
+\S4method{qpCItest}{matrix}(X, i=1, j=2, Q=c(), I=NULL,
+                            long.dim.are.variables=TRUE,
+                            exact.test=TRUE,
+                            use=c("complete.obs", "em"), tol=0.01,
+                            R.code.only=FALSE)
 \S4method{qpCItest}{SsdMatrix}(X, i=1, j=2, Q=c(), R.code.only=FALSE)
 }
 \arguments{

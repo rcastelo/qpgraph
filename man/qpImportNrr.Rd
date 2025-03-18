@@ -36,7 +36,7 @@ number of tests, these can be also imported by setting \code{nTests=1}.
 
 This function is thought to be used to read files obtained from the standalone
 parallel version of \code{\link{qpNrr}} which can be downloaded from
-\url{http://functionalgenomics.upf.edu/qp}.
+\url{https://functionalgenomics.upf.edu/qp/}.
 }
 \value{
 A symmetric matrix of non-rejection rates with the diagonal set to the \code{NA}

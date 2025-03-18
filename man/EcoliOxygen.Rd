@@ -28,7 +28,7 @@ data(EcoliOxygen)
          key transcriptional regulators in the oxygen response (\emph{arcA},
          \emph{appY}, \emph{fnr}, \emph{oxyR} and \emph{soxS}). The data was
          obtained by downloading the corresponding CEL files from the Gene
-         Expression Omnibus (\url{http://www.ncbi.nlm.nih.gov/geo}) under
+         Expression Omnibus (\url{https://www.ncbi.nlm.nih.gov/geo/}) under
          accession \code{GDS680} and then normalized using the \code{rma()}
          function from the \code{affy} package. Following the steps described in
          (Castelo and Roverato, 2009) probesets were mapped to Entrez Gene

@@ -106,7 +106,7 @@ otherwise an asymptotic one will be used. Full details on these features can
 be found in Tur, Roverato and Castelo (2014).
 }
 \value{
-A \code{\link{dspMatrix-class}} symmetric matrix of estimated average
+A \code{\link[Matrix]{dspMatrix-class}} symmetric matrix of estimated average
 non-rejection rates with the diagonal set to \code{NA} values. When using the
 arguments \code{pairup.i} and \code{pairup.j}, those cells outside the
 constraint pairs will get also a \code{NA} value.
