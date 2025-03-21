@@ -167,7 +167,7 @@ seed to enable the reader reproducing the same graph shown here:
 <<3regulargraph, fig=TRUE, include=FALSE, echo=TRUE, results=verbatim, height=5, width=5>>=
 set.seed(1234)
 g <- rgraphBAM(dRegularMarkedGraphParam(pI=2, pY=10, d=3))
-plot(g)
+## plot(g) ## temporarily disabled to investigate core dump in build system
 @
 where the last \Rfunction{plot} function call is defined (overloaded) in the
 \Biocpkg{qpgraph} package to ease plotting the graph which is displayed in
