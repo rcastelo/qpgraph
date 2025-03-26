@@ -167,6 +167,8 @@ seed to enable the reader reproducing the same graph shown here:
 <<3regulargraph, fig=TRUE, include=FALSE, echo=TRUE, results=verbatim, height=5, width=5>>=
 set.seed(1234)
 g <- rgraphBAM(dRegularMarkedGraphParam(pI=2, pY=10, d=3))
+g <- x@g
+g <- Rgraphviz::layoutGraph(g, layoutType="dot")
 plot(1:10, 1:10)
 ## plot(g) ## temporarily disabled to investigate core dump in build system
 @
