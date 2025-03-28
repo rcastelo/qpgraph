@@ -167,10 +167,7 @@ seed to enable the reader reproducing the same graph shown here:
 <<3regulargraph, fig=TRUE, include=FALSE, echo=TRUE, results=verbatim, height=5, width=5>>=
 set.seed(1234)
 g <- rgraphBAM(dRegularMarkedGraphParam(pI=2, pY=10, d=3))
-g <- x@g
-g <- Rgraphviz::layoutGraph(g, layoutType="dot")
-plot(1:10, 1:10)
-## plot(g) ## temporarily disabled to investigate core dump in build system
+plot(g)
 @
 where the last \Rfunction{plot} function call is defined (overloaded) in the
 \Biocpkg{qpgraph} package to ease plotting the graph which is displayed in
@@ -247,8 +244,7 @@ undirected graph and, in this particular example, note how the zeroes of the
 inverse covariance match the missing edges shown in Figure~\ref{fig:4cyclegraph}.
 
 <<4cyclegraph, fig=TRUE, include=FALSE, echo=TRUE, results=verbatim, height=5, width=5>>=
-## plot(gmm)
-plot(1:10, 1:10)
+plot(gmm)
 round(solve(gmm$sigma), digits=1)
 @
 \begin{figure}
@@ -407,8 +403,7 @@ the necessary instructions from the \Biocpkg{graph} and \Biocpkg{Rgraphviz} libr
 to display a partially-directed graph as the one shown in Figure~\ref{fig:hmgmm}.
 
 <<hmgmm, fig=TRUE, include=FALSE, echo=TRUE, results=verbatim, height=5, width=5>>=
-plot(1:10, 1:10)
-## plot(gmm)
+plot(gmm)
 @
 
 \begin{figure}
