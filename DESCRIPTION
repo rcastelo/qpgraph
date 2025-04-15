@@ -1,6 +1,6 @@
 Package: qpgraph
 Title: Estimation of Genetic and Molecular Regulatory Networks from High-Throughput Genomics Data
-Version: 2.42.0
+Version: 2.43.0
 Authors@R: c(person("Robert", "Castelo", role=c("aut", "cre"), email="robert.castelo@upf.edu"),
              person("Alberto", "Roverato", role="aut", email="alberto.roverato@unibo.it"))
 Description: Estimate gene and eQTL networks from high-throughput expression and genotyping assays.
