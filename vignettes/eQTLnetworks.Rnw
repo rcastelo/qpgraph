@@ -69,7 +69,7 @@ We are going to simulate an eQTL network in the following steps:
 \begin{enumerate}
   \item Load the necessary packages.
 <<>>=
-library(GenomeInfoDb)
+library(Seqinfo)
 library(qtl)
 library(qpgraph)
 @

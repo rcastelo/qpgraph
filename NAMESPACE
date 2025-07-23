@@ -94,7 +94,7 @@ importMethodsFrom(AnnotationDbi,
                   mget,
                   revmap)
 
-importMethodsFrom(GenomeInfoDb,
+importMethodsFrom(Seqinfo,
                   seqnames,
                   seqlengths,
                   seqlevels)
@@ -123,7 +123,7 @@ importFrom(parallel,
 importFrom(BiocParallel, bpparam,
                          bplapply)
 
-importFrom(GenomeInfoDb,
+importFrom(Seqinfo,
            Seqinfo,
            seqinfo,
            genome,
