@@ -86,37 +86,6 @@ typedef struct {
 
 /* function prototypes */
 
-static SEXP installAttrib(SEXP, SEXP, SEXP);
-
-static SEXP installAttrib(SEXP vec, SEXP name, SEXP val)
-{
-  SEXP s, t;
-
-  if (TYPEOF(vec) == CHARSXP)
-    error("cannot set attribute on a CHARSXP");
-  PROTECT(vec);
-  PROTECT(name);
-  PROTECT(val);
-  for (s = ATTRIB(vec); s != R_NilValue; s = CDR(s)) {
-    if (TAG(s) == name) {
-      SETCAR(s, val);
-      UNPROTECT(3);
-      return val;
-    }
-  }
-  s = Rf_allocList(1);
-  SETCAR(s, val);
-  SET_TAG(s, name);
-  if (ATTRIB(vec) == R_NilValue)
-    SET_ATTRIB(vec, s);
-  else {
-    t = nthcdr(ATTRIB(vec), length(ATTRIB(vec)) - 1);
-    SETCDR(t, s);
-  }
-  UNPROTECT(3);
-  return val;
-}
-
 /* from Mutils.h */
 static R_INLINE
 SEXP ALLOC_SLOT(SEXP obj, SEXP nm, SEXPTYPE type, int length)
@@ -403,9 +372,9 @@ SEXP Matrix_DimNamesSym,
      Matrix_uploSym,
      Matrix_xSym,
      SsdMatrix_ssdSym,
-     SsdMatrix_nSym,
+     SsdMatrix_nSym;
 
-     qpgraph_NS; /* the qpgraph namespace ('environment') */
+     /* qpgraph_NS; IS THIS NEEDED? */ /* the qpgraph namespace ('environment') */
 
 int* global_xtab; /* for cross-classifying joint levels of discrete variables */
 
@@ -457,9 +426,11 @@ R_init_qpgraph(DllInfo* info) {
   SsdMatrix_ssdSym = install("ssd");
   SsdMatrix_nSym = install("n");
 
+  /*
   qpgraph_NS = R_FindNamespace(mkString("qpgraph"));
   if (qpgraph_NS == R_UnboundValue)
     error("missing 'qpgraph' namespace: should never happen");
+  */
 
   GetRNGstate(); /* initialize the R-builtin RNG */
 
@@ -3055,7 +3026,7 @@ qp_fast_ci_test_std(SEXP SR, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP QR) {
 
   PROTECT(class = allocVector(STRSXP, 1));
   SET_STRING_ELT(class, 0, mkChar("htest"));
-  installAttrib(result, R_ClassSymbol, class);
+  Rf_setAttrib(result, R_ClassSymbol, class);
 
   UNPROTECT(10); /* S QR result result_names stat_name param_name pval_name est_name nullval_name class */
 
@@ -3177,7 +3148,7 @@ qp_fast_ci_test_opt(SEXP SR, SEXP pR, SEXP nR, SEXP iR, SEXP jR, SEXP QR) {
 
   PROTECT(class = allocVector(STRSXP, 1));
   SET_STRING_ELT(class, 0, mkChar("htest"));
-  installAttrib(result, R_ClassSymbol, class);
+  Rf_setAttrib(result, R_ClassSymbol, class);
 
   UNPROTECT(10); /* S QR result result_names stat_name param_name pval_name est_name nullval_name class */
 
@@ -3567,7 +3538,7 @@ qp_fast_ci_test_hmgm(SEXP XR, SEXP IR, SEXP n_levelsR, SEXP YR, SEXP ssdR,
 
   PROTECT(class = allocVector(STRSXP, 1));
   SET_STRING_ELT(class, 0, mkChar("htest"));
-  installAttrib(result, R_ClassSymbol, class);
+  Rf_setAttrib(result, R_ClassSymbol, class);
 
   UNPROTECT(8); /* result result_names stat_name param_name pval_name est_name nullval_name class */
 
@@ -5152,7 +5123,7 @@ qp_edge_nrr_identicalQs(double* S, int n_var, int* Qs, double* Qinvs, int N, int
   int    k;
   int    nAcceptedTests = 0;
   int    nActualTests = 0;
-  double avgpr = 0;
+  /* double avgpr = 0; */
 
   thr = qt(1.0-(alpha/2.0), N-q-2, 1, 0);
 
@@ -5177,8 +5148,8 @@ qp_edge_nrr_identicalQs(double* S, int n_var, int* Qs, double* Qinvs, int N, int
 
 
       nActualTests++;
-    } else
-      avgpr++;
+    } /* else
+      avgpr++; */
   }
 
   return (double) ( ((double) nAcceptedTests) / ((double) nActualTests) );
